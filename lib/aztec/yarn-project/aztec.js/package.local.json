@@ -1,0 +1,5 @@
+{
+  "scripts": {
+    "clean": "rm -rf ./dest .tsbuildinfo ./src/account_contract/artifacts"
+  }
+}

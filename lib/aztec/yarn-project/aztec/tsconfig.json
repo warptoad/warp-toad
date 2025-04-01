@@ -1,0 +1,95 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo"
+  },
+  "references": [
+    {
+      "path": "../accounts"
+    },
+    {
+      "path": "../archiver"
+    },
+    {
+      "path": "../aztec-faucet"
+    },
+    {
+      "path": "../aztec-node"
+    },
+    {
+      "path": "../aztec.js"
+    },
+    {
+      "path": "../bb-prover"
+    },
+    {
+      "path": "../blob-sink"
+    },
+    {
+      "path": "../bot"
+    },
+    {
+      "path": "../builder"
+    },
+    {
+      "path": "../cli"
+    },
+    {
+      "path": "../cli-wallet"
+    },
+    {
+      "path": "../constants"
+    },
+    {
+      "path": "../entrypoints"
+    },
+    {
+      "path": "../ethereum"
+    },
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../kv-store"
+    },
+    {
+      "path": "../noir-contracts.js"
+    },
+    {
+      "path": "../noir-protocol-circuits-types"
+    },
+    {
+      "path": "../p2p"
+    },
+    {
+      "path": "../p2p-bootstrap"
+    },
+    {
+      "path": "../protocol-contracts"
+    },
+    {
+      "path": "../prover-client"
+    },
+    {
+      "path": "../prover-node"
+    },
+    {
+      "path": "../pxe"
+    },
+    {
+      "path": "../stdlib"
+    },
+    {
+      "path": "../telemetry-client"
+    },
+    {
+      "path": "../txe"
+    },
+    {
+      "path": "../world-state"
+    }
+  ],
+  "include": ["src"]
+}

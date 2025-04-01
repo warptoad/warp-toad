@@ -1,0 +1,101 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo"
+  },
+  "references": [
+    {
+      "path": "../accounts"
+    },
+    {
+      "path": "../archiver"
+    },
+    {
+      "path": "../aztec"
+    },
+    {
+      "path": "../aztec-node"
+    },
+    {
+      "path": "../aztec.js"
+    },
+    {
+      "path": "../bb-prover"
+    },
+    {
+      "path": "../blob-lib"
+    },
+    {
+      "path": "../blob-sink"
+    },
+    {
+      "path": "../bot"
+    },
+    {
+      "path": "../constants"
+    },
+    {
+      "path": "../entrypoints"
+    },
+    {
+      "path": "../epoch-cache"
+    },
+    {
+      "path": "../ethereum"
+    },
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../kv-store"
+    },
+    {
+      "path": "../l1-artifacts"
+    },
+    {
+      "path": "../merkle-tree"
+    },
+    {
+      "path": "../noir-contracts.js"
+    },
+    {
+      "path": "../noir-protocol-circuits-types"
+    },
+    {
+      "path": "../p2p"
+    },
+    {
+      "path": "../protocol-contracts"
+    },
+    {
+      "path": "../prover-client"
+    },
+    {
+      "path": "../prover-node"
+    },
+    {
+      "path": "../pxe"
+    },
+    {
+      "path": "../sequencer-client"
+    },
+    {
+      "path": "../simulator"
+    },
+    {
+      "path": "../stdlib"
+    },
+    {
+      "path": "../telemetry-client"
+    },
+    {
+      "path": "../validator-client"
+    },
+    {
+      "path": "../world-state"
+    }
+  ],
+  "include": ["src"]
+}

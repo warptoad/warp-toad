@@ -1,0 +1,36 @@
+/.devcontainer/ @charlielye
+/.github/ @charlielye
+/aztec-up/ @charlielye
+/release-image/ @charlielye
+/build-images/ @charlielye
+/ci3/ @charlielye
+**/bootstrap.sh @charlielye
+**/run_test.sh @charlielye
+/release-please-config @charlielye
+/.test_patterns.yml @charlielye
+
+# Notify the Noir team of any changes to ACIR serialization
+/noir/noir-repo/acvm-repo/acir/codegen/* @TomAFrench @vezenovm @guipublic
+# on changes to stdlib
+/noir/noir-repo/noir_stdlib/* @TomAFrench
+
+#####################################################
+# Notify the AVM team
+#
+# on changes to PIL code-generator
+/bb-pilcom @Maddiaa0 @jeanmon @IlyasRidhuan @fcarreiro
+# on changes to PIL code (AVM circuit)
+/barretenberg/cpp/pil @Maddiaa0 @jeanmon @IlyasRidhuan @fcarreiro
+# on changes to AVM C++ code
+/barretenberg/cpp/src/barretenberg/vm @jeanmon @IlyasRidhuan @fcarreiro
+/barretenberg/cpp/src/barretenberg/vm2 @jeanmon @IlyasRidhuan @fcarreiro
+# on changes to public context in aztec-nr
+/noir-projects/aztec-nr/aztec/src/context/public_context.nr @fcarreiro @dbanks12
+# on changes to the AVM simulator and supporting modules
+/yarn-project/simulator/src/public @fcarreiro @dbanks12 @sirasistant
+# on changes to the AVM transpiler
+/avm-transpiler/src @fcarreiro @dbanks12 @sirasistant
+#####################################################
+
+# Notify fairies of changes to playground bundler config
+/playground/vite.config.ts @Thunkar

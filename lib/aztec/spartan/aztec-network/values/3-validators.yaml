@@ -1,0 +1,4 @@
+validator:
+  replicas: 3
+  validator:
+    disabled: false

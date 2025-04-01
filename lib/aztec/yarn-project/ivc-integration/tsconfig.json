@@ -1,0 +1,39 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo",
+    "resolveJsonModule": true
+  },
+  "references": [
+    {
+      "path": "../constants"
+    },
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../stdlib"
+    },
+    {
+      "path": "../bb-prover"
+    },
+    {
+      "path": "../kv-store"
+    },
+    {
+      "path": "../noir-contracts.js"
+    },
+    {
+      "path": "../simulator"
+    },
+    {
+      "path": "../telemetry-client"
+    },
+    {
+      "path": "../world-state"
+    }
+  ],
+  "include": ["src", "artifacts/*.d.json.ts", "artifacts/**/*.d.json.ts"]
+}

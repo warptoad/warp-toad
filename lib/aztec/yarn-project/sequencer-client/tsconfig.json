@@ -1,0 +1,77 @@
+{
+  "extends": "..",
+  "compilerOptions": {
+    "outDir": "dest",
+    "rootDir": "src",
+    "tsBuildInfoFile": ".tsbuildinfo"
+  },
+  "references": [
+    {
+      "path": "../aztec.js"
+    },
+    {
+      "path": "../bb-prover"
+    },
+    {
+      "path": "../blob-lib"
+    },
+    {
+      "path": "../blob-sink"
+    },
+    {
+      "path": "../constants"
+    },
+    {
+      "path": "../epoch-cache"
+    },
+    {
+      "path": "../ethereum"
+    },
+    {
+      "path": "../foundation"
+    },
+    {
+      "path": "../l1-artifacts"
+    },
+    {
+      "path": "../merkle-tree"
+    },
+    {
+      "path": "../noir-contracts.js"
+    },
+    {
+      "path": "../noir-protocol-circuits-types"
+    },
+    {
+      "path": "../p2p"
+    },
+    {
+      "path": "../protocol-contracts"
+    },
+    {
+      "path": "../prover-client"
+    },
+    {
+      "path": "../simulator"
+    },
+    {
+      "path": "../stdlib"
+    },
+    {
+      "path": "../telemetry-client"
+    },
+    {
+      "path": "../validator-client"
+    },
+    {
+      "path": "../world-state"
+    },
+    {
+      "path": "../archiver"
+    },
+    {
+      "path": "../kv-store"
+    }
+  ],
+  "include": ["src"]
+}
