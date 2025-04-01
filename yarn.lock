@@ -12,6 +12,11 @@
   resolved "https://registry.yarnpkg.com/@adraffy/ens-normalize/-/ens-normalize-1.10.1.tgz#63430d04bd8c5e74f8d7d049338f1cd9d4f02069"
   integrity sha512-96Z2IP3mYmF1Xg2cDm8f1gWGf/HUVedQ3FMifV4kG/PQ4yEP51xDtRAEfhVNt5f/uzpNkZHwWQuUcu6D6K+Ekw==
 
+"@aztec/l1-contracts@^0.76.4":
+  version "0.76.4"
+  resolved "https://registry.yarnpkg.com/@aztec/l1-contracts/-/l1-contracts-0.76.4.tgz#1d37067233f796ebe2f5a898872c6c689e81318c"
+  integrity sha512-Ph0ov2W5uw6D7PCO6lH6Qguu+0aTGdfPbxnIWyx/L3LeQVRAk/pwHa3tqx8v1JpeZs3+sE6HPIGzeCotpmmp/g==
+
 "@colors/colors@1.5.0":
   version "1.5.0"
   resolved "https://registry.yarnpkg.com/@colors/colors/-/colors-1.5.0.tgz#bb504579c1cae923e6576a4f5da43d25f97bdbd9"

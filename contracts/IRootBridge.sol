@@ -1,0 +1,7 @@
+interface IRootBridge {
+    // sends the new giga root to the L2
+    function sendGigaRootToL2(bytes32 gigaRoot) external;
+
+    // return the most recent root of the L2 to use in the construction of a new gigaRoot
+    function getRoot() external returns (bytes32);
+}
