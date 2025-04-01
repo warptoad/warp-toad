@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+NETWORK=${NETWORK:-}
+VERSION=${VERSION:-${NETWORK:-"latest"}}
+
+# Take copy of command-line arguments, so we can mutate to parse.
+args=("$@")
+while [ "$#" -gt 0 ]; do
+  case $1 in
+    -p | --port)
+      # Override default port exposed on container.
+      AZTEC_PORT="$2"
+      shift 2
+      ;;
+    -a | --anvil-port)
+      # Override default port exposed on container.
+      ANVIL_PORT="$2"
+      shift 2
+      ;;
+    --pxe.network)
+      # Set version to user-specified network (e.g. 'devnet')
+      VERSION="$2"
+      echo "Using aztecprotocol/aztec:$VERSION"
+      # Turn on proving if connecting to a network.
+      export PXE_PROVER_ENABLED=1
+      shift 2
+      ;;
+    *)
+      shift
+      ;;
+  esac
+done
+# Reset positional args.
+set -- "${args[@]}"
+
+function get_env_vars {
+  docker run --rm aztecprotocol/aztec cat /usr/src/yarn-project/foundation/src/config/env_var.ts |
+    awk -F"'" '{for(i=2;i<=NF;i+=2) printf $i " "}'
+}
+
+case ${1:-} in
+  test)
+    shift
+    # Should this just be aztec-test? It's like, a new command that doesn't exist on aztec cli.
+    # Or just make this a first class command on aztec cli?
+    # TODO: Need to force ipv4 here with 127.0.0.1 for some reason. TXE's not on ipv6?
+    exec $(dirname $0)/.aztec-run "" bash -c "
+      node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --txe --port 8081 &
+      while ! nc -z 127.0.0.1 8081 &>/dev/null; do sleep 0.2; done
+      export NARGO_FOREIGN_CALL_TIMEOUT=300000
+      /usr/src/noir/noir-repo/target/release/nargo test --silence-warnings --oracle-resolver http://127.0.0.1:8081 $@
+    "
+    ;;
+  start)
+    export ENV_VARS_TO_INJECT="$(get_env_vars)"
+
+    # Dynamic port assignments, .aztec-run will expose the array PORTS_TO_EXPOSE as a space-separated string.
+    AZTEC_PORT=${AZTEC_PORT:-8080}
+    export PORTS_TO_EXPOSE="$AZTEC_PORT:$AZTEC_PORT"
+
+    if [ "${2:-}" == "--sandbox" ]; then
+      # TODO: This entire special case should go away.
+      # Sandbox mode should start it's own anvil.
+      # We should not have to provide a binary path and working dir.
+      # Why is this not just determined and chosen at runtime?
+      # In fact almost none of these should not have to be set if we have sensible defaults.
+      export L1_CHAIN_ID=31337
+      export ARCHIVER_POLLING_INTERVAL_MS=500
+      export P2P_BLOCK_CHECK_INTERVAL_MS=500
+      export SEQ_TX_POLLING_INTERVAL_MS=500
+      export WS_BLOCK_CHECK_INTERVAL_MS=500
+      export ARCHIVER_VIEM_POLLING_INTERVAL_MS=500
+      export TEST_ACCOUNTS=${TEST_ACCOUNTS:-true}
+      export LOG_LEVEL=${LOG_LEVEL:-info}
+      export DEPLOY_AZTEC_CONTRACTS_SALT=${DEPLOY_AZTEC_CONTRACTS_SALT:-$RANDOM}
+
+
+      ANVIL_PORT=${ANVIL_PORT:-8545}
+      anvil_port_assignment="$ANVIL_PORT:8545"
+
+      PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $anvil_port_assignment"
+
+      exec $(dirname $0)/.aztec-run aztec-sandbox bash -c "
+        anvil --host 0.0.0.0 --silent &
+        node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js start --sandbox
+      "
+    else
+      # Export p2p port forwarding only if set in env vars
+      if [ -n "${P2P_PORT:-}" ]; then
+        P2P_TCP_LISTEN_MAPPING="$P2P_PORT:$P2P_PORT"
+
+        PORTS_TO_EXPOSE="${PORTS_TO_EXPOSE:-} $P2P_TCP_LISTEN_MAPPING"
+      fi
+
+      exec $(dirname $0)/.aztec-run aztec-start \
+        node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js "$@"
+    fi
+    ;;
+  flamegraph)
+    docker run -it \
+      --entrypoint /usr/src/noir-projects/noir-contracts/scripts/flamegraph.sh \
+      --env SERVE=${SERVE:-0} \
+      $([ "${SERVE:-0}" == "1" ] && echo "-p 8000:8000" || echo "") \
+      -v $(realpath $(dirname $2))/:/tmp \
+      aztecprotocol/aztec /tmp/$(basename $2) $3
+    ;;
+  *)
+    export ENV_VARS_TO_INJECT="SECRET_KEY"
+    exec $(dirname $0)/.aztec-run aztec \
+      node --no-warnings /usr/src/yarn-project/aztec/dest/bin/index.js "$@"
+    ;;
+esac

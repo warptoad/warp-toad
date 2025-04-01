@@ -1,0 +1,50 @@
+{
+  "name": "aztec-app",
+  "packageManager": "yarn@4.5.2",
+  "version": "0.5.0",
+  "type": "module",
+  "scripts": {
+    "compile": "yarn workspaces foreach -A -p -v run compile",
+    "build": "yarn workspaces foreach -A -p -v run build",
+    "install-browsers": "playwright install --with-deps",
+    "publish": "yarn npm publish",
+    "test": "vitest bin.test.js",
+    "test:ci": "vitest run bin.test.js"
+  },
+  "workspaces": [
+    "boxes/*"
+  ],
+  "bin": "bin.js",
+  "resolutions": {
+    "@aztec/accounts": "link:../yarn-project/accounts",
+    "@aztec/aztec.js": "link:../yarn-project/aztec.js",
+    "@aztec/bb-prover": "link:../yarn-project/bb-prover",
+    "@aztec/stdlib": "link:../yarn-project/stdlib",
+    "@aztec/entrypoints": "link:../yarn-project/entrypoints",
+    "@aztec/foundation": "link:../yarn-project/foundation",
+    "@aztec/bb.js": "link:../barretenberg/ts",
+    "@aztec/key-store": "link:../yarn-project/key-store",
+    "@aztec/kv-store": "link:../yarn-project/kv-store",
+    "@aztec/pxe": "link:../yarn-project/pxe",
+    "@aztec/simulator": "link:../yarn-project/simulator",
+    "@aztec/ethereum": "link:../yarn-project/ethereum",
+    "@aztec/protocol-contracts": "link:../yarn-project/protocol-contracts"
+  },
+  "dependencies": {
+    "@iarna/toml": "^2.2.5",
+    "@inquirer/confirm": "^3.0.0",
+    "@inquirer/input": "^2.0.0",
+    "@inquirer/select": "^2.0.0",
+    "axios": "^1.6.7",
+    "commander": "^12.1.0",
+    "ora": "^8.0.1",
+    "pino": "^8.19.0",
+    "pino-pretty": "^10.3.1",
+    "tiged": "^2.12.6",
+    "vitest": "^2.0.5"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.49.0",
+    "webpack-dev-server": "^5.2.0"
+  }
+}
