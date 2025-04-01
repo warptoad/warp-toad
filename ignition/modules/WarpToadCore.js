@@ -3,10 +3,11 @@
 
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 //import { proxy, PoseidonT3 } from 'poseidon-solidity'
-const maxTreeDepth = 32;
 
 export default buildModule("WarpToadCore", (m) => {
-  const PoseidonT3Lib = m.library("PoseidonT3",proxy.tx);
+  // TODO use nix method so we reused the same contract
+  // https://github.com/chancehudson/poseidon-solidity?tab=readme-ov-file#deploy
+  const PoseidonT3Lib = m.library("PoseidonT3");
   const LeanIMTLib = m.library("LeanIMT",{
     libraries: {
       PoseidonT3: PoseidonT3Lib,

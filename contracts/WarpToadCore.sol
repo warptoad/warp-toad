@@ -19,10 +19,10 @@ contract WarpToadCore { // TODO erc20
     }
     
     function burn(uint256 _preCommitment, uint256 _amount) public {
-        require(maxBurns < maxBurns, "Tree wil exceed the maxTreeDepth");
+        require(totalBurns < maxBurns, "Tree wil exceed the maxTreeDepth");
         //TODO burn erc20
         //TODO hash commitment=hash(_preCommitment,amount)
-        uint256 leaf = 69; // remove this
+        uint256 leaf = _preCommitment; // remove this. Its wrong!!
         LeanIMT.insert(commitTreeData, leaf);
         totalBurns += 1;
     }

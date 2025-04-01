@@ -2039,7 +2039,7 @@ hardhat-gas-reporter@^2.2.2:
     sha1 "^1.1.1"
     viem "2.7.14"
 
-hardhat@^2.22.19:
+hardhat@^2.22.6:
   version "2.22.19"
   resolved "https://registry.yarnpkg.com/hardhat/-/hardhat-2.22.19.tgz#92eb6f59e75b0dded841fecf16260a5e3f6eb4eb"
   integrity sha512-jptJR5o6MCgNbhd7eKa3mrteR+Ggq1exmE5RUL5ydQEVKcZm0sss5laa86yZ0ixIavIvF4zzS7TdGDuyopj0sQ==
