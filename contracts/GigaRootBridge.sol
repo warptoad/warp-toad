@@ -3,6 +3,7 @@ pragma solidity >=0.8.27;
 import "./IRootBridge.sol";
 
 contract GigaRootBridge {
+    // TODO: gigaRootHistory
     address public wrapperToken;
     IRootBridge[] public rootBridges;
     mapping(address => bool) public isRootBridge;
