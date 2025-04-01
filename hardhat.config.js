@@ -1,6 +1,5 @@
 import "@nomicfoundation/hardhat-toolbox";
 import {vars} from "hardhat/config.js";
-console.log(vars)
 const PRIVATE_KEY = vars.get("PRIVATE_KEY");
 const DEFAULT_PRIV_KEY_ANVIL = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 
