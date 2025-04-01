@@ -1,7 +1,10 @@
 {
+  "esbuildOptions": {
+    "target": "esnext"
+  },
+  "type": "module",
   "name": "warp-toad",
   "version": "1.0.0",
-  "main": "index.js",
   "repository": "https://github.com/JossDuff/warp-toad.git",
   "author": "jossduff <jduff360@gmail.com>",
   "license": "MIT",
@@ -13,13 +16,21 @@
     "@nomicfoundation/hardhat-network-helpers": "^1.0.12",
     "@nomicfoundation/hardhat-toolbox": "^5.0.0",
     "@nomicfoundation/hardhat-verify": "^2.0.13",
+    "@nomicfoundation/ignition-core": "^0.15.10",
     "@typechain/ethers-v6": "^0.5.1",
     "@typechain/hardhat": "^9.1.0",
-    "chai": "4",
+    "@types/chai": "^5.2.1",
+    "@types/mocha": "^10.0.10",
+    "chai": "^5.2.0",
     "ethers": "^6.13.5",
     "hardhat": "^2.22.19",
     "hardhat-gas-reporter": "^2.2.2",
     "solidity-coverage": "^0.8.14",
-    "typechain": "^8.3.2"
+    "ts-node": "^10.9.2",
+    "typechain": "^8.3.2",
+    "typescript": "^5.8.2"
+  },
+  "dependencies": {
+    "@zk-kit/lean-imt.sol": "^2.0.1"
   }
 }

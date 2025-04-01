@@ -1,6 +1,17 @@
-require("@nomicfoundation/hardhat-toolbox");
+import "@nomicfoundation/hardhat-toolbox";
+import {vars} from "hardhat/config.js";
+console.log(vars)
+const PRIVATE_KEY = vars.get("PRIVATE_KEY");
+const DEFAULT_PRIV_KEY_ANVIL = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
 
-/** @type import('hardhat/config').HardhatUserConfig */
-module.exports = {
-  solidity: "0.8.28",
-};
+
+export default {
+  solidity: "0.8.29",
+  networks: {
+    aztecSandbox: {
+      url: "http://localhost:8545" || "",
+      accounts:
+        [DEFAULT_PRIV_KEY_ANVIL]
+    },
+  }
+}
