@@ -1,6 +1,6 @@
 import {WarpToadCoreContractArtifact}  from '../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
 import { createPXEClient, waitForPXE, Contract, ContractArtifact } from "@aztec/aztec.js"
-import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
+import { getInitialTestAccountsWallets } from '@aztec/accounts/testing'; // idk why but node is bitching about this but bun doesnt care
 
 import { writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
@@ -30,4 +30,4 @@ async function main() {
     const addresses = { counter: WarpToadCoreDeployed.address.toString() };
     writeFileSync('PublicCounterAddresses.json', JSON.stringify(addresses, null, 2));
 }
-await main();
+main();

@@ -2,7 +2,6 @@
   "esbuildOptions": {
     "target": "esnext"
   },
-  "type": "module",
   "name": "warp-toad",
   "version": "1.0.0",
   "repository": "https://github.com/JossDuff/warp-toad.git",
