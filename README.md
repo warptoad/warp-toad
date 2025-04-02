@@ -26,3 +26,7 @@ cd ../..;
 # copy to contracts folder
 cp circuits/withdraw/target/contract.sol contracts/withdrawVerifier.sol
 ```
+
+
+# run sandbox
+`VERSION=0.82.3 aztec start --sandbox`
