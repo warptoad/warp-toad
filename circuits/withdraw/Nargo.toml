@@ -1,0 +1,7 @@
+[package]
+name = "withdraw"
+type = "bin"
+authors = [""]
+
+[dependencies]
+trees = { git = "https://github.com/privacy-scaling-explorations/zk-kit.noir", tag = "main", directory = "packages/merkle-trees" }
