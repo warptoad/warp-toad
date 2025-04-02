@@ -5,7 +5,7 @@ use aztec::macros::aztec;
 
 
 #[aztec]
-pub contract Counter {
+pub contract WarpToadCore {
     use std::hash::poseidon;
     use aztec::macros::{functions::{initializer, public}, storage::storage}; 
     use aztec::prelude::{PublicMutable,PublicImmutable, Map}; 
@@ -24,7 +24,7 @@ pub contract Counter {
         maxTreeDepth: PublicImmutable<u32, Context>,
     
         localRoot: PublicMutable<Field, Context>,
-        lastLeafIndex: PublicMutable<Field, Context>,
+        lastLeafIndex: PublicMutable<u128, Context>,
 
         leaves: Map<Field, PublicMutable<Field, Context>, Context>,             // mapping(index -> hash)          
         lastSubtrees:  Map<u32, PublicMutable<[Field;2], Context>, Context>,    // mapping(index -> subTreeHash)  
@@ -52,15 +52,15 @@ pub contract Counter {
         // based of: https://github.com/privacy-scaling-explorations/zk-kit.solidity/blob/309b8d8d7d4f553ef44e3aa672040a3698e5179c/packages/imt/contracts/InternalBinaryIMT.sol#L142
         let depth: u32 = storage.maxTreeDepth.read();
 
-        let mut index:Field = storage.lastLeafIndex.read();
+        let mut index:u128 = storage.lastLeafIndex.read();
         storage.lastLeafIndex.write(index+1);
-        storage.leaves.at(index).write(_leaf);
+        storage.leaves.at(index as Field).write(_leaf);
 
         let mut hash: Field = _leaf;  
 
         let mut newSubTree: [Field;2] = [0;2]; 
         for i in 0..depth {
-            if(i%2==0) {
+            if(index%2==0) {
                 newSubTree = [hash, storage.zeroes.at(i).read()];
             } else {
                 newSubTree = [storage.lastSubtrees.at(i).read()[0], hash];

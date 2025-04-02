@@ -36,7 +36,7 @@ contract L1WarpToad is WarpToadCore {
     }
 
     function _calculateGigaRoot() private returns(uint256) {
-        root(); // <- returns the root!
+        localRoot(); // <- returns the root!
         //TODO make new tree
     }
 }
