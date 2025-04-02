@@ -36,7 +36,7 @@ contract GigaRootBridge {
             );
             IRootBridge l2RootBridge = IRootBridge(_bridgeAddresses[i]);
 
-            bytes32 newL2Root = l2RootBridge.getRoot();
+            bytes32 newL2Root = l2RootBridge.getMostRecentRoot();
             // TODO: merkle stuff to add this new root to construct the new gigaRoot
             bytes32 newGigaRoot = 0;
 

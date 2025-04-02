@@ -20,6 +20,7 @@ contract AztecRootBridge is IRootBridge {
     IRegistry public registry;
     bytes32 public l2Bridge;
     uint32 public aztecChainId;
+    bytes32 public mostRecentRoot;
 
     IRollup public rollup;
     IOutbox public outbox;
@@ -72,6 +73,10 @@ contract AztecRootBridge is IRootBridge {
         // TODO: would it be easier to return key & index?
     }
 
+    function getMostRecentRoot() external returns (bytes32) {
+        return mostRecentRoot;
+    }
+
     /**
      * @notice gets the L2 root from the portal
      * @dev Second part of getting the L2 root to L1, must be initiated from L2 first as it will consume a message from outbox
@@ -81,7 +86,7 @@ contract AztecRootBridge is IRootBridge {
      * @param _path - Flag to use `msg.sender` as caller, otherwise address(0)
      * Must match the caller of the message (specified from L2) to consume it.
      */
-    function getRoot(
+    function refreshRoot(
         bytes32 _newL2Root,
         uint256 _l2BlockNumber,
         uint256 _leafIndex,
@@ -97,6 +102,8 @@ contract AztecRootBridge is IRootBridge {
 
         outbox.consume(message, _l2BlockNumber, _leafIndex, _path);
 
-        return _newL2Root;
+        mostRecentRoot = _newL2Root;
+
+        _newL2Root;
     }
 }
