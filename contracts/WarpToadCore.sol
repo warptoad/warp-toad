@@ -2,28 +2,37 @@
 
 pragma solidity 0.8.29;
 
+import {PoseidonT3} from "poseidon-solidity/PoseidonT3.sol";
 import {LeanIMT, LeanIMTData} from "@zk-kit/lean-imt.sol/LeanIMT.sol";
+import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 // tutorial https://github.com/privacy-scaling-explorations/zk-kit.solidity/blob/main/packages/lean-imt/contracts/test/LeanIMTTest.sol
 // noir equivalent (normal merkle tree): https://github.com/privacy-scaling-explorations/zk-kit.noir/tree/main/packages/merkle-trees 
 // ts/js: https://github.com/privacy-scaling-explorations/zk-kit/tree/main/packages/lean-imt
 
-contract WarpToadCore { // TODO erc20
+contract WarpToadCore is ERC20 { // TODO erc20
     LeanIMTData public commitTreeData;
     uint256 public maxTreeDepth;
+
     uint256 public maxBurns;
     uint256 public totalBurns;
 
-    constructor(uint256 _maxDepth) { 
+    uint256 public gigaRoot;
+    mapping(uint256 => bool ) public gigaRootHistory; // limiting the history so we override slots is more efficient
+
+    constructor(uint256 _maxDepth) ERC20("WarpToad","WRPTD_") { 
         maxTreeDepth = _maxDepth;
         maxBurns = 2 ** _maxDepth; // circuit cant go above this number
+    }
+
+    function isValidGigaRoot(uint256 _gigaRoot) public view returns(bool) {
+        return gigaRootHistory[_gigaRoot];
     }
     
     function burn(uint256 _preCommitment, uint256 _amount) public {
         require(totalBurns < maxBurns, "Tree wil exceed the maxTreeDepth");
         //TODO burn erc20
-        //TODO hash commitment=hash(_preCommitment,amount)
-        uint256 leaf = _preCommitment; // remove this. Its wrong!!
-        LeanIMT.insert(commitTreeData, leaf);
+        uint256 commitment = PoseidonT3.hash([_preCommitment, _amount]);
+        LeanIMT.insert(commitTreeData, commitment);
         totalBurns += 1;
     }
 
