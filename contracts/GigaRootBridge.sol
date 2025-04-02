@@ -1,5 +1,6 @@
-pragma solidity >=0.8.27;
+// SPDX-License-Identifier: MIT
 
+pragma solidity 0.8.29;
 import "./IRootBridge.sol";
 
 contract GigaRootBridge {
@@ -13,7 +14,7 @@ contract GigaRootBridge {
      * @notice Initialize the root bridge
      * @param _bridgeAddresses - the L1 contracts that can receive roots from corresponding L2s
      */
-    function initialize(address[] memory _bridgeAddresses) external {
+    constructor(address[] memory _bridgeAddresses) {
         for (uint256 i = 0; i < _bridgeAddresses.length; i++) {
             rootBridges.push(IRootBridge(_bridgeAddresses[i]));
             isRootBridge[_bridgeAddresses[i]] = true;
@@ -27,7 +28,7 @@ contract GigaRootBridge {
      * Calls corresponding contracts to update the GigaRoots on the L2.
      *
      */
-    function update_root(address[] memory _bridgeAddresses) external {
+    function updateRoot(address[] memory _bridgeAddresses) external {
         for (uint256 i = 0; i < _bridgeAddresses.length; i++) {
             require(
                 isRootBridge[_bridgeAddresses[i]],

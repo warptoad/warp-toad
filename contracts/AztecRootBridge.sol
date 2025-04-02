@@ -1,4 +1,6 @@
-pragma solidity >=0.8.27;
+// SPDX-License-Identifier: MIT
+
+pragma solidity 0.8.29;
 
 import "./IRootBridge.sol";
 
@@ -18,8 +20,7 @@ contract AztecRootBridge is IRootBridge {
      * @param _registry - The registry address
      * @param _l2Bridge - The L2 bridge address
      */
-    // docs:start:init
-    function initialize(address _registry, bytes32 _l2Bridge) external {
+    constructor(address _registry, bytes32 _l2Bridge) {
         registry = IRegistry(_registry);
         l2Bridge = _l2Bridge;
     }
@@ -70,7 +71,7 @@ contract AztecRootBridge is IRootBridge {
         uint256 _l2BlockNumber,
         uint256 _leafIndex,
         bytes32[] calldata _path
-    ) external returns bytes32 {
+    ) external returns (bytes32) {
         DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
             sender: DataStructures.L2Actor(l2Bridge, 1),
             recipient: DataStructures.L1Actor(address(this), block.chainid),
@@ -81,6 +82,6 @@ contract AztecRootBridge is IRootBridge {
 
         outbox.consume(message, _l2BlockNumber, _leafIndex, _path);
 
-		_newL2Root
+        return _newL2Root;
     }
 }
