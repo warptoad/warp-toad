@@ -9,7 +9,7 @@ contract L2WarpToad is WarpToadCore {
     }
 
     function bridgeRoot() public {
-        root(); // <- returns the root!
+        localRoot(); // <- returns the localRoot!
         //TODO interact with the gigaBridge
     }
 }
