@@ -20,6 +20,7 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore {
 
     uint256 public gigaRoot;
     mapping(uint256 => bool ) public gigaRootHistory; // limiting the history so we override slots is more efficient
+    mapping(uint256 => bool ) public localRootHistory; // limiting the history so we override slots is more efficient
 
     address gigaBridge;
 
@@ -47,13 +48,15 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore {
         
         uint256 _commitment = PoseidonT3.hash([_preCommitment, _amount]);
         LeanIMT.insert(commitTreeData, _commitment);
+        localRootHistory[localRoot()] = true;
         totalBurns += 1;
         emit Burn(_commitment, _amount);
     }
 
     // TODO relayer support
-    function mint(address _recipient, uint256 _amount, uint256 _gigaRoot, bytes memory _poof) public {
+    function mint(address _recipient, uint256 _amount, uint256 _gigaRoot, uint256 _localRoot, bytes memory _poof) public {
         require(isValidGigaRoot(_gigaRoot), "_gigaRoot unknown");
+        require(isValidLocalRoot(_localRoot), "_localRoot unknown");
         _mint(_recipient, _amount);
         // TODO verify proof
         // verify(_gigaRoot, root(), _amount, _recipient)
@@ -63,8 +66,12 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore {
         return LeanIMT.indexOf(commitTreeData, leaf);
     }
 
-    function root() public view returns (uint256) {
+    function localRoot() public view returns (uint256) {
         return LeanIMT.root(commitTreeData);
+    }
+
+    function isValidLocalRoot(uint256 _localRoot) public view returns(bool) {
+        return localRootHistory[_localRoot];
     }
 }
 
