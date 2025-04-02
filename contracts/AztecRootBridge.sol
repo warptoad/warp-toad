@@ -15,14 +15,31 @@ import {DataStructures} from "./aztec-interfaces/CoreDataStructures.sol";
 import {Hash} from "./aztec-interfaces/crypto/Hash.sol";
 
 contract AztecRootBridge is IRootBridge {
+    event newGigaRootSentToL2(bytes32 newGigaRoot, bytes32 key, uint256 index);
+
+    IRegistry public registry;
+    bytes32 public l2Bridge;
+    uint32 public aztecChainId;
+
+    IRollup public rollup;
+    IOutbox public outbox;
+    IInbox public inbox;
+    uint256 public rollupVersion;
+
     /**
      * @notice Initialize the portal
      * @param _registry - The registry address
      * @param _l2Bridge - The L2 bridge address
      */
-    constructor(address _registry, bytes32 _l2Bridge) {
+    constructor(address _registry, bytes32 _l2Bridge, uint32 _aztecChainId) {
         registry = IRegistry(_registry);
         l2Bridge = _l2Bridge;
+        aztecChainId = _aztecChainId;
+
+        rollup = IRollup(registry.getCanonicalRollup());
+        outbox = rollup.getOutbox();
+        inbox = rollup.getInbox();
+        rollupVersion = rollup.getVersion();
     }
 
     /**
@@ -33,7 +50,7 @@ contract AztecRootBridge is IRootBridge {
     // L2 but for a hackathon we're assuming an altruistic actor who will pay gas to update roots
     function sendGigaRootToL2(bytes32 newGigaRoot) external {
         // Preamble
-        IInbox inbox = IRollup(registry.getRollup()).getInbox();
+        IInbox inbox = IRollup(registry.getRollup(aztecChainId)).getInbox();
         DataStructures.L2Actor memory actor = DataStructures.L2Actor(
             l2Bridge,
             1
@@ -50,7 +67,7 @@ contract AztecRootBridge is IRootBridge {
         );
 
         // Emit event
-        emit DepositToAztecPublic(_to, _amount, _secretHash, key, index);
+        emit newGigaRootSentToL2(newGigaRoot, key, index);
 
         // TODO: would it be easier to return key & index?
     }
@@ -76,7 +93,7 @@ contract AztecRootBridge is IRootBridge {
             content: Hash.sha256ToField(_newL2Root)
         });
 
-        IOutbox outbox = IRollup(registry.getRollup()).getOutbox();
+        IOutbox outbox = IRollup(registry.getRollup(aztecChainId)).getOutbox();
 
         outbox.consume(message, _l2BlockNumber, _leafIndex, _path);
 
