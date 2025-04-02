@@ -1,5 +1,0 @@
-[package]
-name = "circuit_2"
-type = "bin"
-
-[dependencies]

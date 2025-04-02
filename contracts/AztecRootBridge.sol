@@ -3,14 +3,14 @@ pragma solidity >=0.8.27;
 import "./IRootBridge.sol";
 
 // Messaging
-import {IRegistry} from "@aztec/l1-contracts/src/governance/interfaces/IRegistry.sol";
-import {IInbox} from "@aztec/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol";
-import {IOutbox} from "@aztec/l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol";
-import {IRollup} from "@aztec/l1-contracts/src/core/interfaces/IRollup.sol";
-import {DataStructures} from "@aztec/l1-contracts/src/core/libraries/DataStructures.sol";
+import {IRegistry} from "./lib/governance/interfaces/IRegistry.sol";
+import {IInbox} from "./lib/core/interfaces/messagebridge/IInbox.sol";
+import {IOutbox} from "./lib/core/interfaces/messagebridge/IOutbox.sol";
+import {IRollup} from "./lib/core/interfaces/IRollup.sol";
+import {DataStructures} from "./lib/core/libraries/DataStructures.sol";
 
 // hash for message passing to L2
-import {Hash} from "@aztec/l1-contracts/src/core/libraries/crypto/Hash.sol";
+import {Hash} from "./lib/core/libraries/crypto/Hash.sol";
 
 contract AztecRootBridge is IRootBridge {
     /**

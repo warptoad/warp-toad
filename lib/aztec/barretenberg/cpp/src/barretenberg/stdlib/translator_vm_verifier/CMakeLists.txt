@@ -1,1 +1,0 @@
-barretenberg_module(stdlib_translator_vm_verifier translator_vm stdlib_transcript)

@@ -1,1 +1,0 @@
-barretenberg_module(stdlib_poseidon2 stdlib_primitives crypto_poseidon2)

@@ -1,6 +1,0 @@
-.yarn/*
-!.yarn/releases
-
-node_modules
-dest
-boxes/**/contracts/target

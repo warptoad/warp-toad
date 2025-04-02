@@ -1,2 +1,0 @@
-pub mod block_root_rollup_inputs_validator;
-pub mod block_root_rollup_output_composer;

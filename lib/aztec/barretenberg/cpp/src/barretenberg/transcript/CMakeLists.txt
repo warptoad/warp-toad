@@ -1,1 +1,0 @@
-barretenberg_module(transcript crypto_poseidon2)

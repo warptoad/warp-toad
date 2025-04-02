@@ -1,2 +1,0 @@
-# Aztec wallet Documentation
-

@@ -1,6 +1,0 @@
-^docs/src
-^docs/scripts
-^docs/static
-^docs/.*\.js
-^docs/.*\.json
-^docs/bootstrap.sh
