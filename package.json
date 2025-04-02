@@ -31,7 +31,7 @@
     "typescript": "^5.8.2"
   },
   "dependencies": {
-    "@aztec/l1-contracts": "^0.76.4",
+    "@openzeppelin/contracts": "^5.2.0",
     "@zk-kit/lean-imt.sol": "^2.0.1"
   }
 }

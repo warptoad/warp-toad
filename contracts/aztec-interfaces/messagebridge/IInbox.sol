@@ -2,7 +2,7 @@
 // Copyright 2024 Aztec Labs.
 pragma solidity >=0.8.27;
 
-import {DataStructures} from "./DataStructures.sol";
+import {DataStructures} from "../CoreDataStructures.sol";
 
 /**
  * @title Inbox

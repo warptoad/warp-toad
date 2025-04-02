@@ -5,14 +5,14 @@ pragma solidity 0.8.29;
 import "./IRootBridge.sol";
 
 // Messaging
-import {IRegistry} from "@aztec/l1-contracts/src/governance/interfaces/IRegistry.sol";
-import {IInbox} from "@aztec/l1-contracts/src/core/interfaces/messagebridge/IInbox.sol";
-import {IOutbox} from "@aztec/l1-contracts/src/core/interfaces/messagebridge/IOutbox.sol";
-import {IRollup} from "@aztec/l1-contracts/src/core/interfaces/IRollup.sol";
-import {DataStructures} from "@aztec/l1-contracts/src/core/libraries/DataStructures.sol";
+import {IRegistry} from "./aztec-interfaces/IRegistry.sol";
+import {IInbox} from "./aztec-interfaces/messagebridge/IInbox.sol";
+import {IOutbox} from "./aztec-interfaces/messagebridge/IOutbox.sol";
+import {IRollup} from "./aztec-interfaces/IRollup.sol";
+import {DataStructures} from "./aztec-interfaces/CoreDataStructures.sol";
 
 // hash for message passing to L2
-import {Hash} from "@aztec/l1-contracts/src/core/libraries/crypto/Hash.sol";
+import {Hash} from "./aztec-interfaces/crypto/Hash.sol";
 
 contract AztecRootBridge is IRootBridge {
     /**
@@ -27,9 +27,7 @@ contract AztecRootBridge is IRootBridge {
 
     /**
      * @notice Deposit funds into the portal and adds an L2 message which can only be consumed publicly on Aztec
-     * @param newGigaRoot - The new gigaRoot to send to L2 as a message
-     * @param _secretHash - The hash of the secret consumable message. The hash should be 254 bits (so it can fit in a Field element) (we don't care about this being secret)
-     * @return The key of the entry in the Inbox and its leaf index
+     * @param newGigaRoot - The new gigaRoot to send to L2 as a message.  It's actually supposed to be a secret hash but we don't care
      */
     // TODO: we should use _secretHash as a parameter to hide when the value is consumed on the
     // L2 but for a hackathon we're assuming an altruistic actor who will pay gas to update roots
