@@ -24,5 +24,19 @@ contract L1WarpToad is WarpToadCore {
         // TODO event?
     }
 
+    function receiveL2Root(uint256 _root, uint256 _chainId) public {
+         require(msg.sender == gigaBridge, "only gigaBridge can send a L2 root");
+        //TODO
+    }
 
+    function bridgeGigaRoot() public {
+        uint256 _gigaRoot = _calculateGigaRoot();
+        gigaRoot = _gigaRoot;
+        //TODO interact with the gigaBridge
+    }
+
+    function _calculateGigaRoot() private returns(uint256) {
+        root(); // <- returns the root!
+        //TODO make new tree
+    }
 }
