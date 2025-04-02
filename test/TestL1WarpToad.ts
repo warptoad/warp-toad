@@ -69,25 +69,3 @@ describe("L1WarpToad", function () {
     });
   });
 });
-
-
-async function deployAztecWarpToad() {
-  const { PXE_URL = 'http://localhost:8080' } = process.env;
-  console.log("creating PXE client")
-  const pxe = createPXEClient(PXE_URL);
-  console.log("waiting on PXE client", PXE_URL)
-  await waitForPXE(pxe);
-
-  console.log("getting test accounts")
-  const [ownerWallet] = await getInitialTestAccountsWallets(pxe);
-  const ownerAddress = ownerWallet.getAddress();
-
-  console.log("deploying")
-  const counter = await Contract.deploy(ownerWallet, CounterContractArtifact, [0,ownerAddress])
-      .send()
-      .deployed();
-
-  console.log(`counter deployed at ${counter.address.toString()}`);
-
-  const addresses = { counter: counter.address.toString() };
-}
