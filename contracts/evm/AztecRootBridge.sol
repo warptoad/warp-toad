@@ -16,11 +16,12 @@ import {Hash} from "./aztec-interfaces/crypto/Hash.sol";
 
 contract AztecRootBridge is IRootBridge {
     event newGigaRootSentToL2(bytes32 newGigaRoot, bytes32 key, uint256 index);
+    event receivedNewL2Root(bytes32 newL2Root);
 
     IRegistry public registry;
     bytes32 public l2Bridge;
     uint32 public aztecChainId;
-    bytes32 public mostRecentRoot;
+    bytes32 public mostRecentL2Root;
 
     IRollup public rollup;
     IOutbox public outbox;
@@ -31,6 +32,7 @@ contract AztecRootBridge is IRootBridge {
      * @notice Initialize the portal
      * @param _registry - The registry address
      * @param _l2Bridge - The L2 bridge address
+     * @param _aztecChainId - id of the aztec chain this is being deployed on
      */
     constructor(address _registry, bytes32 _l2Bridge, uint32 _aztecChainId) {
         registry = IRegistry(_registry);
@@ -41,14 +43,13 @@ contract AztecRootBridge is IRootBridge {
         outbox = rollup.getOutbox();
         inbox = rollup.getInbox();
         rollupVersion = rollup.getVersion();
+        mostRecentL2Root = bytes32(0);
     }
 
     /**
      * @notice Deposit funds into the portal and adds an L2 message which can only be consumed publicly on Aztec
      * @param newGigaRoot - The new gigaRoot to send to L2 as a message.  It's actually supposed to be a secret hash but we don't care
      */
-    // TODO: we should use _secretHash as a parameter to hide when the value is consumed on the
-    // L2 but for a hackathon we're assuming an altruistic actor who will pay gas to update roots
     function sendGigaRootToL2(bytes32 newGigaRoot) external {
         // Preamble
         IInbox inbox = IRollup(registry.getRollup(aztecChainId)).getInbox();
@@ -69,8 +70,6 @@ contract AztecRootBridge is IRootBridge {
 
         // Emit event
         emit newGigaRootSentToL2(newGigaRoot, key, index);
-
-        // TODO: would it be easier to return key & index?
     }
 
     function getMostRecentRoot() external returns (bytes32) {
@@ -103,6 +102,8 @@ contract AztecRootBridge is IRootBridge {
         outbox.consume(message, _l2BlockNumber, _leafIndex, _path);
 
         mostRecentRoot = _newL2Root;
+
+        emit receivedNewL2Root(_newL2Root);
 
         _newL2Root;
     }
