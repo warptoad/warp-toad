@@ -5,6 +5,12 @@ Cross bridge privacy
 ## deploy L1 aztec-sandbox
 `yarn hardhat ignition deploy ./ignition/modules/WarpToadCore.js --parameters ignition/WarpToadCoreParameters.json --network aztecSandbox`
 
+## deploy on aztec
+`bun run scripts/deployAztecToadWarp.ts `
+
+## test contracts
+`yarn hardhat test`
+
 # install noir and backend
 ```shell
 bbup -nv 1.0.0-beta.2
@@ -26,3 +32,7 @@ cd ../..;
 # copy to contracts folder
 cp circuits/withdraw/target/contract.sol contracts/withdrawVerifier.sol
 ```
+
+
+# run sandbox
+`VERSION=0.82.3 aztec start --sandbox`

@@ -2,7 +2,8 @@ import hre from "hardhat"
 import { expect } from "chai";
 import { time, loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers.js";
 
-describe("Lock", function () {
+
+describe("L1WarpToad", function () {
   // We define a fixture to reuse the same setup in every test.
   // We use loadFixture to run this setup once, snapshot that state,
   // and reset Hardhat Network to that snapshot in every test.
@@ -51,18 +52,18 @@ describe("Lock", function () {
 
       await L1WarpToad.wrap(amount)
 
-      const rootPreBurn = await L1WarpToad.root()
+      const rootPreBurn = await L1WarpToad.localRoot()
       const preCommitment1 = 1234n // TODO hash it!
 
       const burnTx1 = await L1WarpToad.burn(preCommitment1,amount/2n)
 
-      const rootPostBurn = await L1WarpToad.root()
+      const rootPostBurn = await L1WarpToad.localRoot()
       expect(rootPreBurn).not.equal(rootPostBurn);
 
       // again!!! rootPostBurn = leaf since tree is only one leaf :/
       const preCommitment2 = 5678n // TODO hash it!
       const burnTx2 = await L1WarpToad.burn(preCommitment2,amount/2n)
-      const rootPostPostBurn = await L1WarpToad.root()
+      const rootPostPostBurn = await L1WarpToad.localRoot()
       console.log({rootPostBurn, rootPreBurn, rootPostPostBurn})
       expect(rootPostBurn).not.equal(rootPostPostBurn);
     });
