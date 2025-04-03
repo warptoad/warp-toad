@@ -1,11 +1,5 @@
-fn main(x: Field, y: pub Field) {
-    assert(x != y);
-}
-
-#[test]
-fn test_main() {
-    main(1, 2);
-
-    // Uncomment to make test fail
-    // main(1, 1);
+contract Main {
+    fn double(x: Field) -> pub Field { x * 2 }
+    fn triple(x: Field) -> pub Field { x * 3 }
+    fn quadruple(x: Field) -> pub Field { double(double(x)) }
 }
