@@ -9,7 +9,17 @@ Cross bridge privacy
 `bun run scripts/deployAztecToadWarp.ts `
 
 ## test contracts
-`yarn hardhat test`
+make sure you're on node 20
+```shell
+nvm install 20;
+nvm use 20;
+npm install --global yarn;
+yarn install;
+```
+run test
+```shell
+yarn hardhat test --network aztecSandbox
+```
 
 # install noir and backend
 ```shell

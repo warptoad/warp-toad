@@ -1,4 +1,6 @@
 import hre from "hardhat"
+
+//@ts-ignore
 import { expect } from "chai";
 import { time, loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers.js";
 
@@ -12,14 +14,14 @@ describe("L1WarpToad", function () {
     //const [owner, otherAccount] = await hre.ethers.getSigners();
     hre.ethers.getContractFactory("PoseidonT3",)
     const gigaBridge = "0x0000000000000000000000000000000000000000"
-    const nativeToken = await ethers.deployContract("USDcoin",[],{ value: 0n, libraries: {} })
+    const nativeToken = await hre.ethers.deployContract("USDcoin",[],{ value: 0n, libraries: {} })
     const wrappedTokenSymbol = `wrpToad-${await nativeToken.symbol()}`
     const wrappedTokenName = `wrpToad-${await nativeToken.name()}`
 
     const maxTreeDepth = 32n
-    const PoseidonT3Lib = await ethers.deployContract("PoseidonT3", [], { value: 0n, libraries: {} })
-    const LeanIMTLib = await ethers.deployContract("LeanIMT", [], { value: 0n, libraries: { PoseidonT3: PoseidonT3Lib } })
-    const L1WarpToad = await ethers.deployContract("L1WarpToad", [maxTreeDepth,gigaBridge,nativeToken.target,wrappedTokenSymbol,wrappedTokenName], {
+    const PoseidonT3Lib = await hre.ethers.deployContract("PoseidonT3", [], { value: 0n, libraries: {} })
+    const LeanIMTLib = await hre.ethers.deployContract("LeanIMT", [], { value: 0n, libraries: { PoseidonT3: PoseidonT3Lib } })
+    const L1WarpToad = await hre.ethers.deployContract("L1WarpToad", [maxTreeDepth,gigaBridge,nativeToken.target,wrappedTokenSymbol,wrappedTokenName], {
       value: 0n,
       libraries: {
         LeanIMT: LeanIMTLib,

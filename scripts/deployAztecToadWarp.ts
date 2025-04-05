@@ -1,5 +1,12 @@
-import {WarpToadCoreContractArtifact}  from '../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
+import WarpToadCoreContractArtifactJson from '../contracts/aztec/WarpToadCore/target/WarpToadCore-WarpToadCore.json'
+//@ts-ignore
+import { createPXEClient, waitForPXE, Contract, ContractArtifact,loadContractArtifact, NoirCompiledContract } from "@aztec/aztec.js"
+export const WarpToadCoreContractArtifact = loadContractArtifact(WarpToadCoreContractArtifactJson as NoirCompiledContract);
+
+//@ts-ignore
 import { createPXEClient, waitForPXE, Contract, ContractArtifact } from "@aztec/aztec.js"
+
+//@ts-ignore
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing'; // idk why but node is bitching about this but bun doesnt care
 
 import { writeFileSync } from 'fs';

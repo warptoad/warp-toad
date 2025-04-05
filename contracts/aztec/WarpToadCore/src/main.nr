@@ -27,7 +27,7 @@ pub contract WarpToadCore {
         lastLeafIndex: PublicMutable<u128, Context>,
 
         leaves: Map<Field, PublicMutable<Field, Context>, Context>,             // mapping(index -> hash)          
-        lastSubtrees:  Map<u32, PublicMutable<[Field;2], Context>, Context>,    // mapping(index -> subTreeHash)  
+        lastSubtrees:  Map<u32, PublicMutable<Field, Context>, Context>,        // mapping(index -> subTreeHash)  
 
         zeroes:   Map<u32, PublicMutable<Field, Context>, Context>,    
     }
@@ -41,9 +41,15 @@ pub contract WarpToadCore {
         storage.lastLeafIndex.write(0); // idk if you need to do this
     }   
 
+    unconstrained fn get_root() -> pub Field {
+        let localRoot = storage.localRoot;
+        localRoot.read()
+    }
 
 
-    // end game is a private burn function that pushes the commitments to aztecs own commitment tree.
+
+    // we need to push the commitments to aztecs own commitment tree.
+    // we're at the gas limit at depth 4. absolute cringe!
     // so we dont have to fuck with enque to public which leaks information
     // also saves on cost vs making incontract merkle tree
     // L1 contract would just get the aztec commitment root somehow and treat that as a localRoot
@@ -58,16 +64,13 @@ pub contract WarpToadCore {
 
         let mut hash: Field = _leaf;  
 
-        let mut newSubTree: [Field;2] = [0;2]; 
         for i in 0..depth {
             if(index%2==0) {
-                newSubTree = [hash, storage.zeroes.at(i).read()];
+                hash = poseidon::bn254::hash_2([hash, storage.zeroes.at(i).read()]);
+                storage.lastSubtrees.at(i).write(hash)
             } else {
-                newSubTree = [storage.lastSubtrees.at(i).read()[0], hash];
+                hash = poseidon::bn254::hash_2([storage.lastSubtrees.at(i).read(), hash]);
             }
-
-            hash = poseidon::bn254::hash_2(newSubTree);
-            storage.lastSubtrees.at(i).write(newSubTree);
             index /= 2; 
         };
 
