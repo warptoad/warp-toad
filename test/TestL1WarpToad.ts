@@ -1,4 +1,6 @@
 import hre from "hardhat"
+
+//@ts-ignore
 import { expect } from "chai";
 import { time, loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers.js";
 
