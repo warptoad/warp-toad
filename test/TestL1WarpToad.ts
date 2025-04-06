@@ -20,21 +20,21 @@ describe("L1WarpToad", function () {
 
     const maxTreeDepth = 32n
     const PoseidonT3Lib = await hre.ethers.deployContract("PoseidonT3", [], { value: 0n, libraries: {} })
-    const LeanIMTLib = await hre.ethers.deployContract("LeanIMT", [], { value: 0n, libraries: { PoseidonT3: PoseidonT3Lib } })
+    const LazyIMTLib = await hre.ethers.deployContract("LazyIMT", [], { value: 0n, libraries: { PoseidonT3: PoseidonT3Lib } })
     const L1WarpToad = await hre.ethers.deployContract("L1WarpToad", [maxTreeDepth,gigaBridge,nativeToken.target,wrappedTokenSymbol,wrappedTokenName], {
       value: 0n,
       libraries: {
-        LeanIMT: LeanIMTLib,
+        LazyIMT: LazyIMTLib,
         PoseidonT3: PoseidonT3Lib 
       }
     });
 
-    return { L1WarpToad,nativeToken, LeanIMTLib, PoseidonT3Lib };
+    return { L1WarpToad,nativeToken,  LazyIMTLib, PoseidonT3Lib };
   }
 
   describe("Deployment", function () {
     it("Should deploy", async function () {
-      const { L1WarpToad, LeanIMTLib, PoseidonT3Lib } = await loadFixture(deployWarpToad);
+      const { L1WarpToad,nativeToken} = await loadFixture(deployWarpToad);
 
       expect(L1WarpToad).not.equal(undefined);
     });
@@ -57,6 +57,7 @@ describe("L1WarpToad", function () {
       const rootPreBurn = await L1WarpToad.localRoot()
       const preCommitment1 = 1234n // TODO hash it!
 
+      console.log({preCommitment1,amount})
       const burnTx1 = await L1WarpToad.burn(preCommitment1,amount/2n)
 
       const rootPostBurn = await L1WarpToad.localRoot()

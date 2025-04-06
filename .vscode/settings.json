@@ -1,7 +1,8 @@
 {
     "cSpell.words": [
         "giga",
-        "merkle"
+        "merkle",
+        "unconst"
     ],
     "solidity.remappings": [
         "@zk-kit/lean-imt.sol/LeanIMT.sol/=./node_modules/@zk-kit/lean-imt.sol/LeanIMT.sol",

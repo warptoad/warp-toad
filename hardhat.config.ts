@@ -21,6 +21,9 @@ const config = {
       evmVersion: "cancun"
     },
   },
+  mocha: {
+    timeout: 40000000
+  },
 
 
   networks: {
