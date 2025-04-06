@@ -21,7 +21,7 @@ import { getInitialTestAccountsWallets } from '@aztec/accounts/testing'; // idk 
 import { ethers } from "ethers";
 const { PXE_URL = 'http://localhost:8080' } = process.env;
 
-const MAX_TREE_DEPTH = 3n
+const MAX_TREE_DEPTH = 4n
 
 async function connectPXE() {
     console.log("creating PXE client")
@@ -50,16 +50,16 @@ describe("AztecAndL1WarpToad", function () {
         const wrappedTokenName = `wrpToad-${await nativeToken.name()}`
      
         const PoseidonT3Lib = await hre.ethers.deployContract("PoseidonT3", [], { value: 0n, libraries: {} })
-        const LazyIMTLib = await hre.ethers.deployContract("LazyIMT", [], { value: 0n, libraries: { PoseidonT3: PoseidonT3Lib } })
+        const BinaryIMTLib = await hre.ethers.deployContract("BinaryIMT", [], { value: 0n, libraries: { PoseidonT3: PoseidonT3Lib } })
         const L1WarpToad = await hre.ethers.deployContract("L1WarpToad", [maxTreeDepth,gigaBridge,nativeToken.target,wrappedTokenSymbol,wrappedTokenName], {
           value: 0n,
           libraries: {
-            LazyIMT: LazyIMTLib,
+            BinaryIMT: BinaryIMTLib,
             PoseidonT3: PoseidonT3Lib 
           }
         });
     
-        return { L1WarpToad,nativeToken,  LazyIMTLib, PoseidonT3Lib };
+        return { L1WarpToad,nativeToken,  BinaryIMTLib, PoseidonT3Lib };
       }
     
 
@@ -71,7 +71,7 @@ describe("AztecAndL1WarpToad", function () {
         const { wallets } = await connectPXE();
         const deployerWallet = wallets[0]
         console.log({initArgs: [maxTreeDepth]})
-        const AztecWarpToad = await Contract.deploy(deployerWallet, WarpToadCoreContractArtifact, [maxTreeDepth-1n]).send().deployed();
+        const AztecWarpToad = await Contract.deploy(deployerWallet, WarpToadCoreContractArtifact, [maxTreeDepth]).send().deployed();
 
         return { AztecWarpToad, wallets };
     }

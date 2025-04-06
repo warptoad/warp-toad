@@ -3,7 +3,7 @@
 pragma solidity 0.8.29;
 
 import {PoseidonT3} from "poseidon-solidity/PoseidonT3.sol";
-import {LazyIMT, LazyIMTData} from "@zk-kit/lazy-imt.sol/LazyIMT.sol";
+import {BinaryIMT, BinaryIMTData} from "@zk-kit/imt.sol/BinaryIMT.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IWarpToadCore} from "./interfaces/IWarpToadCore.sol";
@@ -12,7 +12,7 @@ import {IWarpToadCore} from "./interfaces/IWarpToadCore.sol";
 // ts/js: https://github.com/privacy-scaling-explorations/zk-kit/tree/main/packages/lean-imt
 
 abstract contract WarpToadCore is ERC20, IWarpToadCore {
-    LazyIMTData public localTreeData;
+    BinaryIMTData public localTreeData;
     uint8 public maxTreeDepth;
 
     // uint256 public maxBurns;
@@ -29,7 +29,7 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore {
         // maxBurns = 2 ** _maxTreeDepth; // circuit cant go above this number
 
         gigaBridge = _gigaBridge;
-        LazyIMT.init(localTreeData, _maxTreeDepth);
+        BinaryIMT.init(localTreeData, _maxTreeDepth, 0);
     }
 
     function receiveGigaRoot(uint256 _gigaRoot) public {
@@ -51,7 +51,7 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore {
         _burn(msg.sender, _amount);
 
         uint256 _commitment = PoseidonT3.hash([_preCommitment, _amount]);
-        LazyIMT.insert(localTreeData, _commitment);
+        BinaryIMT.insert(localTreeData, _commitment);
         localRootHistory[localRoot()] = true;
         //totalBurns += 1;
         emit Burn(_commitment, _amount);
@@ -73,7 +73,8 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore {
     }
 
     function localRoot() public view returns (uint256) {
-        return LazyIMT.root(localTreeData);
+        //return BinaryIMT.root(localTreeData);
+        return localTreeData.root;
     }
 
     function isValidLocalRoot(uint256 _localRoot) public view returns (bool) {

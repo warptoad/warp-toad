@@ -116,7 +116,7 @@ export class WarpToadCoreContract extends ContractBase {
   }
   
 
-  public static get storage(): ContractStorageLayout<'maxTreeDepth' | 'localRoot' | 'lastLeafIndex' | 'leaves' | 'lastSubtrees'> {
+  public static get storage(): ContractStorageLayout<'maxTreeDepth' | 'localRoot' | 'lastLeafIndex' | 'leaves' | 'lastSubtrees' | 'number_of_leaves'> {
       return {
         maxTreeDepth: {
       slot: new Fr(1n),
@@ -132,8 +132,11 @@ leaves: {
     },
 lastSubtrees: {
       slot: new Fr(6n),
+    },
+number_of_leaves: {
+      slot: new Fr(7n),
     }
-      } as ContractStorageLayout<'maxTreeDepth' | 'localRoot' | 'lastLeafIndex' | 'leaves' | 'lastSubtrees'>;
+      } as ContractStorageLayout<'maxTreeDepth' | 'localRoot' | 'lastLeafIndex' | 'leaves' | 'lastSubtrees' | 'number_of_leaves'>;
     }
     
 
@@ -157,9 +160,6 @@ lastSubtrees: {
 
     /** get_root() */
     get_root: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** get_subtree(index: integer) */
-    get_subtree: ((index: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** initialize(_maxTreeDepth: integer) */
     initialize: ((_maxTreeDepth: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;

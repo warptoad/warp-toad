@@ -20,16 +20,16 @@ describe("L1WarpToad", function () {
 
     const maxTreeDepth = 32n
     const PoseidonT3Lib = await hre.ethers.deployContract("PoseidonT3", [], { value: 0n, libraries: {} })
-    const LazyIMTLib = await hre.ethers.deployContract("LazyIMT", [], { value: 0n, libraries: { PoseidonT3: PoseidonT3Lib } })
+    const BinaryIMTLib = await hre.ethers.deployContract("BinaryIMT", [], { value: 0n, libraries: { PoseidonT3: PoseidonT3Lib } })
     const L1WarpToad = await hre.ethers.deployContract("L1WarpToad", [maxTreeDepth,gigaBridge,nativeToken.target,wrappedTokenSymbol,wrappedTokenName], {
       value: 0n,
       libraries: {
-        LazyIMT: LazyIMTLib,
+        BinaryIMT: BinaryIMTLib,
         PoseidonT3: PoseidonT3Lib 
       }
     });
 
-    return { L1WarpToad,nativeToken,  LazyIMTLib, PoseidonT3Lib };
+    return { L1WarpToad,nativeToken,  BinaryIMTLib, PoseidonT3Lib };
   }
 
   describe("Deployment", function () {

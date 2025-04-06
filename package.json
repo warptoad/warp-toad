@@ -33,6 +33,7 @@
     "@aztec/accounts": "0.82.3",
     "@aztec/aztec.js": "0.82.3",
     "@openzeppelin/contracts": "^5.2.0",
+    "@zk-kit/imt.sol": "^2.0.0-beta.12",
     "@zk-kit/lazy-imt.sol": "^2.0.0-beta.12",
     "@zk-kit/lean-imt.sol": "^2.0.1",
     "poseidon-lite": "^0.3.0"
