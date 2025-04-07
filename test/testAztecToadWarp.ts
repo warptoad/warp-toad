@@ -76,24 +76,21 @@ describe("AztecAndL1WarpToad", function () {
         return { AztecWarpToad, wallets };
     }
 
-    // describe("Deployment", function () {
-    //     it("Should deploy", async function () {
-    //         const { L1WarpToad,nativeToken} = await loadFixture(deployL1WarpToad);
-    //         const { AztecWarpToad } = await deployL2AztecWarpToad(MAX_TREE_DEPTH);
+    describe("Deployment", function () {
+        it("Should deploy", async function () {
+            const { L1WarpToad,nativeToken} = await loadFixture(deployL1WarpToad);
+            const { AztecWarpToad } = await deployL2AztecWarpToad(MAX_TREE_DEPTH);
 
-    //         expect(AztecWarpToad).not.equal(undefined);
-    //     });
+            expect(AztecWarpToad).not.equal(undefined);
+        });
 
-    // });
+    });
 
     describe("Burn", function () {
         it("Should burn", async function () {
 
             const { L1WarpToad, nativeToken} = await loadFixture(deployL1WarpToad);
             const { AztecWarpToad } = await deployL2AztecWarpToad(MAX_TREE_DEPTH);
-
-            // const AztecWarpToadReloaded = await Contract.at(AztecWarpToad.address, WarpToadCoreContractArtifact, wallets[0]);
-            // console.log({AztecWarpToadReloaded})
 
             const amount = 100n
             const preCommitment1 = 1234n // TODO hash it!
@@ -124,4 +121,15 @@ describe("AztecAndL1WarpToad", function () {
             expect(AztecL2RootPostBurn).to.equal(L1RootPostBurn);
         });
     });
+
+    describe("hash n time", function () {
+      it("Should hash at least 32 times", async function () {
+
+          const { AztecWarpToad } = await deployL2AztecWarpToad(MAX_TREE_DEPTH);
+
+          await AztecWarpToad.methods.hash_n_times(4n).send().wait();
+        
+
+      });
+  });
 });

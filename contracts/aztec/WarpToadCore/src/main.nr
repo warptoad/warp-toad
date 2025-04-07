@@ -97,18 +97,27 @@ pub contract WarpToadCore {
         storage.lastLeafIndex.write(index+1);
         storage.leaves.at(index as Field).write(_leaf);
 
-        let mut hash: Field = _leaf;  
+        let mut hash: Field = _leaf; 
 
         for i in 0..depth {
             if(index%2==0) {
                 hash = poseidon::bn254::hash_2([hash,default_zeros(i)]);
-                storage.lastSubtrees.at(i+1).write(hash)
+                storage.lastSubtrees.at(i+1).write(hash);
             } else {
                 hash = poseidon::bn254::hash_2([storage.lastSubtrees.at(i).read(), hash]);
             }
+
             index /= 2; 
         };
 
         storage.localRoot.write(hash);
+    }
+
+    #[public] //literally cant do more than 4 hashes
+    fn hash_n_times(n:u32) {
+        // based of: https://github.com/privacy-scaling-explorations/zk-kit.solidity/blob/309b8d8d7d4f553ef44e3aa672040a3698e5179c/packages/imt/contracts/InternalBinaryIMT.sol#L142
+        for index in 0 .. n {
+            poseidon::bn254::hash_2([0, 0x1234]);
+        }
     }
 }

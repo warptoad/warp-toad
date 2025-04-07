@@ -161,6 +161,9 @@ number_of_leaves: {
     /** get_root() */
     get_root: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** hash_n_times(n: integer) */
+    hash_n_times: ((n: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** initialize(_maxTreeDepth: integer) */
     initialize: ((_maxTreeDepth: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
