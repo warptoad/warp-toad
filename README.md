@@ -21,6 +21,9 @@ run test
 yarn hardhat test --network aztecSandbox
 ```
 
+## compile aztec contracts
+`aztec-nargo compile`
+
 # install noir and backend
 ```shell
 bbup -nv 1.0.0-beta.2
@@ -45,4 +48,4 @@ cp circuits/withdraw/target/contract.sol contracts/withdrawVerifier.sol
 
 
 # run sandbox
-`VERSION=0.82.3 aztec start --sandbox`
+`VERSION=0.82.2 aztec start --sandbox`
