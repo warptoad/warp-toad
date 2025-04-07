@@ -47,7 +47,7 @@ contract AztecRootBridge is IRootBridge {
     }
 
     /**
-     * @notice Deposit funds into the portal and adds an L2 message which can only be consumed publicly on Aztec
+     * @notice adds an L2 message which can only be consumed publicly on Aztec
      * @param newGigaRoot - The new gigaRoot to send to L2 as a message.  It's actually supposed to be a secret hash but we don't care
      */
     function sendGigaRootToL2(bytes32 newGigaRoot) external {
@@ -73,7 +73,7 @@ contract AztecRootBridge is IRootBridge {
     }
 
     function getMostRecentRoot() external returns (bytes32) {
-        return mostRecentRoot;
+        return mostRecentL2Root;
     }
 
     /**
@@ -101,7 +101,7 @@ contract AztecRootBridge is IRootBridge {
 
         outbox.consume(message, _l2BlockNumber, _leafIndex, _path);
 
-        mostRecentRoot = _newL2Root;
+        mostRecentL2Root = _newL2Root;
 
         emit receivedNewL2Root(_newL2Root);
 
