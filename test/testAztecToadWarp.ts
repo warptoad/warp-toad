@@ -62,7 +62,7 @@ describe("L1WarpToad", function () {
 
     });
 
-    describe("transfet", function () {
+    describe("transfer", function () {
         it("Should do a private transfer", async function () {
 
 
@@ -77,6 +77,46 @@ describe("L1WarpToad", function () {
             console.log({balancePostSend})
 
             expect(balancePostSend).to.equal(balancePreSend-amountToSend);
+        });
+    });
+
+    describe("burn and mint happy path", function () {
+        it("Should burn and mint", async function () {
+
+
+            const { AztecWarpToad, wallets } = await deployWarpToad();
+
+            const sender = wallets[0]
+            const recipient =  wallets[1]
+
+            const balancePreBurn= await AztecWarpToad.methods.get_balance(sender.getAddress()).simulate()
+            const amountToBurn = 2n
+            console.log({balancePreBurn})
+            const walletChainId =  sender.getChainId().toBigInt();
+            const chainIdAztecFromContract =  hre.ethers.toBigInt(await AztecWarpToad.methods.get_chain_id().simulate())
+            // chain is same as hardhat evm?? thats bad lmao
+
+            console.log({walletChainId, chainIdAztecFromContract})
+            expect(chainIdAztecFromContract).to.equal(walletChainId);
+
+            const commitmentPreImg = {
+                amount: amountToBurn,
+                destination_chain_id: sender.getChainId(),
+                secret: 1234n,
+                nullifier_preimg: 4321n,
+    
+            }
+            await AztecWarpToad.methods.burn(commitmentPreImg.amount, commitmentPreImg.destination_chain_id, commitmentPreImg.secret, commitmentPreImg.nullifier_preimg, sender.getAddress()).send().wait()
+
+            const balancePostSend = await AztecWarpToad.methods.get_balance(sender.getAddress()).simulate()
+            console.log({balancePostSend})
+            expect(balancePostSend).to.equal(balancePreBurn-amountToBurn);
+
+            console.log("mintinnnggg")
+            await AztecWarpToad.methods.mint_local(commitmentPreImg.amount, commitmentPreImg.destination_chain_id, commitmentPreImg.secret, commitmentPreImg.nullifier_preimg,recipient.getAddress()).send().wait()
+            const balanceRecipient = await AztecWarpToad.methods.get_balance(recipient.getAddress()).simulate()
+
+            expect(balanceRecipient).to.equal(commitmentPreImg.amount);
         });
     });
 });

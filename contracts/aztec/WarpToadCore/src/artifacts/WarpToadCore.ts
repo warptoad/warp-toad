@@ -116,12 +116,27 @@ export class WarpToadCoreContract extends ContractBase {
   }
   
 
-  public static get storage(): ContractStorageLayout<'balances'> {
+  public static get storage(): ContractStorageLayout<'giga_root' | 'giga_root_history' | 'giga_root_history_size' | 'giga_root_history_index' | 'L1_contract' | 'balances'> {
       return {
-        balances: {
+        giga_root: {
       slot: new Fr(1n),
+    },
+giga_root_history: {
+      slot: new Fr(2n),
+    },
+giga_root_history_size: {
+      slot: new Fr(3n),
+    },
+giga_root_history_index: {
+      slot: new Fr(5n),
+    },
+L1_contract: {
+      slot: new Fr(6n),
+    },
+balances: {
+      slot: new Fr(7n),
     }
-      } as ContractStorageLayout<'balances'>;
+      } as ContractStorageLayout<'giga_root' | 'giga_root_history' | 'giga_root_history_size' | 'giga_root_history_index' | 'L1_contract' | 'balances'>;
     }
     
 
@@ -137,17 +152,41 @@ export class WarpToadCoreContract extends ContractBase {
   /** Type-safe wrappers for the public methods exposed by the contract. */
   public declare methods: {
     
+    /** burn(amount: integer, destination_chain_id: field, secret: field, nullifier_preimg: field, sender: struct) */
+    burn: ((amount: (bigint | number), destination_chain_id: FieldLike, secret: FieldLike, nullifier_preimg: FieldLike, sender: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** constructor(initial_supply: integer, owner: struct) */
     constructor: ((initial_supply: (bigint | number), owner: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** get_balance(owner: struct) */
     get_balance: ((owner: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** get_chain_id() */
+    get_chain_id: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** get_giga_root() */
+    get_giga_root: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** get_note_proof(block_number: integer, note_hash: field) */
+    get_note_proof: ((block_number: (bigint | number), note_hash: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** mint_for_testing(amount: integer, recipient: struct) */
+    mint_for_testing: ((amount: (bigint | number), recipient: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** mint_giga_root(amount: integer) */
+    mint_giga_root: ((amount: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** mint_local(amount: integer, destination_chain_id: field, secret: field, nullifier_preimg: field, recipient: struct) */
+    mint_local: ((amount: (bigint | number), destination_chain_id: FieldLike, secret: FieldLike, nullifier_preimg: FieldLike, recipient: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** process_log(log_ciphertext: struct, tx_hash: field, unique_note_hashes_in_tx: struct, first_nullifier_in_tx: field, recipient: struct) */
     process_log: ((log_ciphertext: { storage: FieldLike[], len: (bigint | number) }, tx_hash: FieldLike, unique_note_hashes_in_tx: { storage: FieldLike[], len: (bigint | number) }, first_nullifier_in_tx: FieldLike, recipient: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** public_dispatch(selector: field) */
     public_dispatch: ((selector: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** receive_giga_root(giga_root: field) */
+    receive_giga_root: ((giga_root: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** sync_notes() */
     sync_notes: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;

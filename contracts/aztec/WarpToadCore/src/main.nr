@@ -9,17 +9,33 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract WarpToadCore {
     use dep::easy_private_state::EasyPrivateUint;
-    use aztec::macros::{functions::{initializer, private, public, view}, storage::storage};
-    use aztec::prelude::{AztecAddress, Map, PublicImmutable, PublicMutable};
-    // use std::hash::poseidon;
     use dep::value_note::balance_utils;
-    // use aztec::oracle::get_membership_witness::{
-    //     get_note_hash_membership_witness, MembershipWitness,
-    // };
-    // use aztec::protocol_types::constants::{ARCHIVE_HEIGHT, NOTE_HASH_TREE_HEIGHT};
+    use aztec::macros::{functions::{initializer, private, public, view}, storage::storage};
+    use aztec::oracle::get_membership_witness::{
+        get_note_hash_membership_witness, MembershipWitness,
+    };
+    use aztec::prelude::{AztecAddress, EthAddress, Map, PublicImmutable, PublicMutable};
+    use aztec::protocol_types::constants::NOTE_HASH_TREE_HEIGHT;
+    use std::hash::poseidon;
+
+    use aztec::history::public_storage::PublicStorageHistoricalRead;
+
+    use dep::aztec::{macros::notes::{note, custom_note}, protocol_types::{ traits::Serialize}};
+    use dep::aztec::note::{note_emission::NoteEmission,};
+
+    
+
 
     #[storage]
     struct Storage<Context> {
+
+        giga_root: PublicMutable<Field, Context>,
+        giga_root_history: Map<Field, PublicMutable<bool, Context>, Context>,
+        giga_root_history_size: PublicImmutable<u32, Context>,
+        giga_root_history_index: PublicMutable<u32, Context>,
+
+        L1_contract: PublicMutable<EthAddress, Context>,
+
         balances: Map<AztecAddress, EasyPrivateUint<Context>, Context>,
     }
 
@@ -29,17 +45,20 @@ pub contract WarpToadCore {
     #[initializer]
     #[private]
     fn constructor(initial_supply: u64, owner: AztecAddress) {
-        let balances = storage.balances;
-
-        balances.at(owner).add(initial_supply, owner, context.msg_sender());
+        storage.balances.at(owner).add(initial_supply, owner, context.msg_sender());
     }
-    
-    // #[private]
-    // fn mint(amount: u64, owner: AztecAddress) {
-    //     let balances = storage.balances;
 
-    //     balances.at(owner).add(amount, owner, context.msg_sender());
-    // }
+    // @TODO @WARNING remove this in prod!!
+    #[private]
+    fn mint_for_testing(amount: u64, recipient: AztecAddress) {
+        storage.balances.at(recipient).add(amount, recipient, context.msg_sender());
+    }
+
+    #[public]
+    fn receive_giga_root(giga_root: Field) {
+        // TODO make only the bridge able to use this function. And also make sure the contract that send the bridge transfer is L1_contract
+        storage.giga_root.write(giga_root);
+    }
 
     // Transfers `amount` of tokens from `sender` to a `recipient`.
     #[private]
@@ -50,20 +69,75 @@ pub contract WarpToadCore {
         balances.at(recipient).add(amount, recipient, sender);
     }
 
+    // we can split up mint types based on where the burn happened to make users staying on aztec have faster proof time.
+    // you can only do this on aztec because on aztec everything is private. So others don't see what function you called!!! :D
+    #[private]
+    fn mint_giga_root(amount: u64) {
+        let chain_id = context.chain_id();
+
+        let giga_root_slot: Field =
+            aztec::state_vars::storage::Storage::get_storage_slot(storage.giga_root);
+        let contract_address = context.this_address();
+        let giga_root = context.historical_header.public_storage_historical_read(
+            giga_root_slot,
+            contract_address,
+        );
+
+        // TODO check if commitment (from the other chain) is in that root
+    }
+
+    #[private]
+    fn mint_local(amount: u64, destination_chain_id: Field, secret: Field, nullifier_preimg: Field, recipient: AztecAddress) {
+        let chain_id = context.chain_id();
+        let pre_commitment: Field = poseidon::bn254::hash_3([nullifier_preimg, secret, chain_id]);
+        let commitment: Field = poseidon::bn254::hash_2([amount as Field, pre_commitment]);
+        let nullifier: Field = poseidon::bn254::hash_1([nullifier_preimg]);
+
+        // Does this assert that the commitment is in the chain??
+        context.push_note_hash_read_request(commitment);
+
+        // TODO pushing the same nullifier twice is impossible right??
+        context.push_nullifier(nullifier);
+
+        storage.balances.at(recipient).add(amount, recipient, recipient);
+    }   
+
+
+    // TODO figure out how to reuse the note interfaces and macros of aztec. This can probably help the PXE retrieve notes for us? 
+    // this looks like its unsafe? can anyone pretend to be a sender they are not?
+    #[private]
+    fn burn(amount: u64, destination_chain_id: Field, secret: Field, nullifier_preimg: Field, sender: AztecAddress) {
+        // burn it!!!
+        storage.balances.at(sender).sub(amount, sender, sender);
+
+        // add the commitment
+        let pre_commitment: Field = poseidon::bn254::hash_3([nullifier_preimg, secret, destination_chain_id]);
+        let commitment: Field = poseidon::bn254::hash_2([amount as Field, pre_commitment]);
+        context.push_note_hash(commitment);
+    }
+
     // Helper function to get the balance of a user.
     // #[utility] //not in this version??
     unconstrained fn get_balance(owner: AztecAddress) -> pub Field {
-        let balances = storage.balances;
-
-        // Return the sum of all notes in the set.
-        balance_utils::get_balance(balances.at(owner).set)
+        balance_utils::get_balance(storage.balances.at(owner).set)
     }
-    // #[view]
-    // unconstrained fn get_note_proof(
-    //     block_number: u32,
-    //     note_hash: Field,
-    // ) -> pub MembershipWitness<NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT + 1> {
-    //     get_note_hash_membership_witness(block_number, note_hash)
-    // }
 
+    // #[utility] //not in this version??
+    unconstrained fn get_giga_root() -> pub Field {
+        storage.giga_root.read()
+    }
+
+    // i think this allows us to do a eth_getProof like thing for a commitment. Kinda cringe that i cant just call a api in js like on ethereum? Maybe you can?
+    #[view]
+    unconstrained fn get_note_proof(
+        block_number: u32,
+        note_hash: Field,
+    ) -> pub MembershipWitness<NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT + 1> {
+        get_note_hash_membership_witness(block_number, note_hash)
+    }
+
+    #[view]
+    unconstrained fn get_chain_id() -> pub Field {
+        context.chain_id()
+    }
 }
