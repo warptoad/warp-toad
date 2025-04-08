@@ -3,79 +3,67 @@ use aztec::macros::aztec;
 // from
 // https://github.com/privacy-scaling-explorations/zk-kit.noir/blob/fa5fdb0f0d0867e367388f85079db3b1f9a47590/packages/merkle-trees/src/merkle.nr#L3
 
+// token functionality based of: https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0/noir-projects/noir-contracts/contracts/easy_private_token_contract/src/main.nr
+// TODO upgrade to more fleshed out version at: https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0/noir-projects/noir-contracts/contracts/token_contract/src/main.nr
 
 #[aztec]
 pub contract WarpToadCore {
-    use std::hash::poseidon;
-    use aztec::macros::{functions::{initializer, public}, storage::storage}; 
-    use aztec::prelude::{PublicMutable,PublicImmutable, Map}; 
-    //use trees::merkle::MerkleTree::{calculate_two_roots};
-    // use trees::merkle::{MerkleTree};
-    // use trees::types::{Calculator, MembershipProver, Modifier, MT_Creator};
-    //  use aztec::protocol_types::traits::{FromField, ToField}; // utils
-
-    // pub struct MerkleTree<T> {
-    //     pub root: T,
-    //     pub hasher: fn([T; 2]) -> T,
-    // }
+    use dep::easy_private_state::EasyPrivateUint;
+    use aztec::macros::{functions::{initializer, private, public, view}, storage::storage};
+    use aztec::prelude::{AztecAddress, Map, PublicImmutable, PublicMutable};
+    // use std::hash::poseidon;
+    use dep::value_note::balance_utils;
+    // use aztec::oracle::get_membership_witness::{
+    //     get_note_hash_membership_witness, MembershipWitness,
+    // };
+    // use aztec::protocol_types::constants::{ARCHIVE_HEIGHT, NOTE_HASH_TREE_HEIGHT};
 
     #[storage]
     struct Storage<Context> {
-        maxTreeDepth: PublicImmutable<u32, Context>,
-    
-        localRoot: PublicMutable<Field, Context>,
-        lastLeafIndex: PublicMutable<u128, Context>,
-
-        leaves: Map<Field, PublicMutable<Field, Context>, Context>,             // mapping(index -> hash)          
-        lastSubtrees:  Map<u32, PublicMutable<Field, Context>, Context>,        // mapping(index -> subTreeHash)  
-
-        zeroes:   Map<u32, PublicMutable<Field, Context>, Context>,    
+        balances: Map<AztecAddress, EasyPrivateUint<Context>, Context>,
     }
 
-    // constructor bassically
+    /**
+     * initialize the contract's initial state variables.
+     */
     #[initializer]
-    #[public]
-    // We can name our initializer anything we want as long as it's marked as aztec(initializer)
-    fn initialize(_maxTreeDepth: u32) {
-        storage.maxTreeDepth.initialize(_maxTreeDepth);
-        storage.lastLeafIndex.write(0); // idk if you need to do this
-    }   
+    #[private]
+    fn constructor(initial_supply: u64, owner: AztecAddress) {
+        let balances = storage.balances;
 
-    unconstrained fn get_root() -> pub Field {
-        let localRoot = storage.localRoot;
-        localRoot.read()
+        balances.at(owner).add(initial_supply, owner, context.msg_sender());
+    }
+    
+    // #[private]
+    // fn mint(amount: u64, owner: AztecAddress) {
+    //     let balances = storage.balances;
+
+    //     balances.at(owner).add(amount, owner, context.msg_sender());
+    // }
+
+    // Transfers `amount` of tokens from `sender` to a `recipient`.
+    #[private]
+    fn transfer(amount: u64, sender: AztecAddress, recipient: AztecAddress) {
+        let balances = storage.balances;
+
+        balances.at(sender).sub(amount, sender, sender);
+        balances.at(recipient).add(amount, recipient, sender);
     }
 
+    // Helper function to get the balance of a user.
+    // #[utility] //not in this version??
+    unconstrained fn get_balance(owner: AztecAddress) -> pub Field {
+        let balances = storage.balances;
 
-
-    // we need to push the commitments to aztecs own commitment tree.
-    // we're at the gas limit at depth 4. absolute cringe!
-    // so we dont have to fuck with enque to public which leaks information
-    // also saves on cost vs making incontract merkle tree
-    // L1 contract would just get the aztec commitment root somehow and treat that as a localRoot
-    #[public] //@TODO make sure only this contract can call this
-    fn _insertLeaf(_leaf: Field) {
-        // based of: https://github.com/privacy-scaling-explorations/zk-kit.solidity/blob/309b8d8d7d4f553ef44e3aa672040a3698e5179c/packages/imt/contracts/InternalBinaryIMT.sol#L142
-        let depth: u32 = storage.maxTreeDepth.read();
-
-        let mut index:u128 = storage.lastLeafIndex.read();
-        storage.lastLeafIndex.write(index+1);
-        storage.leaves.at(index as Field).write(_leaf);
-
-        let mut hash: Field = _leaf;  
-
-        for i in 0..depth {
-            if(index%2==0) {
-                hash = poseidon::bn254::hash_2([hash, storage.zeroes.at(i).read()]);
-                storage.lastSubtrees.at(i).write(hash)
-            } else {
-                hash = poseidon::bn254::hash_2([storage.lastSubtrees.at(i).read(), hash]);
-            }
-            index /= 2; 
-        };
-
-        storage.localRoot.write(hash);
+        // Return the sum of all notes in the set.
+        balance_utils::get_balance(balances.at(owner).set)
     }
-
+    // #[view]
+    // unconstrained fn get_note_proof(
+    //     block_number: u32,
+    //     note_hash: Field,
+    // ) -> pub MembershipWitness<NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT + 1> {
+    //     get_note_hash_membership_witness(block_number, note_hash)
+    // }
 
 }

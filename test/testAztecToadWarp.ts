@@ -4,12 +4,13 @@ import hre from "hardhat"
 import { expect } from "chai";
 import { time, loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers.js";
 
-// import { WarpToadCoreContractArtifact } from '../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
-import WarpToadCoreContractArtifactJson from '../contracts/aztec/WarpToadCore/target/WarpToadCore-WarpToadCore.json'
+//@ts-ignore
+import { WarpToadCoreContractArtifact } from '../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
+// import WarpToadCoreContractArtifactJson from '../contracts/aztec/WarpToadCore/target/WarpToadCore-WarpToadCore.json'
 
 //@ts-ignore
 import { createPXEClient, waitForPXE, Contract, ContractArtifact,loadContractArtifact, NoirCompiledContract } from "@aztec/aztec.js"
-export const WarpToadCoreContractArtifact = loadContractArtifact(WarpToadCoreContractArtifactJson as NoirCompiledContract);
+// export const WarpToadCoreContractArtifact = loadContractArtifact(WarpToadCoreContractArtifactJson as NoirCompiledContract);
 
 
 //@ts-ignore
@@ -40,18 +41,12 @@ describe("L1WarpToad", function () {
         //const [owner, otherAccount] = await hre.ethers.getSigners();
         const nativeToken = await hre.ethers.deployContract("USDcoin", [], { value: 0n, libraries: {} })
 
-        const maxTreeDepth = 4n // 32n is too big for L2gas limit anything above 4n is too high
-        // const L1WarpToad = await hre.ethers.deployContract(
-        //     "L1WarpToad", [maxTreeDepth,gigaBridge,nativeToken.target,wrappedTokenSymbol,wrappedTokenName], {
-        //     value: 0n,
-        //     libraries: {
-        //         LeanIMT: LeanIMTLib,
-        //         PoseidonT3: PoseidonT3Lib 
-        //     }
-        // });
+        const initialSupply = 100n
         const { wallets } = await connectPXE();
         const deployerWallet = wallets[0]
-        const AztecWarpToad = await Contract.deploy(deployerWallet, WarpToadCoreContractArtifact, [maxTreeDepth])
+        const constructorArgs = [initialSupply, deployerWallet.getAddress().toString()]
+        console.log({constructorArgs})
+        const AztecWarpToad = await Contract.deploy(deployerWallet, WarpToadCoreContractArtifact, constructorArgs)
             .send()
             .deployed();
 
@@ -67,22 +62,21 @@ describe("L1WarpToad", function () {
 
     });
 
-    describe("Burn", function () {
-        it("Should burn", async function () {
+    describe("transfet", function () {
+        it("Should do a private transfer", async function () {
 
 
-            const { AztecWarpToad } = await deployWarpToad();
+            const { AztecWarpToad, wallets } = await deployWarpToad();
 
-            // const AztecWarpToadReloaded = await Contract.at(AztecWarpToad.address, WarpToadCoreContractArtifact, wallets[0]);
-            // console.log({AztecWarpToadReloaded})
+            const balancePreSend = await AztecWarpToad.methods.get_balance(wallets[0].getAddress()).simulate()
+            const amountToSend = 1n
+            console.log({balancePreSend})
+            await AztecWarpToad.methods.transfer(1n,wallets[0].getAddress(), wallets[1].getAddress()).send().wait()
 
-            const rootPreBurn = await AztecWarpToad.methods.get_root().simulate();
-            await AztecWarpToad.methods._insertLeaf(1234n).send().wait();
-            const rootPostBurn =  await AztecWarpToad.methods.get_root().simulate();
-            console.log({rootPostBurn, rootPreBurn})
+            const balancePostSend = await AztecWarpToad.methods.get_balance(wallets[0].getAddress()).simulate()
+            console.log({balancePostSend})
 
-
-            expect(rootPreBurn).not.equal(rootPostBurn);
+            expect(balancePostSend).to.equal(balancePreSend-amountToSend);
         });
     });
 });
