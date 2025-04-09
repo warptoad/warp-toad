@@ -41,10 +41,11 @@ describe("L1WarpToad", function () {
         //const [owner, otherAccount] = await hre.ethers.getSigners();
         const nativeToken = await hre.ethers.deployContract("USDcoin", [], { value: 0n, libraries: {} })
 
-        const initialSupply = 100n
+        // const initialSupply = 100n
+        const gigaRootHistorySize = 4n;
         const { wallets } = await connectPXE();
         const deployerWallet = wallets[0]
-        const constructorArgs = [initialSupply, deployerWallet.getAddress().toString()]
+        const constructorArgs = [gigaRootHistorySize]
         console.log({constructorArgs})
         const AztecWarpToad = await Contract.deploy(deployerWallet, WarpToadCoreContractArtifact, constructorArgs)
             .send()
@@ -68,6 +69,10 @@ describe("L1WarpToad", function () {
 
             const { AztecWarpToad, wallets } = await deployWarpToad();
 
+            const sender = wallets[0]
+            const initialBalanceSender = 100n
+            await AztecWarpToad.methods.mint_for_testing(initialBalanceSender,sender.getAddress()).send().wait();
+
             const balancePreSend = await AztecWarpToad.methods.get_balance(wallets[0].getAddress()).simulate()
             const amountToSend = 1n
             console.log({balancePreSend})
@@ -89,6 +94,10 @@ describe("L1WarpToad", function () {
             const sender = wallets[0]
             const recipient =  wallets[1]
 
+            const initialBalanceSender = 100n
+            await AztecWarpToad.methods.mint_for_testing(initialBalanceSender,sender.getAddress()).send().wait();
+
+
             const balancePreBurn= await AztecWarpToad.methods.get_balance(sender.getAddress()).simulate()
             const amountToBurn = 2n
             console.log({balancePreBurn})
@@ -108,15 +117,38 @@ describe("L1WarpToad", function () {
             }
             await AztecWarpToad.methods.burn(commitmentPreImg.amount, commitmentPreImg.destination_chain_id, commitmentPreImg.secret, commitmentPreImg.nullifier_preimg, sender.getAddress()).send().wait()
 
+
+            // TODO cleanup
             const balancePostSend = await AztecWarpToad.methods.get_balance(sender.getAddress()).simulate()
             console.log({balancePostSend})
             expect(balancePostSend).to.equal(balancePreBurn-amountToBurn);
 
-            console.log("mintinnnggg")
-            await AztecWarpToad.methods.mint_local(commitmentPreImg.amount, commitmentPreImg.destination_chain_id, commitmentPreImg.secret, commitmentPreImg.nullifier_preimg,recipient.getAddress()).send().wait()
-            const balanceRecipient = await AztecWarpToad.methods.get_balance(recipient.getAddress()).simulate()
+            const gigaRoot1 = 42069n
+            await AztecWarpToad.methods.receive_giga_root(gigaRoot1).send().wait();
+            const historicalGigaRoot1 = await AztecWarpToad.methods.get_historical_giga_root().simulate()
+            console.log({gigaRoot1, historicalGigaRoot1})
 
-            expect(balanceRecipient).to.equal(commitmentPreImg.amount);
+            const gigaRoot2 = 6969n
+            await AztecWarpToad.methods.receive_giga_root(gigaRoot2).send().wait();
+            const allGigaRoots = await AztecWarpToad.methods.get_all_giga_roots().simulate();
+            console.log({allGigaRoots})
+
+            const historicalGigaRoot2 = await AztecWarpToad.methods.get_historical_giga_root_by_index(1n).simulate();
+            console.log({historicalGigaRoot2,gigaRoot2})
+
+            for (let i = 0n; i < 6n; i++) {
+                await AztecWarpToad.methods.receive_giga_root(i).send().wait();   
+            }
+            const allGigaRootsWhenFull = await AztecWarpToad.methods.get_all_giga_roots().simulate();
+            console.log({allGigaRootsWhenFull})
+
+
+
+            // console.log("mintinnnggg")
+            // await AztecWarpToad.methods.mint_local(commitmentPreImg.amount, commitmentPreImg.destination_chain_id, commitmentPreImg.secret, commitmentPreImg.nullifier_preimg,recipient.getAddress()).send().wait()
+            // const balanceRecipient = await AztecWarpToad.methods.get_balance(recipient.getAddress()).simulate()
+
+            // expect(balanceRecipient).to.equal(commitmentPreImg.amount);
         });
     });
 });

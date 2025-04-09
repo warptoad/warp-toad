@@ -71,14 +71,14 @@ export class WarpToadCoreContract extends ContractBase {
   /**
    * Creates a tx to deploy a new instance of this contract.
    */
-  public static deploy(wallet: Wallet, initial_supply: (bigint | number), owner: AztecAddressLike) {
+  public static deploy(wallet: Wallet, giga_root_history_size: (bigint | number)) {
     return new DeployMethod<WarpToadCoreContract>(PublicKeys.default(), wallet, WarpToadCoreContractArtifact, WarpToadCoreContract.at, Array.from(arguments).slice(1));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public keys hash to derive the address.
    */
-  public static deployWithPublicKeys(publicKeys: PublicKeys, wallet: Wallet, initial_supply: (bigint | number), owner: AztecAddressLike) {
+  public static deployWithPublicKeys(publicKeys: PublicKeys, wallet: Wallet, giga_root_history_size: (bigint | number)) {
     return new DeployMethod<WarpToadCoreContract>(publicKeys, wallet, WarpToadCoreContractArtifact, WarpToadCoreContract.at, Array.from(arguments).slice(2));
   }
 
@@ -155,8 +155,11 @@ balances: {
     /** burn(amount: integer, destination_chain_id: field, secret: field, nullifier_preimg: field, sender: struct) */
     burn: ((amount: (bigint | number), destination_chain_id: FieldLike, secret: FieldLike, nullifier_preimg: FieldLike, sender: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** constructor(initial_supply: integer, owner: struct) */
-    constructor: ((initial_supply: (bigint | number), owner: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** constructor(giga_root_history_size: integer) */
+    constructor: ((giga_root_history_size: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** get_all_giga_roots() */
+    get_all_giga_roots: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** get_balance(owner: struct) */
     get_balance: ((owner: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -166,6 +169,12 @@ balances: {
 
     /** get_giga_root() */
     get_giga_root: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** get_historical_giga_root() */
+    get_historical_giga_root: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** get_historical_giga_root_by_index(index: integer) */
+    get_historical_giga_root_by_index: ((index: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** get_note_proof(block_number: integer, note_hash: field) */
     get_note_proof: ((block_number: (bigint | number), note_hash: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;

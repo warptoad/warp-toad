@@ -20,17 +20,17 @@ pub contract WarpToadCore {
 
     use aztec::history::public_storage::PublicStorageHistoricalRead;
 
-    use dep::aztec::{macros::notes::{note, custom_note}, protocol_types::{ traits::Serialize}};
-    use dep::aztec::note::{note_emission::NoteEmission,};
-
+    use dep::aztec::{macros::notes::{custom_note, note}, protocol_types::traits::Serialize};
+    use dep::aztec::note::note_emission::NoteEmission;
     
-
+    // arbitrary number because noir didn't like it when i returned a slice at get_all_giga_roots
+    global max_history_size: u32 = 4096;
 
     #[storage]
     struct Storage<Context> {
 
         giga_root: PublicMutable<Field, Context>,
-        giga_root_history: Map<Field, PublicMutable<bool, Context>, Context>,
+        giga_root_history: Map<u32, PublicMutable<Field, Context>, Context>,
         giga_root_history_size: PublicImmutable<u32, Context>,
         giga_root_history_index: PublicMutable<u32, Context>,
 
@@ -43,9 +43,11 @@ pub contract WarpToadCore {
      * initialize the contract's initial state variables.
      */
     #[initializer]
-    #[private]
-    fn constructor(initial_supply: u64, owner: AztecAddress) {
-        storage.balances.at(owner).add(initial_supply, owner, context.msg_sender());
+    #[public]
+    fn constructor(giga_root_history_size: u32) {
+        // TODO cleanup
+        assert(max_history_size > giga_root_history_size, "wow too big!");
+        storage.giga_root_history_size.initialize(giga_root_history_size);
     }
 
     // @TODO @WARNING remove this in prod!!
@@ -58,6 +60,11 @@ pub contract WarpToadCore {
     fn receive_giga_root(giga_root: Field) {
         // TODO make only the bridge able to use this function. And also make sure the contract that send the bridge transfer is L1_contract
         storage.giga_root.write(giga_root);
+        let current_index: u32 = storage.giga_root_history_index.read();
+        storage.giga_root_history.at(current_index).write(giga_root);
+
+        let next_index: u32 = (current_index + 1) % storage.giga_root_history_size.read();
+        storage.giga_root_history_index.write(next_index);
     }
 
     // Transfers `amount` of tokens from `sender` to a `recipient`.
@@ -86,34 +93,47 @@ pub contract WarpToadCore {
         // TODO check if commitment (from the other chain) is in that root
     }
 
+    // TODO figure out how to reuse the note interfaces and macros of aztec. This can probably help the PXE retrieve notes for us?
+    // this looks like its unsafe? can anyone pretend to be a sender they are not?
     #[private]
-    fn mint_local(amount: u64, destination_chain_id: Field, secret: Field, nullifier_preimg: Field, recipient: AztecAddress) {
+    fn burn(
+        amount: u64,
+        destination_chain_id: Field,
+        secret: Field,
+        nullifier_preimg: Field,
+        sender: AztecAddress,
+    ) {
+        // burn it!!!
+        storage.balances.at(sender).sub(amount, sender, sender);
+
+        // add the commitment
+        let pre_commitment: Field =
+            poseidon::bn254::hash_3([nullifier_preimg, secret, destination_chain_id]);
+        let commitment: Field = poseidon::bn254::hash_2([amount as Field, pre_commitment]);
+        context.push_note_hash(commitment);
+    }
+
+    #[private]
+    fn mint_local(
+        amount: u64,
+        destination_chain_id: Field,
+        secret: Field,
+        nullifier_preimg: Field,
+        recipient: AztecAddress,
+    ) {
         let chain_id = context.chain_id();
         let pre_commitment: Field = poseidon::bn254::hash_3([nullifier_preimg, secret, chain_id]);
         let commitment: Field = poseidon::bn254::hash_2([amount as Field, pre_commitment]);
         let nullifier: Field = poseidon::bn254::hash_1([nullifier_preimg]);
 
-        // Does this assert that the commitment is in the chain??
-        context.push_note_hash_read_request(commitment);
+        // // Does this assert that the commitment is in the chain??
+        // //context.push_note_hash_read_request(commitment);
+        // context.historical_header.prove_note_inclusion(retrieved_note, test::NOTE_STORAGE_SLOT);
 
-        // TODO pushing the same nullifier twice is impossible right??
-        context.push_nullifier(nullifier);
+        // // TODO pushing the same nullifier twice is impossible right??
+        // context.push_nullifier(nullifier);
 
-        storage.balances.at(recipient).add(amount, recipient, recipient);
-    }   
-
-
-    // TODO figure out how to reuse the note interfaces and macros of aztec. This can probably help the PXE retrieve notes for us? 
-    // this looks like its unsafe? can anyone pretend to be a sender they are not?
-    #[private]
-    fn burn(amount: u64, destination_chain_id: Field, secret: Field, nullifier_preimg: Field, sender: AztecAddress) {
-        // burn it!!!
-        storage.balances.at(sender).sub(amount, sender, sender);
-
-        // add the commitment
-        let pre_commitment: Field = poseidon::bn254::hash_3([nullifier_preimg, secret, destination_chain_id]);
-        let commitment: Field = poseidon::bn254::hash_2([amount as Field, pre_commitment]);
-        context.push_note_hash(commitment);
+        // storage.balances.at(recipient).add(amount, recipient, recipient);']
     }
 
     // Helper function to get the balance of a user.
@@ -125,6 +145,33 @@ pub contract WarpToadCore {
     // #[utility] //not in this version??
     unconstrained fn get_giga_root() -> pub Field {
         storage.giga_root.read()
+    }
+
+    unconstrained fn get_all_giga_roots() -> pub [Field; max_history_size] {
+        let mut all_roots: [Field; max_history_size] = [0;max_history_size];
+        let amount_of_roots = storage.giga_root_history_size.read();
+        for i in 0..amount_of_roots {
+            let root: Field = storage.giga_root_history.at(i).read();
+            all_roots[i] = root;
+        }
+        all_roots
+    }
+
+    // fuck this this shit is gay we can just pick a block number instead of keeping a whole ass array of historical giga_roots
+    #[private]
+    fn get_historical_giga_root() -> pub Field {
+        let giga_root_slot: Field = aztec::state_vars::storage::Storage::get_storage_slot(storage.giga_root);
+        let contract_address = context.this_address();
+        let giga_root = context.historical_header.public_storage_historical_read(giga_root_slot,contract_address);
+        giga_root
+    }
+
+        #[private]
+    fn get_historical_giga_root_by_index(index: u32) -> pub Field {
+        let giga_root_slot: Field = aztec::state_vars::storage::Storage::get_storage_slot(storage.giga_root_history.at(index));
+        let contract_address = context.this_address();
+        let giga_root = context.historical_header.public_storage_historical_read(giga_root_slot,contract_address);
+        giga_root
     }
 
     // i think this allows us to do a eth_getProof like thing for a commitment. Kinda cringe that i cant just call a api in js like on ethereum? Maybe you can?
