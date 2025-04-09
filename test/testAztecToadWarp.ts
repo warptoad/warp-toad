@@ -21,13 +21,13 @@ const { PXE_URL = 'http://localhost:8080' } = process.env;
 
 async function connectPXE() {
     console.log("creating PXE client")
-    const pxe = createPXEClient(PXE_URL);
+    const PXE = createPXEClient(PXE_URL);
     console.log("waiting on PXE client", PXE_URL)
-    await waitForPXE(pxe);
+    await waitForPXE(PXE);
 
     console.log("getting test accounts")
-    const wallets = await getInitialTestAccountsWallets(pxe);
-    return { wallets, pxe }
+    const wallets = await getInitialTestAccountsWallets(PXE);
+    return { wallets, PXE }
 }
 
 
@@ -43,7 +43,7 @@ describe("L1WarpToad", function () {
 
         // const initialSupply = 100n
         const gigaRootHistorySize = 4n;
-        const { wallets } = await connectPXE();
+        const { wallets, PXE } = await connectPXE();
         const deployerWallet = wallets[0]
         const constructorArgs = [gigaRootHistorySize]
         console.log({constructorArgs})
@@ -51,7 +51,7 @@ describe("L1WarpToad", function () {
             .send()
             .deployed();
 
-        return { AztecWarpToad, nativeToken, wallets };
+        return { AztecWarpToad, nativeToken, wallets, PXE };
     }
 
     describe("Deployment", function () {
@@ -89,7 +89,7 @@ describe("L1WarpToad", function () {
         it("Should burn and mint", async function () {
 
 
-            const { AztecWarpToad, wallets } = await deployWarpToad();
+            const { AztecWarpToad, wallets, PXE } = await deployWarpToad();
 
             const sender = wallets[0]
             const recipient =  wallets[1]
@@ -144,11 +144,14 @@ describe("L1WarpToad", function () {
 
 
 
-            // console.log("mintinnnggg")
-            // await AztecWarpToad.methods.mint_local(commitmentPreImg.amount, commitmentPreImg.destination_chain_id, commitmentPreImg.secret, commitmentPreImg.nullifier_preimg,recipient.getAddress()).send().wait()
-            // const balanceRecipient = await AztecWarpToad.methods.get_balance(recipient.getAddress()).simulate()
+            console.log("mintinnnggg")
+            const commitmentReproduced =await  AztecWarpToad.methods.hash_commit(commitmentPreImg.amount, commitmentPreImg.destination_chain_id, commitmentPreImg.secret, commitmentPreImg.nullifier_preimg).simulate()
+            const blockNumber = await PXE.getBlockNumber()
+            console.log({commitmentReproduced})
+            await AztecWarpToad.methods.mint_local(commitmentPreImg.amount, commitmentPreImg.destination_chain_id, commitmentPreImg.secret, commitmentPreImg.nullifier_preimg,recipient.getAddress(),blockNumber).send().wait()
+            const balanceRecipient = await AztecWarpToad.methods.get_balance(recipient.getAddress()).simulate()
 
-            // expect(balanceRecipient).to.equal(commitmentPreImg.amount);
+            expect(balanceRecipient).to.equal(commitmentPreImg.amount);
         });
     });
 });

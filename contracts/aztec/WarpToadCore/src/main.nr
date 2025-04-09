@@ -1,5 +1,5 @@
 use aztec::macros::aztec;
-
+mod types;
 // from
 // https://github.com/privacy-scaling-explorations/zk-kit.noir/blob/fa5fdb0f0d0867e367388f85079db3b1f9a47590/packages/merkle-trees/src/merkle.nr#L3
 
@@ -14,14 +14,19 @@ pub contract WarpToadCore {
     use aztec::oracle::get_membership_witness::{
         get_note_hash_membership_witness, MembershipWitness,
     };
-    use aztec::prelude::{AztecAddress, EthAddress, Map, PublicImmutable, PublicMutable};
+
+    use aztec::prelude::{AztecAddress, EthAddress, Map, PublicImmutable, PublicMutable,PrivateSet};
     use aztec::protocol_types::constants::NOTE_HASH_TREE_HEIGHT;
     use std::hash::poseidon;
 
     use aztec::history::public_storage::PublicStorageHistoricalRead;
 
-    use dep::aztec::{macros::notes::{custom_note, note}, protocol_types::traits::Serialize};
-    use dep::aztec::note::note_emission::NoteEmission;
+    use dep::aztec::{macros::notes::{ note}};
+    use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
+
+
+
+    // use crate::types::WarpToadNote::{WarpToadNote};
     
     // arbitrary number because noir didn't like it when i returned a slice at get_all_giga_roots
     global max_history_size: u32 = 4096;
@@ -37,6 +42,8 @@ pub contract WarpToadCore {
         L1_contract: PublicMutable<EthAddress, Context>,
 
         balances: Map<AztecAddress, EasyPrivateUint<Context>, Context>,
+        
+        commitments: PrivateSet<WarpToadNote, Context>
     }
 
     /**
@@ -107,10 +114,21 @@ pub contract WarpToadCore {
         storage.balances.at(sender).sub(amount, sender, sender);
 
         // add the commitment
-        let pre_commitment: Field =
-            poseidon::bn254::hash_3([nullifier_preimg, secret, destination_chain_id]);
+        let pre_commitment: Field = poseidon::bn254::hash_3([nullifier_preimg, secret, destination_chain_id]);
         let commitment: Field = poseidon::bn254::hash_2([amount as Field, pre_commitment]);
-        context.push_note_hash(commitment);
+        context.push_note_hash(commitment); // TODO this doesnt actually put it in the fucking tree???
+    }
+
+    #[private]
+    fn hash_commit(
+        amount: u64,
+        destination_chain_id: Field,
+        secret: Field,
+        nullifier_preimg: Field,
+    ) -> Field {
+        let pre_commitment: Field = poseidon::bn254::hash_3([nullifier_preimg, secret, destination_chain_id]);
+        let commitment: Field = poseidon::bn254::hash_2([amount as Field, pre_commitment]);
+        commitment
     }
 
     #[private]
@@ -120,20 +138,31 @@ pub contract WarpToadCore {
         secret: Field,
         nullifier_preimg: Field,
         recipient: AztecAddress,
+        block_number: u32,
     ) {
-        let chain_id = context.chain_id();
+        let chain_id: Field = context.chain_id();
+        assert(destination_chain_id == chain_id, "not here bro");
         let pre_commitment: Field = poseidon::bn254::hash_3([nullifier_preimg, secret, chain_id]);
         let commitment: Field = poseidon::bn254::hash_2([amount as Field, pre_commitment]);
         let nullifier: Field = poseidon::bn254::hash_1([nullifier_preimg]);
 
-        // // Does this assert that the commitment is in the chain??
-        // //context.push_note_hash_read_request(commitment);
-        // context.historical_header.prove_note_inclusion(retrieved_note, test::NOTE_STORAGE_SLOT);
+        // Does this assert that the commitment is in the chain??
 
-        // // TODO pushing the same nullifier twice is impossible right??
-        // context.push_nullifier(nullifier);
+        // idk it doesnt like this
+        // let block_number = context.max_block_number();
 
-        // storage.balances.at(recipient).add(amount, recipient, recipient);']
+        let block_header = context.get_block_header();
+        let note_hash_tree_root = block_header.state.partial.note_hash_tree.root;
+        let witness = unsafe {
+           get_note_hash_membership_witness(block_number, commitment)
+        };
+        assert_eq(note_hash_tree_root, root_from_sibling_path(commitment, witness.index, witness.path),"Proving note inclusion failed");
+
+        // TODO pushing the same nullifier twice is impossible right??
+        context.push_nullifier(nullifier);
+
+        // mint!
+        storage.balances.at(recipient).add(amount, recipient, recipient);
     }
 
     // Helper function to get the balance of a user.
