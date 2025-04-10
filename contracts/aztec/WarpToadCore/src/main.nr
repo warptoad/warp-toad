@@ -8,6 +8,7 @@ mod types;
 
 #[aztec]
 pub contract WarpToadCore {
+    // TODO cleanup imports
     use dep::easy_private_state::EasyPrivateUint;
     use dep::value_note::balance_utils;
     use aztec::macros::{functions::{initializer, private, public, view}, storage::storage};
@@ -15,12 +16,12 @@ pub contract WarpToadCore {
         get_note_hash_membership_witness, MembershipWitness,
     };
 
-    use aztec::prelude::{AztecAddress, EthAddress, Map, PublicImmutable, PublicMutable,PrivateSet};
+    use aztec::prelude::{AztecAddress, EthAddress, Map, PublicImmutable, PublicMutable};
     use aztec::protocol_types::constants::NOTE_HASH_TREE_HEIGHT;
     use std::hash::poseidon;
 
     use aztec::history::public_storage::PublicStorageHistoricalRead;
-    use aztec::history::note_inclusion::{ProveNoteInclusion};
+    // use aztec::history::note_inclusion::{ProveNoteInclusion};
 
     use dep::aztec::{macros::notes::{ note}};
     use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
@@ -41,11 +42,9 @@ pub contract WarpToadCore {
         giga_root_history_size: PublicImmutable<u32, Context>,
         giga_root_history_index: PublicMutable<u32, Context>,
 
-        L1_contract: PublicMutable<EthAddress, Context>,
+        L1_contract: PublicImmutable<EthAddress, Context>,
 
         balances: Map<AztecAddress, EasyPrivateUint<Context>, Context>,
-        
-        // commitments: PrivateSet<WarpToadNote, Context>
     }
 
     /**
@@ -53,10 +52,11 @@ pub contract WarpToadCore {
      */
     #[initializer]
     #[public]
-    fn constructor(giga_root_history_size: u32) {
+    fn constructor(giga_root_history_size: u32, L1_contract: EthAddress) {
         // TODO cleanup
         assert(max_history_size > giga_root_history_size, "wow too big!");
         storage.giga_root_history_size.initialize(giga_root_history_size);
+        storage.L1_contract.initialize(L1_contract);
     }
 
     // @TODO @WARNING remove this in prod!!
@@ -79,17 +79,15 @@ pub contract WarpToadCore {
     // Transfers `amount` of tokens from `sender` to a `recipient`.
     #[private]
     fn transfer(amount: u64, sender: AztecAddress, recipient: AztecAddress) {
-        let balances = storage.balances;
-
-        balances.at(sender).sub(amount, sender, sender);
-        balances.at(recipient).add(amount, recipient, sender);
+        storage.balances.at(sender).sub(amount, sender, sender);
+        storage.balances.at(recipient).add(amount, recipient, sender);
     }
 
     // we can split up mint types based on where the burn happened to make users staying on aztec have faster proof time.
     // you can only do this on aztec because on aztec everything is private. So others don't see what function you called!!! :D
     #[private]
     fn mint_giga_root(amount: u64) {
-        let chain_id = context.chain_id();
+        let chain_id: Field = context.chain_id();
 
         let giga_root_slot: Field =
             aztec::state_vars::storage::Storage::get_storage_slot(storage.giga_root);
@@ -100,38 +98,6 @@ pub contract WarpToadCore {
         );
 
         // TODO check if commitment (from the other chain) is in that root
-    }
-
-
-    #[private]
-    fn hash_commit(
-        amount: u64,
-        destination_chain_id: Field,
-        secret: Field,
-        nullifier_preimg: Field,
-    ) -> Field {
-        let pre_commitment: Field = poseidon::bn254::hash_3([nullifier_preimg, secret, destination_chain_id]);
-        let commitment: Field = poseidon::bn254::hash_2([amount as Field, pre_commitment]);
-        commitment
-    }
-
-
-
-    #[private]
-    fn hash_siloed_commit(
-        amount: u64,
-        destination_chain_id: Field,
-        secret: Field,
-        nullifier_preimg: Field,
-        burn_tx_nullifier: Field,
-        note_index_in_tx: u32,
-    ) -> Field {
-        let pre_commitment: Field = poseidon::bn254::hash_3([nullifier_preimg, secret, destination_chain_id]);
-        let commitment: Field = poseidon::bn254::hash_2([amount as Field, pre_commitment]);
-        let siloed_note_hash = compute_siloed_note_hash(context.this_address(), commitment);
-        let nonce = compute_note_hash_nonce(burn_tx_nullifier,note_index_in_tx);
-        let unique_note_hash = compute_unique_note_hash(nonce,siloed_note_hash);
-        unique_note_hash
     }
 
     // TODO this is not safe. if sender reveals their viewing keys others can spend their token(they should only be able to see them!)
@@ -145,7 +111,6 @@ pub contract WarpToadCore {
         nullifier_preimg: Field,
         sender: AztecAddress,
     ) {
-        // TODO someone 
         storage.balances.at(sender).sub(amount, sender, sender);
 
         // add the commitment
@@ -162,7 +127,7 @@ pub contract WarpToadCore {
         nullifier_preimg: Field,
         recipient: AztecAddress,
         block_number: u32,
-        burn_tx_first_nullifier: Field, // any nullifier that is in the same tx as ur commitment. Also nullifiers that come from some other contract if you aggregate txs together :/
+        burn_tx_first_nullifier: Field, // any nullifier that is in the same tx as ur commitment
         note_index_in_tx: u32,
     ) {
         let chain_id: Field = context.chain_id();
@@ -197,28 +162,7 @@ pub contract WarpToadCore {
         storage.balances.at(recipient).add(amount, recipient, recipient);
     }
 
-    // Helper function to get the balance of a user.
-    // #[utility] //not in this version??
-    unconstrained fn get_balance(owner: AztecAddress) -> pub Field {
-        balance_utils::get_balance(storage.balances.at(owner).set)
-    }
-
-    // #[utility] //not in this version??
-    unconstrained fn get_giga_root() -> pub Field {
-        storage.giga_root.read()
-    }
-
-    unconstrained fn get_all_giga_roots() -> pub [Field; max_history_size] {
-        let mut all_roots: [Field; max_history_size] = [0;max_history_size];
-        let amount_of_roots = storage.giga_root_history_size.read();
-        for i in 0..amount_of_roots {
-            let root: Field = storage.giga_root_history.at(i).read();
-            all_roots[i] = root;
-        }
-        all_roots
-    }
-
-    // fuck this this shit is gay we can just pick a block number instead of keeping a whole ass array of historical giga_roots
+    // we dont need history we have the archive treee!!!
     #[private]
     fn get_historical_giga_root() -> pub Field {
         let giga_root_slot: Field = aztec::state_vars::storage::Storage::get_storage_slot(storage.giga_root);
@@ -227,7 +171,7 @@ pub contract WarpToadCore {
         giga_root
     }
 
-        #[private]
+    #[private]
     fn get_historical_giga_root_by_index(index: u32) -> pub Field {
         let giga_root_slot: Field = aztec::state_vars::storage::Storage::get_storage_slot(storage.giga_root_history.at(index));
         let contract_address = context.this_address();
@@ -247,5 +191,52 @@ pub contract WarpToadCore {
     #[view]
     unconstrained fn get_chain_id() -> pub Field {
         context.chain_id()
+    }
+
+     // TODO long term we need js equivalent for performance and cleaner code but we need poseidon2 in js for that
+    #[view] // #[utility]
+    unconstrained fn hash_unique_note_hash(
+        note_hash: Field,
+        first_nullifier_in_tx: Field,
+        unique_note_hash_index_in_tx: u32,
+    ) -> Field {
+        let siloed_note_hash = compute_siloed_note_hash(context.this_address(), note_hash);
+        let nonce = compute_note_hash_nonce(first_nullifier_in_tx,unique_note_hash_index_in_tx);
+        let unique_note_hash = compute_unique_note_hash(nonce,siloed_note_hash);
+        unique_note_hash
+    }
+
+    #[private]
+    fn hash_commit(
+        amount: u64,
+        destination_chain_id: Field,
+        secret: Field,
+        nullifier_preimg: Field,
+    ) -> pub Field {
+        let pre_commitment: Field = poseidon::bn254::hash_3([nullifier_preimg, secret, destination_chain_id]);
+        let commitment: Field = poseidon::bn254::hash_2([amount as Field, pre_commitment]);
+        commitment
+    }
+
+
+        // Helper function to get the balance of a user.
+    // #[utility] //not in this version??
+    unconstrained fn get_balance(owner: AztecAddress) -> pub Field {
+        balance_utils::get_balance(storage.balances.at(owner).set)
+    }
+
+    // #[utility] //not in this version??
+    unconstrained fn get_giga_root() -> pub Field {
+        storage.giga_root.read()
+    }
+
+    unconstrained fn get_all_giga_roots() -> pub [Field; max_history_size] {
+        let mut all_roots: [Field; max_history_size] = [0;max_history_size];
+        let amount_of_roots = storage.giga_root_history_size.read();
+        for i in 0..amount_of_roots {
+            let root: Field = storage.giga_root_history.at(i).read();
+            all_roots[i] = root;
+        }
+        all_roots
     }
 }
