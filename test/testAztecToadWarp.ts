@@ -1,4 +1,4 @@
-import hre from "hardhat"
+import hre, { ethers } from "hardhat"
 
 //@ts-ignore
 import { expect } from "chai";
@@ -9,7 +9,7 @@ import { WarpToadCoreContractArtifact } from '../contracts/aztec/WarpToadCore/sr
 // import WarpToadCoreContractArtifactJson from '../contracts/aztec/WarpToadCore/target/WarpToadCore-WarpToadCore.json'
 
 //@ts-ignore
-import { createPXEClient, waitForPXE, Contract, ContractArtifact,loadContractArtifact, NoirCompiledContract } from "@aztec/aztec.js"
+import { createPXEClient, waitForPXE, Contract, ContractArtifact,loadContractArtifact, NoirCompiledContract, Fr } from "@aztec/aztec.js"
 // export const WarpToadCoreContractArtifact = loadContractArtifact(WarpToadCoreContractArtifactJson as NoirCompiledContract);
 
 
@@ -97,10 +97,10 @@ describe("L1WarpToad", function () {
             const initialBalanceSender = 100n
             await AztecWarpToad.methods.mint_for_testing(initialBalanceSender,sender.getAddress()).send().wait();
 
-
+            const blockNumberPreBurn = await PXE.getBlockNumber()
             const balancePreBurn= await AztecWarpToad.methods.get_balance(sender.getAddress()).simulate()
             const amountToBurn = 2n
-            console.log({balancePreBurn})
+            console.log({balancePreBurn, blockNumberPreBurn})
             const walletChainId =  sender.getChainId().toBigInt();
             const chainIdAztecFromContract =  hre.ethers.toBigInt(await AztecWarpToad.methods.get_chain_id().simulate())
             // chain is same as hardhat evm?? thats bad lmao
@@ -115,7 +115,7 @@ describe("L1WarpToad", function () {
                 nullifier_preimg: 4321n,
     
             }
-            await AztecWarpToad.methods.burn(commitmentPreImg.amount, commitmentPreImg.destination_chain_id, commitmentPreImg.secret, commitmentPreImg.nullifier_preimg, sender.getAddress()).send().wait()
+            const burnTx = await AztecWarpToad.methods.burn(commitmentPreImg.amount, commitmentPreImg.destination_chain_id, commitmentPreImg.secret, commitmentPreImg.nullifier_preimg, sender.getAddress()).send().wait()
 
 
             // TODO cleanup
@@ -136,19 +136,23 @@ describe("L1WarpToad", function () {
             const historicalGigaRoot2 = await AztecWarpToad.methods.get_historical_giga_root_by_index(1n).simulate();
             console.log({historicalGigaRoot2,gigaRoot2})
 
-            for (let i = 0n; i < 6n; i++) {
-                await AztecWarpToad.methods.receive_giga_root(i).send().wait();   
-            }
-            const allGigaRootsWhenFull = await AztecWarpToad.methods.get_all_giga_roots().simulate();
-            console.log({allGigaRootsWhenFull})
-
-
-
             console.log("mintinnnggg")
-            const commitmentReproduced =await  AztecWarpToad.methods.hash_commit(commitmentPreImg.amount, commitmentPreImg.destination_chain_id, commitmentPreImg.secret, commitmentPreImg.nullifier_preimg).simulate()
+            const commitmentReproduced = ethers.toBeHex(await  AztecWarpToad.methods.hash_commit(commitmentPreImg.amount, commitmentPreImg.destination_chain_id, commitmentPreImg.secret, commitmentPreImg.nullifier_preimg).simulate())
+            
             const blockNumber = await PXE.getBlockNumber()
-            console.log({commitmentReproduced})
-            await AztecWarpToad.methods.mint_local(commitmentPreImg.amount, commitmentPreImg.destination_chain_id, commitmentPreImg.secret, commitmentPreImg.nullifier_preimg,recipient.getAddress(),blockNumber).send().wait()
+            const txEffect = (await PXE.getTxEffect(burnTx.txHash))
+            console.log({burnTx, noteHashes:  txEffect?.data.noteHashes, nullifierBurn: txEffect?.data.nullifiers})
+            const burnTxNullifier = txEffect?.data.nullifiers[0]
+            
+            // TODO how tf do i find the index of a noteHash if the note hash depends on the index???
+            const noteIndexOfCommitment = 1n // just a guess lmao
+            // txEffect?.data.noteHashes.findIndex((note)=>note === Fr.fromHexString(commitmentReproduced))
+
+            const unique_note_hash = ethers.toBeHex(await  AztecWarpToad.methods.hash_siloed_commit(commitmentPreImg.amount, commitmentPreImg.destination_chain_id, commitmentPreImg.secret, commitmentPreImg.nullifier_preimg,burnTxNullifier,noteIndexOfCommitment).simulate())
+            console.log({commitmentReproduced,unique_note_hash, blockNumber})
+            
+
+            await AztecWarpToad.methods.mint_local(commitmentPreImg.amount, commitmentPreImg.destination_chain_id, commitmentPreImg.secret, commitmentPreImg.nullifier_preimg,recipient.getAddress(),blockNumber,burnTxNullifier,noteIndexOfCommitment).send().wait()
             const balanceRecipient = await AztecWarpToad.methods.get_balance(recipient.getAddress()).simulate()
 
             expect(balanceRecipient).to.equal(commitmentPreImg.amount);

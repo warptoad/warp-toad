@@ -20,9 +20,11 @@ pub contract WarpToadCore {
     use std::hash::poseidon;
 
     use aztec::history::public_storage::PublicStorageHistoricalRead;
+    use aztec::history::note_inclusion::{ProveNoteInclusion};
 
     use dep::aztec::{macros::notes::{ note}};
     use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
+    use dep::protocol_types::hash::{compute_note_hash_nonce, compute_siloed_note_hash, compute_unique_note_hash};
 
 
 
@@ -43,7 +45,7 @@ pub contract WarpToadCore {
 
         balances: Map<AztecAddress, EasyPrivateUint<Context>, Context>,
         
-        commitments: PrivateSet<WarpToadNote, Context>
+        // commitments: PrivateSet<WarpToadNote, Context>
     }
 
     /**
@@ -100,24 +102,6 @@ pub contract WarpToadCore {
         // TODO check if commitment (from the other chain) is in that root
     }
 
-    // TODO figure out how to reuse the note interfaces and macros of aztec. This can probably help the PXE retrieve notes for us?
-    // this looks like its unsafe? can anyone pretend to be a sender they are not?
-    #[private]
-    fn burn(
-        amount: u64,
-        destination_chain_id: Field,
-        secret: Field,
-        nullifier_preimg: Field,
-        sender: AztecAddress,
-    ) {
-        // burn it!!!
-        storage.balances.at(sender).sub(amount, sender, sender);
-
-        // add the commitment
-        let pre_commitment: Field = poseidon::bn254::hash_3([nullifier_preimg, secret, destination_chain_id]);
-        let commitment: Field = poseidon::bn254::hash_2([amount as Field, pre_commitment]);
-        context.push_note_hash(commitment); // TODO this doesnt actually put it in the fucking tree???
-    }
 
     #[private]
     fn hash_commit(
@@ -131,6 +115,45 @@ pub contract WarpToadCore {
         commitment
     }
 
+
+
+    #[private]
+    fn hash_siloed_commit(
+        amount: u64,
+        destination_chain_id: Field,
+        secret: Field,
+        nullifier_preimg: Field,
+        burn_tx_nullifier: Field,
+        note_index_in_tx: u32,
+    ) -> Field {
+        let pre_commitment: Field = poseidon::bn254::hash_3([nullifier_preimg, secret, destination_chain_id]);
+        let commitment: Field = poseidon::bn254::hash_2([amount as Field, pre_commitment]);
+        let siloed_note_hash = compute_siloed_note_hash(context.this_address(), commitment);
+        let nonce = compute_note_hash_nonce(burn_tx_nullifier,note_index_in_tx);
+        let unique_note_hash = compute_unique_note_hash(nonce,siloed_note_hash);
+        unique_note_hash
+    }
+
+    // TODO this is not safe. if sender reveals their viewing keys others can spend their token(they should only be able to see them!)
+    // Look at the token contract example for how to do that 
+    // https://discord.com/channels/1144692727120937080/1359842526915203096
+    #[private]
+    fn burn(
+        amount: u64,
+        destination_chain_id: Field,
+        secret: Field,
+        nullifier_preimg: Field,
+        sender: AztecAddress,
+    ) {
+        // TODO someone 
+        storage.balances.at(sender).sub(amount, sender, sender);
+
+        // add the commitment
+        let pre_commitment: Field = poseidon::bn254::hash_3([nullifier_preimg, secret, destination_chain_id]);
+        let commitment: Field = poseidon::bn254::hash_2([amount as Field, pre_commitment]);
+        context.push_note_hash(commitment); // TODO this doesnt actually put it in the fucking tree???
+    }
+
     #[private]
     fn mint_local(
         amount: u64,
@@ -139,28 +162,37 @@ pub contract WarpToadCore {
         nullifier_preimg: Field,
         recipient: AztecAddress,
         block_number: u32,
+        burn_tx_first_nullifier: Field, // any nullifier that is in the same tx as ur commitment. Also nullifiers that come from some other contract if you aggregate txs together :/
+        note_index_in_tx: u32,
     ) {
         let chain_id: Field = context.chain_id();
         assert(destination_chain_id == chain_id, "not here bro");
         let pre_commitment: Field = poseidon::bn254::hash_3([nullifier_preimg, secret, chain_id]);
         let commitment: Field = poseidon::bn254::hash_2([amount as Field, pre_commitment]);
         let nullifier: Field = poseidon::bn254::hash_1([nullifier_preimg]);
+        let block_header = context.get_block_header_at(block_number);
+        
 
-        // Does this assert that the commitment is in the chain??
+        let siloed_note_hash = compute_siloed_note_hash(context.this_address(), commitment);
+        
+        let nonce = compute_note_hash_nonce(burn_tx_first_nullifier,note_index_in_tx);
 
-        // idk it doesnt like this
-        // let block_number = context.max_block_number();
+        let unique_note_hash = compute_unique_note_hash(nonce,siloed_note_hash);
+        let note_hash = unique_note_hash;
+        // let note_hash = unique_note_hash;
 
-        let block_header = context.get_block_header();
-        let note_hash_tree_root = block_header.state.partial.note_hash_tree.root;
-        let witness = unsafe {
-           get_note_hash_membership_witness(block_number, commitment)
+        let witness: MembershipWitness<40, 41> = unsafe {
+            get_note_hash_membership_witness(block_number, note_hash)
         };
-        assert_eq(note_hash_tree_root, root_from_sibling_path(commitment, witness.index, witness.path),"Proving note inclusion failed");
 
+        assert_eq(
+            block_header.state.partial.note_hash_tree.root,
+            root_from_sibling_path(note_hash, witness.index, witness.path),
+            "Proving note inclusion failed",
+        );
+        
         // TODO pushing the same nullifier twice is impossible right??
         context.push_nullifier(nullifier);
-
         // mint!
         storage.balances.at(recipient).add(amount, recipient, recipient);
     }
