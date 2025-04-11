@@ -1,5 +1,4 @@
 use aztec::macros::aztec;
-mod types;
 // from
 // https://github.com/privacy-scaling-explorations/zk-kit.noir/blob/fa5fdb0f0d0867e367388f85079db3b1f9a47590/packages/merkle-trees/src/merkle.nr#L3
 
@@ -8,29 +7,29 @@ mod types;
 
 #[aztec]
 pub contract WarpToadCore {
-    // TODO cleanup imports
+    // macros
+    use aztec::macros::{notes::note, functions::{initializer, private, public, view, internal}, storage::{storage}};
+    
+    // storage types
+    use aztec::prelude::{AztecAddress, EthAddress, Map, PublicImmutable, PublicMutable};
     use dep::easy_private_state::EasyPrivateUint;
     use dep::value_note::balance_utils;
-    use aztec::macros::{functions::{initializer, private, public, view}, storage::storage};
+
+    // note proving
     use aztec::oracle::get_membership_witness::{
         get_note_hash_membership_witness, MembershipWitness,
     };
-
-    use aztec::prelude::{AztecAddress, EthAddress, Map, PublicImmutable, PublicMutable};
-    use aztec::protocol_types::constants::NOTE_HASH_TREE_HEIGHT;
+    use aztec::protocol_types::{
+        merkle_tree::root::root_from_sibling_path, 
+        constants::NOTE_HASH_TREE_HEIGHT,
+        hash::{compute_note_hash_nonce, compute_siloed_note_hash, compute_unique_note_hash}
+        };
     use std::hash::poseidon;
 
+    // archive tree proving
     use aztec::history::public_storage::PublicStorageHistoricalRead;
-    // use aztec::history::note_inclusion::{ProveNoteInclusion};
+    use protocol_types::{block_header::BlockHeader, transaction::tx_context::TxContext};
 
-    use dep::aztec::{macros::notes::{ note}};
-    use dep::protocol_types::merkle_tree::root::root_from_sibling_path;
-    use dep::protocol_types::hash::{compute_note_hash_nonce, compute_siloed_note_hash, compute_unique_note_hash};
-
-
-
-    // use crate::types::WarpToadNote::{WarpToadNote};
-    
     // arbitrary number because noir didn't like it when i returned a slice at get_all_giga_roots
     global max_history_size: u32 = 4096;
 
@@ -59,7 +58,7 @@ pub contract WarpToadCore {
         storage.L1_contract.initialize(L1_contract);
     }
 
-    // @TODO @WARNING remove this in prod!!
+    // @TODO @WARNING remove this in prod!! Do minting from giga root instead
     #[private]
     fn mint_for_testing(amount: u64, recipient: AztecAddress) {
         storage.balances.at(recipient).add(amount, recipient, context.msg_sender());
@@ -119,43 +118,89 @@ pub contract WarpToadCore {
         context.push_note_hash(commitment); // TODO this doesnt actually put it in the fucking tree???
     }
 
-    #[private]
-    fn mint_local(
-        amount: u64,
-        destination_chain_id: Field,
-        secret: Field,
-        nullifier_preimg: Field,
-        recipient: AztecAddress,
-        block_number: u32,
-        burn_tx_first_nullifier: Field, // any nullifier that is in the same tx as ur commitment
-        note_index_in_tx: u32,
-    ) {
-        let chain_id: Field = context.chain_id();
-        assert(destination_chain_id == chain_id, "not here bro");
-        let pre_commitment: Field = poseidon::bn254::hash_3([nullifier_preimg, secret, chain_id]);
-        let commitment: Field = poseidon::bn254::hash_2([amount as Field, pre_commitment]);
-        let nullifier: Field = poseidon::bn254::hash_1([nullifier_preimg]);
-        let block_header = context.get_block_header_at(block_number);
-        
-
-        let siloed_note_hash = compute_siloed_note_hash(context.this_address(), commitment);
-        
-        let nonce = compute_note_hash_nonce(burn_tx_first_nullifier,note_index_in_tx);
-
+    // TODO long term we need js equivalent for performance and cleaner code but we need poseidon2 in js for that
+    #[view]
+    fn hash_unique_note_hash(
+        contract_address: AztecAddress,
+        note_hash: Field,
+        first_nullifier_in_tx: Field,
+        unique_note_hash_index_in_tx: u32,
+    ) -> pub Field {
+        let siloed_note_hash = compute_siloed_note_hash(contract_address, note_hash);
+        let nonce = compute_note_hash_nonce(first_nullifier_in_tx,unique_note_hash_index_in_tx);
         let unique_note_hash = compute_unique_note_hash(nonce,siloed_note_hash);
-        let note_hash = unique_note_hash;
-        // let note_hash = unique_note_hash;
+        unique_note_hash
+    }
+
+    //TODO long term we need js equivalent for performance and cleaner code but we need poseidon2 in js for that
+    #[view]
+    unconstrained fn hash_unique_note_hash_helper(
+        contract_address: AztecAddress,
+        note_hash: Field,
+        first_nullifier_in_tx: Field,
+        unique_note_hash_index_in_tx: u32,
+    ) -> pub Field {
+        hash_unique_note_hash(contract_address, note_hash,first_nullifier_in_tx,unique_note_hash_index_in_tx)
+    }
+
+
+    fn prove_note_hash_inclusion(
+        plain_note_hash: Field,      
+        block_header: BlockHeader,
+        contract_address: AztecAddress,
+        first_nullifier_in_tx: Field, // any nullifier that is in the same tx as ur commitment
+        unique_note_hash_index_in_tx: u32
+    ) {
+        let unique_note_hash = hash_unique_note_hash(contract_address,plain_note_hash,first_nullifier_in_tx,unique_note_hash_index_in_tx);
 
         let witness: MembershipWitness<40, 41> = unsafe {
-            get_note_hash_membership_witness(block_number, note_hash)
+            get_note_hash_membership_witness(block_header.global_variables.block_number as u32, unique_note_hash)
         };
 
         assert_eq(
             block_header.state.partial.note_hash_tree.root,
-            root_from_sibling_path(note_hash, witness.index, witness.path),
+            root_from_sibling_path(unique_note_hash, witness.index, witness.path),
             "Proving note inclusion failed",
         );
-        
+    }
+
+
+    #[view]
+    fn hash_commit(
+        nullifier_preimg: Field,
+        secret: Field,
+        destination_chain_id: Field,
+        amount: u64,
+    ) -> pub Field {
+        let pre_commitment: Field = poseidon::bn254::hash_3([nullifier_preimg, secret, destination_chain_id]);
+        let commitment: Field = poseidon::bn254::hash_2([amount as Field, pre_commitment]);
+        commitment
+    }
+
+    #[private]
+    fn mint_local(
+        nullifier_preimg: Field,
+        secret: Field,
+        amount: u64,
+        recipient: AztecAddress,
+        burn_tx_first_nullifier: Field, // any nullifier that is in the same tx as ur commitment
+        note_index_in_tx: u32,
+    ) {
+        let chain_id: Field = context.chain_id();
+        let commitment: Field = hash_commit(nullifier_preimg, secret, chain_id, amount);
+        let nullifier: Field = poseidon::bn254::hash_1([nullifier_preimg]);
+
+        let block_header: BlockHeader = context.historical_header;
+        let contract_address: AztecAddress = context.this_address();
+
+        prove_note_hash_inclusion(
+            commitment,       
+            block_header,
+            contract_address,
+            burn_tx_first_nullifier, 
+            note_index_in_tx,
+        );
+
         // TODO pushing the same nullifier twice is impossible right??
         context.push_nullifier(nullifier);
         // mint!
@@ -193,33 +238,8 @@ pub contract WarpToadCore {
         context.chain_id()
     }
 
-     // TODO long term we need js equivalent for performance and cleaner code but we need poseidon2 in js for that
-    #[view] // #[utility]
-    unconstrained fn hash_unique_note_hash(
-        note_hash: Field,
-        first_nullifier_in_tx: Field,
-        unique_note_hash_index_in_tx: u32,
-    ) -> Field {
-        let siloed_note_hash = compute_siloed_note_hash(context.this_address(), note_hash);
-        let nonce = compute_note_hash_nonce(first_nullifier_in_tx,unique_note_hash_index_in_tx);
-        let unique_note_hash = compute_unique_note_hash(nonce,siloed_note_hash);
-        unique_note_hash
-    }
 
-    #[private]
-    fn hash_commit(
-        amount: u64,
-        destination_chain_id: Field,
-        secret: Field,
-        nullifier_preimg: Field,
-    ) -> pub Field {
-        let pre_commitment: Field = poseidon::bn254::hash_3([nullifier_preimg, secret, destination_chain_id]);
-        let commitment: Field = poseidon::bn254::hash_2([amount as Field, pre_commitment]);
-        commitment
-    }
-
-
-        // Helper function to get the balance of a user.
+    // Helper function to get the balance of a user.
     // #[utility] //not in this version??
     unconstrained fn get_balance(owner: AztecAddress) -> pub Field {
         balance_utils::get_balance(storage.balances.at(owner).set)
