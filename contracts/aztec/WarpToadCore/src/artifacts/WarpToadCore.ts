@@ -71,14 +71,14 @@ export class WarpToadCoreContract extends ContractBase {
   /**
    * Creates a tx to deploy a new instance of this contract.
    */
-  public static deploy(wallet: Wallet, giga_root_history_size: (bigint | number), L1_contract: EthAddressLike) {
+  public static deploy(wallet: Wallet, L1_contract: EthAddressLike) {
     return new DeployMethod<WarpToadCoreContract>(PublicKeys.default(), wallet, WarpToadCoreContractArtifact, WarpToadCoreContract.at, Array.from(arguments).slice(1));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public keys hash to derive the address.
    */
-  public static deployWithPublicKeys(publicKeys: PublicKeys, wallet: Wallet, giga_root_history_size: (bigint | number), L1_contract: EthAddressLike) {
+  public static deployWithPublicKeys(publicKeys: PublicKeys, wallet: Wallet, L1_contract: EthAddressLike) {
     return new DeployMethod<WarpToadCoreContract>(publicKeys, wallet, WarpToadCoreContractArtifact, WarpToadCoreContract.at, Array.from(arguments).slice(2));
   }
 
@@ -116,27 +116,18 @@ export class WarpToadCoreContract extends ContractBase {
   }
   
 
-  public static get storage(): ContractStorageLayout<'giga_root' | 'giga_root_history' | 'giga_root_history_size' | 'giga_root_history_index' | 'L1_contract' | 'balances'> {
+  public static get storage(): ContractStorageLayout<'giga_root' | 'L1_contract' | 'balances'> {
       return {
         giga_root: {
       slot: new Fr(1n),
     },
-giga_root_history: {
+L1_contract: {
       slot: new Fr(2n),
     },
-giga_root_history_size: {
-      slot: new Fr(3n),
-    },
-giga_root_history_index: {
-      slot: new Fr(5n),
-    },
-L1_contract: {
-      slot: new Fr(6n),
-    },
 balances: {
-      slot: new Fr(8n),
+      slot: new Fr(4n),
     }
-      } as ContractStorageLayout<'giga_root' | 'giga_root_history' | 'giga_root_history_size' | 'giga_root_history_index' | 'L1_contract' | 'balances'>;
+      } as ContractStorageLayout<'giga_root' | 'L1_contract' | 'balances'>;
     }
     
 
@@ -155,11 +146,8 @@ balances: {
     /** burn(amount: integer, destination_chain_id: field, secret: field, nullifier_preimg: field, sender: struct) */
     burn: ((amount: (bigint | number), destination_chain_id: FieldLike, secret: FieldLike, nullifier_preimg: FieldLike, sender: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** constructor(giga_root_history_size: integer, L1_contract: struct) */
-    constructor: ((giga_root_history_size: (bigint | number), L1_contract: EthAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** get_all_giga_roots() */
-    get_all_giga_roots: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** constructor(L1_contract: struct) */
+    constructor: ((L1_contract: EthAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** get_balance(owner: struct) */
     get_balance: ((owner: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -169,12 +157,6 @@ balances: {
 
     /** get_giga_root() */
     get_giga_root: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** get_historical_giga_root() */
-    get_historical_giga_root: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** get_historical_giga_root_by_index(index: integer) */
-    get_historical_giga_root_by_index: ((index: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** get_note_proof(block_number: integer, note_hash: field) */
     get_note_proof: ((block_number: (bigint | number), note_hash: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;

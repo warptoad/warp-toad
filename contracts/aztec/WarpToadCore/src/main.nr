@@ -30,16 +30,10 @@ pub contract WarpToadCore {
     use aztec::history::public_storage::PublicStorageHistoricalRead;
     use protocol_types::{block_header::BlockHeader, transaction::tx_context::TxContext};
 
-    // arbitrary number because noir didn't like it when i returned a slice at get_all_giga_roots
-    global max_history_size: u32 = 4096;
-
     #[storage]
     struct Storage<Context> {
 
         giga_root: PublicMutable<Field, Context>,
-        giga_root_history: Map<u32, PublicMutable<Field, Context>, Context>,
-        giga_root_history_size: PublicImmutable<u32, Context>,
-        giga_root_history_index: PublicMutable<u32, Context>,
 
         L1_contract: PublicImmutable<EthAddress, Context>,
 
@@ -51,10 +45,7 @@ pub contract WarpToadCore {
      */
     #[initializer]
     #[public]
-    fn constructor(giga_root_history_size: u32, L1_contract: EthAddress) {
-        // TODO cleanup
-        assert(max_history_size > giga_root_history_size, "wow too big!");
-        storage.giga_root_history_size.initialize(giga_root_history_size);
+    fn constructor(L1_contract: EthAddress) {
         storage.L1_contract.initialize(L1_contract);
     }
 
@@ -68,11 +59,6 @@ pub contract WarpToadCore {
     fn receive_giga_root(giga_root: Field) {
         // TODO make only the bridge able to use this function. And also make sure the contract that send the bridge transfer is L1_contract
         storage.giga_root.write(giga_root);
-        let current_index: u32 = storage.giga_root_history_index.read();
-        storage.giga_root_history.at(current_index).write(giga_root);
-
-        let next_index: u32 = (current_index + 1) % storage.giga_root_history_size.read();
-        storage.giga_root_history_index.write(next_index);
     }
 
     // Transfers `amount` of tokens from `sender` to a `recipient`.
@@ -132,18 +118,6 @@ pub contract WarpToadCore {
         unique_note_hash
     }
 
-    //TODO long term we need js equivalent for performance and cleaner code but we need poseidon2 in js for that
-    #[view]
-    unconstrained fn hash_unique_note_hash_helper(
-        contract_address: AztecAddress,
-        note_hash: Field,
-        first_nullifier_in_tx: Field,
-        unique_note_hash_index_in_tx: u32,
-    ) -> pub Field {
-        hash_unique_note_hash(contract_address, note_hash,first_nullifier_in_tx,unique_note_hash_index_in_tx)
-    }
-
-
     fn prove_note_hash_inclusion(
         plain_note_hash: Field,      
         block_header: BlockHeader,
@@ -163,7 +137,6 @@ pub contract WarpToadCore {
             "Proving note inclusion failed",
         );
     }
-
 
     #[view]
     fn hash_commit(
@@ -207,24 +180,7 @@ pub contract WarpToadCore {
         storage.balances.at(recipient).add(amount, recipient, recipient);
     }
 
-    // we dont need history we have the archive treee!!!
-    #[private]
-    fn get_historical_giga_root() -> pub Field {
-        let giga_root_slot: Field = aztec::state_vars::storage::Storage::get_storage_slot(storage.giga_root);
-        let contract_address = context.this_address();
-        let giga_root = context.historical_header.public_storage_historical_read(giga_root_slot,contract_address);
-        giga_root
-    }
-
-    #[private]
-    fn get_historical_giga_root_by_index(index: u32) -> pub Field {
-        let giga_root_slot: Field = aztec::state_vars::storage::Storage::get_storage_slot(storage.giga_root_history.at(index));
-        let contract_address = context.this_address();
-        let giga_root = context.historical_header.public_storage_historical_read(giga_root_slot,contract_address);
-        giga_root
-    }
-
-    // i think this allows us to do a eth_getProof like thing for a commitment. Kinda cringe that i cant just call a api in js like on ethereum? Maybe you can?
+    // it allows us to do a eth_getProof like thing for a commitment. Kinda cringe that i cant just call a api in js like on ethereum? Maybe you can?
     #[view]
     unconstrained fn get_note_proof(
         block_number: u32,
@@ -233,11 +189,12 @@ pub contract WarpToadCore {
         get_note_hash_membership_witness(block_number, note_hash)
     }
 
+
+    // DEBUG remove later
     #[view]
     unconstrained fn get_chain_id() -> pub Field {
         context.chain_id()
     }
-
 
     // Helper function to get the balance of a user.
     // #[utility] //not in this version??
@@ -250,13 +207,14 @@ pub contract WarpToadCore {
         storage.giga_root.read()
     }
 
-    unconstrained fn get_all_giga_roots() -> pub [Field; max_history_size] {
-        let mut all_roots: [Field; max_history_size] = [0;max_history_size];
-        let amount_of_roots = storage.giga_root_history_size.read();
-        for i in 0..amount_of_roots {
-            let root: Field = storage.giga_root_history.at(i).read();
-            all_roots[i] = root;
-        }
-        all_roots
+    //TODO long term we need js equivalent for performance and cleaner code but we need poseidon2 in js for that
+    #[view]
+    unconstrained fn hash_unique_note_hash_helper(
+        contract_address: AztecAddress,
+        note_hash: Field,
+        first_nullifier_in_tx: Field,
+        unique_note_hash_index_in_tx: u32,
+    ) -> pub Field {
+        hash_unique_note_hash(contract_address, note_hash,first_nullifier_in_tx,unique_note_hash_index_in_tx)
     }
 }

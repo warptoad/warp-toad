@@ -49,7 +49,7 @@ describe("L1WarpToad", function () {
         const gigaRootHistorySize = 4n;
         const { wallets, PXE } = await connectPXE();
         const deployerWallet = wallets[0]
-        const constructorArgs = [gigaRootHistorySize, nativeToken.target]
+        const constructorArgs = [nativeToken.target]
         console.log({constructorArgs})
         const AztecWarpToad = await Contract.deploy(deployerWallet, WarpToadCoreContractArtifact, constructorArgs)
             .send()
@@ -69,8 +69,6 @@ describe("L1WarpToad", function () {
 
     describe("transfer", function () {
         it("Should do a private transfer", async function () {
-
-
             const { AztecWarpToad, wallets } = await deployWarpToad();
 
             const sender = wallets[0]
@@ -79,18 +77,16 @@ describe("L1WarpToad", function () {
 
             const balancePreSend = await AztecWarpToad.methods.get_balance(wallets[0].getAddress()).simulate()
             const amountToSend = 1n
-            console.log({balancePreSend})
             await AztecWarpToad.methods.transfer(1n,wallets[0].getAddress(), wallets[1].getAddress()).send().wait()
 
             const balancePostSend = await AztecWarpToad.methods.get_balance(wallets[0].getAddress()).simulate()
-            console.log({balancePostSend})
 
             expect(balancePostSend).to.equal(balancePreSend-amountToSend);
 
         });
     });
 
-    describe("giga root", function () {
+    describe("gigaRoot", function () {
         it("Should keep track of the gigaRoot", async function () {
             const { AztecWarpToad } = await deployWarpToad();
 
@@ -98,17 +94,14 @@ describe("L1WarpToad", function () {
 
             const gigaRoot1 = 42069n
             await AztecWarpToad.methods.receive_giga_root(gigaRoot1).send().wait();
-            const historicalGigaRoot1 = await AztecWarpToad.methods.get_historical_giga_root().simulate()
-            expect(gigaRoot1).to.equal(historicalGigaRoot1);
+            const contractsGigaRoot1 = await AztecWarpToad.methods.get_giga_root().simulate()
+            expect(gigaRoot1).to.equal(contractsGigaRoot1);
 
             const gigaRoot2 = 6969n
             await AztecWarpToad.methods.receive_giga_root(gigaRoot2).send().wait();
-            const allGigaRoots = await AztecWarpToad.methods.get_all_giga_roots().simulate();
-            expect(allGigaRoots[0]).to.equal(gigaRoot1);
-            expect(allGigaRoots[1]).to.equal(gigaRoot2);
-
-            const historicalGigaRoot2 = await AztecWarpToad.methods.get_historical_giga_root_by_index(1n).simulate();
-            expect(historicalGigaRoot2).to.equal(historicalGigaRoot2);
+            const contractsGigaRoot2 = await AztecWarpToad.methods.get_giga_root().simulate()
+            expect(gigaRoot2).to.equal(contractsGigaRoot2);
+            // TODO demonstrate getting a historical root with archive tree
         });
 
     });
@@ -145,7 +138,7 @@ describe("L1WarpToad", function () {
             const balancePostBurn = await AztecWarpToad.methods.get_balance(sender.getAddress()).simulate()
 
             // chain id is same as evm?? thats bad lmao
-            console.log({walletChainId: aztecWalletChainId, chainIdAztecFromContract, chainIdEvmProvider})
+            console.log("Make issue of this. These shouldn't be the same!!!",{ aztecWalletChainId, chainIdEvmProvider})
             expect(chainIdAztecFromContract).to.equal(aztecWalletChainId);
             //expect(chainIdEvmProvider).to.not.equal(chainIdAztecFromContract);
             expect(balancePostBurn).to.equal(balancePreBurn-amountToBurn);
