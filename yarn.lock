@@ -4003,6 +4003,11 @@ pino@^9.5.0:
     sonic-boom "^4.0.1"
     thread-stream "^3.0.0"
 
+poseidon-lite@^0.3.0:
+  version "0.3.0"
+  resolved "https://registry.yarnpkg.com/poseidon-lite/-/poseidon-lite-0.3.0.tgz#93c42f6f9b870f154f2722dfd686b909c4285765"
+  integrity sha512-ilJj4MIve4uBEG7SrtPqUUNkvpJ/pLVbndxa0WvebcQqeIhe+h72JR4g0EvwchUzm9sOQDlOjiDNmRAgxNZl4A==
+
 poseidon-solidity@0.0.5:
   version "0.0.5"
   resolved "https://registry.yarnpkg.com/poseidon-solidity/-/poseidon-solidity-0.0.5.tgz#3f93e01cfe25f6d2f2fac49734fbb00961b84655"

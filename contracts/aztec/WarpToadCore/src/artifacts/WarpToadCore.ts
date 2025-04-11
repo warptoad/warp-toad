@@ -71,14 +71,14 @@ export class WarpToadCoreContract extends ContractBase {
   /**
    * Creates a tx to deploy a new instance of this contract.
    */
-  public static deploy(wallet: Wallet, giga_root_history_size: (bigint | number), L1_contract: EthAddressLike) {
+  public static deploy(wallet: Wallet, L1_contract: EthAddressLike) {
     return new DeployMethod<WarpToadCoreContract>(PublicKeys.default(), wallet, WarpToadCoreContractArtifact, WarpToadCoreContract.at, Array.from(arguments).slice(1));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public keys hash to derive the address.
    */
-  public static deployWithPublicKeys(publicKeys: PublicKeys, wallet: Wallet, giga_root_history_size: (bigint | number), L1_contract: EthAddressLike) {
+  public static deployWithPublicKeys(publicKeys: PublicKeys, wallet: Wallet, L1_contract: EthAddressLike) {
     return new DeployMethod<WarpToadCoreContract>(publicKeys, wallet, WarpToadCoreContractArtifact, WarpToadCoreContract.at, Array.from(arguments).slice(2));
   }
 
@@ -116,39 +116,27 @@ export class WarpToadCoreContract extends ContractBase {
   }
   
 
-  public static get storage(): ContractStorageLayout<'giga_root' | 'giga_root_history' | 'giga_root_history_size' | 'giga_root_history_index' | 'L1_contract' | 'balances'> {
+  public static get storage(): ContractStorageLayout<'giga_root' | 'L1_contract' | 'balances'> {
       return {
         giga_root: {
       slot: new Fr(1n),
     },
-giga_root_history: {
+L1_contract: {
       slot: new Fr(2n),
     },
-giga_root_history_size: {
-      slot: new Fr(3n),
-    },
-giga_root_history_index: {
-      slot: new Fr(5n),
-    },
-L1_contract: {
-      slot: new Fr(6n),
-    },
 balances: {
-      slot: new Fr(8n),
+      slot: new Fr(4n),
     }
-      } as ContractStorageLayout<'giga_root' | 'giga_root_history' | 'giga_root_history_size' | 'giga_root_history_index' | 'L1_contract' | 'balances'>;
+      } as ContractStorageLayout<'giga_root' | 'L1_contract' | 'balances'>;
     }
     
 
-  public static get notes(): ContractNotes<'WarpToadNote' | 'ValueNote'> {
+  public static get notes(): ContractNotes<'ValueNote'> {
     return {
-      WarpToadNote: {
-          id: new NoteSelector(1),
-        },
-ValueNote: {
+      ValueNote: {
           id: new NoteSelector(0),
         }
-    } as ContractNotes<'WarpToadNote' | 'ValueNote'>;
+    } as ContractNotes<'ValueNote'>;
   }
   
 
@@ -158,11 +146,8 @@ ValueNote: {
     /** burn(amount: integer, destination_chain_id: field, secret: field, nullifier_preimg: field, sender: struct) */
     burn: ((amount: (bigint | number), destination_chain_id: FieldLike, secret: FieldLike, nullifier_preimg: FieldLike, sender: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** constructor(giga_root_history_size: integer, L1_contract: struct) */
-    constructor: ((giga_root_history_size: (bigint | number), L1_contract: EthAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** get_all_giga_roots() */
-    get_all_giga_roots: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** constructor(L1_contract: struct) */
+    constructor: ((L1_contract: EthAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** get_balance(owner: struct) */
     get_balance: ((owner: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -173,20 +158,17 @@ ValueNote: {
     /** get_giga_root() */
     get_giga_root: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** get_historical_giga_root() */
-    get_historical_giga_root: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** get_historical_giga_root_by_index(index: integer) */
-    get_historical_giga_root_by_index: ((index: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
     /** get_note_proof(block_number: integer, note_hash: field) */
     get_note_proof: ((block_number: (bigint | number), note_hash: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** hash_commit(amount: integer, destination_chain_id: field, secret: field, nullifier_preimg: field) */
-    hash_commit: ((amount: (bigint | number), destination_chain_id: FieldLike, secret: FieldLike, nullifier_preimg: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** hash_commit(nullifier_preimg: field, secret: field, destination_chain_id: field, amount: integer) */
+    hash_commit: ((nullifier_preimg: FieldLike, secret: FieldLike, destination_chain_id: FieldLike, amount: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** hash_unique_note_hash(note_hash: field, first_nullifier_in_tx: field, unique_note_hash_index_in_tx: integer) */
-    hash_unique_note_hash: ((note_hash: FieldLike, first_nullifier_in_tx: FieldLike, unique_note_hash_index_in_tx: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** hash_unique_note_hash(contract_address: struct, note_hash: field, first_nullifier_in_tx: field, unique_note_hash_index_in_tx: integer) */
+    hash_unique_note_hash: ((contract_address: AztecAddressLike, note_hash: FieldLike, first_nullifier_in_tx: FieldLike, unique_note_hash_index_in_tx: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** hash_unique_note_hash_helper(contract_address: struct, note_hash: field, first_nullifier_in_tx: field, unique_note_hash_index_in_tx: integer) */
+    hash_unique_note_hash_helper: ((contract_address: AztecAddressLike, note_hash: FieldLike, first_nullifier_in_tx: FieldLike, unique_note_hash_index_in_tx: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** mint_for_testing(amount: integer, recipient: struct) */
     mint_for_testing: ((amount: (bigint | number), recipient: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -194,11 +176,14 @@ ValueNote: {
     /** mint_giga_root(amount: integer) */
     mint_giga_root: ((amount: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** mint_local(amount: integer, destination_chain_id: field, secret: field, nullifier_preimg: field, recipient: struct, block_number: integer, burn_tx_first_nullifier: field, note_index_in_tx: integer) */
-    mint_local: ((amount: (bigint | number), destination_chain_id: FieldLike, secret: FieldLike, nullifier_preimg: FieldLike, recipient: AztecAddressLike, block_number: (bigint | number), burn_tx_first_nullifier: FieldLike, note_index_in_tx: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** mint_local(nullifier_preimg: field, secret: field, amount: integer, recipient: struct, burn_tx_first_nullifier: field, note_index_in_tx: integer) */
+    mint_local: ((nullifier_preimg: FieldLike, secret: FieldLike, amount: (bigint | number), recipient: AztecAddressLike, burn_tx_first_nullifier: FieldLike, note_index_in_tx: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** process_log(log_ciphertext: struct, tx_hash: field, unique_note_hashes_in_tx: struct, first_nullifier_in_tx: field, recipient: struct) */
     process_log: ((log_ciphertext: { storage: FieldLike[], len: (bigint | number) }, tx_hash: FieldLike, unique_note_hashes_in_tx: { storage: FieldLike[], len: (bigint | number) }, first_nullifier_in_tx: FieldLike, recipient: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** prove_note_hash_inclusion(plain_note_hash: field, block_header: struct, contract_address: struct, first_nullifier_in_tx: field, unique_note_hash_index_in_tx: integer) */
+    prove_note_hash_inclusion: ((plain_note_hash: FieldLike, block_header: { last_archive: { root: FieldLike, next_available_leaf_index: (bigint | number) }, content_commitment: { num_txs: FieldLike, blobs_hash: FieldLike, in_hash: FieldLike, out_hash: FieldLike }, state: { l1_to_l2_message_tree: { root: FieldLike, next_available_leaf_index: (bigint | number) }, partial: { note_hash_tree: { root: FieldLike, next_available_leaf_index: (bigint | number) }, nullifier_tree: { root: FieldLike, next_available_leaf_index: (bigint | number) }, public_data_tree: { root: FieldLike, next_available_leaf_index: (bigint | number) } } }, global_variables: { chain_id: FieldLike, version: FieldLike, block_number: FieldLike, slot_number: FieldLike, timestamp: (bigint | number), coinbase: EthAddressLike, fee_recipient: AztecAddressLike, gas_fees: { fee_per_da_gas: FieldLike, fee_per_l2_gas: FieldLike } }, total_fees: FieldLike, total_mana_used: FieldLike }, contract_address: AztecAddressLike, first_nullifier_in_tx: FieldLike, unique_note_hash_index_in_tx: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** public_dispatch(selector: field) */
     public_dispatch: ((selector: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
