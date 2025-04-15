@@ -4,6 +4,8 @@ import hre from "hardhat"
 import { expect } from "chai";
 import { time, loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers.js";
 
+//@ts-ignore
+import {  Fr} from '@aztec/aztec.js';
 
 describe("L1WarpToad", function () {
   // We define a fixture to reuse the same setup in every test.
@@ -20,21 +22,21 @@ describe("L1WarpToad", function () {
 
     const maxTreeDepth = 32n
     const PoseidonT3Lib = await hre.ethers.deployContract("PoseidonT3", [], { value: 0n, libraries: {} })
-    const LeanIMTLib = await hre.ethers.deployContract("LeanIMT", [], { value: 0n, libraries: { PoseidonT3: PoseidonT3Lib } })
+    const LazyIMTLib = await hre.ethers.deployContract("LazyIMT", [], { value: 0n, libraries: { PoseidonT3: PoseidonT3Lib } })
     const L1WarpToad = await hre.ethers.deployContract("L1WarpToad", [maxTreeDepth,gigaBridge,nativeToken.target,wrappedTokenSymbol,wrappedTokenName], {
       value: 0n,
       libraries: {
-        LeanIMT: LeanIMTLib,
+        LazyIMT: LazyIMTLib,
         PoseidonT3: PoseidonT3Lib 
       }
     });
 
-    return { L1WarpToad,nativeToken, LeanIMTLib, PoseidonT3Lib };
+    return { L1WarpToad,nativeToken, LazyIMTLib, PoseidonT3Lib };
   }
 
   describe("Deployment", function () {
     it("Should deploy", async function () {
-      const { L1WarpToad, LeanIMTLib, PoseidonT3Lib } = await loadFixture(deployWarpToad);
+      const { L1WarpToad, LazyIMTLib, PoseidonT3Lib } = await loadFixture(deployWarpToad);
 
       expect(L1WarpToad).not.equal(undefined);
     });
@@ -68,6 +70,26 @@ describe("L1WarpToad", function () {
       const rootPostPostBurn = await L1WarpToad.localRoot()
       console.log({rootPostBurn, rootPreBurn, rootPostPostBurn})
       expect(rootPostBurn).not.equal(rootPostPostBurn);
+    });
+  });
+
+  describe("Burn gas test", function () {
+    it("Should burn a lott", async function () {
+      // for gas test
+      const { L1WarpToad, nativeToken } = await loadFixture(deployWarpToad);
+
+      // free money!!
+      const totalAmount = 100n
+      await nativeToken.getFreeShit(totalAmount);
+      await nativeToken.approve(L1WarpToad.target,totalAmount);
+
+      await L1WarpToad.wrap(totalAmount)
+
+
+      for (let index = 0n; index < totalAmount; index++) {
+        const preCommitment = Fr.random().toBigInt()
+        await L1WarpToad.burn(preCommitment,1n)
+      }
     });
   });
 });

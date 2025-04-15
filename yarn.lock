@@ -1121,10 +1121,10 @@
     http-proxy "^1.18.1"
     ws "^8.13.0"
 
-"@zk-kit/lean-imt.sol@^2.0.1":
-  version "2.0.1"
-  resolved "https://registry.yarnpkg.com/@zk-kit/lean-imt.sol/-/lean-imt.sol-2.0.1.tgz#23ffd37fc4bac95a1e18dc9d55132362532137ee"
-  integrity sha512-2dy/wfzch2vy5QtDCFmQwN7E4GZP0xBcucTb2mfZoJP5V69cjPRdy6KcbS0YOcBMH/Lb7BgXLsekRYjh9JNKEw==
+"@zk-kit/lazy-imt.sol@^2.0.0-beta.12":
+  version "2.0.0-beta.12"
+  resolved "https://registry.yarnpkg.com/@zk-kit/lazy-imt.sol/-/lazy-imt.sol-2.0.0-beta.12.tgz#76ae740c51b40a011a8219560ee9949883c1b098"
+  integrity sha512-9kiCM0hrO3EKl+Zkbl6l9616UwbF9snLgcMqDPhuLozZtwXnn6PE8vMIwgfuYGea4X5weH4O2VjnUFpIm/CIkg==
   dependencies:
     poseidon-solidity "0.0.5"
 
