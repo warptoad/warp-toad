@@ -7,6 +7,13 @@ import { time, loadFixture } from "@nomicfoundation/hardhat-toolbox/network-help
 //@ts-ignore
 import {  Fr} from '@aztec/aztec.js';
 
+//@ts-ignore
+import { IMT } from "@zk-kit/imt"
+import { poseidon2 } from "poseidon-lite"
+
+import { MerkleTree, PartialMerkleTree, Element } from 'fixed-merkle-tree'
+import { ethers } from "ethers";
+
 describe("L1WarpToad", function () {
   // We define a fixture to reuse the same setup in every test.
   // We use loadFixture to run this setup once, snapshot that state,
@@ -61,15 +68,43 @@ describe("L1WarpToad", function () {
 
       const burnTx1 = await L1WarpToad.burn(preCommitment1,amount/2n)
 
+
+
       const rootPostBurn = await L1WarpToad.localRoot()
       expect(rootPreBurn).not.equal(rootPostBurn);
+      console.log({rootPreBurn,rootPostBurn })
 
       // again!!! rootPostBurn = leaf since tree is only one leaf :/
       const preCommitment2 = 5678n // TODO hash it!
       const burnTx2 = await L1WarpToad.burn(preCommitment2,amount/2n)
       const rootPostPostBurn = await L1WarpToad.localRoot()
-      console.log({rootPostBurn, rootPreBurn, rootPostPostBurn})
+      
       expect(rootPostBurn).not.equal(rootPostPostBurn);
+
+      //package from zkkit 
+      // TODO make issue because 
+      const treeDepth = Number(await L1WarpToad.maxTreeDepth())
+      const tree = new IMT(poseidon2, treeDepth, 0n, 2)
+      
+      const jsRootPreInsert = tree.root
+      const commitment1 = poseidon2([preCommitment1, amount/2n])
+      const commitment2 = poseidon2([preCommitment2, amount/2n])
+      tree.insert(commitment1)
+      tree.insert(commitment2)
+      const jsRootPostPostBurn = tree.root
+
+      expect(jsRootPreInsert).to.equal(rootPreBurn);
+      expect(jsRootPostPostBurn).to.equal(rootPostPostBurn);
+
+      // package from tornadocash
+      //@ts-ignore
+      const hashFunc = (left,right) => poseidon2([left, right])
+
+      //@ts-ignore
+      const tornadoTree = new MerkleTree(treeDepth, [commitment1,commitment2],{hashFunction:hashFunc})
+      
+      console.log({tornadoTree:tornadoTree.root, jsRootPostPostBurn})
+      expect(tornadoTree.root).to.equal(jsRootPostPostBurn)
     });
   });
 
@@ -79,7 +114,7 @@ describe("L1WarpToad", function () {
       const { L1WarpToad, nativeToken } = await loadFixture(deployWarpToad);
 
       // free money!!
-      const totalAmount = 100n
+      const totalAmount = 20n
       await nativeToken.getFreeShit(totalAmount);
       await nativeToken.approve(L1WarpToad.target,totalAmount);
 

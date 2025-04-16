@@ -78,7 +78,7 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore {
     // }
 
     function localRoot() public view returns (uint256) {
-        return LazyIMT.root(commitTreeData);
+        return LazyIMT.root(commitTreeData, maxTreeDepth);
     }
 
     function isValidLocalRoot(uint256 _localRoot) public view returns (bool) {
