@@ -15,9 +15,6 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore {
     LazyIMTData public commitTreeData;
     uint8 public maxTreeDepth;
 
-    // uint256 public maxBurns;
-    uint256 public totalBurns;
-
     uint256 public gigaRoot;
     mapping(uint256 => bool) public gigaRootHistory; // limiting the history so we override slots is more efficient
     mapping(uint256 => bool) public localRootHistory; // limiting the history so we override slots is more efficient
@@ -53,9 +50,12 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore {
 
         uint256 _commitment = PoseidonT3.hash([_preCommitment, _amount]);
         LazyIMT.insert(commitTreeData, _commitment);
-        localRootHistory[localRoot()] = true;
-        totalBurns += 1;
         emit Burn(_commitment, _amount);
+    }
+
+    // our tree is lazy so we 
+    function storeLocalRootInHistory() public {
+        localRootHistory[localRoot()] = true;
     }
 
     // TODO relayer support
