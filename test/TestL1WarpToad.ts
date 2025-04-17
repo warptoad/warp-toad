@@ -87,6 +87,7 @@ describe("L1WarpToad", function () {
       const tree = new IMT(poseidon2, treeDepth, 0n, 2)
       
       const jsRootPreInsert = tree.root
+      // TODO do event scanning instead of this silly shit
       const commitment1 = poseidon2([preCommitment1, amount/2n])
       const commitment2 = poseidon2([preCommitment2, amount/2n])
       tree.insert(commitment1)
