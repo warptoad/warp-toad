@@ -3,10 +3,10 @@ Cross bridge privacy
 
 
 ## deploy L1 aztec-sandbox
-`yarn hardhat ignition deploy ./ignition/modules/WarpToadCore.js --parameters ignition/WarpToadCoreParameters.json --network aztecSandbox`
+`yarn hardhat ignition deploy ./ignition/modules/L1WarpToad.ts --parameters ignition/WarpToadCoreParameters.json --network aztecSandbox`
 
-## deploy on aztec
-`bun run scripts/deployAztecToadWarp.ts `
+## deploy on aztec TODODODODODO
+`yarn ts-node scripts_dev_op/deployAztecToadWarp.ts`
 
 ## test contracts
 make sure you're on node 20
@@ -42,8 +42,11 @@ bb write_vk -b ./target/withdraw.json;
 bb contract;
 cd ../..;
 
-# copy to contracts folder
-cp circuits/withdraw/target/contract.sol contracts/withdrawVerifier.sol
+# move to contracts folder
+mv circuits/withdraw/target/contract.sol contracts/evm/WithdrawVerifier.sol
+
+# rename the contract
+yarn ts-node scripts_dev_op/replaceLine.ts --file contracts/evm/WithdrawVerifier.sol --remove "contract UltraVerifier is BaseUltraVerifier {" --replace "contract WithdrawVerifier is BaseUltraVerifier {"
 ```
 
 
