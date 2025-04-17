@@ -22,7 +22,7 @@ describe("L1WarpToad", function () {
     // Contracts are deployed using the first signer/account by default
     //const [owner, otherAccount] = await hre.ethers.getSigners();
     hre.ethers.getContractFactory("PoseidonT3",)
-    const gigaBridge = "0x0000000000000000000000000000000000000000"
+    const gigaBridge = (await hre.ethers.getSigners())[0].address //TODO gigaBridge should be the contract not some rando EOA
     const nativeToken = await hre.ethers.deployContract("USDcoin",[],{ value: 0n, libraries: {} })
     const wrappedTokenSymbol = `wrpToad-${await nativeToken.symbol()}`
     const wrappedTokenName = `wrpToad-${await nativeToken.name()}`
@@ -55,6 +55,8 @@ describe("L1WarpToad", function () {
 
 
       const { L1WarpToad, nativeToken } = await loadFixture(deployWarpToad);
+
+
 
       // free money!!
       const amount = 100n
@@ -106,6 +108,18 @@ describe("L1WarpToad", function () {
       
       console.log({tornadoTree:tornadoTree.root, jsRootPostPostBurn})
       expect(tornadoTree.root).to.equal(jsRootPostPostBurn)
+
+      // mint!
+      const recipient = ethers.getAddress("0x1234000000000000000000000000000000005678")
+      const remintAmount = amount/2n;
+      const gigaRoot = await L1WarpToad.gigaRoot()
+      const localRoot = await L1WarpToad.localRoot()
+      await L1WarpToad.storeLocalRootInHistory(); // TODO make relayer do this and get a root from history instead
+      await L1WarpToad.receiveGigaRoot(gigaRoot); // TODO this is not how it is supposed to work. GigaBridge should do this
+      const proof = "0x00" //TODO
+
+      await L1WarpToad.mint(recipient,remintAmount,gigaRoot,localRoot,proof)
+
     });
   });
 

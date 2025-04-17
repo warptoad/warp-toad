@@ -16,8 +16,8 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore {
     uint8 public maxTreeDepth;
 
     uint256 public gigaRoot;
-    mapping(uint256 => bool) public gigaRootHistory; // limiting the history so we override slots is more efficient
-    mapping(uint256 => bool) public localRootHistory; // limiting the history so we override slots is more efficient
+    mapping(uint256 => bool) public gigaRootHistory; // TODO limit the history so we override slots is more efficient and is easier for clients to implement contract interactions
+    mapping(uint256 => bool) public localRootHistory; 
 
     address gigaBridge;
 
@@ -54,8 +54,10 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore {
     }
 
     // our tree is lazy so we 
-    function storeLocalRootInHistory() public {
-        localRootHistory[localRoot()] = true;
+    function storeLocalRootInHistory() public returns(uint256) {
+        uint256 root = localRoot();
+        localRootHistory[root] = true;
+        return root;
     }
 
     // TODO relayer support
