@@ -2,38 +2,62 @@
 Cross bridge privacy
 
 
-## deploy L1 aztec-sandbox
-`yarn hardhat ignition deploy ./ignition/modules/L1WarpToad.ts --parameters ignition/WarpToadCoreParameters.json --network aztecSandbox`
-
-## deploy on aztec TODODODODODO
-`yarn ts-node scripts_dev_op/deployAztecToadWarp.ts`
-
-## test contracts
-make sure you're on node 20
+## install
+make sure you're on node 20 (hardhat needs it)
 ```shell
 nvm install 20;
 nvm use 20;
 npm install --global yarn;
 yarn install;
 ```
-run test
+
+make sure you're on aztec 0.82.3
+```shell
+aztec-up --version 0.82.3
+```
+
+install noir and backend
+```shell
+bbup -nv 1.0.0-beta.2;
+noirup -v 1.0.0-beta.2;
+```
+
+
+
+## run sandbox
+```shell
+VERSION=0.82.3 aztec start --sandbox
+```
+
+## deploy
+### deploy L1 aztec-sandbox
+```shell
+yarn hardhat ignition deploy ./ignition/modules/L1WarpToad.ts --parameters ignition/WarpToadCoreParameters.json --network aztecSandbox
+```
+
+### deploy L2 aztec-sandbox
+`yarn ts-node scripts_dev_op/deployAztecToadWarp.ts`
+
+## test contracts
+test everything
 ```shell
 yarn hardhat test --network aztecSandbox
 ```
 
-## compile aztec contracts
-`aztec-nargo compile`
-
-# install noir and backend
+test only one file (ex L1WarpToad)
 ```shell
-bbup -nv 1.0.0-beta.2
+yarn hardhat test --network aztecSandbox test/TestL1WarpToad.ts 
 ```
 
-```shell
-noirup -v 1.0.0-beta.2
+## compile contracts
+### aztec
+```
+cd contracts/aztec/WarpToadCore;
+aztec-nargo compile;
+aztec codegen -o src/artifacts target;
 ```
 
-# generate verifier contracts
+### generate EVM verifier contracts
 <!-- //this should be a bash script lmao -->
 ```shell
 cd circuits/withdraw/; 
@@ -49,6 +73,3 @@ mv circuits/withdraw/target/contract.sol contracts/evm/WithdrawVerifier.sol
 yarn ts-node scripts_dev_op/replaceLine.ts --file contracts/evm/WithdrawVerifier.sol --remove "contract UltraVerifier is BaseUltraVerifier {" --replace "contract WithdrawVerifier is BaseUltraVerifier {"
 ```
 
-
-# run sandbox
-`VERSION=0.82.3 aztec start --sandbox`
