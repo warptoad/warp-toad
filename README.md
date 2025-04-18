@@ -46,7 +46,7 @@ yarn hardhat test --network aztecSandbox
 
 test only one file (ex L1WarpToad)
 ```shell
-yarn hardhat test --network aztecSandbox test/TestL1WarpToad.ts 
+yarn hardhat test --network aztecSandbox test/testL1WarpToad.ts 
 ```
 
 ## compile contracts
@@ -71,5 +71,23 @@ mv circuits/withdraw/target/contract.sol contracts/evm/WithdrawVerifier.sol
 
 # rename the contract
 yarn ts-node scripts_dev_op/replaceLine.ts --file contracts/evm/WithdrawVerifier.sol --remove "contract UltraVerifier is BaseUltraVerifier {" --replace "contract WithdrawVerifier is BaseUltraVerifier {"
+```
+
+### generate vkhash and vkAsFields
+-t 32 <- should be same tree depth in circuits/constants/lib.nr (sorry couldn't find a better way to do it)
+```shell
+cd circuits/EVMMerkleVerify;
+nargo compile;
+bb write_vk -b ./target/EVMMerkleVerify.json;
+cd ../..;
+
+cd circuits/GigaTreeMerkleVerify;
+nargo compile;
+bb write_vk -b ./target/GigaTreeMerkleVerify.json;
+cd ../..;
+
+yarn ts-node scripts_dev_op/getVkEvmMerkleCircuits.ts -c circuits/GigaTreeMerkleVerify/target/GigaTreeMerkleVerify.json -t 5 -o circuits/GigaTreeMerkleVerify/target/vkAsFields.json &
+
+yarn ts-node scripts_dev_op/getVkEvmMerkleCircuits.ts -c circuits/EVMMerkleVerify/target/EVMMerkleVerify.json -t 32 -o circuits/EVMMerkleVerify/target/vkAsFields.json
 ```
 
