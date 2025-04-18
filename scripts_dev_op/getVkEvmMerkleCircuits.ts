@@ -37,6 +37,10 @@ async function getVkAsFields(circuit: CompiledCircuit, treeDepth: number) {
     const proofWitness = await noir.execute(proofInputs)
     const proofData = await backend.generateProof(proofWitness.witness)
     const {proofAsFields,vkAsFields,vkHash} = await backend.generateRecursiveProofArtifacts(proofData,proofData.publicInputs.length);
+    // doesnt work
+    // const vk = ethers.hexlify(await backend.getVerificationKey())
+    // const vkAsFields = vk.slice(2).match(/.{1,34}/g)?.map((f)=>ethers.zeroPadValue("0x"+f,32));
+    // console.log({vkAsFields})
     return {vkAsFields, vkHash}
 }
 
@@ -55,10 +59,6 @@ async function main() {
     const circuit = JSON.parse( (await fs.readFile(args.circuit)).toString())
     const vk = await getVkAsFields(circuit, args.treeDepth) 
     await fs.writeFile(args.outputFile, JSON.stringify(vk, null, 2))
-    // doesnt work
-    // const vk = ethers.hexlify(await backend.getVerificationKey())
-    // const vkAsFields = vk.slice(2).match(/.{1,34}/g)?.map((f)=>ethers.zeroPadValue("0x"+f,32));
-    // console.log({vkAsFields})
     process.exit();
 
 }
