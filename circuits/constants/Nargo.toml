@@ -1,0 +1,6 @@
+[package]
+name = "constants"
+type = "lib"
+authors = [""]
+
+[dependencies]

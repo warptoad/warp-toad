@@ -1,5 +1,5 @@
 [package]
-name = "withdraw"
+name = "EVMMerkleVerify"
 type = "bin"
 authors = [""]
 

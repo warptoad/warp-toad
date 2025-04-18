@@ -1,5 +1,5 @@
 [package]
-name = "withdraw"
+name = "GigaTreeMerkleVerify"
 type = "bin"
 authors = [""]
 

@@ -28,8 +28,8 @@ async function lineReplacer(filePath:string, lineReplacements: lineReplacement[]
 
 async function main() {
     const parser = new ArgumentParser({
-        description: 'Argparse example',
-        usage: `quick lil script to replace 1 line`
+        description: 'quick lil script to replace 1 line',
+        usage: `yarn ts-node scripts_dev_op/replaceLine.ts --file contracts/evm/WithdrawVerifier.sol --remove "contract UltraVerifier is BaseUltraVerifier {" --replace "contract WithdrawVerifier is BaseUltraVerifier {"`
     });
     console.log(parser)
 

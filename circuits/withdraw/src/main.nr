@@ -1,10 +1,6 @@
 use dep::std::hash::poseidon;
 use trees::{merkle::{MembershipProver, MerkleTree}, types::MT_Creator};
-
-global AZTEC_TREE_DEPTH:u32 = 32; //TODO check maybe get from import?
-global EVM_TREE_DEPTH: u32 = 32;
-global EVM_TREE_MAX_LEAVES: Field = 2.pow_32(EVM_TREE_DEPTH as Field);
-global GIGA_TREE_DEPTH: u32 = 5;
+use constants::{AZTEC_TREE_DEPTH, EVM_TREE_MAX_LEAVES, EVM_TREE_DEPTH, GIGA_TREE_DEPTH};
 
 // trees::merkle::MerkleTree requires a hasher function
 fn hasher(leaves: [Field; 2]) -> Field {
@@ -45,6 +41,8 @@ fn main(
     amount: pub Field,
     giga_merkle_tree_root: pub Field,
     local_merkle_tree_root: pub Field,
+    EVM_merkle_verifier_key_hash: pub Field,
+    AZTEC_merkle_verifier_key_hash: pub Field,
     // if true, then the caller is withdrawing on the same chain as they deposited on and we only check membership
     // on local_merkle_tree_root.  If False, then the caller with withdrawing on a DIFFERENT chain than where they
     // deposited and we only check membership on giga_merkle_tree_root.
@@ -58,6 +56,13 @@ fn main(
     merkle_proof: [Field; EVM_TREE_DEPTH+GIGA_TREE_DEPTH], //TODO this assumes AZTEC tree is smaller
 )
 {
+    // let 
+    // std::verify_proof(
+    //     verification_key.as_slice(), 
+    //     proof.as_slice(), 
+    //     public_inputs.as_slice(), 
+    //     key_hash,
+    // );
     // TODO do recursive verification instead with 3 different circuits: EVM-leaf-to-gigaRoot, EVM-leaf-to-local-root, AZTEC
     // doing it not recursive means proof time is 3x as long :/
     // NOTE:   EVM-leaf-to-gigaRoot giga_leaf_index = (2**EVM_tree_depth) * deposit_chain_root_index + leaf_index
