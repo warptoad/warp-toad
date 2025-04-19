@@ -73,7 +73,7 @@ mv circuits/withdraw/target/contract.sol contracts/evm/WithdrawVerifier.sol
 yarn ts-node scripts_dev_op/replaceLine.ts --file contracts/evm/WithdrawVerifier.sol --remove "contract UltraVerifier is BaseUltraVerifier {" --replace "contract WithdrawVerifier is BaseUltraVerifier {"
 ```
 
-### generate vkhash and vkAsFields
+### set vkhash and vkAsFields into main circuit
 -t 32 <- should be same tree depth in circuits/constants/lib.nr (sorry couldn't find a better way to do it)
 ```shell
 cd circuits/EVMMerkleVerify;
@@ -86,8 +86,8 @@ nargo compile;
 bb write_vk -b ./target/GigaTreeMerkleVerify.json;
 cd ../..;
 
-yarn ts-node scripts_dev_op/getVkEvmMerkleCircuits.ts -c circuits/GigaTreeMerkleVerify/target/GigaTreeMerkleVerify.json -t 5 -o circuits/GigaTreeMerkleVerify/target/vkAsFields.json &
+yarn ts-node scripts_dev_op/setVkAsFields.ts -r circuits/GigaTreeMerkleVerify -c GigaTreeMerkleVerify -ct EVM -d 5 -j &
 
-yarn ts-node scripts_dev_op/getVkEvmMerkleCircuits.ts -c circuits/EVMMerkleVerify/target/EVMMerkleVerify.json -t 32 -o circuits/EVMMerkleVerify/target/vkAsFields.json
+yarn ts-node scripts_dev_op/setVkAsFields.ts -r circuits/EVMMerkleVerify -c EVMMerkleVerify -ct EVM -d 32 -j
 ```
 
