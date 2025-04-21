@@ -1,3 +1,22 @@
+Circuit size is way too big idk how this works
+```shell
+Scheme is: ultra_honk
+Finalized circuit size: 2178922
+```
+individually circuits total is smaller: 
+```shell
+EVM merkle:                         2050240
+aztec (copy paste of EVM merkle):   59673
+giga tree:                          9336
+total:                              128682
+main circuit is larger by:          2050240
+```
+main circuit should be faster than generating 1 EVM merkle proofs. Other wise this makes no sense.  
+I haven't tried actual benchmarks yet though  
+
+Saleel from aztec said the dev UX of recursion will be a lott better in the future: https://discord.com/channels/1113924620781883405/1362902910605857149/1363365873632677929
+
+
 # warp-toad
 Cross bridge privacy
 
@@ -78,12 +97,12 @@ yarn ts-node scripts_dev_op/replaceLine.ts --file contracts/evm/WithdrawVerifier
 ```shell
 cd circuits/EVMMerkleVerify;
 nargo compile;
-bb write_vk -b ./target/EVMMerkleVerify.json;
+bb write_vk -b ./target/EVMMerkleVerify.json -o ./target/;
 cd ../..;
 
 cd circuits/GigaTreeMerkleVerify;
 nargo compile;
-bb write_vk -b ./target/GigaTreeMerkleVerify.json;
+bb write_vk -b ./target/GigaTreeMerkleVerify.json -o ./target/;
 cd ../..;
 
 yarn ts-node scripts_dev_op/setVkAsFields.ts -r circuits/GigaTreeMerkleVerify -c GigaTreeMerkleVerify -ct EVM -d 5 -j &

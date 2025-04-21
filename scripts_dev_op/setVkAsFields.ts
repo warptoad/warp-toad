@@ -1,6 +1,6 @@
 
 // import { Noir } from '@noir-lang/noir_js';
-import {UltraPlonkBackend, ProofData} from "@aztec/bb.js";
+import {UltraPlonkBackend, UltraHonkBackend, ProofData, Barretenberg, RawBuffer} from "@aztec/bb.js";
 
 //@ts-ignore
 import { InputMap, Noir, InputValue, CompiledCircuit } from "@noir-lang/noir_js";
@@ -17,8 +17,8 @@ import { lineReplacer, lineReplacement } from "./replaceLine";
 const FIELD_LIMIT = 21888242871839275222246405745257275088548364400416034343698204186575808495617n //using poseidon so we work with 254 bits instead of 256
 
 async function getVkEvmMerkleCircuits(circuit: CompiledCircuit, treeDepth: number) {
-    const backend = new UltraPlonkBackend(circuit.bytecode,{ threads:  os.cpus().length })
-    const noir =new Noir(circuit)
+    const backend = new UltraHonkBackend(circuit.bytecode,{ threads:  os.cpus().length })
+    const noir = new Noir(circuit)
 
     //@ts-ignore
     const hashFunc = (left,right) => poseidon2([left, right])
@@ -38,20 +38,26 @@ async function getVkEvmMerkleCircuits(circuit: CompiledCircuit, treeDepth: numbe
     }
     const proofWitness = await noir.execute(proofInputs)
     const proofData = await backend.generateProof(proofWitness.witness)
-    const {proofAsFields,vkAsFields,vkHash} = await backend.generateRecursiveProofArtifacts(proofData,proofData.publicInputs.length);
+    //const {proofAsFields,vkAsFields,vkHash} = await backend.generateRecursiveProofArtifacts(proofData,proofData.publicInputs.length);
+    const { proof: proofAsFields, publicInputs: innerPublicInputs } = await backend.generateProofForRecursiveAggregation(proofWitness.witness)
+    const vkRaw =  await backend.getVerificationKey();
+    const barretenbergAPI = await Barretenberg.new({ threads:  os.cpus().length });
+    const vkAsFields = (await barretenbergAPI.acirVkAsFieldsUltraHonk(new RawBuffer(vkRaw))).map(field => field.toString());
+
     // doesnt work
     // const vk = ethers.hexlify(await backend.getVerificationKey())
     // const vkAsFields = vk.slice(2).match(/.{1,34}/g)?.map((f)=>ethers.zeroPadValue("0x"+f,32));
     // console.log({vkAsFields})
-    return {vkAsFields, vkHash}
-}
+    return {vkAsFields, vkHash:ethers.zeroPadValue("0x00",32), proofAsFields}
+
+    //return {vkAsFields, vkHash, proofAsFields}
+}   
 
 async function main() {
     const parser = new ArgumentParser({
         description: 'TODO',
         usage: `TODO`
     });
-
 
     parser.add_argument('-c', '--circuitName', { help: 'circuit name', required: true, type: 'str' });
     parser.add_argument('-d', '--treeDepth', { help: 'so noir sucks we need to make a whole ass proof just to get the vk as fields :/', required: true, type: 'int' });
@@ -62,14 +68,12 @@ async function main() {
     const args = parser.parse_args() 
     const circuit = JSON.parse( (await fs.readFile(`${args.rootDirCircuit}/target/${args.circuitName}.json`)).toString())
 
-
     let vk
     switch (args.circuitType) {
         case "EVM":
             vk = await getVkEvmMerkleCircuits(circuit, args.treeDepth) 
             break;
     }
-     
     
     if (args.json) {
         await fs.writeFile(`${args.rootDirCircuit}/target/vkAsFields.json`, JSON.stringify(vk, null, 2))
@@ -84,13 +88,16 @@ async function main() {
             {
                 "original"      :`pub global ${args.circuitName.toUpperCase()}_VK_HASH: Field =` ,
                 "replacement"   :`pub global ${args.circuitName.toUpperCase()}_VK_HASH: Field = ${vk?.vkHash.toString()};`
+            },
+            {
+                "original"      :`pub global ${args.circuitName.toUpperCase()}_PROOF_LEN: u32 =` ,
+                "replacement"   :`pub global ${args.circuitName.toUpperCase()}_PROOF_LEN: u32 = ${vk?.proofAsFields.length};`
             }
         ]
-        console.log({replacements})
+        console.log(replacements)
         await lineReplacer(args.constants, replacements)
     }
     process.exit();
-
 }
 
 main()

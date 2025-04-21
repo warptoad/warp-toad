@@ -1,7 +1,11 @@
 {
     "cSpell.words": [
+        "AZTECMERKLEVERIFY",
+        "EVMMERKLEVERIFY",
         "giga",
+        "GIGATREEMERKLEVERIFY",
         "merkle",
+        "Perimg",
         "preimg"
     ],
     "solidity.remappings": [

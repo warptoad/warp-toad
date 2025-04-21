@@ -45,10 +45,10 @@
     tslib "^2.4.0"
     viem "2.23.7"
 
-"@aztec/bb.js@0.72.1":
-  version "0.72.1"
-  resolved "https://registry.yarnpkg.com/@aztec/bb.js/-/bb.js-0.72.1.tgz#d44e64b9c35af777b968ec8f541f81bc1d3e67ab"
-  integrity sha512-CyySqBvaA/TJ/e8KksDp6vS44IUMY2LNJbigm4rKc3jJXjj0xc33V6V5DfC9kR0iVGnFFsvm+BlVBxFsCIQaAg==
+"@aztec/bb.js@0.82.2":
+  version "0.82.2"
+  resolved "https://registry.yarnpkg.com/@aztec/bb.js/-/bb.js-0.82.2.tgz#e123cd781a534b5868da016d93165043923058b4"
+  integrity sha512-MBOHFVHOtfsknyJ1IsHH30paYqf0qLwYkiDTPyH1/KtkMwemvo5VyIgY0Dsl81KQa388MzoKhC6qnaFgERiaog==
   dependencies:
     comlink "^4.4.1"
     commander "^12.1.0"
@@ -609,7 +609,7 @@
   resolved "https://registry.yarnpkg.com/@noir-lang/acvm_js/-/acvm_js-1.0.0-beta.3.tgz#013f43e8238aa0e7733514dc055c5ecfdd3b8364"
   integrity sha512-Dc6g5rJr/x7tKsWvnTbZvjwqI1uiAtvq+NAz5tcLRzUHJw6NAvDXEH5h117h+BfIAhhsHXuPTkDfDB1Gnqp/Bg==
 
-"@noir-lang/noir_js@^1.0.0-beta.2":
+"@noir-lang/noir_js@1.0.0-beta.3":
   version "1.0.0-beta.3"
   resolved "https://registry.yarnpkg.com/@noir-lang/noir_js/-/noir_js-1.0.0-beta.3.tgz#709afad05186df929c5e0f67bbdabd5d64ed0cc2"
   integrity sha512-Nt/rP7zRMOfNq9urD8+GtRpYqEc0K10FoKXs/v+ZTbGaP6Jkm7+F+UPj2bkWy66k1HNzsN6ortli7c7mnLDHwA==
@@ -618,7 +618,7 @@
     "@noir-lang/noirc_abi" "1.0.0-beta.3"
     "@noir-lang/types" "1.0.0-beta.3"
 
-"@noir-lang/noir_wasm@^1.0.0-beta.2":
+"@noir-lang/noir_wasm@1.0.0-beta.3":
   version "1.0.0-beta.3"
   resolved "https://registry.yarnpkg.com/@noir-lang/noir_wasm/-/noir_wasm-1.0.0-beta.3.tgz#4e52b15f09473e6f6cbc1bb0148f9a6f6d8c5132"
   integrity sha512-1EZCmaSYISxJIBLZN1tEyu25E7WIWAYpT3JdnVx+YCHk5uPWtXgroZSqypkpi39TVOJZT6DU/bPfrx0N1GSyog==
