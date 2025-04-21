@@ -1,16 +1,13 @@
 use dep::std::hash::poseidon;
 
-global HONK_VK_SIZE: u32 = 128;
-global HONK_PROOF_SIZE: u32 = 456;
-global HONK_IDENTIFIER: u32 = 1;
-
-
-//vk;
 use constants::{
-    EVMMERKLEVERIFY_VK,EVMMERKLEVERIFY_VK_HASH,EVMMERKLEVERIFY_PROOF_LEN,
-    GIGATREEMERKLEVERIFY_VK,GIGATREEMERKLEVERIFY_VK_HASH, GIGATREEMERKLEVERIFY_PROOF_LEN,
-    AZTECMERKLEVERIFY_VK,AZTECMERKLEVERIFY_VK_HASH,AZTECMERKLEVERIFY_PROOF_LEN
+    AZTEC_TREE_DEPTH,
+    EVM_TREE_DEPTH,
+    GIGA_TREE_DEPTH
+
 };
+
+use merkle_verify::{aztec_merkle_verify, evm_merkle_verify,Aztec_merkle_data,Evm_merkle_data};
 
 
 //     commitmentHash (hashed onchain on deposit)
@@ -26,19 +23,6 @@ fn hash_commitment(nullifier_preimage: Field, secret: Field, chain_id: Field, am
     (commitment,computed_nullifier_hash)
 }
 
-// unconstrained fn calc_giga_leaf_index(deposit_chain_root_index:Field, local_leaf_index: Field) -> Field {
-//     EVM_TREE_MAX_LEAVES * deposit_chain_root_index + local_leaf_index
-// }
-
-
-// unconstrained fn slice_array<let N: u32,let L: u32>(array:[Field;N]) -> [Field;L] {
-//     let mut new_array:[Field;L]= [0;L];
-//     for index in 0 .. L {
-//         new_array[index] = array[index];
-//     }
-//     new_array
-// }
-
 fn main(
     // ----- public inputs -----
     nullifier: pub Field,
@@ -52,50 +36,29 @@ fn main(
     is_from_aztec: bool,
     nullifier_preimage: Field,
     secret: Field,
-    giga_proof: [Field; HONK_PROOF_SIZE],
-    local_proof: [Field; HONK_PROOF_SIZE],
-    aztec_proof: [Field; HONK_PROOF_SIZE],
-    evm_merkle_vk: [Field; HONK_VK_SIZE],
-    giga_merkle_vk: [Field; HONK_VK_SIZE],
-    aztec_merkle_vk: [Field; HONK_VK_SIZE],
+    aztec_merkle_data: Aztec_merkle_data<AZTEC_TREE_DEPTH>,
+    local_merkle_data: Evm_merkle_data<EVM_TREE_DEPTH>,
+    giga_merkle_data: Evm_merkle_data<GIGA_TREE_DEPTH>,
 )
 {   
     // verify origin_local_root is valid
     if (destination_local_root == origin_local_root) {
-        // Is the same as origin_local_root? cool no need to do anything :)
-        // destination_local_root <= what contracts gives us. So we can trust everything is fine
+        // Is the same as origin_local_root? cool we shouldn't do anything. destination_local_root is a public input so its safe  :)
+        // Besides, by not checking, it allows us to use a local_root that has never been used to make a giga_root yet!
     } else {
-        let giga_tree_pub_inputs = [giga_root, origin_local_root, 0 ,0,0,0,0,0];
-        std::verify_proof_with_type(
-            giga_merkle_vk, 
-            giga_proof, 
-            giga_tree_pub_inputs, 
-            GIGATREEMERKLEVERIFY_VK_HASH,
-            HONK_IDENTIFIER
-        );
+        // origin_local_root should be in the giga_root!
+        evm_merkle_verify(giga_root, origin_local_root, giga_merkle_data);
     }
 
     // verify commitment is part of destination_local_root
     let (commitment, _nullifier) = hash_commitment(nullifier_preimage, secret, chain_id, amount);
     assert(_nullifier == nullifier, "nullifier doesn't match inputs");
     
+    // aztecs tree is different from ours because we haven't come around to making a poseidon2 merkle tree in solidity yet.
+    // besides poseidon2 might cost more gas? 
     if (is_from_aztec) {
-        let aztec_tree_pub_inputs = [origin_local_root, commitment, 0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
-        std::verify_proof_with_type(
-            aztec_merkle_vk, 
-            aztec_proof, 
-            aztec_tree_pub_inputs, 
-            AZTECMERKLEVERIFY_VK_HASH,
-            HONK_IDENTIFIER
-        );
+        aztec_merkle_verify(origin_local_root, commitment, aztec_merkle_data)
     } else {
-        let local_tree_pub_inputs = [origin_local_root, commitment, 0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 ];
-        std::verify_proof_with_type(
-            evm_merkle_vk, 
-            local_proof, 
-            local_tree_pub_inputs, 
-            EVMMERKLEVERIFY_VK_HASH,
-            HONK_IDENTIFIER
-        );
+        evm_merkle_verify(origin_local_root, commitment, local_merkle_data);
     }
 }

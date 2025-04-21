@@ -1,6 +1,6 @@
 [package]
-name = "AZTECMerkleVerify"
-type = "bin"
+name = "merkle_verify"
+type = "lib"
 authors = [""]
 
 [dependencies]
