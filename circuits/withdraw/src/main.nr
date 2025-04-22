@@ -31,6 +31,15 @@ fn main(
     giga_root: pub Field,
     destination_local_root: pub Field,
 
+    // fee_factor is what the contract multiplies by the (baseFee+priorityFee) and pays that to relayer. 
+    // So calculating it would be fee_factor = gasCost * wrptdTOKENPriceEth * relayerBonusFactor
+    // relayerBonusFactor eg: 1.10 <= relayer earns 10% on top of the gas fees
+    fee_factor: pub Field, 
+    priority_fee: pub Field,
+    max_fee: pub Field,
+    relayer_address: pub Field,                     // eth address left padded zeros
+    recipient_address: pub Field,                   // eth address left padded zeros
+
     // ----- private inputs -----
     origin_local_root: Field,
     is_from_aztec: bool,
@@ -41,6 +50,15 @@ fn main(
     giga_merkle_data: Evm_merkle_data<GIGA_TREE_DEPTH>,
 )
 {   
+    // there is no syntax for amount >= max_fee. Thats why it looks weird
+    assert(!amount.lt(max_fee), "max_fee higher than amount");
+    
+    // idk if we need to do this but its stops the compiler warnings
+    assert(fee_factor != 0);
+    assert(relayer_address != 0);
+    assert(recipient_address != 0);
+    assert(priority_fee != 0);
+
     // verify origin_local_root is valid
     if (destination_local_root == origin_local_root) {
         // Is the same as origin_local_root? cool we shouldn't do anything. destination_local_root is a public input so its safe  :)

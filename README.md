@@ -18,8 +18,8 @@ aztec-up --version 0.82.3
 
 install noir and backend
 ```shell
-bbup -nv 1.0.0-beta.2;
-noirup -v 1.0.0-beta.2;
+bbup -nv 1.0.0-beta.3;
+noirup -v 1.0.0-beta.3;
 ```
 
 
