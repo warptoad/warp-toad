@@ -62,6 +62,7 @@ pub contract WarpToadCore {
     }
 
     // Transfers `amount` of tokens from `sender` to a `recipient`.
+    // TODO unsafe any can be pretend to be sender if they know the viewing
     #[private]
     fn transfer(amount: u64, sender: AztecAddress, recipient: AztecAddress) {
         storage.balances.at(sender).sub(amount, sender, sender);

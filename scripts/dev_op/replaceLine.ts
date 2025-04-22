@@ -22,9 +22,6 @@ export async function lineReplacer(filePath:string, lineReplacements: lineReplac
     await fs.writeFile(filePath, newFile);
 }
 
-
-
-
 async function main() {
     const parser = new ArgumentParser({
         description: 'quick lil script to replace 1 line',

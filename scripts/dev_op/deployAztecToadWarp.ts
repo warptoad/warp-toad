@@ -1,4 +1,4 @@
-import WarpToadCoreContractArtifactJson from '../contracts/aztec/WarpToadCore/target/WarpToadCore-WarpToadCore.json'
+import WarpToadCoreContractArtifactJson from '../../contracts/aztec/WarpToadCore/target/WarpToadCore-WarpToadCore.json'
 //@ts-ignore
 import { createPXEClient, waitForPXE, Contract, ContractArtifact,loadContractArtifact, NoirCompiledContract } from "@aztec/aztec.js"
 export const WarpToadCoreContractArtifact = loadContractArtifact(WarpToadCoreContractArtifactJson as NoirCompiledContract);
@@ -35,6 +35,6 @@ async function main() {
     console.log(`counter deployed at ${WarpToadCoreDeployed.address.toString()}`);
 
     const addresses = { counter: WarpToadCoreDeployed.address.toString() };
-    writeFileSync('PublicCounterAddresses.json', JSON.stringify(addresses, null, 2));
+    writeFileSync('WarptoadCoreAztecDeployment.json', JSON.stringify(addresses, null, 2));
 }
 main();

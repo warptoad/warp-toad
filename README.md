@@ -36,7 +36,7 @@ yarn hardhat ignition deploy ./ignition/modules/L1WarpToad.ts --parameters ignit
 ```
 
 ### deploy L2 aztec-sandbox
-`yarn ts-node scripts_dev_op/deployAztecToadWarp.ts`
+`yarn ts-node scripts/dev_op/deployAztecToadWarp.ts`
 
 ## test contracts
 test everything
@@ -70,5 +70,5 @@ cd ../..;
 mv circuits/withdraw/target/contract.sol contracts/evm/WithdrawVerifier.sol
 
 # rename the contract
-yarn ts-node scripts_dev_op/replaceLine.ts --file contracts/evm/WithdrawVerifier.sol --remove "contract UltraVerifier is BaseUltraVerifier {" --replace "contract WithdrawVerifier is BaseUltraVerifier {"
+yarn ts-node ./scripts/dev_op/replaceLine.ts --file ./contracts/evm/WithdrawVerifier.sol --remove "contract UltraVerifier is BaseUltraVerifier {" --replace "contract WithdrawVerifier is BaseUltraVerifier {"
 ```

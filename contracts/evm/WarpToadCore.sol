@@ -29,6 +29,8 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore {
     address public gigaBridge;
     address public withdrawVerifier;
 
+    uint256 public lastLeafIndex;
+
     constructor(uint8 _maxTreeDepth, address _gigaBridge, address _withdrawVerifier) {
         maxTreeDepth = _maxTreeDepth;
         // maxBurns = 2 ** _maxTreeDepth; // circuit cant go above this number
@@ -58,7 +60,8 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore {
 
         uint256 _commitment = PoseidonT3.hash([_preCommitment, _amount]);
         LazyIMT.insert(commitTreeData, _commitment);
-        emit Burn(_commitment, _amount);
+        emit Burn(_commitment, _amount, lastLeafIndex);
+        lastLeafIndex++;
     }
 
     // our tree is lazy so we 
