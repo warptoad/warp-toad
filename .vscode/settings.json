@@ -1,12 +1,16 @@
 {
     "cSpell.words": [
         "AZTECMERKLEVERIFY",
+        "basefee",
+        "chainid",
         "EVMMERKLEVERIFY",
         "giga",
         "GIGATREEMERKLEVERIFY",
         "merkle",
         "Perimg",
+        "permissionless",
         "preimg",
+        "Uints",
         "wrptd"
     ],
     "solidity.remappings": [

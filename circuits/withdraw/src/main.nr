@@ -32,8 +32,9 @@ fn main(
     destination_local_root: pub Field,
 
     // fee_factor is what the contract multiplies by the (baseFee+priorityFee) and pays that to relayer. 
-    // So calculating it would be fee_factor = gasCost * wrptdTOKENPriceEth * relayerBonusFactor
+    // So calculating it would be fee_factor = gasCost * wrptdTOKENPriceWei * relayerBonusFactor
     // relayerBonusFactor eg: 1.10 <= relayer earns 10% on top of the gas fees
+    
     fee_factor: pub Field, 
     priority_fee: pub Field,
     max_fee: pub Field,
@@ -54,7 +55,7 @@ fn main(
     assert(!amount.lt(max_fee), "max_fee higher than amount");
     
     // idk if we need to do this but its stops the compiler warnings
-    assert(fee_factor != 0);
+    assert(fee_factor != 1); // we use 0 to detect if user doesn't want to pay the relayer
     assert(relayer_address != 0);
     assert(recipient_address != 0);
     assert(priority_fee != 0);

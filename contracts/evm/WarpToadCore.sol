@@ -11,22 +11,30 @@ import {IWarpToadCore} from "./interfaces/IWarpToadCore.sol";
 // noir equivalent (normal merkle tree): https://github.com/privacy-scaling-explorations/zk-kit.noir/tree/main/packages/merkle-trees
 // ts/js: https://github.com/privacy-scaling-explorations/zk-kit/tree/main/packages/lean-imt
 
+interface IVerifier {
+    function verify(
+        bytes calldata _proof,
+        bytes32[] calldata _publicInputs
+    ) external view returns (bool);
+}
+
 abstract contract WarpToadCore is ERC20, IWarpToadCore {
-    LazyIMTData public commitTreeData;
+    LazyIMTData public commitTreeData; // does this need to be public?
     uint8 public maxTreeDepth;
 
     uint256 public gigaRoot;
     mapping(uint256 => bool) public gigaRootHistory; // TODO limit the history so we override slots is more efficient and is easier for clients to implement contract interactions
     mapping(uint256 => bool) public localRootHistory; 
 
-    address gigaBridge;
+    address public gigaBridge;
+    address public withdrawVerifier;
 
-    constructor(uint8 _maxTreeDepth, address _gigaBridge) {
+    constructor(uint8 _maxTreeDepth, address _gigaBridge, address _withdrawVerifier) {
         maxTreeDepth = _maxTreeDepth;
         // maxBurns = 2 ** _maxTreeDepth; // circuit cant go above this number
 
         gigaBridge = _gigaBridge;
-
+        withdrawVerifier = _withdrawVerifier;
         LazyIMT.init(commitTreeData, _maxTreeDepth);
     }
 
@@ -60,19 +68,66 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore {
         return root;
     }
 
-    // TODO relayer support
-    function mint(
-        address _recipient,
+    function _formatPublicInputs(        
+        uint256 _nullifier,
+        uint256 _chainId,
         uint256 _amount,
         uint256 _gigaRoot,
         uint256 _localRoot,
+        uint256 _feeFactor,
+        uint256 _priorityFee,
+        uint256 _maxFee,
+        address _relayer,
+        address _recipient
+    ) public returns (bytes32[] memory) {
+        bytes32[] memory publicInputs = new bytes32[](10);
+        // TODO is this expensive gas wise?
+        uint256[8] memory uintInputs = [_nullifier,_chainId,_amount,_gigaRoot,_localRoot,_feeFactor,_priorityFee,_maxFee];
+        address[2] memory addressInputs = [_relayer, _recipient];
+        
+        for (uint i = 0; i < uintInputs.length; i++) {
+            publicInputs[i] = bytes32(uintInputs[i]);
+        }
+        uint256 indexAfterUints = uintInputs.length - 1; 
+        for (uint i = 0; i < 2; i++) {
+            publicInputs[indexAfterUints + i] = bytes32(uint256(uint160(bytes20(addressInputs[i])))); // silly ah solidity way to get left padded 32bytes hopefully the compiler doesn't make it look silly
+        }
+    }
+
+
+    // TODO relayer support
+    function mint(
+        uint256 _nullifier,
+        uint256 _amount,
+        uint256 _gigaRoot,
+        uint256 _localRoot,
+        uint256 _feeFactor,
+        uint256 _priorityFee,
+        uint256 _maxFee,
+        address _relayer,
+        address _recipient,
         bytes memory _poof
     ) public {
         require(isValidGigaRoot(_gigaRoot), "_gigaRoot unknown");
-        require(isValidLocalRoot(_localRoot), "_localRoot unknown");
-        _mint(_recipient, _amount);
-        // TODO verify proof
-        // verify(_gigaRoot, root(), _amount, _recipient)
+        require(isValidLocalRoot(_localRoot), "_localRoot unknown"); 
+        
+        bytes32[] memory _publicInputs = _formatPublicInputs(_nullifier, block.chainid, _amount, _gigaRoot, _localRoot, _feeFactor, _priorityFee, _maxFee, _relayer, _recipient);
+        // IVerifier(withdrawVerifier).verify(_poof, _publicInputs); 
+
+        // fee logic       
+        if (_feeFactor != 0 ) { 
+            uint256 _relayerFee = _feeFactor * (block.basefee + _priorityFee); // TODO double check precision. Prob only breaks if the wrpToad token price is super high or gas cost super low
+            require(_relayerFee <= _maxFee, "_relayerFee is larger than _maxFee");
+            // for compatibility with permissionless relaying
+            if (_relayer == address(1)){
+                _relayer = msg.sender;
+            }
+            _mint(_relayer, _relayerFee);
+            _mint(_recipient, _amount - _relayerFee);
+        } else {
+            // its self relayed or relayer is just nice :D
+            _mint(_recipient, _amount);
+        }
     }
 
     // function indexOf(uint256 leaf) public view returns (uint256) {

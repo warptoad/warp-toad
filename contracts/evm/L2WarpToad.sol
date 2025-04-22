@@ -6,9 +6,10 @@ contract L2WarpToad is WarpToadCore {
     constructor(
         uint8 _maxTreeDepth,
         address _gigaBridge,
+        address _withdrawVerifier,
         string memory name,
         string memory symbol
-    ) ERC20(name, symbol) WarpToadCore(_maxTreeDepth, _gigaBridge) {}
+    ) ERC20(name, symbol) WarpToadCore(_maxTreeDepth, _gigaBridge, _withdrawVerifier) {}
 
     function bridgeRoot() public {
         localRoot(); // <- returns the localRoot!

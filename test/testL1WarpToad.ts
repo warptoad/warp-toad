@@ -29,8 +29,9 @@ describe("L1WarpToad", function () {
 
     const maxTreeDepth = 32n
     const PoseidonT3Lib = await hre.ethers.deployContract("PoseidonT3", [], { value: 0n, libraries: {} })
+    const WithdrawVerifier = await hre.ethers.deployContract("WithdrawVerifier", [], { value: 0n, libraries: {} })
     const LazyIMTLib = await hre.ethers.deployContract("LazyIMT", [], { value: 0n, libraries: { PoseidonT3: PoseidonT3Lib } })
-    const L1WarpToad = await hre.ethers.deployContract("L1WarpToad", [maxTreeDepth,gigaBridge,nativeToken.target,wrappedTokenSymbol,wrappedTokenName], {
+    const L1WarpToad = await hre.ethers.deployContract("L1WarpToad", [maxTreeDepth,gigaBridge,WithdrawVerifier.target,nativeToken.target,wrappedTokenSymbol,wrappedTokenName], {
       value: 0n,
       libraries: {
         LazyIMT: LazyIMTLib,
@@ -116,9 +117,14 @@ describe("L1WarpToad", function () {
       const localRoot = await L1WarpToad.localRoot()
       await L1WarpToad.storeLocalRootInHistory(); // TODO make relayer do this and get a root from history instead
       await L1WarpToad.receiveGigaRoot(gigaRoot); // TODO this is not how it is supposed to work. GigaBridge should do this
-      const proof = "0x00" //TODO
 
-      await L1WarpToad.mint(recipient,remintAmount,gigaRoot,localRoot,proof)
+      const nullifier = 0;// TODO
+      const feeFactor = 0;// TODO
+      const priorityFee = 0;// TODO
+      const maxFee = 0;// TODO
+      const relayer = ethers.getAddress("0x5678000000000000000000000000000000009123"); // TODO
+      const poof = ethers.zeroPadBytes("0x00",32); // TODO
+      await L1WarpToad.mint(nullifier,remintAmount,gigaRoot,localRoot,feeFactor,priorityFee,maxFee,relayer,recipient,poof)
 
     });
   });
