@@ -116,7 +116,7 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore {
         require(isValidLocalRoot(_localRoot), "_localRoot unknown"); 
         
         bytes32[] memory _publicInputs = _formatPublicInputs(_nullifier, block.chainid, _amount, _gigaRoot, _localRoot, _feeFactor, _priorityFee, _maxFee, _relayer, _recipient);
-        IVerifier(withdrawVerifier).verify(_poof, _publicInputs); 
+        require(IVerifier(withdrawVerifier).verify(_poof, _publicInputs), "invalid proof"); 
 
         // fee logic       
         if (_feeFactor != 0 ) { 
