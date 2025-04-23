@@ -82,7 +82,7 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore {
         uint256 _maxFee,
         address _relayer,
         address _recipient
-    ) public returns (bytes32[] memory) {
+    ) public view returns (bytes32[] memory) {
         bytes32[] memory publicInputs = new bytes32[](10);
         // TODO is this expensive gas wise?
         uint256[8] memory uintInputs = [_nullifier,_chainId,_amount,_gigaRoot,_localRoot,_feeFactor,_priorityFee,_maxFee];
@@ -91,10 +91,11 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore {
         for (uint i = 0; i < uintInputs.length; i++) {
             publicInputs[i] = bytes32(uintInputs[i]);
         }
-        uint256 indexAfterUints = uintInputs.length - 1; 
+        uint256 indexAfterUints = uintInputs.length; 
         for (uint i = 0; i < 2; i++) {
             publicInputs[indexAfterUints + i] = bytes32(uint256(uint160(bytes20(addressInputs[i])))); // silly ah solidity way to get left padded 32bytes hopefully the compiler doesn't make it look silly
         }
+        return publicInputs;
     }
 
 
@@ -115,7 +116,7 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore {
         require(isValidLocalRoot(_localRoot), "_localRoot unknown"); 
         
         bytes32[] memory _publicInputs = _formatPublicInputs(_nullifier, block.chainid, _amount, _gigaRoot, _localRoot, _feeFactor, _priorityFee, _maxFee, _relayer, _recipient);
-        // IVerifier(withdrawVerifier).verify(_poof, _publicInputs); 
+        IVerifier(withdrawVerifier).verify(_poof, _publicInputs); 
 
         // fee logic       
         if (_feeFactor != 0 ) { 

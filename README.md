@@ -1,6 +1,13 @@
 # warp-toad
 Cross bridge privacy
 
+# WARNING KNOWN ISSUES
+jimjim:   
+1. event scanning will scan from block 0 to latest. This will break outside of tests and anvil  
+1. scripts/lib/proving.ts only works on burning and minting on the same chain. Because gigaTree and aztec proofs provided are just zeros   
+1. scripts/lib/proving.ts assumes that every local root is always immediately bridged and included into gigaRoot. That is bad and will break when you do async bridging   
+
+
 
 ## install
 make sure you're on node 20 (hardhat needs it)

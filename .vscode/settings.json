@@ -3,14 +3,18 @@
         "AZTECMERKLEVERIFY",
         "basefee",
         "chainid",
+        "codegen",
         "EVMMERKLEVERIFY",
         "giga",
         "GIGATREEMERKLEVERIFY",
         "merkle",
+        "nargo",
         "permissionless",
         "preimg",
         "tornadocash",
+        "typechain",
         "Uints",
+        "warptoad",
         "wrptd"
     ],
     "solidity.remappings": [
