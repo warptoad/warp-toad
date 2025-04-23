@@ -29,6 +29,30 @@ bbup -nv 1.0.0-beta.3;
 noirup -v 1.0.0-beta.3;
 ```
 
+## compile contracts
+### aztec
+```
+cd backend/contracts/aztec/WarpToadCore;
+aztec-nargo compile;
+aztec codegen -o src/artifacts target;
+cd ../../../..
+```
+
+### generate EVM verifier contracts
+<!-- //this should be a bash script lmao -->
+```shell
+cd backend/circuits/withdraw/; 
+nargo compile; 
+bb write_vk -b ./target/withdraw.json;
+bb contract;
+cd ../../..;
+
+# move to contracts folder
+mv backend/circuits/withdraw/target/contract.sol backend/contracts/evm/WithdrawVerifier.sol
+
+# rename the contract
+yarn workspace @warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file ./contracts/evm/WithdrawVerifier.sol --remove "contract UltraVerifier is BaseUltraVerifier {" --replace "contract WithdrawVerifier is BaseUltraVerifier {"
+```
 
 
 ## run sandbox
@@ -39,43 +63,24 @@ VERSION=0.82.3 aztec start --sandbox
 ## deploy
 ### deploy L1 aztec-sandbox
 ```shell
-yarn hardhat ignition deploy ./ignition/modules/L1WarpToad.ts --parameters ignition/WarpToadCoreParameters.json --network aztecSandbox
+yarn workspace @warp-toad/backend hardhat ignition deploy ./ignition/modules/L1WarpToad.ts --parameters ignition/WarpToadCoreParameters.json --network aztecSandbox
 ```
 
 ### deploy L2 aztec-sandbox
-`yarn ts-node scripts/dev_op/deployAztecToadWarp.ts`
+`yarn workspace @warp-toad/backend ts-node scripts/dev_op/deployAztecToadWarp.ts`
 
 ## test contracts
-test everything
+test only one file just hardhat evm (ex L1WarpToad)
 ```shell
-yarn hardhat test --network aztecSandbox
+yarn workspace @warp-toad/backend hardhat test test/testL1WarpToad.ts 
 ```
 
-test only one file (ex L1WarpToad)
+test only one file (ex aztecWarpToad)
 ```shell
-yarn hardhat test --network aztecSandbox test/testL1WarpToad.ts 
+yarn workspace @warp-toad/backend hardhat test test/testAztecToadWarp.ts  --network aztecSandbox
 ```
 
-## compile contracts
-### aztec
-```
-cd contracts/aztec/WarpToadCore;
-aztec-nargo compile;
-aztec codegen -o src/artifacts target;
-```
-
-### generate EVM verifier contracts
-<!-- //this should be a bash script lmao -->
+test everything (might break because aztec sandbox is a bit unstable)
 ```shell
-cd circuits/withdraw/; 
-nargo compile; 
-bb write_vk -b ./target/withdraw.json;
-bb contract;
-cd ../..;
-
-# move to contracts folder
-mv circuits/withdraw/target/contract.sol contracts/evm/WithdrawVerifier.sol
-
-# rename the contract
-yarn ts-node ./scripts/dev_op/replaceLine.ts --file ./contracts/evm/WithdrawVerifier.sol --remove "contract UltraVerifier is BaseUltraVerifier {" --replace "contract WithdrawVerifier is BaseUltraVerifier {"
+yarn workspace @warp-toad/backend hardhat test --network aztecSandbox
 ```

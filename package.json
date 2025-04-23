@@ -1,0 +1,17 @@
+{
+  "name": "warp-toad",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "frontend",
+    "backend",
+    "tests",
+    "scripts"
+  ],
+  "repository": "https://github.com/JossDuff/warp-toad.git",
+  "author": "jossduff <jduff360@gmail.com>",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

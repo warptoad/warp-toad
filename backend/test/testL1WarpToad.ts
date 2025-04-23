@@ -145,23 +145,24 @@ describe("L1WarpToad", function () {
     });
   });
 
-  describe("Burn gas test", function () {
-    it("Should burn a lott", async function () {
-      // for gas test
-      const { L1WarpToad, nativeToken } = await loadFixture(deployWarpToad);
+  // breaks sandbox but does work in
+  // describe("Burn gas test", function () {
+  //   it("Should burn a lott", async function () {
+  //     // for gas test
+  //     const { L1WarpToad, nativeToken } = await loadFixture(deployWarpToad);
 
-      // free money!!
-      const totalAmount = 20n
-      await nativeToken.getFreeShit(totalAmount);
-      await nativeToken.approve(L1WarpToad.target,totalAmount);
+  //     // free money!!
+  //     const totalAmount = 5n
+  //     await nativeToken.getFreeShit(totalAmount);
+  //     await nativeToken.approve(L1WarpToad.target,totalAmount);
 
-      await L1WarpToad.wrap(totalAmount)
+  //     await L1WarpToad.wrap(totalAmount)
 
 
-      for (let index = 0n; index < totalAmount; index++) {
-        const preCommitment = Fr.random().toBigInt()
-        await L1WarpToad.burn(preCommitment,1n)
-      }
-    });
-  });
+  //     for (let index = 0n; index < totalAmount; index++) {
+  //       const preCommitment = Fr.random().toBigInt()
+  //       await L1WarpToad.burn(preCommitment,1n)
+  //     }
+  //   });
+  // });
 });

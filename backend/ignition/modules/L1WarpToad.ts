@@ -16,13 +16,14 @@ export default buildModule("L1WarpToad", (m) => {
   });
   const maxTreeDepth = m.getParameter("maxTreeDepth");
   const gigaBridge = m.getParameter("gigaBridge");
+  const withdrawVerifier = m.getParameter("WithdrawVerifier");
   const nativeToken = m.getParameter("nativeToken");
   const name = m.getParameter("name");
   const symbol = m.getParameter("symbol");
 
 
 
-  const L1WarpToad = m.contract("L1WarpToad", [maxTreeDepth,gigaBridge,nativeToken,name,symbol], {
+  const L1WarpToad = m.contract("L1WarpToad", [maxTreeDepth,gigaBridge,withdrawVerifier,nativeToken,name,symbol], {
     value: 0n,
     libraries: {
       LazyIMT: LazyIMTLib,
