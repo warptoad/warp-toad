@@ -84,3 +84,8 @@ test everything (might break because aztec sandbox is a bit unstable)
 ```shell
 yarn workspace @warp-toad/backend hardhat test --network aztecSandbox
 ```
+
+## run frontend in dev mode
+```shell
+ yarn f:dev
+ ```

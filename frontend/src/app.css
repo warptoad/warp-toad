@@ -1,0 +1,99 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&family=Quicksand:wght@300..700&display=swap');
+
+@plugin "daisyui";
+@plugin "daisyui/theme" {
+    name: "warptoad";
+    default: false;
+    prefersdark: false;
+    color-scheme: "dark";
+    --color-base-100: #486445;
+    --color-base-200: #202629;
+    --color-base-300: oklch(67% 0.182 276.935);
+    --color-base-content: #fcfae3;
+    --color-primary: oklch(74.703% 0.158 39.947);
+    --color-primary-content: oklch(14.94% 0.031 39.947);
+    --color-secondary: oklch(72.537% 0.177 2.72);
+    --color-secondary-content: oklch(14.507% 0.035 2.72);
+    --color-accent: oklch(71.294% 0.166 299.844);
+    --color-accent-content: oklch(14.258% 0.033 299.844);
+    --color-neutral: oklch(26% 0.019 237.69);
+    --color-neutral-content: oklch(70% 0.019 237.69);
+    --color-info: oklch(85.559% 0.085 206.015);
+    --color-info-content: oklch(17.111% 0.017 206.015);
+    --color-success: oklch(85.56% 0.085 144.778);
+    --color-success-content: oklch(17.112% 0.017 144.778);
+    --color-warning: oklch(85.569% 0.084 74.427);
+    --color-warning-content: oklch(17.113% 0.016 74.427);
+    --color-error: oklch(85.511% 0.078 16.886);
+    --color-error-content: oklch(17.102% 0.015 16.886);
+    --radius-selector: 0.5rem;
+    --radius-field: 0.5rem;
+    --radius-box: 0.5rem;
+    --size-selector: 0.25rem;
+    --size-field: 0.25rem;
+    --border: 1px;
+    --depth: 0;
+    --noise: 0;
+  }
+
+  html{
+    background-color:  var(--color-base-200);
+    
+  }
+  #app{
+    height: 100vh;
+  }
+  
+  @layer base {
+    body {
+      @apply text-base font-normal text-base-content;
+      font-family: 'Fredoka', sans-serif;
+    }
+  
+    h1 {
+      @apply text-4xl font-bold leading-tight text-primary;
+      font-family: 'Fredoka', sans-serif;
+    }
+  
+    h2 {
+      @apply text-3xl font-semibold leading-snug text-primary;
+      font-family: 'Fredoka', sans-serif;
+    }
+  
+    h3 {
+      @apply text-2xl font-medium leading-snug text-primary;
+      font-family: 'Fredoka', sans-serif;
+    }
+  
+    h4 {
+      @apply text-xl font-medium leading-snug text-primary;
+      font-family: 'Fredoka', sans-serif;
+    }
+  
+    h5 {
+      @apply text-lg font-medium text-base-content;
+      font-family: 'Fredoka', sans-serif;
+    }
+  
+    h6 {
+      @apply text-base font-medium text-base-content;
+      font-family: 'Fredoka', sans-serif;
+    }
+  
+    p, span, li, a, label {
+      @apply text-base font-normal leading-relaxed text-base-content;
+      font-family: 'Quicksand', sans-serif;
+    }
+  
+    small {
+      @apply text-sm text-neutral-content;
+      font-family: 'Quicksand', sans-serif;
+    }
+  
+    button, input, select, textarea {
+      @apply font-medium text-base;
+      font-family: 'Fredoka', sans-serif;
+    }
+  }
+  
