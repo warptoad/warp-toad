@@ -1,44 +1,17 @@
 {
-  "esbuildOptions": {
-    "target": "esnext"
-  },
-  "name": "warp-toad",
-  "version": "1.0.0",
-  "repository": "https://github.com/JossDuff/warp-toad.git",
-  "author": "jossduff <jduff360@gmail.com>",
-  "license": "MIT",
-  "devDependencies": {
-    "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",
-    "@nomicfoundation/hardhat-ethers": "^3.0.8",
-    "@nomicfoundation/hardhat-ignition": "^0.15.10",
-    "@nomicfoundation/hardhat-ignition-ethers": "^0.15.10",
-    "@nomicfoundation/hardhat-network-helpers": "^1.0.12",
-    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-    "@nomicfoundation/hardhat-verify": "^2.0.13",
-    "@nomicfoundation/ignition-core": "^0.15.10",
-    "@typechain/ethers-v6": "^0.5.1",
-    "@typechain/hardhat": "^9.1.0",
-    "@types/chai": "^5.2.1",
-    "@types/mocha": "^10.0.10",
-    "chai": "^5.2.0",
-    "ethers": "^6.13.5",
-    "hardhat": "^2.22.6",
-    "hardhat-gas-reporter": "^2.2.2",
-    "solidity-coverage": "^0.8.14",
-    "ts-node": "^10.9.2",
-    "typechain": "^8.3.2",
-    "typescript": "^5.8.2"
-  },
-  "dependencies": {
-    "@aztec/accounts": "0.82.3",
-    "@aztec/aztec.js": "0.82.3",
-    "@openzeppelin/contracts": "^5.2.0",
-    "@types/argparse": "^2.0.17",
-    "@zk-kit/imt": "^2.0.0-beta.8",
-    "@zk-kit/lazy-imt.sol": "^2.0.0-beta.12",
-    "argparse": "^2.0.1",
-    "fixed-merkle-tree": "^0.7.3",
-    "poseidon-lite": "^0.3.0"
-  },
-  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
-}
+    "name": "warp-toad",
+    "version": "1.0.0",
+    "private": true,
+    "workspaces": [
+      "frontend",
+      "backend",
+      "tests",
+      "scripts"
+    ],
+    "repository": "https://github.com/JossDuff/warp-toad.git",
+    "author": "jossduff <jduff360@gmail.com>",
+    "license": "MIT",
+    "engines": {
+      "node": ">=20.0.0"
+    }
+  }
