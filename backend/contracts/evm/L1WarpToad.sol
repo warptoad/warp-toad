@@ -6,9 +6,9 @@ contract L1WarpToad is WarpToadCore {
     address nativeToken;
 
     //@joss do what ever to the structure or naming or things if u feel like it
-    constructor(uint8 _maxTreeDepth, address _gigaBridge,address _nativeToken, string memory name, string memory symbol) 
+    constructor(uint8 _maxTreeDepth, address _gigaBridge, address _withdrawVerifier, address _nativeToken, string memory name, string memory symbol) 
     ERC20(name, symbol) 
-    WarpToadCore(_maxTreeDepth, _gigaBridge)  {
+    WarpToadCore(_maxTreeDepth, _gigaBridge, _withdrawVerifier)  {
         nativeToken = _nativeToken;
     }
 

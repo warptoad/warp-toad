@@ -15,6 +15,9 @@ import { createPXEClient, waitForPXE, Contract, ContractArtifact,loadContractArt
 
 //@ts-ignore
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing'; // idk why but node is bitching about this but bun doesnt care
+
+// //@ts-ignore
+// import {getSchnorrAccount } from "@aztec/accounts/schnorr/lazy";
 import { WarpToadCore } from "../typechain-types";
 
 import { poseidon2, poseidon3 } from 'poseidon-lite'

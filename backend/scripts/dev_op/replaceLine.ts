@@ -1,12 +1,12 @@
 import { ArgumentParser } from 'argparse';
 import fs from "fs/promises";
 
-interface lineReplacement {
+export interface lineReplacement {
     original: string;
-    replacement: number;
+    replacement: string;
 }
 
-async function lineReplacer(filePath:string, lineReplacements: lineReplacement[]) {
+export async function lineReplacer(filePath:string, lineReplacements: lineReplacement[]) : Promise<void> {
     const file = await fs.open(filePath, "r")
     let newFile = ""
 
@@ -14,7 +14,6 @@ async function lineReplacer(filePath:string, lineReplacements: lineReplacement[]
         const replacement = lineReplacements.find((replacement) => line.startsWith(replacement.original))
         if (replacement) {
             newFile += replacement.replacement + "\n"
-            console.log({ replacement })
         } else {
             newFile += line + "\n"
         }
@@ -23,13 +22,10 @@ async function lineReplacer(filePath:string, lineReplacements: lineReplacement[]
     await fs.writeFile(filePath, newFile);
 }
 
-
-
-
 async function main() {
     const parser = new ArgumentParser({
-        description: 'Argparse example',
-        usage: `quick lil script to replace 1 line`
+        description: 'quick lil script to replace 1 line',
+        usage: `yarn ts-node scripts_dev_op/replaceLine.ts --file contracts/evm/WithdrawVerifier.sol --remove "contract UltraVerifier is BaseUltraVerifier {" --replace "contract WithdrawVerifier is BaseUltraVerifier {"`
     });
     console.log(parser)
 
@@ -47,4 +43,6 @@ async function main() {
     await lineReplacer(args.file, lineReplacements)
 }
 
-main()
+if (require.main === module) {
+    main()
+}
