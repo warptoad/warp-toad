@@ -43,16 +43,16 @@ describe("L1WarpToad", function () {
     const PoseidonT3LibAddress = await deployPoseidon(signer)
     const WithdrawVerifier = (await deployArtifact(WithdrawVerifierArtifacts,signer,[],{value:0n,libraries:{}})) as WithdrawVerifier
     console.log("lazyImt time")
-    const lazyIMTfactory = ethers.ContractFactory.fromSolidity(LazyIMTArtifacts, signer)
-    const LazyIMTLib = await (await lazyIMTfactory.deploy(
-      ...[],
-      { value: 0n, libraries: { PoseidonT3: PoseidonT3LibAddress }})).waitForDeployment() as LazyIMT
-    // const LazyIMTLib:LazyIMT = (await deployArtifact(
-    //   LazyIMTArtifacts,
-    //   signer,
-    //   [],
-    //   { value: 0n, libraries: { PoseidonT3: PoseidonT3LibAddress }}
-    // )) as LazyIMT
+    // const lazyIMTfactory = ethers.ContractFactory.fromSolidity(LazyIMTArtifacts, signer)
+    // const LazyIMTLib = await (await lazyIMTfactory.deploy(
+    //   ...[],
+    //   { value: 0n, libraries: { PoseidonT3: PoseidonT3LibAddress }})).waitForDeployment() as LazyIMT
+    const LazyIMTLib:LazyIMT = (await deployArtifact(
+      LazyIMTArtifacts,
+      signer,
+      [],
+      { value: 0n, libraries: { PoseidonT3: PoseidonT3LibAddress }}
+    )) as LazyIMT
     console.log("warptoad")
     const L1WarpToad = (await deployArtifact(
       L1WarpToadArtifacts, 
