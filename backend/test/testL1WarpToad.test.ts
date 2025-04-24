@@ -20,7 +20,8 @@ import os from 'os';
 import USDcoinArtifacts from "../artifacts/contracts/evm/test/USDcoin.sol/USDcoin.json" with { type: 'json' };
 import WithdrawVerifierArtifacts from "../artifacts/contracts/evm/WithdrawVerifier.sol/WithdrawVerifier.json" with { type: 'json' };
 import L1WarpToadArtifacts from "../artifacts/contracts/evm/L1WarpToad.sol/L1WarpToad.json" with { type: 'json' };
-import LazyIMTArtifacts from "../artifacts/@zk-kit/lazy-imt.sol/LazyIMT.sol/LazyIMT.json" with { type: 'json' };
+// import LazyIMTArtifacts from "../artifacts/@zk-kit/lazy-imt.sol/LazyIMT.sol/LazyIMT.json" with { type: 'json' };
+import LazyIMTArtifacts from "../../out/LazyIMT.sol/LazyIMT.json" with { type: 'json' };
 import {deployPoseidon, deployArtifact} from "../scripts/dev_op/deployHelpers.js"
 import { LazyIMT__factory } from '../typechain-types/factories/@zk-kit/lazy-imt.sol/LazyIMT__factory.js';
 
@@ -49,7 +50,7 @@ describe("L1WarpToad", function () {
     //   { value: 0n, libraries: { PoseidonT3: PoseidonT3LibAddress }})).waitForDeployment() as LazyIMT
     const LazyIMTLib:LazyIMT = (await deployArtifact(
       LazyIMTArtifacts.abi,
-      LazyIMTArtifacts.deployedBytecode,
+      LazyIMTArtifacts.bytecode.object,
       signer,
       [],
       { value: 0n, libraries: { PoseidonT3: PoseidonT3LibAddress }}
