@@ -20,7 +20,7 @@ yarn install;
 
 make sure you're on aztec 0.82.3
 ```shell
-aztec-up --version 0.82.3
+aztec-up --version 0.85.0
 ```
 
 install noir and backend
@@ -57,7 +57,7 @@ yarn workspace @warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file
 
 ## run sandbox
 ```shell
-VERSION=0.82.3 aztec start --sandbox
+VERSION=0.85.0 aztec start --sandbox
 ```
 
 ## deploy
