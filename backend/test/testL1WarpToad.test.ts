@@ -35,27 +35,29 @@ describe("L1WarpToad", function () {
     const signer = new NonceManager(new ethers.Wallet("0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d", provider)); // different key per test so they can run in parallel
 
     const gigaBridge = await signer.signer.getAddress() //TODO gigaBridge should be the contract not some rando EOA
-    const nativeToken = (await deployArtifact(USDcoinArtifacts, signer, [], {value:0n,libraries:{}})) as USDcoin
+    const nativeToken = (await deployArtifact(USDcoinArtifacts.abi, USDcoinArtifacts.bytecode, signer, [], {value:0n,libraries:{}})) as USDcoin
     const wrappedTokenSymbol = `wrpToad-${await nativeToken.symbol()}`
     const wrappedTokenName = `wrpToad-${await nativeToken.name()}`
 
     const maxTreeDepth = 32n
     const PoseidonT3LibAddress = await deployPoseidon(signer)
-    const WithdrawVerifier = (await deployArtifact(WithdrawVerifierArtifacts,signer,[],{value:0n,libraries:{}})) as WithdrawVerifier
+    const WithdrawVerifier = (await deployArtifact(WithdrawVerifierArtifacts.abi, WithdrawVerifierArtifacts.bytecode,signer,[],{value:0n,libraries:{}})) as WithdrawVerifier
     console.log("lazyImt time")
     // const lazyIMTfactory = ethers.ContractFactory.fromSolidity(LazyIMTArtifacts, signer)
     // const LazyIMTLib = await (await lazyIMTfactory.deploy(
     //   ...[],
     //   { value: 0n, libraries: { PoseidonT3: PoseidonT3LibAddress }})).waitForDeployment() as LazyIMT
     const LazyIMTLib:LazyIMT = (await deployArtifact(
-      LazyIMTArtifacts,
+      LazyIMTArtifacts.abi,
+      LazyIMTArtifacts.deployedBytecode,
       signer,
       [],
       { value: 0n, libraries: { PoseidonT3: PoseidonT3LibAddress }}
     )) as LazyIMT
     console.log("warptoad")
     const L1WarpToad = (await deployArtifact(
-      L1WarpToadArtifacts, 
+      L1WarpToadArtifacts.abi,
+      L1WarpToadArtifacts.bytecode, 
       signer,
       [maxTreeDepth,gigaBridge,WithdrawVerifier.target,nativeToken.target,wrappedTokenSymbol,wrappedTokenName],
       {

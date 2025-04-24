@@ -34,8 +34,8 @@ export async function deployPoseidon(signer:ethers.Signer) : Promise<ethers.Addr
     return ethers.getAddress(poseidon.PoseidonT3.address)
 }
 
-export async function deployArtifact(artifact:any, signer:ethers.Signer, constructorArgs:ethers.BytesLike[],nativeTokenDeploymentArgs:any): Promise<ethers.BaseContract>{ //TODO :ethers.ContractMethodArgs) {
-    const factory = new ethers.ContractFactory(artifact.abi, artifact.bytecode, signer)
+export async function deployArtifact(abi, bytecode, signer:ethers.Signer, constructorArgs:ethers.BytesLike[],nativeTokenDeploymentArgs:any): Promise<ethers.BaseContract>{ //TODO :ethers.ContractMethodArgs) {
+    const factory = new ethers.ContractFactory(abi, bytecode, signer)
     const contract:ethers.BaseContract = await factory.deploy(...constructorArgs,nativeTokenDeploymentArgs )
     await contract.waitForDeployment()
     return contract
