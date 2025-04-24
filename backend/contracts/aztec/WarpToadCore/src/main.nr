@@ -24,7 +24,10 @@ pub contract WarpToadCore {
         constants::NOTE_HASH_TREE_HEIGHT,
         hash::{compute_note_hash_nonce, compute_siloed_note_hash, compute_unique_note_hash}
         };
-    use std::hash::poseidon;
+
+    // old poseidon was removed from std lib for some reason?
+    // https://github.com/noir-lang/noir/pull/7650
+    use poseidon::poseidon;
 
     // archive tree proving
     use aztec::history::public_storage::PublicStorageHistoricalRead;
