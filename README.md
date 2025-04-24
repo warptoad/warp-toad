@@ -10,10 +10,10 @@ jimjim:
 
 
 ## install
-make sure you're on node 20 (hardhat needs it)
+make sure you're on node 21 (jest needs it)
 ```shell
-nvm install 20;
-nvm use 20;
+nvm install 21;
+nvm use 21;
 npm install --global yarn;
 yarn install;
 ```
@@ -70,7 +70,7 @@ yarn workspace @warp-toad/backend hardhat ignition deploy ./ignition/modules/L1W
 `yarn workspace @warp-toad/backend ts-node scripts/dev_op/deployAztecToadWarp.ts`
 
 ## test contracts
-test only one file just hardhat evm (ex L1WarpToad)
+<!-- test only one file just hardhat evm (ex L1WarpToad)
 ```shell
 yarn workspace @warp-toad/backend hardhat test test/testL1WarpToad.ts 
 ```
@@ -78,9 +78,9 @@ yarn workspace @warp-toad/backend hardhat test test/testL1WarpToad.ts
 test only one file (ex aztecWarpToad)
 ```shell
 yarn workspace @warp-toad/backend hardhat test test/testAztecToadWarp.ts  --network aztecSandbox
-```
+``` -->
 
 test everything (might break because aztec sandbox is a bit unstable)
 ```shell
-yarn workspace @warp-toad/backend hardhat test --network aztecSandbox
+yarn workspace @warp-toad/backend test:js
 ```

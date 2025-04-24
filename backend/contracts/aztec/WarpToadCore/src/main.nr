@@ -121,17 +121,6 @@ pub contract WarpToadCore {
         unique_note_hash
     }
 
-    //TODO long term we need js equivalent for performance and cleaner code but we need poseidon2 in js for that
-    #[utility]
-    unconstrained fn hash_unique_note_hash_helper(
-        contract_address: AztecAddress,
-        note_hash: Field,
-        first_nullifier_in_tx: Field,
-        unique_note_hash_index_in_tx: u32,
-    ) -> pub Field {
-        hash_unique_note_hash(contract_address, note_hash,first_nullifier_in_tx,unique_note_hash_index_in_tx)
-    }
-
     #[contract_library_method]
     fn prove_note_hash_inclusion(
         plain_note_hash: Field,      
@@ -220,6 +209,17 @@ pub contract WarpToadCore {
     #[utility] 
     unconstrained fn get_giga_root() -> pub Field {
         storage.giga_root.read()
+    }
+
+    //TODO long term we need js equivalent for performance and cleaner code but we need poseidon2 in js for that
+    #[utility]
+    unconstrained fn hash_unique_note_hash_helper(
+        contract_address: AztecAddress,
+        note_hash: Field,
+        first_nullifier_in_tx: Field,
+        unique_note_hash_index_in_tx: u32,
+    ) -> pub Field {
+        hash_unique_note_hash(contract_address,note_hash,first_nullifier_in_tx,unique_note_hash_index_in_tx)
     }
 
 }
