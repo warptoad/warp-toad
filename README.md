@@ -1,66 +1,86 @@
-## Foundry
+# warp-toad
+Cross bridge privacy
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+# WARNING KNOWN ISSUES
+jimjim:   
+1. event scanning will scan from block 0 to latest. This will break outside of tests and anvil  
+1. scripts/lib/proving.ts only works on burning and minting on the same chain. Because gigaTree and aztec proofs provided are just zeros   
+1. scripts/lib/proving.ts assumes that every local root is always immediately bridged and included into gigaRoot. That is bad and will break when you do async bridging   
 
-Foundry consists of:
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
 
-## Documentation
-
-https://book.getfoundry.sh/
-
-## Usage
-
-### Build
-
+## install
+make sure you're on node 21 (jest needs it)
 ```shell
-$ forge build
+nvm install 21;
+nvm use 21;
+npm install --global yarn;
+yarn install;
 ```
 
-### Test
-
+make sure you're on aztec 0.82.3
 ```shell
-$ forge test
+aztec-up --version 0.85.0
 ```
 
-### Format
-
+install noir and backend
 ```shell
-$ forge fmt
+bbup -nv 1.0.0-beta.3;
+noirup -v 1.0.0-beta.3;
 ```
 
-### Gas Snapshots
-
-```shell
-$ forge snapshot
+## compile contracts
+### aztec
+```
+cd backend/contracts/aztec/WarpToadCore;
+aztec-nargo compile;
+aztec codegen -o src/artifacts target;
+cd ../../../..
 ```
 
-### Anvil
-
+### generate EVM verifier contracts
+<!-- //this should be a bash script lmao -->
 ```shell
-$ anvil
+cd backend/circuits/withdraw/; 
+nargo compile; 
+bb write_vk -b ./target/withdraw.json;
+bb contract;
+cd ../../..;
+
+# move to contracts folder
+mv backend/circuits/withdraw/target/contract.sol backend/contracts/evm/WithdrawVerifier.sol
+
+# rename the contract
+yarn workspace @warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file ./contracts/evm/WithdrawVerifier.sol --remove "contract UltraVerifier is BaseUltraVerifier {" --replace "contract WithdrawVerifier is BaseUltraVerifier {"
 ```
 
-### Deploy
 
+## run sandbox
 ```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
+VERSION=0.85.0 aztec start --sandbox
 ```
 
-### Cast
-
+## deploy
+### deploy L1 aztec-sandbox
 ```shell
-$ cast <subcommand>
+yarn workspace @warp-toad/backend hardhat ignition deploy ./ignition/modules/L1WarpToad.ts --parameters ignition/WarpToadCoreParameters.json --network aztecSandbox
 ```
 
-### Help
+### deploy L2 aztec-sandbox
+`yarn workspace @warp-toad/backend ts-node scripts/dev_op/deployAztecToadWarp.ts`
 
+## test contracts
+<!-- test only one file just hardhat evm (ex L1WarpToad)
 ```shell
-$ forge --help
-$ anvil --help
-$ cast --help
+yarn workspace @warp-toad/backend hardhat test test/testL1WarpToad.ts 
+```
+
+test only one file (ex aztecWarpToad)
+```shell
+yarn workspace @warp-toad/backend hardhat test test/testAztecToadWarp.ts  --network aztecSandbox
+``` -->
+
+test everything (might break because aztec sandbox is a bit unstable)
+```shell
+yarn workspace @warp-toad/backend test:js
 ```
