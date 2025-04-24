@@ -11,6 +11,7 @@
         "nargo",
         "permissionless",
         "preimg",
+        "schnorr",
         "tornadocash",
         "typechain",
         "Uints",
