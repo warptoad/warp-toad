@@ -8,7 +8,7 @@ use aztec::macros::aztec;
 #[aztec]
 pub contract WarpToadCore {
     // macros
-    use aztec::macros::{notes::note, functions::{initializer, private, public, view, internal}, storage::{storage}};
+    use aztec::macros::{notes::note, functions::{initializer, private, public, view, internal,utility}, storage::{storage}};
     
     // storage types
     use aztec::prelude::{AztecAddress, EthAddress, Map, PublicImmutable, PublicMutable};
@@ -24,7 +24,10 @@ pub contract WarpToadCore {
         constants::NOTE_HASH_TREE_HEIGHT,
         hash::{compute_note_hash_nonce, compute_siloed_note_hash, compute_unique_note_hash}
         };
-    use std::hash::poseidon;
+
+    // old poseidon was removed from std lib for some reason?
+    // https://github.com/noir-lang/noir/pull/7650
+    use poseidon::poseidon;
 
     // archive tree proving
     use aztec::history::public_storage::PublicStorageHistoricalRead;
@@ -105,20 +108,31 @@ pub contract WarpToadCore {
         context.push_note_hash(commitment); // TODO this doesnt actually put it in the fucking tree???
     }
 
-    // TODO long term we need js equivalent for performance and cleaner code but we need poseidon2 in js for that
-    #[view]
+    #[contract_library_method]
     fn hash_unique_note_hash(
         contract_address: AztecAddress,
         note_hash: Field,
         first_nullifier_in_tx: Field,
         unique_note_hash_index_in_tx: u32,
-    ) -> pub Field {
+    ) -> Field {
         let siloed_note_hash = compute_siloed_note_hash(contract_address, note_hash);
         let nonce = compute_note_hash_nonce(first_nullifier_in_tx,unique_note_hash_index_in_tx);
         let unique_note_hash = compute_unique_note_hash(nonce,siloed_note_hash);
         unique_note_hash
     }
 
+    //TODO long term we need js equivalent for performance and cleaner code but we need poseidon2 in js for that
+    #[utility]
+    unconstrained fn hash_unique_note_hash_helper(
+        contract_address: AztecAddress,
+        note_hash: Field,
+        first_nullifier_in_tx: Field,
+        unique_note_hash_index_in_tx: u32,
+    ) -> pub Field {
+        hash_unique_note_hash(contract_address, note_hash,first_nullifier_in_tx,unique_note_hash_index_in_tx)
+    }
+
+    #[contract_library_method]
     fn prove_note_hash_inclusion(
         plain_note_hash: Field,      
         block_header: BlockHeader,
@@ -139,13 +153,13 @@ pub contract WarpToadCore {
         );
     }
 
-    #[view]
+    #[contract_library_method]
     fn hash_commit(
         nullifier_preimg: Field,
         secret: Field,
         destination_chain_id: Field,
         amount: u64,
-    ) -> pub Field {
+    ) -> Field {
         let pre_commitment: Field = poseidon::bn254::hash_3([nullifier_preimg, secret, destination_chain_id]);
         let commitment: Field = poseidon::bn254::hash_2([amount as Field, pre_commitment]);
         commitment
@@ -182,7 +196,7 @@ pub contract WarpToadCore {
     }
 
     // it allows us to do a eth_getProof like thing for a commitment. Kinda cringe that i cant just call a api in js like on ethereum? Maybe you can?
-    #[view]
+    #[utility]
     unconstrained fn get_note_proof(
         block_number: u32,
         note_hash: Field,
@@ -192,30 +206,20 @@ pub contract WarpToadCore {
 
 
     // DEBUG remove later
-    #[view]
+    #[utility]
     unconstrained fn get_chain_id() -> pub Field {
         context.chain_id()
     }
 
     // Helper function to get the balance of a user.
-    // #[utility] //not in this version??
+    #[utility]
     unconstrained fn get_balance(owner: AztecAddress) -> pub Field {
         balance_utils::get_balance(storage.balances.at(owner).set)
     }
 
-    // #[utility] //not in this version??
+    #[utility] 
     unconstrained fn get_giga_root() -> pub Field {
         storage.giga_root.read()
     }
 
-    //TODO long term we need js equivalent for performance and cleaner code but we need poseidon2 in js for that
-    #[view]
-    unconstrained fn hash_unique_note_hash_helper(
-        contract_address: AztecAddress,
-        note_hash: Field,
-        first_nullifier_in_tx: Field,
-        unique_note_hash_index_in_tx: u32,
-    ) -> pub Field {
-        hash_unique_note_hash(contract_address, note_hash,first_nullifier_in_tx,unique_note_hash_index_in_tx)
-    }
 }
