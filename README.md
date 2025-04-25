@@ -30,6 +30,7 @@ noirup -v 1.0.0-beta.3;
 ```
 
 ## compile contracts
+remove `  "type": "module",` from package.json (otherwise hardhat breaks)
 ### aztec
 ```
 cd backend/contracts/aztec/WarpToadCore;
@@ -37,6 +38,7 @@ aztec-nargo compile;
 aztec codegen -o src/artifacts target;
 cd ../../../..
 ```
+put `  "type": "module",` back
 
 ### generate EVM verifier contracts
 <!-- //this should be a bash script lmao -->
@@ -79,6 +81,8 @@ test only one file (ex aztecWarpToad)
 ```shell
 yarn workspace @warp-toad/backend hardhat test test/testAztecToadWarp.ts  --network aztecSandbox
 ``` -->
+
+
 
 test everything (might break because aztec sandbox is a bit unstable)
 ```shell

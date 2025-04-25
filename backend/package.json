@@ -1,14 +1,10 @@
 {
   "type": "module",
-  "type": "module",
   "name": "@warp-toad/backend",
   "version": "1.0.0",
   "repository": "https://github.com/JossDuff/warp-toad.git",
   "author": "jossduff <jduff360@gmail.com>",
   "license": "MIT",
-  "scripts": {
-    "test:js": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --runInBand --config jest.config.json"
-  },
   "scripts": {
     "test:js": "NODE_NO_WARNINGS=1 node --experimental-vm-modules $(yarn bin jest) --no-cache --runInBand --config jest.config.json"
   },
@@ -53,10 +49,6 @@
     "poseidon-lite": "^0.3.0",
     "poseidon-solidity": "0.0.5"
   },
-  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e",
-  "engines": {
-    "node": ">=20.0.0 <22.0.0"
-  }
   "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e",
   "engines": {
     "node": ">=20.0.0 <22.0.0"
