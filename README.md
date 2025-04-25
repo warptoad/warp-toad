@@ -89,3 +89,8 @@ yarn workspace @warp-toad/backend hardhat test --network aztecSandbox
 ```shell
  yarn f:dev
  ```
+
+## connectiong wallet to frontend:
+we are using obsidion wallet for the frontend.
+first you must create a wallet at [app.obsidion.xyz](https://app.obsidion.xyz/).
+After creating a wallet on the same browser as the frontend is running on you can connect to it through a pop up window.
