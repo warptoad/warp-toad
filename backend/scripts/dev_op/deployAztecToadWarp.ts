@@ -32,9 +32,9 @@ async function main() {
         .send()
         .deployed();
 
-    console.log(`counter deployed at ${WarpToadCoreDeployed.address.toString()}`);
+    console.log(`contract deployed at ${WarpToadCoreDeployed.address.toString()}`);
 
-    const addresses = { counter: WarpToadCoreDeployed.address.toString() };
+    const addresses = { contract: WarpToadCoreDeployed.address.toString() };
     writeFileSync('WarptoadCoreAztecDeployment.json', JSON.stringify(addresses, null, 2));
 }
 main();
