@@ -160,9 +160,7 @@ describe("L1WarpToad", function () {
       const balanceRecipientPostMint = await L1WarpToad.balanceOf(recipient)
   
       // debug info
-
-
-      const expectedFee = BigInt(Number(mintTx.fee) * ethPriceInToken * relayerBonusFactor)
+      const expectedFee = BigInt(Number(mintTx!.fee) * ethPriceInToken * relayerBonusFactor)
       const feePaid = ethers.toBigInt(proofInputs.amount) - balanceRecipientPostMint-balanceRecipientPreMint
       const overPayPercentage = (1 - Number(expectedFee) / Number(feePaid)) * 100
       console.log({
@@ -170,10 +168,10 @@ describe("L1WarpToad", function () {
         minBal:balanceRecipientPreMint + ethers.toBigInt(proofInputs.amount) - maxFee, 
         maxFee,
         feePaidFormatted: `${ethers.formatUnits(feePaid, await L1WarpToad.decimals())} ${await L1WarpToad.symbol()}`,
-        gasFee: `${Number(mintTx.gasPrice)/1000000000} gwei`,
+        gasFee: `${Number(mintTx!.gasPrice)/1000000000} gwei`,
         expectedFee,
         feePaid,
-        gasUsed: mintTx.gasUsed,
+        gasUsed: mintTx!.gasUsed,
         overPayPercentage
       })
       const marginOfErrorFee = 17//TODO 17% is way to high should be more like 2% off. Check etherscan sepolia

@@ -181,7 +181,7 @@ async function findNoteHashIndex(AztecWarpToad:WarpToadCoreContract, noteHashesI
 
 async function hashUniqueNoteHash(AztecWarpToad:WarpToadCoreContract, noteHashesInTx: Fr[], plainNoteHash: Fr,firstNullifierInTx:Fr) {
     const noteIndex = await findNoteHashIndex(AztecWarpToad, noteHashesInTx, plainNoteHash,firstNullifierInTx)
-    const uniqueNoteHash = await AztecWarpToad.methods.hash_unique_note_hash(AztecWarpToad.address,plainNoteHash,firstNullifierInTx,noteIndex).simulate()
+    const uniqueNoteHash = await AztecWarpToad.methods.hash_unique_note_hash_helper(AztecWarpToad.address,plainNoteHash,firstNullifierInTx,noteIndex).simulate()
     return uniqueNoteHash
 }
 
