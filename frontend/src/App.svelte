@@ -1,5 +1,5 @@
 <script lang="ts">
-    import WalletTest from './lib/WalletTest.svelte';
+  import WalletTest from './lib/WalletTest.svelte';
   import placeHolderLogo from '/logo.svg'
 </script>
 

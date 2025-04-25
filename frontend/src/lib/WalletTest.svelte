@@ -1,7 +1,8 @@
 <script lang="ts">
   import { AztecWalletSdk, obsidion } from "@nemi-fi/wallet-sdk"
-
-  let account: any = null; 
+  import type {Account} from "@nemi-fi/wallet-sdk"
+  
+  let account: Account | undefined = $state(undefined)
 
   const NODE_URL = "https://registry.obsidion.xyz/node" // testnet
 
@@ -13,12 +14,9 @@
     connectors: [obsidion({ walletUrl: WALLET_URL })],
   })
 
-
-
-
   const connectWallet = async () => {
     try {
-      account = await sdk.connect("obsidion")
+      account = await sdk.connect("obsidion");
       console.log("WALLET CONNECTED")
       console.log(account)
     } catch (error) {
@@ -26,12 +24,29 @@
     }
   }
 
-  let count: number = $state(0);
-  const increment = () => {
-    count += 1;
-  };
+  const disconnectWallet = async () => {
+    try {
+      await sdk.disconnect();
+      account = undefined;
+    } catch (error) {
+      console.log("failed to disconnect: ", error)
+    }
+  }
+
 </script>
 
-<button class="btn btn-primary" onclick={connectWallet}>
-  WalletTestButton: {account}
-</button>
+<div>
+  <div class="bg-base-100 p-4 rounded grid gap-2">
+    <p>You are currently {!account?"not logged in": "logged in as:"}</p>
+    <p> <strong>{account?.address}</strong></p>
+    {#if account}
+      <button class="btn btn-error" onclick={disconnectWallet}>
+        Disconnect
+      </button>
+    {:else}
+      <button class="btn btn-accent" onclick={connectWallet}>
+        Connect Obsidion Wallet
+      </button>
+    {/if}
+  </div>
+</div>
