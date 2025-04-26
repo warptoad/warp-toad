@@ -34,7 +34,11 @@ contract AztecRootBridge is IRootBridge {
      * @param _l2Bridge - The L2 bridge address
      * @param _aztecChainId - id of the aztec chain this is being deployed on
      */
-    constructor(address _registry, bytes32 _l2Bridge, uint32 _aztecChainId) {
+    function initialize(
+        address _registry,
+        bytes32 _l2Bridge,
+        uint32 _aztecChainId
+    ) external {
         registry = IRegistry(_registry);
         l2Bridge = _l2Bridge;
         aztecChainId = _aztecChainId;
