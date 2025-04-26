@@ -84,3 +84,10 @@ test everything (might break because aztec sandbox is a bit unstable)
 ```shell
 yarn workspace @warp-toad/backend hardhat test --network aztecSandbox
 ```
+
+get gas estimation minting
+```shell
+rm backend/ignition/deployments/chain-31337/;
+yarn workspace @warp-toad/backend hardhat ignition deploy ./ignition/modules/L1WarpToadWithTestToken.ts --parameters ignition/WarpToadCoreParametersTesting.json --network aztecSandbox;
+yarn workspace @warp-toad/backend ts-node scripts/dev_op/estimateGas.ts -d ignition/deployments/chain-31337/deployed_addresses.json;
+```
