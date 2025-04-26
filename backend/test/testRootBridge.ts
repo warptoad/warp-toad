@@ -23,6 +23,8 @@ import { RootBridgeContractArtifact, RootBridgeContract } from '../contracts/azt
 
 const { PXE_URL = 'http://localhost:8080' } = process.env;
 
+const AZTEC_CHAIN_ID = "31337";
+
 async function connectPXE() {
 	console.log("creating PXE client")
 	const PXE = createPXEClient(PXE_URL);
@@ -48,19 +50,36 @@ describe("AztecRootBridge", function () {
 		const deployerWallet = wallets[0]
 		const constructorArgs = [AztecRootBridge.target];
 		const nodeInfo = (await PXE.getNodeInfo());
-		const registryAddress = nodeInfo.l1ContractAddresses.registryAddress;
-		const aztecChainId = nodeInfo.chainId;
 
+		// This is also the "registry"
 		const RootBridge = await Contract.deploy(deployerWallet, RootBridgeContractArtifact, constructorArgs).send().deployed();
+
+		// initialize L1 AztecRootBridge
+		// const registryAddress = hre.ethers.getAddress(nodeInfo.l1ContractAddresses.registryAddress);
+		const registryAddress = nodeInfo.l1ContractAddresses.registryAddress.toString();
+		const l2Bridge = RootBridge.address.toString();
+		const aztecChainId = AZTEC_CHAIN_ID;
+		console.log("registryAddress: " + registryAddress + " type " + typeof registryAddress);
+		console.log("l2Bridge: " + l2Bridge + " type " + typeof l2Bridge);
+		console.log("aztecChainId: " + aztecChainId + " type " + typeof aztecChainId);
+		await AztecRootBridge.initialize(registryAddress, l2Bridge, aztecChainId);
 
 		return { AztecRootBridge, RootBridge }
 	}
 
 	describe("Deployment", function () {
-		it("Should deploy", async function () {
+		it("Should deploy and initialize", async function () {
 			const { AztecRootBridge, RootBridge } = await loadFixture(deployAztecRootBridge);
 			expect(AztecRootBridge).not.equal(undefined);
 			expect(RootBridge).not.equal(undefined);
+
+			// check to make sure AztecRootBridge is initialized
+			const l2_bridge = await AztecRootBridge.l2Bridge();
+			expect(l2_bridge).not.equal(undefined);
+
+			const rollupVersion = await AztecRootBridge.rollupVersion();
+			expect(rollupVersion()).not.equal(undefined);
 		});
 	})
+
 })
