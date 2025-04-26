@@ -2,6 +2,7 @@ import hre from "hardhat"
 
 //@ts-ignore
 import { expect } from "chai";
+//@ts-ignore
 import { time, loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers.js";
 
 //@ts-ignore
@@ -136,7 +137,7 @@ describe("L1WarpToad", function () {
         ethers.toBigInt(proofInputs.max_fee),
         ethers.getAddress(proofInputs.relayer_address.toString()),
         ethers.getAddress(proofInputs.recipient_address.toString()),
-      )).map(i=>i.toString())
+      )).map((i:ethers.BytesLike)=>i.toString())
 
       expect(proof.publicInputs ).to.deep.equal(onchainFormattedPublicInputs)
       

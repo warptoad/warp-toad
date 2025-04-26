@@ -31,13 +31,16 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore {
 
     uint256 public lastLeafIndex;
 
-    constructor(uint8 _maxTreeDepth, address _gigaBridge, address _withdrawVerifier) {
+    address public nativeToken;
+
+    constructor(uint8 _maxTreeDepth, address _gigaBridge, address _withdrawVerifier, address _nativeToken) {
         maxTreeDepth = _maxTreeDepth;
         // maxBurns = 2 ** _maxTreeDepth; // circuit cant go above this number
 
         gigaBridge = _gigaBridge;
         withdrawVerifier = _withdrawVerifier;
         LazyIMT.init(commitTreeData, _maxTreeDepth);
+        nativeToken = _nativeToken;
     }
 
     function receiveGigaRoot(uint256 _gigaRoot) public {

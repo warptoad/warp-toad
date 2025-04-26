@@ -165,7 +165,7 @@ describe("AztecWarpToad", function () {
 });
 
 // TODO move this to different file ----
-async function findNoteHashIndex(AztecWarpToad:WarpToadCoreContract, noteHashesInTx: Fr[], plainNoteHash: Fr,firstNullifierInTx:Fr) {
+async function findNoteHashIndex(AztecWarpToad:WarpToadCoreContract, noteHashesInTx: Fr[], plainNoteHash: Fr, firstNullifierInTx:Fr) {
     const contractAddress = AztecWarpToad.address;
     const getUniqueNote = async (index:bigint)=> await AztecWarpToad.methods.hash_unique_note_hash_helper(contractAddress, plainNoteHash, firstNullifierInTx, index).simulate()
     for (let index = 0; index < noteHashesInTx.length; index++) {
