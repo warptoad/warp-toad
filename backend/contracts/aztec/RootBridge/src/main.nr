@@ -71,18 +71,11 @@ pub contract RootBridge {
     // creates a L2 to L1 message publicly
     // Sends the most recent state root to L1 to be consumed by AztecRootBridge.sol
     #[public]
-    fn send_root_to_l1(
-        amount: u128,
-        caller_on_l1: EthAddress, // ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
-        nonce: Field, // nonce used in the approval message by `msg.sender` to let bridge burn their tokens on L2
-    ) {
+    fn send_root_to_l1(local_root: Field) {
         let config = storage.config.read();
 
-        // caller_on_l1: EthAddress, ethereum address that can call this function on the L1 portal (0x0 if anyone can call)
-        let caller_on_l1 = 0x0;
-
         // TODO: get most recent state root from WarpToadCore
-        let content: Field = 0x0;
+        let content = local_root;
 
         // Send an L2 to L1 message
         context.message_portal(config.portal, content);

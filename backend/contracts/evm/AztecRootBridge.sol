@@ -51,7 +51,7 @@ contract AztecRootBridge {
 
     /**
      * @notice adds an L2 message which can only be consumed publicly on Aztec
-     * @param _newGigaRoot - The new gigaRoot to send to L2 as a message.  It's actually supposed to be a secret hash but we don't care
+     * @param _newGigaRoot - The new gigaRoot to send to L2 as a message
      */
     function sendGigaRootToL2(bytes32 _newGigaRoot) external {
         // l2Bridge is the Aztec address of the contract that will be retrieving the
@@ -82,9 +82,6 @@ contract AztecRootBridge {
 
         // Emit event
         emit newGigaRootSentToL2(contentHash, key, index);
-
-        // would be easier to return the key and index but we can't assume this pattern is the same for all
-        // bridges so this interface can't return anything
     }
 
     function getMostRecentRoot() external returns (bytes32) {
@@ -107,12 +104,10 @@ contract AztecRootBridge {
         bytes32[] calldata _path
     ) external returns (bytes32) {
         DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
-            sender: DataStructures.L2Actor(l2Bridge, 1),
+            sender: DataStructures.L2Actor(l2Bridge, rollupVersion),
             recipient: DataStructures.L1Actor(address(this), block.chainid),
-            content: Hash.sha256ToField(_newL2Root)
+            content: _newL2Root
         });
-
-        IOutbox outbox = IRollup(registry.getRollup(aztecChainId)).getOutbox();
 
         outbox.consume(message, _l2BlockNumber, _leafIndex, _path);
 
