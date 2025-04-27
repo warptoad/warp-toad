@@ -77,7 +77,7 @@ describe("RootBridge", function () {
 		});
 	})
 
-	describe("Send gigaroot", function () {
+	describe("Send gigaroot L1 -> L2", function () {
 		it("AztecRootBridge should return index and key of message", async function () {
 
 			const { AztecRootBridge, RootBridge } = await loadFixture(deployAztecRootBridge);
@@ -138,9 +138,20 @@ describe("RootBridge", function () {
 
 			// New test logic
 			// Call the L2 function update_gigaroot(new_gigaroot, message_leaf_index)
-			await RootBridge.methods.update_gigaroot(fakeGigaRoot, message_leaf_index)
+			// TODO: test that this returns the gigaRoot
+			try {
+				await RootBridge.methods.update_gigaroot(fakeGigaRoot, message_leaf_index);
+				// if we reach here, no error was thrown 
+				expect(true).to.equal(true);
 
+			} catch (error) {
+				expect.fail(`Should not have thrown an error but got: ${error.message}`);
+			}
 		})
 	})
+
+	// describe("Send local root L2 -> L1", function () {
+	// 	it("RootBridge on L2 should ")
+	// })
 
 })
