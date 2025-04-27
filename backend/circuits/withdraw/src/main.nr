@@ -55,10 +55,10 @@ fn main(
     assert(!amount.lt(max_fee), "max_fee higher than amount");
     
     // idk if we need to do this but its stops the compiler warnings
-    assert(fee_factor != 1); // we use 0 to detect if user doesn't want to pay the relayer
-    assert(relayer_address != 0);
-    assert(recipient_address != 0);
-    assert(priority_fee != 0);
+    assert(fee_factor != 1, "fee factor cant be 1"); // we use 0 to detect if user doesn't want to pay the relayer
+    assert(relayer_address != 0, "relayer_address cant be 0");
+    assert(recipient_address != 0, "recipient_address cant be 0");
+    assert(priority_fee != 0, "priority_fee cant be 0");
 
     // verify origin_local_root is valid
     if (destination_local_root == origin_local_root) {

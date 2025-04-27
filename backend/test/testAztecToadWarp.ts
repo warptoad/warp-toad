@@ -1,32 +1,24 @@
+// hardhat 
 import hre, { ethers } from "hardhat"
-
 //@ts-ignore
 import { expect } from "chai";
 import { time, loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers.js";
 
-//@ts-ignore
-import { WarpToadCoreContractArtifact, WarpToadCoreContract } from '../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
-// import WarpToadCoreContractArtifactJson from '../contracts/aztec/WarpToadCore/target/WarpToadCore-WarpToadCore.json'
-
+// aztec
 //@ts-ignore
 import { createPXEClient, waitForPXE, Contract, ContractArtifact,loadContractArtifact, NoirCompiledContract, Fr } from "@aztec/aztec.js"
-// export const WarpToadCoreContractArtifact = loadContractArtifact(WarpToadCoreContractArtifactJson as NoirCompiledContract);
-
-
 //@ts-ignore
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing'; // idk why but node is bitching about this but bun doesnt care
-
 // //@ts-ignore
 // import {getSchnorrAccount } from "@aztec/accounts/schnorr/lazy";
-import { WarpToadCore } from "../typechain-types";
-
 import { poseidon2, poseidon3 } from 'poseidon-lite'
 
-const { PXE_URL = 'http://localhost:8080' } = process.env;
-
-
+// artifacts
+//@ts-ignore
+import { WarpToadCoreContractArtifact, WarpToadCoreContract } from '../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
 
 async function connectPXE() {
+    const { PXE_URL = 'http://localhost:8080' } = process.env;
     console.log("creating PXE client")
     const PXE = createPXEClient(PXE_URL);
     console.log("waiting on PXE client", PXE_URL)
@@ -39,21 +31,13 @@ async function connectPXE() {
 
 
 
-describe("L1WarpToad", function () {
-    // We define a fixture to reuse the same setup in every test.
-    // We use loadFixture to run this setup once, snapshot that state,
-    // and reset Hardhat Network to that snapshot in every test.
+describe("AztecWarpToad", function () {
     async function deployWarpToad() {
-        // Contracts are deployed using the first signer/account by default
-        //const [owner, otherAccount] = await hre.ethers.getSigners();
         const nativeToken = await hre.ethers.deployContract("USDcoin", [], { value: 0n, libraries: {} })
-
-        // const initialSupply = 100n
         const gigaRootHistorySize = 4n;
         const { wallets, PXE } = await connectPXE();
         const deployerWallet = wallets[0]
         const constructorArgs = [nativeToken.target]
-        console.log({constructorArgs})
         const AztecWarpToad = await Contract.deploy(deployerWallet, WarpToadCoreContractArtifact, constructorArgs)
             .send()
             .deployed() as WarpToadCoreContract;
@@ -73,7 +57,6 @@ describe("L1WarpToad", function () {
     describe("transfer", function () {
         it("Should do a private transfer", async function () {
             const { AztecWarpToad, wallets } = await deployWarpToad();
-
             const sender = wallets[0]
             const initialBalanceSender = 100n
             await AztecWarpToad.methods.mint_for_testing(initialBalanceSender,sender.getAddress()).send().wait();
@@ -134,8 +117,7 @@ describe("L1WarpToad", function () {
                 amount: amountToBurn,
                 destination_chain_id: aztecWalletChainId,
                 secret: 1234n,
-                nullifier_preimg: 4321n,
-    
+                nullifier_preimg: 4321n, // Use Fr.random().toBigInt() in prod pls
             }
             const burnTx = await AztecWarpToad.methods.burn(commitmentPreImg.amount, commitmentPreImg.destination_chain_id, commitmentPreImg.secret, commitmentPreImg.nullifier_preimg, sender.getAddress()).send().wait()
             const balancePostBurn = await AztecWarpToad.methods.get_balance(sender.getAddress()).simulate()
@@ -165,7 +147,7 @@ describe("L1WarpToad", function () {
 });
 
 // TODO move this to different file ----
-async function findNoteHashIndex(AztecWarpToad:WarpToadCoreContract, noteHashesInTx: Fr[], plainNoteHash: Fr,firstNullifierInTx:Fr) {
+async function findNoteHashIndex(AztecWarpToad:WarpToadCoreContract, noteHashesInTx: Fr[], plainNoteHash: Fr, firstNullifierInTx:Fr) {
     const contractAddress = AztecWarpToad.address;
     const getUniqueNote = async (index:bigint)=> await AztecWarpToad.methods.hash_unique_note_hash_helper(contractAddress, plainNoteHash, firstNullifierInTx, index).simulate()
     for (let index = 0; index < noteHashesInTx.length; index++) {
@@ -181,7 +163,7 @@ async function findNoteHashIndex(AztecWarpToad:WarpToadCoreContract, noteHashesI
 
 async function hashUniqueNoteHash(AztecWarpToad:WarpToadCoreContract, noteHashesInTx: Fr[], plainNoteHash: Fr,firstNullifierInTx:Fr) {
     const noteIndex = await findNoteHashIndex(AztecWarpToad, noteHashesInTx, plainNoteHash,firstNullifierInTx)
-    const uniqueNoteHash = await AztecWarpToad.methods.hash_unique_note_hash(AztecWarpToad.address,plainNoteHash,firstNullifierInTx,noteIndex).simulate()
+    const uniqueNoteHash = await AztecWarpToad.methods.hash_unique_note_hash_helper(AztecWarpToad.address,plainNoteHash,firstNullifierInTx,noteIndex).simulate()
     return uniqueNoteHash
 }
 

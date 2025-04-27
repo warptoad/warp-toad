@@ -1,6 +1,6 @@
 import { ethers } from "ethers";
 
-export interface AztecMerkleData {
+export type AztecMerkleData = {
     leaf_index: ethers.BytesLike,
     hash_path: ethers.BytesLike[],
     leaf_nonce: ethers.BytesLike,
@@ -9,12 +9,12 @@ export interface AztecMerkleData {
 }
 
 
-export interface EvmMerkleData {
+export type EvmMerkleData = {
     leaf_index: ethers.BytesLike,
     hash_path: ethers.BytesLike[],
 }
 
-export interface ProofInputs {
+export type ProofInputs = {
     // ----- public inputs -----
     nullifier: ethers.BytesLike,
     chain_id: ethers.BytesLike,
@@ -37,3 +37,7 @@ export interface ProofInputs {
     local_merkle_data: EvmMerkleData,
     giga_merkle_data: EvmMerkleData,
 }
+
+export type gasCosts = {
+    [key: number]: bigint;
+  };

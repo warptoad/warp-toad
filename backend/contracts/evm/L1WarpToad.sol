@@ -3,13 +3,10 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract L1WarpToad is WarpToadCore {
-    address nativeToken;
-
     //@joss do what ever to the structure or naming or things if u feel like it
     constructor(uint8 _maxTreeDepth, address _gigaBridge, address _withdrawVerifier, address _nativeToken, string memory name, string memory symbol) 
     ERC20(name, symbol) 
-    WarpToadCore(_maxTreeDepth, _gigaBridge, _withdrawVerifier)  {
-        nativeToken = _nativeToken;
+    WarpToadCore(_maxTreeDepth, _gigaBridge, _withdrawVerifier, _nativeToken)  {
     }
 
     function wrap(uint256 _amount) public {
