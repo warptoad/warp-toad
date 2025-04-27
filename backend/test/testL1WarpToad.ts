@@ -20,6 +20,7 @@ import {calculateFeeFactor} from "../scripts/lib/proving"
 
 import { getProofInputs, createProof } from "../scripts/lib/proving";
 import { WarpToadCore as WarpToadEvm} from "../typechain-types";
+import {gasCostPerChain} from "../scripts/lib/constants"
 
 import os from 'os';
 
@@ -118,7 +119,7 @@ describe("L1WarpToad", function () {
       const maxFee = 5n*10n**18n;   // no more than 5 usdc okay cool thanks
       const ethPriceInToken = 1700.34 // how much tokens you need to buy 1 eth. In this case 1700 usdc tokens to buy 1 eth. Cheap!
       // L1 evm estimate. re-estimating this on every tx will require you to make a zk proof twice so i hardcoded. You should get a up to date value for L2's with alternative gas pricing from backend/scripts/dev_op/estimateGas.ts
-      const gasCost = 521014
+      const gasCost = Number(gasCostPerChain[Number(chainId)])
       const relayerBonusFactor = 1.1 // 10% earnings on gas fees! 
       const feeFactor = calculateFeeFactor(ethPriceInToken,gasCost,relayerBonusFactor);
 
@@ -155,7 +156,8 @@ describe("L1WarpToad", function () {
         ethers.getAddress(proofInputs.recipient_address.toString()),
         ethers.hexlify(proof.proof),
         {
-          maxPriorityFeePerGas: ethers.toBigInt(proofInputs.priority_fee)
+          maxPriorityFeePerGas: ethers.toBigInt(proofInputs.priority_fee),
+          maxFeePerGas: ethers.toBigInt(proofInputs.priority_fee)*100n //Otherwise HRE does the gas calculations wrong to make sure we don't get `max_priority_fee_per_gas` greater than `max_fee_per_gas
       }
       )).wait(1)
       const balanceRecipientPostMint = await L1WarpToad.balanceOf(recipient)
@@ -164,19 +166,8 @@ describe("L1WarpToad", function () {
       const expectedFee = BigInt(Number(mintTx!.fee) * ethPriceInToken * relayerBonusFactor)
       const feePaid = ethers.toBigInt(proofInputs.amount) - balanceRecipientPostMint-balanceRecipientPreMint
       const overPayPercentage = (1 - Number(expectedFee) / Number(feePaid)) * 100
-      console.log({
-        balanceRecipientPostMint, 
-        minBal:balanceRecipientPreMint + ethers.toBigInt(proofInputs.amount) - maxFee, 
-        maxFee,
-        feePaidFormatted: `${ethers.formatUnits(feePaid, await L1WarpToad.decimals())} ${await L1WarpToad.symbol()}`,
-        gasFee: `${Number(mintTx!.gasPrice)/1000000000} gwei`,
-        expectedFee,
-        feePaid,
-        gasUsed: mintTx!.gasUsed,
-        overPayPercentage
-      })
-      const marginOfErrorFee = 17//TODO 17% is way to high should be more like 2% off. Check etherscan sepolia
-      expect(overPayPercentage).to.below(marginOfErrorFee) 
+      const marginOfErrorFee = 1 //no more than 1% off!
+      expect(overPayPercentage).approximately(0,marginOfErrorFee, "This likely failed because HRE does something bad in gas calculation. Run it in something like an anvil node/aztecSandbox instead. Or gas usage changed") 
       expect(balanceRecipientPostMint).to.above(balanceRecipientPreMint + ethers.toBigInt(proofInputs.amount) - maxFee)
     });
   });

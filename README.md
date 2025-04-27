@@ -72,7 +72,7 @@ yarn workspace @warp-toad/backend hardhat ignition deploy ./ignition/modules/L1W
 ## test contracts
 test only one file just hardhat evm (ex L1WarpToad)
 ```shell
-yarn workspace @warp-toad/backend hardhat test test/testL1WarpToad.ts 
+yarn workspace @warp-toad/backend hardhat test test/testL1WarpToad.ts  --network aztecSandbox
 ```
 
 test only one file (ex aztecWarpToad)

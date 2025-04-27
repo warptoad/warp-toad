@@ -63,12 +63,17 @@ async function estimateMintGas(signer: ethers.Signer, warpToadAddress: string,am
 
 async function getFreeMoney(signer: ethers.Signer, USDcoinAddress: ethers.Addressable, amount: bigint) {
     const USDC: USDcoin = USDcoin__factory.connect(USDcoinAddress.toString(), signer)
+    console.log(`trying to mint ${ethers.formatUnits(amount, await USDC.decimals())} ${await USDC.symbol()} function of native token`)
     // TODO just rename to mint lmao
     await (await USDC.getFreeShit(amount)).wait(1)
-    console.log({balanceOf: await USDC.balanceOf(await signer.getAddress())})
 }
 
-async function  getNativeTokenAddress(signer: ethers.Signer, warpToadAddress: ethers.Addressable):Promise<ethers.Addressable> {
+async function getBalance(signer: ethers.Signer, USDcoinAddress: ethers.Addressable) {
+    const USDC: USDcoin = USDcoin__factory.connect(USDcoinAddress.toString(), signer)
+    return await USDC.balanceOf(await signer.getAddress())
+}
+
+async function getNativeTokenAddress(signer: ethers.Signer, warpToadAddress: ethers.Addressable):Promise<ethers.Addressable> {
     const warpToad: L1WarpToad = L1WarpToad__factory.connect(warpToadAddress.toString(), signer) // why .toString() is hardhat dum?
     return ethers.getAddress( await warpToad.nativeToken()) as any as ethers.Addressable
     
@@ -79,7 +84,6 @@ async function main() {
         description: 'TODO',
         usage: ``
     });
-    console.log(parser)
 
     // parser.add_argument('-n', '--nativeToken', { help: 'contract address of a L1WarpToad instance', required: true, type: 'str' });
     // parser.add_argument('-w', '--warptoad', { help: 'contract address of a L1WarpToad instance', required: true, type: 'str' });
@@ -88,21 +92,25 @@ async function main() {
     parser.add_argument('-r', '--rpc', { help: 'url to rpc ex: http:localhost:8545',default:"http:localhost:8545", required: false, type: 'str' });
     const args = parser.parse_args()
     const deployedAddresses = JSON.parse(((await fs.readFile(args.deployedAddressesJson)).toString()))
+    console.log({deployedAddresses})
     // TODO make flag to switch between L1 and L2. Or maybe just get a warptoad since deployedAddressesc wont have both L1 and L2 in the same file
-    const warpToadAddress = deployedAddresses["L1WarpToad#L1WarpToad"]
-    console.log({deployedAddresses, L1:warpToadAddress})    
+    const warpToadAddress = deployedAddresses["L1WarpToad#L1WarpToad"] 
     const provider = new ethers.JsonRpcProvider(args.rpc)
     const signer = new NonceManager(new ethers.Wallet(args.privatekey, provider))
-    console.log({signerAddy: await signer.getAddress()})
 
     const nativeTokenAddress = await getNativeTokenAddress(signer,warpToadAddress)
-    const amount = 200000000000n // becuase feeFactor should be arleast 2 and fee paid = (baseFee+priorityFe)*feeFactor. 20000000000n assumes (basefee+priorityFee) = 100gwei
-    await getFreeMoney(signer, nativeTokenAddress, amount)
+    const amount = 200000000000n // because feeFactor should be at least 2 and fee paid = (baseFee+priorityFe)*feeFactor. 20000000000n assumes (basefee+priorityFee) = 100gwei
+    
+    if (await getBalance(signer, nativeTokenAddress) < amount) {
+        console.warn(`not enough tokens from native token ${nativeTokenAddress}`)
+        await getFreeMoney(signer, nativeTokenAddress, amount)
+    }
+
     const gas = await estimateMintGas(signer,warpToadAddress, amount)
     console.log({gas})
+    process.exit(0)
 }
 
 if (require.main === module) {
     main()
-    process.exit(0)
 }

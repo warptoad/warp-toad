@@ -17,7 +17,7 @@ import { createPXEClient, waitForPXE, } from "@aztec/aztec.js";
 //@ts-ignore
 import { getInitialTestAccountsWallets } from "@aztec/accounts/testing";
 
-import { ProofInputs, EvmMerkleData, AztecMerkleData, } from "./interfaces";
+import { ProofInputs, EvmMerkleData, AztecMerkleData, } from "./types";
 
 const { PXE_URL = 'http://localhost:8080' } = process.env;
 
@@ -74,8 +74,6 @@ async function generateEvmMerkleData(warpToadOrigin: WarpToadEvm, commitment: bi
         hash_path: tree.proof(commitment as any as Element).pathElements.map((e)=>ethers.toBeHex(e)) // TODO actually take typescript seriously at some point
     } as EvmMerkleData
 
-    
-    console.log({ events, decodedEvents })
     return MerkleData
 }
 
