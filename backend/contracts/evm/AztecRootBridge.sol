@@ -53,26 +53,31 @@ contract AztecRootBridge {
      * @notice adds an L2 message which can only be consumed publicly on Aztec
      * @param _newGigaRoot - The new gigaRoot to send to L2 as a message.  It's actually supposed to be a secret hash but we don't care
      */
-    function sendGigaRootToL2(
-        bytes32 _newGigaRoot,
-        bytes32 _secretHash
-    ) external {
+    function sendGigaRootToL2(bytes32 _newGigaRoot) external {
+        // l2Bridge is the Aztec address of the contract that will be retrieving the
+        // message on the L2
         DataStructures.L2Actor memory actor = DataStructures.L2Actor(
             l2Bridge,
             rollupVersion
         );
 
+        // Aztec docs assume that the message being passed is larger than a Field element
+        // so it recommends you hash it and verify the hash on the L2 when retrieving the message.
+        // Luckily for us, the GigaRoot is the size of a Field so we don't have to hash it
+        // and can directly retrieve it on the L2.
         bytes32 contentHash = _newGigaRoot;
 
-        // we don't care about things being secret
-        // TODO: confirm that we really don't need this
-        // bytes32 secretHash = bytes32(0);
+        // `secret` is used to make the consumption of a message on the L2 private.
+        // we don't care about keeping message consumption private at all so to
+        // simplify things we hardcode the secret as 0 in the noir side and hardcode
+        // Hash(0) here in the L1
+        bytes32 secretHash = 0x001dc7b0244cb71a4609d526300ba6771064bd046848666f7bfe577053d630c5;
 
         // Send message to rollup
         (bytes32 key, uint256 index) = inbox.sendL2Message(
             actor,
             contentHash,
-            _secretHash
+            secretHash
         );
 
         // Emit event

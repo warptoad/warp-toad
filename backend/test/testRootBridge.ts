@@ -83,10 +83,12 @@ describe("RootBridge", function () {
 
 			const { AztecRootBridge, RootBridge, PXE } = await loadFixture(deployAztecRootBridge);
 
-			const secret = Fr.random();
-			const secretHash = await computeSecretHash(secret);
-			const paddedSecretHash = hre.ethers.zeroPadValue(secretHash.toString(), 32);
-			console.log("secretHash: ", secretHash);
+			// const secret = new Fr(0n);
+			// const secretHash = await computeSecretHash(secret);
+			// const paddedSecretHash = hre.ethers.zeroPadValue(secretHash.toString(), 32);
+			//
+			// console.log("secret: ", secret);
+			// console.log("secretHash: ", secretHash.toString());
 
 			const fakeGigaRoot = Fr.random();
 			const paddedFakeGigaRoot = hre.ethers.zeroPadValue(fakeGigaRoot.toString(), 32);
@@ -94,7 +96,7 @@ describe("RootBridge", function () {
 			console.log("paddedFakeGigaRoot ", paddedFakeGigaRoot);
 
 			// L1 txn to send gigaroot L1 -> L2
-			const tx = await AztecRootBridge.sendGigaRootToL2(paddedFakeGigaRoot, paddedSecretHash);
+			const tx = await AztecRootBridge.sendGigaRootToL2(paddedFakeGigaRoot);
 
 			const receipt = await tx.wait(1);
 
@@ -131,7 +133,7 @@ describe("RootBridge", function () {
 			console.log("L2 block after waiting: ", await PXE.getBlockNumber());
 
 			// New test logic
-			await RootBridge.methods.update_gigaroot(fakeGigaRoot, index, secret).send().wait();
+			await RootBridge.methods.update_gigaroot(fakeGigaRoot, index).send().wait();
 
 			let newGigaRoot = await RootBridge.methods.get_giga_root().simulate();
 			let newGigaRootField = new Fr(newGigaRoot);

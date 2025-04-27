@@ -36,9 +36,14 @@ pub contract RootBridge {
     }
 
     // Consumes a L1->L2 message and calls the WarpToadCore contract to update the GigaRoot
-	// TODO: derive new_gigaroot
     #[public]
-    fn update_gigaroot(new_gigaroot: Field, message_leaf_index: Field, secret: Field) {
+    fn update_gigaroot(new_gigaroot: Field, message_leaf_index: Field) {
+
+		// `secret` is used to make the consumption of a message on the L2 private.
+		// we don't care about keeping message consumption private at all so to 
+		// simplify things we hardcode the secret here and the secret_hash in the L1
+		// contract.
+        let secret: Field = 0;
 
 		let content_hash = new_gigaroot;
 

@@ -156,8 +156,8 @@ counter: {
     /** sync_notes() */
     sync_notes: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** update_gigaroot(new_gigaroot: field, message_leaf_index: field, secret: field) */
-    update_gigaroot: ((new_gigaroot: FieldLike, message_leaf_index: FieldLike, secret: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** update_gigaroot(new_gigaroot: field, message_leaf_index: field) */
+    update_gigaroot: ((new_gigaroot: FieldLike, message_leaf_index: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
   };
 
   
