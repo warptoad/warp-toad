@@ -115,12 +115,18 @@ export class RootBridgeContract extends ContractBase {
   }
   
 
-  public static get storage(): ContractStorageLayout<'config'> {
+  public static get storage(): ContractStorageLayout<'config' | 'temp_testing_giga_root' | 'counter'> {
       return {
         config: {
       slot: new Fr(1n),
+    },
+temp_testing_giga_root: {
+      slot: new Fr(3n),
+    },
+counter: {
+      slot: new Fr(4n),
     }
-      } as ContractStorageLayout<'config'>;
+      } as ContractStorageLayout<'config' | 'temp_testing_giga_root' | 'counter'>;
     }
     
 
@@ -132,8 +138,14 @@ export class RootBridgeContract extends ContractBase {
     /** constructor(portal: struct) */
     constructor: ((portal: EthAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** count(new_count: field) */
+    count: ((new_count: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** get_config_public() */
     get_config_public: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** get_giga_root() */
+    get_giga_root: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** public_dispatch(selector: field) */
     public_dispatch: ((selector: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -144,8 +156,8 @@ export class RootBridgeContract extends ContractBase {
     /** sync_notes() */
     sync_notes: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** update_gigaroot(new_gigaroot: field, message_leaf_index: field) */
-    update_gigaroot: ((new_gigaroot: FieldLike, message_leaf_index: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** update_gigaroot(new_gigaroot: field, message_leaf_index: field, secret: field) */
+    update_gigaroot: ((new_gigaroot: FieldLike, message_leaf_index: FieldLike, secret: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
   };
 
   

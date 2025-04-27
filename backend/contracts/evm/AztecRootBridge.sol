@@ -16,7 +16,9 @@ import {DataStructures} from "./aztec-interfaces/CoreDataStructures.sol";
 // hash for message passing to L2
 import {Hash} from "./aztec-interfaces/crypto/Hash.sol";
 
-contract AztecRootBridge is IRootBridge {
+// TODO: make it IRootBridge
+//is IRootBridge
+contract AztecRootBridge {
     event newGigaRootSentToL2(bytes32 newGigaRoot, bytes32 key, uint256 index);
     event receivedNewL2Root(bytes32 newL2Root);
 
@@ -51,27 +53,30 @@ contract AztecRootBridge is IRootBridge {
      * @notice adds an L2 message which can only be consumed publicly on Aztec
      * @param _newGigaRoot - The new gigaRoot to send to L2 as a message.  It's actually supposed to be a secret hash but we don't care
      */
-    function sendGigaRootToL2(bytes32 _newGigaRoot) external {
+    function sendGigaRootToL2(
+        bytes32 _newGigaRoot,
+        bytes32 _secretHash
+    ) external {
         DataStructures.L2Actor memory actor = DataStructures.L2Actor(
             l2Bridge,
             rollupVersion
         );
 
-        // Hash the message content to be reconstructed in the receiving contract
-        bytes32 contentHash = Hash.sha256ToField(_newGigaRoot);
+        bytes32 contentHash = _newGigaRoot;
 
         // we don't care about things being secret
         // TODO: confirm that we really don't need this
-        bytes32 secretHash = bytes32(0);
+        // bytes32 secretHash = bytes32(0);
+
         // Send message to rollup
         (bytes32 key, uint256 index) = inbox.sendL2Message(
             actor,
             contentHash,
-            secretHash
+            _secretHash
         );
 
         // Emit event
-        emit newGigaRootSentToL2(_newGigaRoot, key, index);
+        emit newGigaRootSentToL2(contentHash, key, index);
 
         // would be easier to return the key and index but we can't assume this pattern is the same for all
         // bridges so this interface can't return anything

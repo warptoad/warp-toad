@@ -9,15 +9,17 @@ use dep::aztec::macros::aztec;
 pub contract RootBridge {
     use crate::config::Config;
 
-    use dep::aztec::prelude::{AztecAddress, EthAddress, PublicImmutable};
+    use dep::aztec::prelude::{AztecAddress, EthAddress, PublicMutable, PublicImmutable};
 
-
-    use dep::aztec::macros::{functions::{initializer, private, public, view}, storage::storage};
+    use dep::aztec::macros::{functions::{utility, initializer, private, public, view}, storage::storage};
 
     // Storage structure, containing all storage, and specifying what slots they use.
     #[storage]
     struct Storage<Context> {
         config: PublicImmutable<Config, Context>,
+		temp_testing_giga_root: PublicMutable<Field, Context>,
+		// temp for testing
+		counter: PublicMutable<Field, Context>
     }
 
     // Constructs the contract.
@@ -34,25 +36,31 @@ pub contract RootBridge {
     }
 
     // Consumes a L1->L2 message and calls the WarpToadCore contract to update the GigaRoot
-    // @param new_gigaroot - the gigaroot from the L1 contract AztecRootBridge.sol.  Found on the event emitted in AztecRootBridge.sol sendGigaRootToL2
-    // @param message_leaf_index - the location of the gigaroot.  Found on the event emitted in AztecRootBridge.sol sendGigaRootToL2
+	// TODO: derive new_gigaroot
     #[public]
-    fn update_gigaroot(new_gigaroot: Field, message_leaf_index: Field) {
-        // let content_hash = get_mint_to_public_content_hash(to, amount);
+    fn update_gigaroot(new_gigaroot: Field, message_leaf_index: Field, secret: Field) {
+
+		let content_hash = new_gigaroot;
 
         let config = storage.config.read();
 
-        // TODO: secret was a parameter but we don't care about who calls this so just setting it here
-        let secret = 0;
-
         // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(new_gigaroot, secret, config.portal, message_leaf_index);
-
+        context.consume_l1_to_l2_message(content_hash, secret, config.portal, message_leaf_index);
 
         // TODO: call function on WarpToadCore
+        storage.temp_testing_giga_root.write(new_gigaroot);
 
-        // Mint tokens
-        // Token::at(config.token).mint_to_public(to, amount).call(&mut context);
+    }
+
+	// temp for testing.  Need to call 2 functions to progress the L2 2 blocks
+#[public]
+	fn count(new_count: Field) {
+			storage.counter.write(new_count);
+		}
+
+    #[utility] 
+    unconstrained fn get_giga_root() -> pub Field {
+        storage.temp_testing_giga_root.read()
     }
 
     // creates a L2 to L1 message publicly

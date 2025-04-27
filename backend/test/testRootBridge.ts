@@ -13,7 +13,7 @@ import { GigaRootBridge, AztecRootBridge } from "../typechain-types"
 import { expect } from "chai";
 import { time, loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers.js";
 
-import { createPXEClient, waitForPXE, Contract, ContractArtifact, loadContractArtifact, NoirCompiledContract, Fr } from "@aztec/aztec.js"
+import { computeSecretHash, EthAddress, Fr, createPXEClient, waitForPXE, Contract, ContractArtifact, loadContractArtifact, NoirCompiledContract, Fr } from "@aztec/aztec.js"
 
 //@ts-ignore
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing'; // idk why but node is bitching about this but bun doesnt care
@@ -48,7 +48,7 @@ describe("RootBridge", function () {
 		// RootBridge (L2) deployment
 		const { wallets, PXE } = await connectPXE();
 		const deployerWallet = wallets[0]
-		const constructorArgs = [AztecRootBridge.target];
+		const constructorArgs = [EthAddress.fromString(AztecRootBridge.target)];
 		const nodeInfo = (await PXE.getNodeInfo());
 
 		// This is also the "registry"
@@ -62,12 +62,12 @@ describe("RootBridge", function () {
 		console.log("l2Bridge: " + l2Bridge + " type " + typeof l2Bridge);
 		await AztecRootBridge.initialize(registryAddress, l2Bridge);
 
-		return { AztecRootBridge, RootBridge }
+		return { AztecRootBridge, RootBridge, PXE }
 	}
 
 	describe("Deployment", function () {
 		it("Should deploy and initialize", async function () {
-			const { AztecRootBridge, RootBridge } = await loadFixture(deployAztecRootBridge);
+			const { AztecRootBridge, RootBridge, PXE } = await loadFixture(deployAztecRootBridge);
 			expect(AztecRootBridge).not.equal(undefined);
 			expect(RootBridge).not.equal(undefined);
 
@@ -78,46 +78,55 @@ describe("RootBridge", function () {
 	})
 
 	describe("Send gigaroot L1 -> L2", function () {
-		it("AztecRootBridge should return index and key of message", async function () {
+		// it("AztecRootBridge should return index and key of message", async function () {
 
-			const { AztecRootBridge, RootBridge } = await loadFixture(deployAztecRootBridge);
-			const fakeGigaRoot = hre.ethers.encodeBytes32String("winning noirhack");
-			console.log("fakeGigaRoot ", fakeGigaRoot);
+		// 	const { AztecRootBridge, RootBridge } = await loadFixture(deployAztecRootBridge);
+		// 	const fakeGigaRoot = hre.ethers.encodeBytes32String("winning noirhack");
+		// 	console.log("fakeGigaRoot ", fakeGigaRoot);
 
 
-			const tx = await AztecRootBridge.sendGigaRootToL2(fakeGigaRoot);
+		// 	const tx = await AztecRootBridge.sendGigaRootToL2(fakeGigaRoot);
 
-			const receipt = await tx.wait();
+		// 	const receipt = await tx.wait();
 
-			// Find the event in the logs
-			const event = receipt.logs.find(
-				log => log.topics[0] === AztecRootBridge.interface.getEvent("newGigaRootSentToL2").topicHash
-			);
+		// 	// Find the event in the logs
+		// 	const event = receipt.logs.find(
+		// 		log => log.topics[0] === AztecRootBridge.interface.getEvent("newGigaRootSentToL2").topicHash
+		// 	);
 
-			// Parse the event data
-			const parsedEvent = AztecRootBridge.interface.parseLog({
-				topics: event.topics,
-				data: event.data
-			});
+		// 	// Parse the event data
+		// 	const parsedEvent = AztecRootBridge.interface.parseLog({
+		// 		topics: event.topics,
+		// 		data: event.data
+		// 	});
 
-			// Get the message_leaf_index from the event
-			const message_leaf_index = parsedEvent.args[2]; // The third argument in the event is the message_leaf_index
+		// 	// Get the message_leaf_index from the event
+		// 	const message_leaf_index = parsedEvent.args[2]; // The third argument in the event is the message_leaf_index
 
-			expect(message_leaf_index).to.not.be.undefined;
-			console.log("Message message_leaf_index:", message_leaf_index);
+		// 	expect(message_leaf_index).to.not.be.undefined;
+		// 	console.log("Message message_leaf_index:", message_leaf_index);
 
-		})
+		// })
 
 		it("RootBridge deployed on aztec can recover the message without error", async function () {
 
 			// same logic as above test
-			const { AztecRootBridge, RootBridge } = await loadFixture(deployAztecRootBridge);
-			const fakeGigaRoot = hre.ethers.encodeBytes32String("winning noirhack");
+			const { AztecRootBridge, RootBridge, PXE } = await loadFixture(deployAztecRootBridge);
+			// const fakeGigaRoot = hre.ethers.encodeBytes32String("winning noirhack");
+			// const fakeGigaRoot = 42069n;
+			const secret = Fr.random();
+			const secretHash = await computeSecretHash(secret);
+			const paddedSecretHash = hre.ethers.zeroPadValue(secretHash.toString(), 32);
+			console.log("secretHash: ", secretHash);
+			const fakeGigaRoot = Fr.random();
+			const paddedFakeGigaRoot = hre.ethers.zeroPadValue(fakeGigaRoot.toString(), 32);
 			console.log("fakeGigaRoot ", fakeGigaRoot);
+			console.log("paddedFakeGigaRoot ", paddedFakeGigaRoot);
 
-			const tx = await AztecRootBridge.sendGigaRootToL2(fakeGigaRoot);
+			// L1 txn to send gigaroot L1 -> L2
+			const tx = await AztecRootBridge.sendGigaRootToL2(paddedFakeGigaRoot, paddedSecretHash);
 
-			const receipt = await tx.wait();
+			const receipt = await tx.wait(1);
 
 			// Find the event in the logs
 			const event = receipt.logs.find(
@@ -130,23 +139,40 @@ describe("RootBridge", function () {
 				data: event.data
 			});
 
-			// Get the message_leaf_index from the event
-			const message_leaf_index = parsedEvent.args[2]; // The third argument in the event is the message_leaf_index
+			const content_hash = parsedEvent.args[0];
+			const key = parsedEvent.args[1];
+			const index = parsedEvent.args[2]; // The third argument in the event is the message_leaf_index
 
-			expect(message_leaf_index).to.not.be.undefined;
-			console.log("Message message_leaf_index:", message_leaf_index);
+			expect(content_hash).to.not.be.undefined;
+			console.log("content_hash: ", content_hash);
+
+			expect(key).to.not.be.undefined;
+			console.log("key:", key);
+
+			expect(index).to.not.be.undefined;
+			console.log("index:", index);
+
+
+			// call 2 unrelated functions on the l2 because of
+			// https://github.com/AztecProtocol/aztec-packages/blob/7e9e2681e314145237f95f79ffdc95ad25a0e319/yarn-project/end-to-end/src/shared/cross_chain_test_harness.ts#L354-L355
+			console.log("Current L2 block: ", await PXE.getBlockNumber());
+			await RootBridge.methods.count(0n).send().wait();
+			await RootBridge.methods.count(1n).send().wait();
+			await RootBridge.methods.count(3n).send().wait();
+			await RootBridge.methods.count(4n).send().wait();
+			console.log("L2 block after waiting: ", await PXE.getBlockNumber());
 
 			// New test logic
 			// Call the L2 function update_gigaroot(new_gigaroot, message_leaf_index)
-			// TODO: test that this returns the gigaRoot
-			try {
-				await RootBridge.methods.update_gigaroot(fakeGigaRoot, message_leaf_index);
-				// if we reach here, no error was thrown 
-				expect(true).to.equal(true);
+			// const newFakeGigaRoot = Fr.fromHexString(paddedFakeGigaRoot);
+			// console.log("newFakeGigaRoot ", newFakeGigaRoot);
+			//let field_content_hash = Fr.fromHexString(content_hash_from_event);
+			await RootBridge.methods.update_gigaroot(fakeGigaRoot, index, secret).send().wait();
 
-			} catch (error) {
-				expect.fail(`Should not have thrown an error but got: ${error.message}`);
-			}
+			let new_giga_root = await RootBridge.methods.get_giga_root().simulate();
+			console.log("new_giga_root ", new_giga_root);
+
+			expect(new_giga_root).to.not.be.undefined;
 		})
 	})
 
