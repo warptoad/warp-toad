@@ -62,12 +62,14 @@ contract AztecRootBridge is IRootBridge {
         bytes32 contentHash = Hash.sha256ToField(_newGigaRoot);
 
         console.log("sendL2Message");
+
+        // we don't care about things being secret
+        bytes32 secretHash = bytes32(0);
         // Send message to rollup
         (bytes32 key, uint256 index) = inbox.sendL2Message(
             actor,
             contentHash,
-            // we don't care about things being secret
-            _newGigaRoot
+            secretHash
         );
 
         // Emit event
