@@ -3,6 +3,7 @@
 pragma solidity 0.8.29;
 
 import "./IRootBridge.sol";
+import "hardhat/console.sol";
 
 // Messaging
 import {IRegistry} from "./aztec-interfaces/IRegistry.sol";
@@ -32,16 +33,11 @@ contract AztecRootBridge is IRootBridge {
      * @notice Initialize the portal
      * @param _registry - The registry address
      * @param _l2Bridge - The L2 bridge address
-     * @param _aztecChainId - id of the aztec chain this is being deployed on
      */
-    function initialize(
-        address _registry,
-        bytes32 _l2Bridge,
-        uint32 _aztecChainId
-    ) external {
+    // TODO: anyone can call this to set the l2 bridge to something else.  Should make it only callable once
+    function initialize(address _registry, bytes32 _l2Bridge) external {
         registry = IRegistry(_registry);
         l2Bridge = _l2Bridge;
-        aztecChainId = _aztecChainId;
 
         rollup = IRollup(registry.getCanonicalRollup());
         outbox = rollup.getOutbox();
@@ -52,28 +48,33 @@ contract AztecRootBridge is IRootBridge {
 
     /**
      * @notice adds an L2 message which can only be consumed publicly on Aztec
-     * @param newGigaRoot - The new gigaRoot to send to L2 as a message.  It's actually supposed to be a secret hash but we don't care
+     * @param _newGigaRoot - The new gigaRoot to send to L2 as a message.  It's actually supposed to be a secret hash but we don't care
      */
-    function sendGigaRootToL2(bytes32 newGigaRoot) external {
-        // Preamble
-        IInbox inbox = IRollup(registry.getRollup(aztecChainId)).getInbox();
+    function sendGigaRootToL2(bytes32 _newGigaRoot) external {
+        console.log("actor");
         DataStructures.L2Actor memory actor = DataStructures.L2Actor(
             l2Bridge,
-            1
+            rollupVersion
         );
 
+        console.log("sha256ToField");
         // Hash the message content to be reconstructed in the receiving contract
-        bytes32 contentHash = Hash.sha256ToField(newGigaRoot);
+        bytes32 contentHash = Hash.sha256ToField(_newGigaRoot);
 
+        console.log("sendL2Message");
         // Send message to rollup
         (bytes32 key, uint256 index) = inbox.sendL2Message(
             actor,
             contentHash,
-            newGigaRoot
+            // we don't care about things being secret
+            _newGigaRoot
         );
 
         // Emit event
-        emit newGigaRootSentToL2(newGigaRoot, key, index);
+        emit newGigaRootSentToL2(_newGigaRoot, key, index);
+
+        // would be easier to return the key and index but we can't assume this pattern is the same for all
+        // bridges so this interface can't return anything
     }
 
     function getMostRecentRoot() external returns (bytes32) {

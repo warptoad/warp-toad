@@ -36,7 +36,7 @@ async function connectPXE() {
 	return { wallets, PXE }
 }
 
-describe("AztecRootBridge", function () {
+describe("RootBridge", function () {
 	async function deployAztecRootBridge() {
 
 		// AztecRootBridge (L1) deployment
@@ -58,11 +58,9 @@ describe("AztecRootBridge", function () {
 		// const registryAddress = hre.ethers.getAddress(nodeInfo.l1ContractAddresses.registryAddress);
 		const registryAddress = nodeInfo.l1ContractAddresses.registryAddress.toString();
 		const l2Bridge = RootBridge.address.toString();
-		const aztecChainId = AZTEC_CHAIN_ID;
 		console.log("registryAddress: " + registryAddress + " type " + typeof registryAddress);
 		console.log("l2Bridge: " + l2Bridge + " type " + typeof l2Bridge);
-		console.log("aztecChainId: " + aztecChainId + " type " + typeof aztecChainId);
-		await AztecRootBridge.initialize(registryAddress, l2Bridge, aztecChainId);
+		await AztecRootBridge.initialize(registryAddress, l2Bridge);
 
 		return { AztecRootBridge, RootBridge }
 	}
@@ -76,10 +74,52 @@ describe("AztecRootBridge", function () {
 			// check to make sure AztecRootBridge is initialized
 			const l2_bridge = await AztecRootBridge.l2Bridge();
 			expect(l2_bridge).not.equal(undefined);
-
-			const rollupVersion = await AztecRootBridge.rollupVersion();
-			expect(rollupVersion()).not.equal(undefined);
 		});
+	})
+
+	describe("Send gigaroot", function () {
+		it("AztecRootBridge should return index and key of message", async function () {
+
+			const { AztecRootBridge, RootBridge } = await loadFixture(deployAztecRootBridge);
+			const fakeGigaRoot = hre.ethers.encodeBytes32String("fake_root");
+
+			const { key, index } = await AztecRootBridge.sendGigaRootToL2(fakeGigaRoot);
+
+			expect(index).to.not.be.undefined;
+			console.log("Message index:", index);
+
+			expect(key).to.not.be.undefined;
+			console.log("Message key:", key);
+
+		})
+		// it("AztecRootBridge should emit index of message", async function () {
+		//
+		// 	const { AztecRootBridge, RootBridge } = await loadFixture(deployAztecRootBridge);
+		// 	const fakeGigaRoot = hre.ethers.encodeBytes32String("fake_root");
+		//
+		// 	const tx = await AztecRootBridge.sendGigaRootToL2(fakeGigaRoot);
+		//
+		// 	const receipt = await tx.wait();
+		//
+		// 	// Find the event in the logs
+		// 	const event = receipt.logs.find(
+		// 		log => log.topics[0] === AztecRootBridge.interface.getEvent("newGigaRootSentToL2").topicHash
+		// 	);
+		//
+		// 	// Parse the event data
+		// 	const parsedEvent = AztecRootBridge.interface.parseLog({
+		// 		topics: event.topics,
+		// 		data: event.data
+		// 	});
+		//
+		// 	// Get the index from the event
+		// 	const index = parsedEvent.args[2]; // The third argument in your event is the index
+		//
+		// 	// Now you can assert or use the index however you need
+		// 	expect(index).to.not.be.undefined;
+		// 	console.log("Message index:", index);
+		//
+		// })
 	})
 
 })
