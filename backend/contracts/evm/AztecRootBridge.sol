@@ -64,6 +64,7 @@ contract AztecRootBridge is IRootBridge {
         console.log("sendL2Message");
 
         // we don't care about things being secret
+        // TODO: confirm that we really don't need this
         bytes32 secretHash = bytes32(0);
         // Send message to rollup
         (bytes32 key, uint256 index) = inbox.sendL2Message(

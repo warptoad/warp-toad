@@ -81,47 +81,32 @@ describe("RootBridge", function () {
 		it("AztecRootBridge should return index and key of message", async function () {
 
 			const { AztecRootBridge, RootBridge } = await loadFixture(deployAztecRootBridge);
-			//const fakeGigaRoot = hre.ethers.encodeBytes32String("winning noirhack");
-			const fakeGigaRoot = hre.ethers.hexlify(hre.ethers.randomBytes(32));
+			const fakeGigaRoot = hre.ethers.encodeBytes32String("winning noirhack");
 			console.log("fakeGigaRoot ", fakeGigaRoot);
 
-			await AztecRootBridge.sendGigaRootToL2(fakeGigaRoot);
 
-			// expect(index).to.not.be.undefined;
-			// console.log("Message index:", index);
-			//
-			// expect(key).to.not.be.undefined;
-			// console.log("Message key:", key);
+			const tx = await AztecRootBridge.sendGigaRootToL2(fakeGigaRoot);
+
+			const receipt = await tx.wait();
+
+			// Find the event in the logs
+			const event = receipt.logs.find(
+				log => log.topics[0] === AztecRootBridge.interface.getEvent("newGigaRootSentToL2").topicHash
+			);
+
+			// Parse the event data
+			const parsedEvent = AztecRootBridge.interface.parseLog({
+				topics: event.topics,
+				data: event.data
+			});
+
+			// Get the index from the event
+			const index = parsedEvent.args[2]; // The third argument in the event is the index
+
+			expect(index).to.not.be.undefined;
+			console.log("Message index:", index);
 
 		})
-		// it("AztecRootBridge should emit index of message", async function () {
-		//
-		// 	const { AztecRootBridge, RootBridge } = await loadFixture(deployAztecRootBridge);
-		// 	const fakeGigaRoot = hre.ethers.encodeBytes32String("fake_root");
-		//
-		// 	const tx = await AztecRootBridge.sendGigaRootToL2(fakeGigaRoot);
-		//
-		// 	const receipt = await tx.wait();
-		//
-		// 	// Find the event in the logs
-		// 	const event = receipt.logs.find(
-		// 		log => log.topics[0] === AztecRootBridge.interface.getEvent("newGigaRootSentToL2").topicHash
-		// 	);
-		//
-		// 	// Parse the event data
-		// 	const parsedEvent = AztecRootBridge.interface.parseLog({
-		// 		topics: event.topics,
-		// 		data: event.data
-		// 	});
-		//
-		// 	// Get the index from the event
-		// 	const index = parsedEvent.args[2]; // The third argument in your event is the index
-		//
-		// 	// Now you can assert or use the index however you need
-		// 	expect(index).to.not.be.undefined;
-		// 	console.log("Message index:", index);
-		//
-		// })
 	})
 
 })
