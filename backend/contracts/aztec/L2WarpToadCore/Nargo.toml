@@ -1,6 +1,0 @@
-[package]
-name = "L2WarpToadCore"
-type = "contract"
-authors = [""]
-
-[dependencies]
