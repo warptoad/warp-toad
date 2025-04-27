@@ -72,7 +72,7 @@ yarn workspace @warp-toad/backend hardhat ignition deploy ./ignition/modules/L1W
 ## test contracts
 test only one file just hardhat evm (ex L1WarpToad)
 ```shell
-yarn workspace @warp-toad/backend hardhat test test/testL1WarpToad.ts  --network aztecSandbox
+yarn workspace @warp-toad/backend hardhat test test/testL1WarpToad.ts  
 ```
 
 test only one file (ex aztecWarpToad)
@@ -87,7 +87,7 @@ yarn workspace @warp-toad/backend hardhat test --network aztecSandbox
 
 get gas estimation minting
 ```shell
-rm backend/ignition/deployments/chain-31337/;
+rm -fr backend/ignition/deployments/chain-31337/;
 yarn workspace @warp-toad/backend hardhat ignition deploy ./ignition/modules/L1WarpToadWithTestToken.ts --parameters ignition/WarpToadCoreParametersTesting.json --network aztecSandbox;
 yarn workspace @warp-toad/backend ts-node scripts/dev_op/estimateGas.ts -d ignition/deployments/chain-31337/deployed_addresses.json;
 ```
