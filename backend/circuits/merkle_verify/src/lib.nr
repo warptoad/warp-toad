@@ -14,9 +14,7 @@ fn poseidon_hasher(leaves: [Field; 2]) -> Field {
 pub struct Aztec_merkle_data<let D: u32> {
     leaf_index: Field,
     hash_path: [Field; D],
-    leaf_nonce: Field,
-    burn_tx_first_nullifier: Field,
-    note_index_in_tx: u32
+    leaf_nonce: Field
 }
 
 pub struct Evm_merkle_data<let D: u32> {

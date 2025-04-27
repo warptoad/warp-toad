@@ -1,4 +1,5 @@
 use aztec::macros::aztec;
+mod warptoad_note;
 // from
 // https://github.com/privacy-scaling-explorations/zk-kit.noir/blob/fa5fdb0f0d0867e367388f85079db3b1f9a47590/packages/merkle-trees/src/merkle.nr#L3
 
@@ -9,12 +10,12 @@ use aztec::macros::aztec;
 pub contract WarpToadCore {
     // macros
     use aztec::macros::{notes::note, functions::{initializer, private, public, view, internal,utility}, storage::{storage}};
-    
+    use crate::warptoad_note::WarpToadNote;
     // storage types
-    use aztec::prelude::{AztecAddress, EthAddress, Map, PublicImmutable, PublicMutable};
+    use aztec::prelude::{AztecAddress, EthAddress, Map, PublicImmutable, PublicMutable,PrivateMutable,PrivateSet};
     use dep::easy_private_state::EasyPrivateUint;
     use dep::value_note::balance_utils;
-
+    use aztec::messages::logs::note::encode_and_encrypt_note;
     // note proving
     use aztec::oracle::get_membership_witness::{
         get_note_hash_membership_witness, MembershipWitness,
@@ -24,6 +25,8 @@ pub contract WarpToadCore {
         constants::NOTE_HASH_TREE_HEIGHT,
         hash::{compute_note_hash_nonce, compute_siloed_note_hash, compute_unique_note_hash}
         };
+    use aztec::note::retrieved_note::RetrievedNote;
+    use aztec::note::note_metadata::SettledNoteMetadata;
 
     // old poseidon was removed from std lib for some reason?
     // https://github.com/noir-lang/noir/pull/7650
@@ -41,6 +44,7 @@ pub contract WarpToadCore {
         L1_contract: PublicImmutable<EthAddress, Context>,
 
         balances: Map<AztecAddress, EasyPrivateUint<Context>, Context>,
+        commitments: PrivateSet<WarpToadNote, Context>,
     }
 
     /**
@@ -97,15 +101,27 @@ pub contract WarpToadCore {
         amount: u64,
         destination_chain_id: Field,
         secret: Field,
-        nullifier_preimg: Field,
+        nullifier_preimage: Field,
         sender: AztecAddress,
     ) {
         storage.balances.at(sender).sub(amount, sender, sender);
 
         // add the commitment
-        let pre_commitment: Field = poseidon::bn254::hash_3([nullifier_preimg, secret, destination_chain_id]);
-        let commitment: Field = poseidon::bn254::hash_2([amount as Field, pre_commitment]);
-        context.push_note_hash(commitment); // TODO this doesnt actually put it in the fucking tree???
+        // let pre_commitment: Field = poseidon::bn254::hash_3([nullifier_preimg, secret, destination_chain_id]);
+        // let commitment: Field = poseidon::bn254::hash_2([amount as Field, pre_commitment]);
+        // context.push_note_hash(commitment); // TODO this doesnt actually put it in the fucking tree???
+        let warptoad_note: WarpToadNote = WarpToadNote {
+            nullifier_preimage,
+            secret,
+            chain_id: destination_chain_id,
+            amount: amount as Field
+        };
+        storage.commitments.insert(warptoad_note).emit(encode_and_encrypt_note(
+            &mut context,
+            context.msg_sender(),
+            context.msg_sender(),
+        ));
+        
     }
 
     #[contract_library_method]
@@ -155,19 +171,19 @@ pub contract WarpToadCore {
 
     #[contract_library_method]
     fn hash_commit(
-        nullifier_preimg: Field,
+        nullifier_preimage: Field,
         secret: Field,
         destination_chain_id: Field,
         amount: u64,
     ) -> Field {
-        let pre_commitment: Field = poseidon::bn254::hash_3([nullifier_preimg, secret, destination_chain_id]);
+        let pre_commitment: Field = poseidon::bn254::hash_3([nullifier_preimage, secret, destination_chain_id]);
         let commitment: Field = poseidon::bn254::hash_2([amount as Field, pre_commitment]);
         commitment
     }
 
     #[private]
     fn mint_local(
-        nullifier_preimg: Field,
+        nullifier_preimage: Field,
         secret: Field,
         amount: u64,
         recipient: AztecAddress,
@@ -175,20 +191,32 @@ pub contract WarpToadCore {
         note_index_in_tx: u32,
     ) {
         let chain_id: Field = context.chain_id();
-        let commitment: Field = hash_commit(nullifier_preimg, secret, chain_id, amount);
-        let nullifier: Field = poseidon::bn254::hash_1([nullifier_preimg]);
+        // let commitment: Field = hash_commit(nullifier_preimage, secret, chain_id, amount);
+        let nullifier: Field = poseidon::bn254::hash_1([nullifier_preimage]);
 
-        let block_header: BlockHeader = context.historical_header;
-        let contract_address: AztecAddress = context.this_address();
+        // let block_header: BlockHeader = context.historical_header;
+        // let contract_address: AztecAddress = context.this_address();
 
-        prove_note_hash_inclusion(
-            commitment,       
-            block_header,
-            contract_address,
-            burn_tx_first_nullifier, 
-            note_index_in_tx,
-        );
-
+        // prove_note_hash_inclusion(
+        //     commitment,       
+        //     block_header,
+        //     contract_address,
+        //     burn_tx_first_nullifier, 
+        //     note_index_in_tx,
+        // );
+        let nonce = compute_note_hash_nonce(burn_tx_first_nullifier,note_index_in_tx);
+        let warptoad_note: WarpToadNote = WarpToadNote {
+            nullifier_preimage,
+            secret,
+            chain_id: chain_id,
+            amount: amount as Field
+        };
+        let retrieved_note:RetrievedNote<WarpToadNote> = RetrievedNote{
+            note: warptoad_note,
+            contract_address: context.this_address(),
+            metadata:  aztec::note::note_metadata::SettledNoteMetadata::new(nonce).into() 
+        };
+        storage.commitments.remove(retrieved_note);
         // TODO pushing the same nullifier twice is impossible right??
         context.push_nullifier(nullifier);
         // mint!

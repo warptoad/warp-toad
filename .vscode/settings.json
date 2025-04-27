@@ -16,7 +16,9 @@
         "typechain",
         "Uints",
         "warptoad",
-        "wrptd"
+        "wrptd",
+        "zkpass",
+        "zkpassport"
     ],
     "solidity.remappings": [
         "@zk-kit/lean-imt.sol/LeanIMT.sol/=./node_modules/@zk-kit/lean-imt.sol/LeanIMT.sol",
