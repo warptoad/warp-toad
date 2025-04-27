@@ -25,8 +25,6 @@ export const emptyAztecMerkleData: AztecMerkleData = {
     leaf_index: ethers.toBeHex(0n),
     hash_path: new Array(AZTEC_TREE_DEPTH).fill(ethers.toBeHex(0n)),
     leaf_nonce: ethers.toBeHex(0n),
-    burn_tx_first_nullifier: ethers.toBeHex(0n),
-    note_index_in_tx: ethers.toBeHex(0n)
 } 
 Object.freeze(emptyAztecMerkleData)
 
@@ -39,3 +37,12 @@ export const gasCostPerChain: gasCosts = {
     // optimistic-rollups
 }
 Object.freeze(gasCostPerChain)
+
+// from: https://github.com/AztecProtocol/aztec-packages/blob/05999f57016f37978512ea36a11a01f7b8bcf1c1/noir-projects/noir-protocol-circuits/crates/types/src/constants.nr#L526
+export const GENERATOR_INDEX__NOTE_HASH_NONCE = 2n;
+
+// https://github.com/AztecProtocol/aztec-packages/blob/05999f57016f37978512ea36a11a01f7b8bcf1c1/noir-projects/noir-protocol-circuits/crates/types/src/constants.nr#L527
+export const GENERATOR_INDEX__UNIQUE_NOTE_HASH = 3n
+
+//https://github.com/AztecProtocol/aztec-packages/blob/05999f57016f37978512ea36a11a01f7b8bcf1c1/noir-projects/noir-protocol-circuits/crates/types/src/constants.nr#L528
+export const GENERATOR_INDEX__SILOED_NOTE_HASH = 4n;

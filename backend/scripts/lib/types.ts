@@ -4,8 +4,6 @@ export type AztecMerkleData = {
     leaf_index: ethers.BytesLike,
     hash_path: ethers.BytesLike[],
     leaf_nonce: ethers.BytesLike,
-    burn_tx_first_nullifier: ethers.BytesLike,
-    note_index_in_tx: ethers.BytesLike
 }
 
 
