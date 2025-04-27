@@ -3,7 +3,8 @@
 pragma solidity 0.8.29;
 
 import "./IRootBridge.sol";
-import "hardhat/console.sol";
+// TODO: remove
+// import "hardhat/console.sol";
 
 // Messaging
 import {IRegistry} from "./aztec-interfaces/IRegistry.sol";
@@ -51,17 +52,13 @@ contract AztecRootBridge is IRootBridge {
      * @param _newGigaRoot - The new gigaRoot to send to L2 as a message.  It's actually supposed to be a secret hash but we don't care
      */
     function sendGigaRootToL2(bytes32 _newGigaRoot) external {
-        console.log("actor");
         DataStructures.L2Actor memory actor = DataStructures.L2Actor(
             l2Bridge,
             rollupVersion
         );
 
-        console.log("sha256ToField");
         // Hash the message content to be reconstructed in the receiving contract
         bytes32 contentHash = Hash.sha256ToField(_newGigaRoot);
-
-        console.log("sendL2Message");
 
         // we don't care about things being secret
         // TODO: confirm that we really don't need this

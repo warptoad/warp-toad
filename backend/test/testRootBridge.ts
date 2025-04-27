@@ -100,11 +100,45 @@ describe("RootBridge", function () {
 				data: event.data
 			});
 
-			// Get the index from the event
-			const index = parsedEvent.args[2]; // The third argument in the event is the index
+			// Get the message_leaf_index from the event
+			const message_leaf_index = parsedEvent.args[2]; // The third argument in the event is the message_leaf_index
 
-			expect(index).to.not.be.undefined;
-			console.log("Message index:", index);
+			expect(message_leaf_index).to.not.be.undefined;
+			console.log("Message message_leaf_index:", message_leaf_index);
+
+		})
+
+		it("RootBridge deployed on aztec can recover the message without error", async function () {
+
+			// same logic as above test
+			const { AztecRootBridge, RootBridge } = await loadFixture(deployAztecRootBridge);
+			const fakeGigaRoot = hre.ethers.encodeBytes32String("winning noirhack");
+			console.log("fakeGigaRoot ", fakeGigaRoot);
+
+			const tx = await AztecRootBridge.sendGigaRootToL2(fakeGigaRoot);
+
+			const receipt = await tx.wait();
+
+			// Find the event in the logs
+			const event = receipt.logs.find(
+				log => log.topics[0] === AztecRootBridge.interface.getEvent("newGigaRootSentToL2").topicHash
+			);
+
+			// Parse the event data
+			const parsedEvent = AztecRootBridge.interface.parseLog({
+				topics: event.topics,
+				data: event.data
+			});
+
+			// Get the message_leaf_index from the event
+			const message_leaf_index = parsedEvent.args[2]; // The third argument in the event is the message_leaf_index
+
+			expect(message_leaf_index).to.not.be.undefined;
+			console.log("Message message_leaf_index:", message_leaf_index);
+
+			// New test logic
+			// Call the L2 function update_gigaroot(new_gigaroot, message_leaf_index)
+			await RootBridge.methods.update_gigaroot(fakeGigaRoot, message_leaf_index)
 
 		})
 	})
