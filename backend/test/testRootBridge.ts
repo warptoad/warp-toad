@@ -190,25 +190,31 @@ describe("RootBridge", function () {
 			console.log("Message leaf: ", messageLeaf);
 
 			const [l2ToL1MessageIndex, siblingPath] = await PXE.getL2ToL1MembershipWitness(
-				l2TxReceipt.blockNumber,
+				await PXE.getBlockNumber(),
 				messageLeaf
 			);
 
+			const siblingPathArray = siblingPath.data.map(buffer =>
+				'0x' + buffer.toString('hex')
+			);
+
 			console.log("l2ToL1MessageIndex: ", l2ToL1MessageIndex);
-			console.log("siblingPath: ", siblingPath);
+			console.log("siblingPathArray: ", siblingPathArray);
 
 			let tx = await AztecRootBridge.refreshRoot(
 				l2Root.toString(),
-				l2TxReceipt.blockNumber,
+				BigInt(l2TxReceipt.blockNumber),
 				l2ToL1MessageIndex,
-				siblingPath
+				siblingPathArray
 			);
 
 			const receipt = await tx.wait(1);
 
+			console.log("txn done");
+
 			// Find the event in the logs
 			const event = receipt.logs.find(
-				log => log.topics[0] === AztecRootBridge.interface.getEvent("newGigaRootSentToL2").topicHash
+				log => log.topics[0] === AztecRootBridge.interface.getEvent("receivedNewL2Root").topicHash
 			);
 
 			// Parse the event data
