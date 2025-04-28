@@ -5,15 +5,15 @@ import os from 'os';
 import circuit from "../../circuits/withdraw/target/withdraw.json"
 import { ProofData } from "@aztec/bb.js";
 
-import { WarpToadCore as WarpToadEvm} from "../../typechain-types";
+import { WarpToadCore as WarpToadEvm } from "../../typechain-types";
 import { WarpToadCoreContract as WarpToadAztec } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
 import { BytesLike, ethers } from "ethers";
 import { MerkleTree, Element } from "fixed-merkle-tree";
-import { hashCommitment, hashNullifier, hashPreCommitment } from "./hashing";
+import { findNoteHashIndex, hashCommitment, hashNullifier, hashPreCommitment, hashUniqueNoteHash } from "./hashing";
 import { EVM_TREE_DEPTH, AZTEC_TREE_DEPTH, emptyAztecMerkleData, emptyGigaMerkleData, emptyLocalMerkleData, GIGA_TREE_DEPTH } from "./constants";
 
 //@ts-ignore
-import { createPXEClient, waitForPXE, } from "@aztec/aztec.js";
+import { createPXEClient, waitForPXE,NotesFilter } from "@aztec/aztec.js";
 //@ts-ignore
 import { getInitialTestAccountsWallets } from "@aztec/accounts/testing";
 
@@ -48,7 +48,7 @@ export function calculateFeeFactor(ethPriceInToken: number, gasCost: number, rel
     return BigInt(Math.round(ethPriceInToken * gasCost * relayerBonusFactor))
 }
 
-async function generateEvmMerkleData(warpToadOrigin: WarpToadEvm, commitment: bigint, treeDepth: number) {
+async function getEvmMerkleData(warpToadOrigin: WarpToadEvm, commitment: bigint, treeDepth: number) {
     console.warn("warning event scanning code sucks and will break outside tests")
     // TODO do proper event scanning. This will break in prod
     const filter = warpToadOrigin.filters.Burn()
@@ -71,7 +71,7 @@ async function generateEvmMerkleData(warpToadOrigin: WarpToadEvm, commitment: bi
     const tree = new MerkleTree(treeDepth, leafs, { hashFunction: hashFunc })
     const MerkleData = {
         leaf_index: ethers.toBeHex(leafIndex),
-        hash_path: tree.proof(commitment as any as Element).pathElements.map((e)=>ethers.toBeHex(e)) // TODO actually take typescript seriously at some point
+        hash_path: tree.proof(commitment as any as Element).pathElements.map((e) => ethers.toBeHex(e)) // TODO actually take typescript seriously at some point
     } as EvmMerkleData
 
     return MerkleData
@@ -83,6 +83,23 @@ export async function getAztecNoteHashTreeRoot(): Promise<bigint> {
     const lastBridgedBlockNumber = await PXE.PXE.getBlockNumber() // TODO not the way to do it. Bridging contract should track this
     const block = await PXE.PXE.getBlock(lastBridgedBlockNumber)
     return block?.header.state.partial.noteHashTree.root.toBigInt() as bigint
+}
+
+export async function getAztecMerkleData(WarpToad:WarpToadAztec) {
+    const {PXE} = await connectPXE()
+    console.log("finding unique_note_hash index within the tx")
+    const noteIndexOfCommitment = await findNoteHashIndex(WarpToad.address, burnTxNoteHashes, commitment, burnTxFirstNullifier)
+
+    const blockNumber = await PXE.getBlockNumber()
+    const noteHash = await hashUniqueNoteHash(WarpToad, burnTxNoteHashes, commitment, burnTxFirstNullifier)
+    const noteProof = await WarpToad.methods.get_note_proof(blockNumber, noteHash).simulate()
+    const leafNonce = await hashTxNonce(burnTxFirstNullifier.toBigInt(), BigInt(noteIndexOfCommitment))
+    const aztecMerkleData: AztecMerkleData = {
+        leaf_index: ethers.toBeHex(noteProof.index),
+        hash_path: noteProof.path.map((h: ethers.BigNumberish) => ethers.toBeHex(h)),
+        leaf_nonce: ethers.toBeHex(leafNonce)
+    }
+
 }
 
 export async function getProofInputs(
@@ -117,7 +134,7 @@ export async function getProofInputs(
     // ^ what i tried to do but typescripts sucks. instead we just guess by checking if it has "target" and pray that that wont be part of aztecContracts interfaces in the future
     const isFromAztec = !("target" in warpToadOrigin);
     const isOnlyLocal = warpToadDestination === warpToadOrigin;
-    const evmMerkleData: EvmMerkleData = isFromAztec ? emptyLocalMerkleData : await generateEvmMerkleData(warpToadOrigin, commitment, EVM_TREE_DEPTH)
+    const evmMerkleData: EvmMerkleData = isFromAztec ? emptyLocalMerkleData : await getEvmMerkleData(warpToadOrigin, commitment, EVM_TREE_DEPTH)
     const aztecMerkleData: AztecMerkleData = isFromAztec ? emptyAztecMerkleData : emptyAztecMerkleData; // TODO obviously when on aztec should not also be empty
 
     const originLocalRoot: bigint = isFromAztec ? await getAztecNoteHashTreeRoot() : await warpToadOrigin.localRoot();
@@ -152,10 +169,10 @@ export async function getProofInputs(
     return proofInputs
 }
 
-export async function createProof(proofInputs: ProofInputs, threads: number|undefined): Promise<ProofData> {
+export async function createProof(proofInputs: ProofInputs, threads: number | undefined): Promise<ProofData> {
     // TODO assumes that if window doesn't exist os does
     threads = threads ? threads : window ? window.navigator.hardwareConcurrency : os.cpus().length
-    console.log({threads})
+    console.log({ threads })
     const noir = new Noir(circuit as CompiledCircuit);
     const backend = new UltraPlonkBackend(circuit.bytecode, { threads: threads });
     // ill never figure out how to do typescript properly lmao

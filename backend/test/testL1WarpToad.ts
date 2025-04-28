@@ -23,6 +23,8 @@ import { WarpToadCore as WarpToadEvm} from "../typechain-types";
 import {gasCostPerChain} from "../scripts/lib/constants"
 
 import os from 'os';
+import { WarpToadCoreContract } from "../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore";
+import { poseidon3 } from "poseidon-lite/poseidon3";
 
 describe("L1WarpToad", function () {
   // We define a fixture to reuse the same setup in every test.
@@ -141,6 +143,7 @@ describe("L1WarpToad", function () {
       )).map((i:ethers.BytesLike)=>i.toString())
 
       expect(proof.publicInputs ).to.deep.equal(onchainFormattedPublicInputs)
+      console.log({proof},onchainFormattedPublicInputs)
       
       // ------------- mint -------------------------
       const balanceRecipientPreMint =await L1WarpToad.balanceOf(recipient)

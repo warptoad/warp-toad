@@ -98,33 +98,42 @@ describe("AztecWarpToad", function () {
 
             // burn!!!!
             console.log("burning!")
-            const amountToBurn = 5n*10n**18n
+            const amountToBurn1 = 5n*10n**18n
+            const amountToBurn2 = 4n*10n**18n 
             const balancePreBurn = await AztecWarpToad.methods.get_balance(sender.getAddress()).simulate()
             const aztecWalletChainId = sender.getChainId().toBigInt();
             const { chainId: chainIdEvmProvider } = await hre.ethers.provider.getNetwork()
 
             const chainIdAztecFromContract = hre.ethers.toBigInt(await AztecWarpToad.methods.get_chain_id().simulate())
 
-            const commitmentPreImg = {
-                amount: amountToBurn,
+            const commitmentPreImg1 = {
+                amount: amountToBurn1,
                 destination_chain_id: aztecWalletChainId,
                 secret: 1234n,
                 nullifier_preimg: 4321n, // Use Fr.random().toBigInt() in prod pls
             }
-            const burnTx = await AztecWarpToad.methods.burn(commitmentPreImg.amount, commitmentPreImg.destination_chain_id, commitmentPreImg.secret, commitmentPreImg.nullifier_preimg, sender.getAddress()).send().wait()
-            const balancePostBurn = await AztecWarpToad.methods.get_balance(sender.getAddress()).simulate()
 
+            const commitmentPreImg2 = {
+                amount: amountToBurn2,
+                destination_chain_id: aztecWalletChainId,
+                secret: 12341111111n,
+                nullifier_preimg: 432111111n, // Use Fr.random().toBigInt() in prod pls
+            }
+            const burnTx1 = await AztecWarpToad.methods.burn(commitmentPreImg1.amount, commitmentPreImg1.destination_chain_id, commitmentPreImg1.secret, commitmentPreImg1.nullifier_preimg, sender.getAddress()).send().wait()
+            
+            const burnTx2 = await AztecWarpToad.methods.burn(commitmentPreImg2.amount, commitmentPreImg2.destination_chain_id, commitmentPreImg2.secret, commitmentPreImg2.nullifier_preimg, sender.getAddress()).send().wait()
+            const balancePostBurn = await AztecWarpToad.methods.get_balance(sender.getAddress()).simulate()
             // chain id is same as evm?? thats bad lmao
             console.log("Make issue of this. These shouldn't be the same!!!",{ aztecWalletChainId, chainIdEvmProvider})
             expect(chainIdAztecFromContract).to.equal(aztecWalletChainId);
             //expect(chainIdEvmProvider).to.not.equal(chainIdAztecFromContract);
-            expect(balancePostBurn).to.equal(balancePreBurn-amountToBurn);
+            expect(balancePostBurn).to.equal(balancePreBurn-amountToBurn1-amountToBurn2);
             
             // verify        
-            const commitment =Fr.fromHexString( hashCommitment( commitmentPreImg.nullifier_preimg, commitmentPreImg.secret, commitmentPreImg.destination_chain_id,commitmentPreImg.amount ))
+            const commitment =Fr.fromHexString( hashCommitment( commitmentPreImg1.nullifier_preimg, commitmentPreImg1.secret, commitmentPreImg1.destination_chain_id,commitmentPreImg1.amount ))
 
             // get info to reproduce the leaf has of our commitment (unique_note_hash = leaf)
-            const txEffect = (await PXE.getTxEffect(burnTx.txHash))
+            const txEffect = (await PXE.getTxEffect(burnTx1.txHash))
             console.log({txEffect})
             const burnTxFirstNullifier = txEffect?.data.nullifiers[0] as Fr
             const burnTxNoteHashes = txEffect?.data.noteHashes!
@@ -139,21 +148,29 @@ describe("AztecWarpToad", function () {
             const proofInputs = await getProofInputs(
                 L1WarpToad,
                 AztecWarpToad,
-                amountToBurn,
+                amountToBurn1,
                 feeFactor,
                 priorityFee,
                 maxFee,
                 await evmRelayer.getAddress(),
                 await evmRecipient.getAddress(),
-                commitmentPreImg.nullifier_preimg,
-                commitmentPreImg.secret,
+                commitmentPreImg1.nullifier_preimg,
+                commitmentPreImg1.secret,
             )
             console.log(proofInputs)
-            const warpToadNoteFilter:NotesFilter = {contractAddress: AztecWarpToad.address, storageSlot: 5n}
+            const warpToadNoteFilter:NotesFilter = {
+                contractAddress: AztecWarpToad.address, 
+                // storageSlot: 5n
+            }
             const notes = await PXE.getNotes(warpToadNoteFilter)
             const nonce = notes[0].nonce // TODO for front end implementation: check if already redeemed, dont assume the first one is the one to use etc
-            console.log({note:notes[0],noteItems: notes[0].note.items})
-
+            console.log("txEffectBurn1:",{txNullifiers:txEffect?.data.nullifiers, publicDataWrites:txEffect?.data.publicDataWrites, noteHashes: txEffect?.data.noteHashes, data: txEffect?.data})
+            for (const note of notes) {
+                console.log({note})
+                console.log({
+                    items:note.note.items,
+                })
+            }
 
             // await AztecWarpToad.methods.mint_local(commitmentPreImg.nullifier_preimg, commitmentPreImg.secret, commitmentPreImg.amount,recipient.getAddress(),burnTxNullifier,noteIndexOfCommitment).send().wait()
             

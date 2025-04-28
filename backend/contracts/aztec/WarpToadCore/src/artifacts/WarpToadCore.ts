@@ -175,8 +175,8 @@ ValueNote: {
     /** mint_giga_root(amount: integer) */
     mint_giga_root: ((amount: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** mint_local(nullifier_preimage: field, secret: field, amount: integer, recipient: struct, burn_tx_first_nullifier: field, note_index_in_tx: integer) */
-    mint_local: ((nullifier_preimage: FieldLike, secret: FieldLike, amount: (bigint | number), recipient: AztecAddressLike, burn_tx_first_nullifier: FieldLike, note_index_in_tx: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** mint_local(recipient: struct, block_number: integer) */
+    mint_local: ((recipient: AztecAddressLike, block_number: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** public_dispatch(selector: field) */
     public_dispatch: ((selector: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
