@@ -3,6 +3,7 @@ use dep::aztec::{macros::notes::note, protocol_types::{address::AztecAddress, tr
 use dep::aztec::macros::notes::{custom_note};
 use dep::aztec::note::note_interface::{NoteHash};
 use dep::aztec::context::{PrivateContext};
+use aztec::note::note_interface::NoteHash::{compute_nullifier, compute_note_hash};
 
 #[custom_note]
 #[derive(Eq, Serialize)]
@@ -26,8 +27,7 @@ impl NoteHash for WarpToadNote {
         poseidon::bn254::hash_2([pre_commitment_hash,self.amount])
     }
 
-    fn compute_nullifier(self,context: &mut PrivateContext,
-        note_hash_for_nullify: Field,) -> Field {
+    fn compute_nullifier(self,context: &mut PrivateContext, note_hash_for_nullify: Field) -> Field {
         poseidon::bn254::hash_1([self.nullifier_preimage])
     }
 
