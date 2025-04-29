@@ -7,7 +7,8 @@ export type AztecMerkleData = {
     leaf_index: ethers.BytesLike,
     hash_path: ethers.BytesLike[],
     leaf_nonce: ethers.BytesLike,
-    contract_address: {inner:ethers.BytesLike},
+    //contract_address: {inner:ethers.BytesLike},
+    contract_address: ethers.BytesLike
 }
 
 

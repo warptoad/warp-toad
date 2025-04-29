@@ -22,6 +22,12 @@ export function hashCommitment(preCommitment:bigint, amount:bigint ): bigint {
     return poseidon2([preCommitment, amount])
 }
 
+export function hashCommitmentFromNoteItems(noteItems: Fr[] ): bigint {
+    const [nullifier_preimage, secret, chain_id, amount] = noteItems;
+    const preCommitment = hashPreCommitment(nullifier_preimage.toBigInt(), secret.toBigInt(), chain_id.toBigInt())
+    return poseidon2([preCommitment, amount.toBigInt()])
+}
+
 export function hashNullifier(nullifierPreimage: bigint): bigint {
     return poseidon1([nullifierPreimage])
 }

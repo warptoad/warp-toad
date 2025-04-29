@@ -9,11 +9,11 @@ import { WarpToadCore as WarpToadEvm } from "../../typechain-types";
 import { WarpToadCoreContract as WarpToadAztec } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
 import { BytesLike, ethers } from "ethers";
 import { MerkleTree, Element } from "fixed-merkle-tree";
-import { findNoteHashIndex, hashCommitment, hashNullifier, hashPreCommitment, hashUniqueNoteHash } from "./hashing";
+import { findNoteHashIndex, hashCommitment, hashNullifier, hashPreCommitment, hashUniqueNoteHash , hashCommitmentFromNoteItems, hashSiloedNoteHash} from "./hashing";
 import { EVM_TREE_DEPTH, AZTEC_TREE_DEPTH, emptyAztecMerkleData, emptyGigaMerkleData, emptyLocalMerkleData, GIGA_TREE_DEPTH } from "./constants";
 
 //@ts-ignore
-import { createPXEClient, waitForPXE,NotesFilter } from "@aztec/aztec.js";
+import { createPXEClient, waitForPXE,NotesFilter, AztecAddress } from "@aztec/aztec.js";
 //@ts-ignore
 import { getInitialTestAccountsWallets } from "@aztec/accounts/testing";
 
@@ -23,6 +23,8 @@ const { PXE_URL = 'http://localhost:8080' } = process.env;
 
 
 import { poseidon2 } from "poseidon-lite";
+
+import fs from "fs/promises";
 
 export async function connectPXE() {
     console.log("creating PXE client")
@@ -77,29 +79,36 @@ async function getEvmMerkleData(warpToadOrigin: WarpToadEvm, commitment: bigint,
     return MerkleData
 }
 
-export async function getAztecNoteHashTreeRoot(): Promise<bigint> {
+export async function getAztecNoteHashTreeRoot(blockNumber:number): Promise<bigint> {
     // do aztec things
     const PXE = await connectPXE()
-    const lastBridgedBlockNumber = await PXE.PXE.getBlockNumber() // TODO not the way to do it. Bridging contract should track this
-    const block = await PXE.PXE.getBlock(lastBridgedBlockNumber)
+    const block = await PXE.PXE.getBlock(blockNumber)
     return block?.header.state.partial.noteHashTree.root.toBigInt() as bigint
 }
 
-export async function getAztecMerkleData(WarpToad:WarpToadAztec) {
+export async function getAztecMerkleData(WarpToad:WarpToadAztec, commitment:bigint, latestBridgedBlockNumber: number): Promise<AztecMerkleData>  {
     const {PXE} = await connectPXE()
     console.log("finding unique_note_hash index within the tx")
-    const noteIndexOfCommitment = await findNoteHashIndex(WarpToad.address, burnTxNoteHashes, commitment, burnTxFirstNullifier)
-
-    const blockNumber = await PXE.getBlockNumber()
-    const noteHash = await hashUniqueNoteHash(WarpToad, burnTxNoteHashes, commitment, burnTxFirstNullifier)
-    const noteProof = await WarpToad.methods.get_note_proof(blockNumber, noteHash).simulate()
-    const leafNonce = await hashTxNonce(burnTxFirstNullifier.toBigInt(), BigInt(noteIndexOfCommitment))
-    const aztecMerkleData: AztecMerkleData = {
-        leaf_index: ethers.toBeHex(noteProof.index),
-        hash_path: noteProof.path.map((h: ethers.BigNumberish) => ethers.toBeHex(h)),
-        leaf_nonce: ethers.toBeHex(leafNonce)
+    const warpToadNoteFilter:NotesFilter = {
+        contractAddress: WarpToad.address, 
+        storageSlot: WarpToadAztec.storage.commitments.slot
     }
-
+    const notes = await PXE.getNotes(warpToadNoteFilter)
+    // WarpToadAztec.notes.WarpToadNote.fields notes[0].note
+    const currentNote = notes.find((n)=> hashCommitmentFromNoteItems(n.note.items) === commitment);
+    const siloedNoteHash = await hashSiloedNoteHash(WarpToad.address.toBigInt() ,commitment)
+    const uniqueNoteHash = await hashUniqueNoteHash(currentNote!.nonce.toBigInt(),siloedNoteHash)
+    const witness = await WarpToad.methods.get_note_proof(latestBridgedBlockNumber,uniqueNoteHash ).simulate()
+    const merkleData: AztecMerkleData = {
+        leaf_index: ethers.toBeHex(witness.index),
+        hash_path: witness.path.map((h:bigint)=>ethers.toBeHex(h)),
+        leaf_nonce: ethers.toBeHex(currentNote!.nonce.toBigInt()),
+        // contract_address: {
+        //     inner: ethers.toBeHex(WarpToad.address.toBigInt())
+        // }
+        contract_address: ethers.toBeHex(WarpToad.address.toBigInt())
+    }
+    return merkleData
 }
 
 export async function getProofInputs(
@@ -117,7 +126,6 @@ export async function getProofInputs(
     secret: bigint,
 
 ): Promise<ProofInputs> {
-
     // TODO performance: do all these awaits concurrently 
     const chainId = (await warpToadDestination.runner?.provider?.getNetwork())?.chainId as bigint
     const gigaRoot = await warpToadDestination.gigaRoot()
@@ -135,9 +143,12 @@ export async function getProofInputs(
     const isFromAztec = !("target" in warpToadOrigin);
     const isOnlyLocal = warpToadDestination === warpToadOrigin;
     const evmMerkleData: EvmMerkleData = isFromAztec ? emptyLocalMerkleData : await getEvmMerkleData(warpToadOrigin, commitment, EVM_TREE_DEPTH)
-    const aztecMerkleData: AztecMerkleData = isFromAztec ? emptyAztecMerkleData : emptyAztecMerkleData; // TODO obviously when on aztec should not also be empty
-
-    const originLocalRoot: bigint = isFromAztec ? await getAztecNoteHashTreeRoot() : await warpToadOrigin.localRoot();
+    
+    const {PXE} = isFromAztec ? await connectPXE() : {PXE:undefined} // TODO  const = isFromAztec ? happens too ofter do something cleaner
+    const aztecLatestBridgedBlockNumber = isFromAztec ? (await PXE!.getBlockNumber() ) -1: undefined// TODO not the way to do it. Bridging contract should track this
+    const aztecMerkleData: AztecMerkleData = isFromAztec ? await getAztecMerkleData(warpToadOrigin, commitment, aztecLatestBridgedBlockNumber as number) : emptyAztecMerkleData; // TODO obviously when on aztec should not also be empty
+    //const aztecMerkleData: AztecMerkleData = isFromAztec ? emptyAztecMerkleData: emptyAztecMerkleData
+    const originLocalRoot: bigint = isFromAztec ? await getAztecNoteHashTreeRoot(aztecLatestBridgedBlockNumber as number) : await warpToadOrigin.localRoot();
     // TODO make this a 2 function that 1 that returns originLocalRoot for both evm and aztecMerkleData
 
     const gigaMerkleData: EvmMerkleData = isOnlyLocal ? emptyGigaMerkleData : emptyGigaMerkleData //doesn't work-> await generateEvmMerkleData(warpToadDestination, originLocalRoot, GIGA_TREE_DEPTH);
@@ -159,7 +170,7 @@ export async function getProofInputs(
 
         // ----- private inputs -----
         origin_local_root: ethers.toBeHex(originLocalRoot as bigint),
-        is_from_aztec: isFromAztec,
+        is_from_aztec: isFromAztec,//ethers.toBeHex(BigInt(isFromAztec)),
         nullifier_preimage: ethers.toBeHex(nullifierPreImage),
         secret: ethers.toBeHex(secret),
         aztec_merkle_data: aztecMerkleData,
@@ -172,11 +183,78 @@ export async function getProofInputs(
 export async function createProof(proofInputs: ProofInputs, threads: number | undefined): Promise<ProofData> {
     // TODO assumes that if window doesn't exist os does
     threads = threads ? threads : window ? window.navigator.hardwareConcurrency : os.cpus().length
-    console.log({ threads })
+    console.log("initializing noir with circuit")
     const noir = new Noir(circuit as CompiledCircuit);
+    console.log({ threads })
+    console.log("initializing backend")
     const backend = new UltraPlonkBackend(circuit.bytecode, { threads: threads });
     // ill never figure out how to do typescript properly lmao
-    const { witness } = await noir.execute(proofInputs as any as InputMap);
-    const proof = await backend.generateProof(witness);
+    console.log("generating zkproof witness")
+    const executeRes = await noir.execute(proofInputs as any as InputMap);
+    console.log("generating proof")
+    const proof = await backend.generateProof(executeRes.witness);
+    
+    //debug. TODO maybe make separate script for this?
+    const noirTest = generateNoirTest(proofInputs)
+    const isFromAztec = proofInputs.is_from_aztec ? "is_from_aztec" : "not_from_aztec"
+    await fs.writeFile(`./out/${proofInputs.chain_id}-${isFromAztec}-proofInputsAsNoirTest.nr`, noirTest);
+    await fs.writeFile(`./out/${proofInputs.chain_id}-${isFromAztec}-proofInputs.json`, JSON.stringify(proofInputs,null,2));
     return proof
+}
+
+export function generateNoirTest(proofIputs:ProofInputs) {
+return`
+#[test]
+fn test_main() {
+    let nullifier:              Field = ${proofIputs.nullifier};
+    let chain_id:               Field = ${proofIputs.chain_id};
+    let amount:                 Field = ${proofIputs.amount};
+    let giga_root:              Field = ${proofIputs.giga_root};
+    let destination_local_root: Field = ${proofIputs.destination_local_root};
+    let fee_factor:             Field = ${proofIputs.fee_factor};
+    let priority_fee:           Field = ${proofIputs.priority_fee};
+    let max_fee:                Field = ${proofIputs.max_fee};
+    let relayer_address:        Field = ${proofIputs.relayer_address};            
+    let recipient_address:      Field = ${proofIputs.recipient_address};          
+
+    // ----- private inputs -----
+    let origin_local_root:      Field = ${proofIputs.origin_local_root};
+    let is_from_aztec:          bool  = ${proofIputs.is_from_aztec};
+    let nullifier_preimage:     Field = ${proofIputs.nullifier_preimage};
+    let secret:                 Field = ${proofIputs.secret};
+    let aztec_merkle_data: Aztec_merkle_data<40> = Aztec_merkle_data {
+        leaf_index:                 ${proofIputs.aztec_merkle_data.leaf_index},
+        hash_path:                  [${proofIputs.aztec_merkle_data.hash_path.toString()}],
+        leaf_nonce:                 ${proofIputs.aztec_merkle_data.leaf_nonce},
+        contract_address:           ${proofIputs.aztec_merkle_data.contract_address},
+    };
+    let local_merkle_data: Evm_merkle_data<32> = Evm_merkle_data {
+        leaf_index:                 ${proofIputs.local_merkle_data.leaf_index},
+        hash_path:                  [${proofIputs.local_merkle_data.hash_path.toString()}],
+    };
+    let giga_merkle_data: Evm_merkle_data<5> = Evm_merkle_data {
+        leaf_index:                 ${proofIputs.giga_merkle_data.leaf_index},
+        hash_path:                  [${proofIputs.giga_merkle_data.hash_path.toString()}],
+    };
+    main(
+        nullifier,
+        chain_id,
+        amount,
+        giga_root,
+        destination_local_root,
+        fee_factor, 
+        priority_fee,
+        max_fee,
+        relayer_address,              
+        recipient_address,             
+        origin_local_root, 
+        is_from_aztec,
+        nullifier_preimage, 
+        secret,
+        aztec_merkle_data,
+        local_merkle_data,
+        giga_merkle_data,
+    )
+}
+`
 }

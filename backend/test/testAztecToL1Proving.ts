@@ -19,10 +19,11 @@ import { WarpToadCoreContractArtifact, WarpToadCoreContract } from '../contracts
 import { AztecMerkleData } from "../scripts/lib/types";
 import { ethers } from "ethers";
 import { hashNoteHashNonce } from "../scripts/lib/hashing";
-import { calculateFeeFactor, getProofInputs } from "../scripts/lib/proving";
+import { calculateFeeFactor, createProof, getProofInputs } from "../scripts/lib/proving";
 import { gasCostPerChain } from "../scripts/lib/constants";
 import { WarpToadCore as WarpToadEvm} from "../typechain-types";
 
+import os from 'os';
 
 async function connectPXE() {
     const { PXE_URL = 'http://localhost:8080' } = process.env;
@@ -85,7 +86,6 @@ describe("AztecWarpToad", function () {
             const sender = wallets[0]
             const recipient =  wallets[1]
             const evmWallets = await hre.ethers.getSigners()
-            console.log({evmWallets})
             const evmSender = evmWallets[0]
             const evmRecipient = evmWallets[1]
             const evmRelayer = evmWallets[2]
@@ -134,7 +134,6 @@ describe("AztecWarpToad", function () {
 
             // get info to reproduce the leaf has of our commitment (unique_note_hash = leaf)
             const txEffect = (await PXE.getTxEffect(burnTx1.txHash))
-            console.log({txEffect})
             const burnTxFirstNullifier = txEffect?.data.nullifiers[0] as Fr
             const burnTxNoteHashes = txEffect?.data.noteHashes!
             
@@ -145,6 +144,20 @@ describe("AztecWarpToad", function () {
             const gasCost = Number(gasCostPerChain[Number(chainIdEvmProvider)])
             const relayerBonusFactor = 1.1 // 10% earnings on gas fees! 
             const feeFactor = calculateFeeFactor(ethPriceInToken,gasCost,relayerBonusFactor);
+            // const warpToadNoteFilter:NotesFilter = {
+            //     contractAddress: AztecWarpToad.address, 
+            //     storageSlot: 5n
+            // }
+            // const notes = await PXE.getNotes(warpToadNoteFilter)
+            // const nonce = notes[0].nonce // TODO for front end implementation: check if already redeemed? Or does PXE delete it if it has?
+            // console.log("txEffectBurn1:",{txNullifiers:txEffect?.data.nullifiers, publicDataWrites:txEffect?.data.publicDataWrites, noteHashes: txEffect?.data.noteHashes, data: txEffect?.data})
+            // for (const note of notes) {
+            //     console.log({note})
+            //     console.log({
+            //         items:note.note.items,
+            //     })
+            // }
+
             const proofInputs = await getProofInputs(
                 L1WarpToad,
                 AztecWarpToad,
@@ -157,20 +170,9 @@ describe("AztecWarpToad", function () {
                 commitmentPreImg1.nullifier_preimg,
                 commitmentPreImg1.secret,
             )
-            console.log(proofInputs)
-            const warpToadNoteFilter:NotesFilter = {
-                contractAddress: AztecWarpToad.address, 
-                // storageSlot: 5n
-            }
-            const notes = await PXE.getNotes(warpToadNoteFilter)
-            const nonce = notes[0].nonce // TODO for front end implementation: check if already redeemed, dont assume the first one is the one to use etc
-            console.log("txEffectBurn1:",{txNullifiers:txEffect?.data.nullifiers, publicDataWrites:txEffect?.data.publicDataWrites, noteHashes: txEffect?.data.noteHashes, data: txEffect?.data})
-            for (const note of notes) {
-                console.log({note})
-                console.log({
-                    items:note.note.items,
-                })
-            }
+            const proof = await createProof(proofInputs, os.cpus().length )
+
+
 
             // await AztecWarpToad.methods.mint_local(commitmentPreImg.nullifier_preimg, commitmentPreImg.secret, commitmentPreImg.amount,recipient.getAddress(),burnTxNullifier,noteIndexOfCommitment).send().wait()
             

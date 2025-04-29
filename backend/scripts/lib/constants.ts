@@ -11,7 +11,7 @@ export const GIGA_TREE_DEPTH = 5;
 // this not a valid proof
 export const emptyLocalMerkleData: EvmMerkleData = {
     leaf_index: ethers.toBeHex(0n),
-    hash_path: new Array(EVM_TREE_DEPTH).fill(0n),
+    hash_path: new Array(EVM_TREE_DEPTH).fill(ethers.toBeHex(0n)),
 } 
 Object.freeze(emptyLocalMerkleData)
 
@@ -27,7 +27,8 @@ export const emptyAztecMerkleData: AztecMerkleData = {
     leaf_index: ethers.toBeHex(0n),
     hash_path: new Array(AZTEC_TREE_DEPTH).fill(ethers.toBeHex(0n)),
     leaf_nonce: ethers.toBeHex(0n),
-    contract_address: {inner:ethers.toBeHex(0n)},
+    //contract_address: {inner:ethers.toBeHex(0n)},
+    contract_address: ethers.toBeHex(0n),
 } 
 Object.freeze(emptyAztecMerkleData)
 
