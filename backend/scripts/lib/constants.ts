@@ -1,6 +1,8 @@
 import { ProofInputs, EvmMerkleData, AztecMerkleData, gasCosts} from "./types";
 import { ethers } from "ethers";
-export const AZTEC_TREE_DEPTH = 32;
+// @ts-ignore
+import { AztecAddress } from "@aztec/aztec.js";
+export const AZTEC_TREE_DEPTH = 40;
 export const EVM_TREE_DEPTH = 32;
 export const EVM_TREE_MAX_LEAVES = 2 ** EVM_TREE_DEPTH;
 export const GIGA_TREE_DEPTH = 5;
@@ -25,6 +27,7 @@ export const emptyAztecMerkleData: AztecMerkleData = {
     leaf_index: ethers.toBeHex(0n),
     hash_path: new Array(AZTEC_TREE_DEPTH).fill(ethers.toBeHex(0n)),
     leaf_nonce: ethers.toBeHex(0n),
+    contract_address: {inner:ethers.toBeHex(0n)},
 } 
 Object.freeze(emptyAztecMerkleData)
 

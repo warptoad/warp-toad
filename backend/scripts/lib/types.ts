@@ -1,9 +1,13 @@
 import { ethers } from "ethers";
+//@ts-ignore
+import { AztecAddress } from "@aztec/aztec.js";
+
 
 export type AztecMerkleData = {
     leaf_index: ethers.BytesLike,
     hash_path: ethers.BytesLike[],
     leaf_nonce: ethers.BytesLike,
+    contract_address: {inner:ethers.BytesLike},
 }
 
 

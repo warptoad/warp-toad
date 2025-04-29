@@ -224,14 +224,16 @@ pub contract WarpToadCore {
         assert(retrieved_note.note.chain_id == chain_id, "notes chain_id doesnt match current chain_id");
         
         // prove its in the chain
-        let note_hash = retrieved_note.note.compute_note_hash(storage_slot);//compute_note_hash_for_read_request(retrieved_note, storage_slot);
+        let pre_commitment_hash: Field =  poseidon::bn254::hash_3([retrieved_note.note.nullifier_preimage,retrieved_note.note.secret, retrieved_note.note.chain_id]);
+        let note_hash = poseidon::bn254::hash_2([pre_commitment_hash,retrieved_note.note.amount]);
+        //let note_hash = retrieved_note.note.compute_note_hash(storage_slot);//compute_note_hash_for_read_request(retrieved_note, storage_slot);
 
         let siloed_note_hash = compute_siloed_note_hash(context.this_address(), note_hash);
         let unique_note_hash = compute_unique_note_hash(retrieved_note.metadata.maybe_nonce, siloed_note_hash);
         assert(retrieved_note.metadata.maybe_nonce != 0, "idk how to deal with pending notes brooooo :,(");
 
         //Safety: its fine
-        let witness = unsafe {get_note_hash_membership_witness(block_number, unique_note_hash)}; // <- would be input in evm circuit
+        let witness: MembershipWitness<40, 41> = unsafe {get_note_hash_membership_witness(block_number, unique_note_hash)}; // <- would be input in evm circuit
         assert_eq(
             note_hash_root,
             root_from_sibling_path(unique_note_hash, witness.index, witness.path),

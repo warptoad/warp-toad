@@ -25,8 +25,8 @@ aztec-up --version 0.85.0-alpha-testnet.2
 
 install noir and backend
 ```shell
-bbup -nv 1.0.0-beta.3;
-noirup -v 1.0.0-beta.3;
+bbup -nv 1.0.0-beta.3; #apparently this is fine haha.
+noirup -v 1.0.0-beta.4;
 ```
 
 ## compile contracts

@@ -1,5 +1,5 @@
-use dep::std::hash::poseidon;
-
+//use dep::std::hash::poseidon;
+use dep::poseidon::poseidon;
 use constants::{
     AZTEC_TREE_DEPTH,
     EVM_TREE_DEPTH,
