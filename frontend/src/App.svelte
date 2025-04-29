@@ -2,31 +2,29 @@
   import WalletTest from './lib/WalletTest.svelte';
   import Navbar from './lib/Navbar.svelte';
   import placeHolderLogo from '/logo.svg'
+  import Footer from './lib/Footer.svelte';
+  import Draggable from './lib/Draggable.svelte';
 </script>
 
-<main class="h-screen p-4">
+<main class="flex flex-col h-screen p-4">
+  <Draggable>
+    <p class="mx-8">DRAG ME!</p>
+    <div class="mockup-window bg-base-300 border-2 border-white">
+      <img src={placeHolderLogo} class="grid place-content-center w-40 m-8" alt="WarpToad Logo" draggable="false"/>
+    </div>
+  </Draggable>
   <Navbar/>
-  <div>
-    <div class="text-center grid gap-2">
-      <a href="https://github.com/JossDuff/warp-toad#" target="_blank" rel="noreferrer" class="justify-center flex">
-        <img src={placeHolderLogo} class="logo" alt="WarpToad Logo" />
-      </a>
-      <h1 class="text-base-content">warptoad svelte boilerplate</h1>
-      <WalletTest/>
+  <div class="flex-grow flex justify-center items-center">
+    <div>
+      <div class="text-center grid gap-2">
+        <h1 class="text-base-content">warptoad svelte boilerplate</h1>
+        <WalletTest/>
+      </div>
     </div>
   </div>
+  <Footer/>
 </main>
 
 <style>
-
-  .logo {
-    height: 6em;
-    padding: 1.5em;
-    will-change: filter;
-    transition: filter 300ms;
-  }
-  .logo:hover {
-    filter: drop-shadow(0 0 2em cyan);
-  }
 
 </style>

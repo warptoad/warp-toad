@@ -85,6 +85,9 @@ test everything (might break because aztec sandbox is a bit unstable)
 yarn workspace @warp-toad/backend hardhat test --network aztecSandbox
 ```
 
+## frontend preparation
+copy the ```template.env``` file and rename it to ```.env```
+
 ## run frontend in dev mode
 ```shell
  yarn f:dev
