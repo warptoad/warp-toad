@@ -29,6 +29,13 @@ const config = {
       accounts:
         [DEFAULT_PRIV_KEY_ANVIL]
     },
+
+    sepolia: {
+      url: "https://1rpc.io/sepolia",
+      accounts: [PRIVATE_KEY],
+      chainId: 11155111,
+      ethNetwork: "sepolia",
+    }
   }
 }
 //cjs shit

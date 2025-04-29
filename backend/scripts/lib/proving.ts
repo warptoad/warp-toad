@@ -17,7 +17,7 @@ import { createPXEClient, waitForPXE, } from "@aztec/aztec.js";
 //@ts-ignore
 import { getInitialTestAccountsWallets } from "@aztec/accounts/testing";
 
-import { ProofInputs, EvmMerkleData, AztecMerkleData, } from "./interfaces";
+import { ProofInputs, EvmMerkleData, AztecMerkleData, } from "./types";
 
 const { PXE_URL = 'http://localhost:8080' } = process.env;
 
@@ -74,8 +74,6 @@ async function generateEvmMerkleData(warpToadOrigin: WarpToadEvm, commitment: bi
         hash_path: tree.proof(commitment as any as Element).pathElements.map((e)=>ethers.toBeHex(e)) // TODO actually take typescript seriously at some point
     } as EvmMerkleData
 
-    
-    console.log({ events, decodedEvents })
     return MerkleData
 }
 
@@ -128,9 +126,6 @@ export async function getProofInputs(
     const gigaMerkleData: EvmMerkleData = isOnlyLocal ? emptyGigaMerkleData : emptyGigaMerkleData //doesn't work-> await generateEvmMerkleData(warpToadDestination, originLocalRoot, GIGA_TREE_DEPTH);
 
     // TODO local_merkle_data
-    //@ts-ignore
-    const solidityPubInputs = await warpToadDestination._formatPublicInputs(nullifier,chainId,amount,gigaRoot,destinationLocalRoot,feeFactor,priorityFee,maxFee,ethers.toBeHex(relayer),ethers.toBeHex(recipient))
-    console.log({solidityPubInputs})
     const proofInputs: ProofInputs = {
         // ----- public inputs -----
         nullifier: ethers.toBeHex(nullifier),
@@ -157,9 +152,10 @@ export async function getProofInputs(
     return proofInputs
 }
 
-export async function createProof(proofInputs: ProofInputs, threads: number): Promise<ProofData> {
+export async function createProof(proofInputs: ProofInputs, threads: number|undefined): Promise<ProofData> {
     // TODO assumes that if window doesn't exist os does
     threads = threads ? threads : window ? window.navigator.hardwareConcurrency : os.cpus().length
+    console.log({threads})
     const noir = new Noir(circuit as CompiledCircuit);
     const backend = new UltraPlonkBackend(circuit.bytecode, { threads: threads });
     // ill never figure out how to do typescript properly lmao
