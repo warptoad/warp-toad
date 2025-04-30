@@ -17,7 +17,7 @@ import {DataStructures} from "./aztec-interfaces/CoreDataStructures.sol";
 // hash for message passing to L2
 import {Hash} from "./aztec-interfaces/crypto/Hash.sol";
 
-contract AztecRootBridge is IL1RootBridgeAdapter {
+contract L1AztecRootBridgeAdapter is IL1RootBridgeAdapter {
     // gigaRoot is emitted as a bytes32 here because thats how it's recovered on the
     // aztec L2 side of this rootBridgeAdapter.  Key and index are also used to
     // retrieve this newGigaRoot on aztec

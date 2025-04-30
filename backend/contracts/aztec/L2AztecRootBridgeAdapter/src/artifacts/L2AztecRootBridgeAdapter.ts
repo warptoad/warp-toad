@@ -153,8 +153,8 @@ counter: {
     /** public_dispatch(selector: field) */
     public_dispatch: ((selector: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** send_root_to_l1(local_root: field) */
-    send_root_to_l1: ((local_root: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** send_root_to_l1(state_root: field) */
+    send_root_to_l1: ((state_root: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** sync_notes() */
     sync_notes: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
