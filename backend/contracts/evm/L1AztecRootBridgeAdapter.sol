@@ -112,12 +112,15 @@ contract AztecRootBridge {
         uint32 _l2BlockNumber,
         uint256 _leafIndex,
         bytes32[] calldata _path
-    ) external returns (uint256) {
-        // TODO: new data structure to extract
+    ) external {
+        // this hash should match the hash created on the aztec side of this root bridge
+        // adapter
+        bytes32 contentHash = getContentHash(_newL2Root, _l2BlockNumber);
+
         DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
             sender: DataStructures.L2Actor(l2Bridge, rollupVersion),
             recipient: DataStructures.L1Actor(address(this), block.chainid),
-            content: _newL2Root
+            content: contentHash
         });
 
         outbox.consume(message, _l2BlockNumber, _leafIndex, _path);
@@ -128,5 +131,23 @@ contract AztecRootBridge {
         emit receivedNewL2Root(newL2RootCast, _l2BlockNumber);
 
         newL2RootCast;
+    }
+
+    // hashes _newL2Root and _l2BlockNumber so it's representation can fit inside of a
+    // Field element.  This should match how they are hashed in the Aztec side of this bridge
+    // adapter
+    function getContentHash(
+        bytes32 _newL2Root,
+        uint32 _l2BlockNumber
+    ) internal pure returns (bytes32) {
+        // Hash.sha256ToField(
+        //     abi.encodeWithSignature(
+        //       "withdraw(address,uint256,address)",
+        //       _recipient,
+        //       _amount,
+        //       _withCaller ? msg.sender : address(0)
+        //     )
+        //   )
+        return Hash.sha256ToField(abi.encode(_newL2Root, _l2BlockNumber));
     }
 }

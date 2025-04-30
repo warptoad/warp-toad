@@ -9,17 +9,24 @@ use dep::aztec::macros::aztec;
 pub contract L2AztecRootBridgeAdapter {
     use crate::config::Config;
 
-    use dep::aztec::prelude::{AztecAddress, EthAddress, PublicMutable, PublicImmutable};
+    use dep::aztec::prelude::{
+        EthAddress,  PublicImmutable, PublicMutable,
+    };
 
-    use dep::aztec::macros::{functions::{utility, initializer, private, public, view}, storage::storage};
+	use dep::aztec::protocol_types::hash::sha256_to_field;
+
+    use dep::aztec::macros::{
+        functions::{initializer, public, utility, view},
+        storage::storage,
+    };
 
     // Storage structure, containing all storage, and specifying what slots they use.
     #[storage]
     struct Storage<Context> {
         config: PublicImmutable<Config, Context>,
-		temp_testing_giga_root: PublicMutable<Field, Context>,
-		// temp for testing
-		counter: PublicMutable<Field, Context>
+        temp_testing_giga_root: PublicMutable<Field, Context>,
+        // temp for testing
+        counter: PublicMutable<Field, Context>,
     }
 
     // Constructs the contract.
@@ -38,14 +45,13 @@ pub contract L2AztecRootBridgeAdapter {
     // Consumes a L1->L2 message and calls the WarpToadCore contract to update the GigaRoot
     #[public]
     fn update_gigaroot(new_gigaroot: Field, message_leaf_index: Field) {
-
-		// `secret` is used to make the consumption of a message on the L2 private.
-		// we don't care about keeping message consumption private at all so to 
-		// simplify things we hardcode the secret here and the secret_hash in the L1
-		// contract.
+        // `secret` is used to make the consumption of a message on the L2 private.
+        // we don't care about keeping message consumption private at all so to
+        // simplify things we hardcode the secret here and the secret_hash in the L1
+        // contract.
         let secret: Field = 0;
 
-		let content_hash = new_gigaroot;
+        let content_hash = new_gigaroot;
 
         let config = storage.config.read();
 
@@ -54,30 +60,48 @@ pub contract L2AztecRootBridgeAdapter {
 
         // TODO: call function on WarpToadCore
         storage.temp_testing_giga_root.write(new_gigaroot);
-
     }
 
-	// temp for testing.  Need to call 2 functions to progress the L2 2 blocks
-#[public]
-	fn count(new_count: Field) {
-			storage.counter.write(new_count);
-		}
+    // temp for testing.  Need to call 2 functions to progress the L2 2 blocks
+    #[public]
+    fn count(new_count: Field) {
+        storage.counter.write(new_count);
+    }
 
-    #[utility] 
+    #[utility]
     unconstrained fn get_giga_root() -> pub Field {
         storage.temp_testing_giga_root.read()
     }
 
     // creates a L2 to L1 message publicly
     // Sends the most recent state root to L1 to be consumed by AztecRootBridge.sol
+    // TODO: get most recent L2 root from WarpToadCore
     #[public]
     fn send_root_to_l1(local_root: Field) {
         let config = storage.config.read();
 
-        // TODO: get most recent state root from WarpToadCore
-        let content = local_root;
+        let block_number = context.block_number();
+        let contentHash = get_content_hash(local_root, block_number);
 
         // Send an L2 to L1 message
-        context.message_portal(config.portal, content);
+        context.message_portal(config.portal, contentHash);
     }
+
+    // Adds this hash to the message portal.  The L1 contract should be able to reconstruct this same hash
+	#[public]
+    fn get_content_hash(local_root: Field, block_number: Field) -> pub Field {
+        let mut hash_bytes = [0; 64];
+        let local_root_bytes: [u8; 32] = local_root.to_be_bytes();
+        let block_number_bytes: [u8; 32] = block_number.to_be_bytes();
+
+        for i in 0..32 {
+            hash_bytes[i] = local_root_bytes[i];
+            hash_bytes[i + 32] = block_number_bytes[i];
+        }
+
+        let content_hash = sha256_to_field(hash_bytes);
+        content_hash
+
+    }
+
 }
