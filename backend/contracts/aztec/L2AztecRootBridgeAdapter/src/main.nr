@@ -6,7 +6,7 @@ use dep::aztec::macros::aztec;
 // The bridge has a corresponding Portal contract on L1 that it is attached to
 
 #[aztec]
-pub contract RootBridge {
+pub contract L2AztecRootBridgeAdapter {
     use crate::config::Config;
 
     use dep::aztec::prelude::{AztecAddress, EthAddress, PublicMutable, PublicImmutable};
