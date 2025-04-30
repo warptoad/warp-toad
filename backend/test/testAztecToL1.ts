@@ -45,7 +45,11 @@ describe("AztecWarpToad", function () {
         const gigaRootHistorySize = 4n;
         const { wallets, PXE } = await connectPXE();
         const deployerWallet = wallets[0]
-        const constructorArgs = [nativeToken.target]
+        const wrappedTokenSymbol = `wrpToad-${await nativeToken.symbol()}`
+        const wrappedTokenName = `wrpToad-${await nativeToken.name()}`
+        const decimals = 6n; // only 6 decimals what is this tether??
+
+        const constructorArgs = [nativeToken.target,wrappedTokenName,wrappedTokenSymbol,decimals]
         const AztecWarpToad = await Contract.deploy(deployerWallet, WarpToadCoreContractArtifact, constructorArgs)
             .send()
             .deployed() as WarpToadCoreContract;
@@ -100,7 +104,7 @@ describe("AztecWarpToad", function () {
             console.log("burning!")
             const amountToBurn1 = 5n*10n**18n
             const amountToBurn2 = 4n*10n**18n 
-            const balancePreBurn = await AztecWarpToad.methods.get_balance(sender.getAddress()).simulate()
+            const balancePreBurn = await AztecWarpToad.methods.balance_of(sender.getAddress()).simulate()
             const aztecWalletChainId = sender.getChainId().toBigInt();
             const { chainId: chainIdEvmProvider } = await hre.ethers.provider.getNetwork()
 
@@ -119,10 +123,10 @@ describe("AztecWarpToad", function () {
                 secret: 12341111111n,
                 nullifier_preimg: 432111111n, // Use Fr.random().toBigInt() in prod pls
             }
-            const burnTx1 = await AztecWarpToad.methods.burn(commitmentPreImg1.amount, commitmentPreImg1.destination_chain_id, commitmentPreImg1.secret, commitmentPreImg1.nullifier_preimg, sender.getAddress()).send().wait()
+            const burnTx1 = await AztecWarpToad.methods.burn(commitmentPreImg1.amount, commitmentPreImg1.destination_chain_id, commitmentPreImg1.secret, commitmentPreImg1.nullifier_preimg).send().wait()
             
-            const burnTx2 = await AztecWarpToad.methods.burn(commitmentPreImg2.amount, commitmentPreImg2.destination_chain_id, commitmentPreImg2.secret, commitmentPreImg2.nullifier_preimg, sender.getAddress()).send().wait()
-            const balancePostBurn = await AztecWarpToad.methods.get_balance(sender.getAddress()).simulate()
+            const burnTx2 = await AztecWarpToad.methods.burn(commitmentPreImg2.amount, commitmentPreImg2.destination_chain_id, commitmentPreImg2.secret, commitmentPreImg2.nullifier_preimg).send().wait()
+            const balancePostBurn = await AztecWarpToad.methods.balance_of(sender.getAddress()).simulate()
             // chain id is same as evm?? thats bad lmao
             console.log("Make issue of this. These shouldn't be the same!!!",{ aztecWalletChainId, chainIdEvmProvider})
             expect(chainIdAztecFromContract).to.equal(aztecWalletChainId);
@@ -188,33 +192,3 @@ describe("AztecWarpToad", function () {
         });
     });
 });
-
-// TODO move this to different file ----
-async function findNoteHashIndex(AztecWarpToad:WarpToadCoreContract, noteHashesInTx: Fr[], plainNoteHash: Fr, firstNullifierInTx:Fr) {
-    const contractAddress = AztecWarpToad.address;
-    const getUniqueNote = async (index:bigint)=> await AztecWarpToad.methods.hash_unique_note_hash_helper(contractAddress, plainNoteHash, firstNullifierInTx, index).simulate()
-    for (let index = 0; index < noteHashesInTx.length; index++) {
-        const hashInTx = noteHashesInTx[index]
-        const hashAttempt = await getUniqueNote(BigInt(index))
-        if (hashAttempt === hashInTx.toBigInt() ) {
-            return index;
-        }
-    }
-
-    throw new Error("couldn't find the note hash index :/");
-}
-
-async function hashUniqueNoteHash(AztecWarpToad:WarpToadCoreContract, noteHashesInTx: Fr[], plainNoteHash: Fr,firstNullifierInTx:Fr) {
-    const noteIndex = await findNoteHashIndex(AztecWarpToad, noteHashesInTx, plainNoteHash,firstNullifierInTx)
-    const uniqueNoteHash = await AztecWarpToad.methods.hash_unique_note_hash_helper(AztecWarpToad.address,plainNoteHash,firstNullifierInTx,noteIndex).simulate()
-    return uniqueNoteHash
-}
-
-function hashCommitment(nullifier_preimg: bigint, secret: bigint, destination_chain_id: bigint, amount: bigint) {
-    let pre_commitment: bigint = poseidon3([nullifier_preimg, secret, destination_chain_id]);
-    let commitment: bigint = poseidon2([amount, pre_commitment]);
-    return ethers.toBeHex(commitment)
-}
-
-
-//------------------

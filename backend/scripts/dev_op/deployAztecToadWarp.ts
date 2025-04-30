@@ -28,7 +28,12 @@ async function main() {
     const ownerAddress = ownerWallet.getAddress();
 
     console.log("deploying")
-    const WarpToadCoreDeployed = await Contract.deploy(ownerWallet, WarpToadCoreContractArtifact, [0,ownerAddress])
+    const wrappedTokenSymbol = `wrpToad-${"symbol"}`
+    const wrappedTokenName = `wrpToad-${"name"}`
+    const decimals = 6n; // only 6 decimals what is this tether??
+    const L1TokenAddress = "0x0000000000000000000000000000000000000000"
+    const constructorArgs = [L1TokenAddress,wrappedTokenName,wrappedTokenSymbol,decimals]
+    const WarpToadCoreDeployed = await Contract.deploy(ownerWallet, WarpToadCoreContractArtifact, constructorArgs)
         .send()
         .deployed();
 
