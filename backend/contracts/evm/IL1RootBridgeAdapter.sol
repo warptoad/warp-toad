@@ -4,7 +4,7 @@ pragma solidity 0.8.29;
 
 interface IL1RootBridgeAdapter {
     // sends the new giga root to L1 side of a L2's root bridge adapter
-    function sendGigaRootToAdapter(uint256 gigaRoot) external;
+    function sendGigaRootToAdapter(uint256 _gigaRoot) external;
 
     // return the most recent root of the L2 and the L2 block number it came from
     // used in construction of the gigaRoot

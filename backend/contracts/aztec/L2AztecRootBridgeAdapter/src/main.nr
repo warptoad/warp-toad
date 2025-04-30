@@ -75,13 +75,18 @@ pub contract L2AztecRootBridgeAdapter {
 
     // creates a L2 to L1 message publicly
     // Sends the most recent state root to L1 to be consumed by AztecRootBridge.sol
-    // TODO: get most recent L2 root from WarpToadCore
+	// Aztec differs from other L2s we'll support in that we can just pass the chain's 
+	// entire state root
     #[public]
-    fn send_root_to_l1(local_root: Field) {
+    fn send_root_to_l1(state_root: Field) {
         let config = storage.config.read();
 
         let block_number = context.block_number();
-        let contentHash = get_content_hash(local_root, block_number);
+		// TODO: get the current note hash tree root
+		// let block_header = context.get_block_header_at(block_number);
+		// let state_root = block_header.state.partial.note_hash_tree.root;
+
+        let contentHash = get_content_hash(state_root, block_number);
 
         // Send an L2 to L1 message
         context.message_portal(config.portal, contentHash);

@@ -17,9 +17,7 @@ import {DataStructures} from "./aztec-interfaces/CoreDataStructures.sol";
 // hash for message passing to L2
 import {Hash} from "./aztec-interfaces/crypto/Hash.sol";
 
-// TODO: make it IRootBridge
-//is IRootBridge
-contract AztecRootBridge {
+contract AztecRootBridge is IL1RootBridgeAdapter {
     // gigaRoot is emitted as a bytes32 here because thats how it's recovered on the
     // aztec L2 side of this rootBridgeAdapter.  Key and index are also used to
     // retrieve this newGigaRoot on aztec
@@ -28,7 +26,7 @@ contract AztecRootBridge {
 
     IRegistry public registry;
     bytes32 public l2Bridge;
-    uint32 public aztecChainId;
+    // most recent warp toad state root from the L2
     uint256 public mostRecentL2Root;
     // the L2 block that the most recent L2 root came from
     uint32 public mostRecentL2RootBlockNumber;
@@ -52,14 +50,13 @@ contract AztecRootBridge {
         outbox = rollup.getOutbox();
         inbox = rollup.getInbox();
         rollupVersion = rollup.getVersion();
-        mostRecentL2Root = 0;
     }
 
     /**
      * @notice adds an L2 message which can only be consumed publicly on Aztec
      * @param _newGigaRoot - The new gigaRoot to send to L2 as a message
      */
-    function sendGigaRootToL2(uint256 _newGigaRoot) external {
+    function sendGigaRootToAdapter(uint256 _newGigaRoot) external {
         // l2Bridge is the Aztec address of the contract that will be retrieving the
         // message on the L2
         DataStructures.L2Actor memory actor = DataStructures.L2Actor(
@@ -90,19 +87,23 @@ contract AztecRootBridge {
         emit newGigaRootSentToL2(contentHash, key, index);
     }
 
-    function getMostRecentRoot() external view returns (uint256) {
+    function getMostRecentRootAndL2Block() external returns (uint256, uint32) {
         require(
             mostRecentL2Root > 0,
             "An L2 root hasn't yet been bridged to this contract. refreshRoot must be called."
         );
-        return mostRecentL2Root;
+        require(
+            mostRecentL2RootBlockNumber > 0,
+            "An L2 root hasn't yet been bridged to this contract. refreshRoot must be called."
+        );
+        return (mostRecentL2Root, mostRecentL2RootBlockNumber);
     }
 
     /**
      * @notice gets the L2 root from the portal
      * @dev Second part of getting the L2 root to L1, must be initiated from L2 first as it will consume a message from outbox
      * @param _newL2Root - the merkle root currently on the L2 to add into the GigaRoot
-     * @param _l2BlockNumber - The address to send the funds to
+     * @param _l2BlockNumber - the block number of the L2 when the state root was created
      * @param _leafIndex - The amount to withdraw
      * @param _path - Flag to use `msg.sender` as caller, otherwise address(0)
      * Must match the caller of the message (specified from L2) to consume it.
@@ -130,7 +131,8 @@ contract AztecRootBridge {
 
         emit receivedNewL2Root(newL2RootCast, _l2BlockNumber);
 
-        newL2RootCast;
+        mostRecentL2Root = newL2RootCast;
+        mostRecentL2RootBlockNumber = _l2BlockNumber;
     }
 
     // hashes _newL2Root and _l2BlockNumber so it's representation can fit inside of a
@@ -140,14 +142,6 @@ contract AztecRootBridge {
         bytes32 _newL2Root,
         uint32 _l2BlockNumber
     ) internal pure returns (bytes32) {
-        // Hash.sha256ToField(
-        //     abi.encodeWithSignature(
-        //       "withdraw(address,uint256,address)",
-        //       _recipient,
-        //       _amount,
-        //       _withCaller ? msg.sender : address(0)
-        //     )
-        //   )
         return Hash.sha256ToField(abi.encode(_newL2Root, _l2BlockNumber));
     }
 }
