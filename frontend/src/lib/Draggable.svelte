@@ -1,37 +1,74 @@
 <script lang="ts">
-	export let left = 100;
-	export let top = 100;
-	
+	export let x = 100;
+	export let y = 100;
+	export let width = 0;
+	export let height = 0;
+	export let title: string = "";
+	export let isVisible: boolean = true;
+
+	let dragWindow: HTMLElement;
 	let moving = false;
-	
+
+	$: width = clampRange(width, 20, 75); //clamps min value to 20% and max value to 75%
+	$: height = clampRange(height, 20, 75);
+
+	function clampRange(value: number, min: number, max: number): number {
+		return Math.max(min, Math.min(value, max));
+	}
+
 	function onMouseDown() {
 		moving = true;
 	}
-	
-	function onMouseMove(e: MouseEvent) {
-		if (moving) {
-			left += e.movementX;
-			top += e.movementY;
-		}
-	}
-	
+
 	function onMouseUp() {
 		moving = false;
 	}
-	
-// 	$: console.log(moving);
+
+	function onMouseMove(e: MouseEvent) {
+		if (!moving || !dragWindow) return;
+
+		const newLeft = x + e.movementX;
+		const newTop = y + e.movementY;
+
+		const maxLeft = window.innerWidth - dragWindow.offsetWidth;
+		const maxTop = window.innerHeight - dragWindow.offsetHeight;
+
+		x = Math.max(0, Math.min(newLeft, maxLeft));
+		y = Math.max(0, Math.min(newTop, maxTop));
+	}
+
+	const handleCloseWindow = () => {
+		isVisible = false;
+	};
 </script>
+
+<section
+	bind:this={dragWindow}
+	class={`absolute rounded-md bg-base-300 border-2 ${isVisible?'':'invisible'}`}
+	style="left: {x}px; top: {y}px; min-width: {width}%; min-height: {height}%; max-width: 75%; max-height: 75%;"
+>
+	<div
+		class="border-b-2 p-2 mb-2 draggable flex justify-between items-center bg-base-100"
+		on:mousedown={onMouseDown}
+		aria-label="Drag window"
+		role="button"
+		tabindex="0"
+	>
+		<div>{title}</div>
+		<button class="closeButton hover:text-warning transition-colors duration-200" on:click={handleCloseWindow}>X</button>
+	</div>
+	<div class="p-2 h-full w-full overflow-auto">
+		<slot></slot>
+	</div>
+</section>
+
+<svelte:window on:mouseup={onMouseUp} on:mousemove={onMouseMove} />
 
 <style>
 	.draggable {
 		user-select: none;
-		cursor: move;
-		position: absolute;
+	}
+	.closeButton {
+		cursor: pointer;
 	}
 </style>
-
-<section on:mousedown={onMouseDown} style="left: {left}px; top: {top}px;" class="draggable">
-	<slot></slot>
-</section>
-
-<svelte:window on:mouseup={onMouseUp} on:mousemove={onMouseMove} />

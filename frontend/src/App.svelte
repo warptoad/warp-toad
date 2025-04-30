@@ -7,10 +7,16 @@
 </script>
 
 <main class="flex flex-col h-screen p-4">
-  <Draggable>
-    <p class="mx-8">DRAG ME!</p>
-    <div class="mockup-window bg-base-300 border-2 border-white">
-      <img src={placeHolderLogo} class="grid place-content-center w-40 m-8" alt="WarpToad Logo" draggable="false"/>
+  <Draggable title={'Test Window 1'} x={500} y={100} height={33} width={33}>
+    <div class="w-full h-full flex flex-col items-center justify-center">
+      <p>*qwark*</p>
+      <img src={placeHolderLogo} alt="warptoad" draggable="false">
+    </div>
+  </Draggable>
+  <Draggable title={'Test Window 2'}>
+    <div class="w-full h-full grid text-center justify-center">
+      <p>*qwark*</p>
+      <img src={placeHolderLogo} alt="warptoad" draggable="false">
     </div>
   </Draggable>
   <Navbar/>
