@@ -16,6 +16,7 @@ import { poseidon2, poseidon3 } from 'poseidon-lite'
 // artifacts
 //@ts-ignore
 import { WarpToadCoreContractArtifact, WarpToadCoreContract } from '../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
+import { hashCommitment, hashPreCommitment } from "../scripts/lib/hashing";
 
 async function connectPXE() {
     const { PXE_URL = 'http://localhost:8080' } = process.env;
@@ -112,7 +113,6 @@ describe("AztecWarpToad", function () {
             const { chainId: chainIdEvmProvider } = await hre.ethers.provider.getNetwork()
 
             const chainIdAztecFromContract = hre.ethers.toBigInt(await AztecWarpToad.methods.get_chain_id().simulate())
-
             const commitmentPreImg = {
                 amount: amountToBurn,
                 destination_chain_id: aztecWalletChainId,
@@ -128,25 +128,25 @@ describe("AztecWarpToad", function () {
             //expect(chainIdEvmProvider).to.not.equal(chainIdAztecFromContract);
             expect(balancePostBurn).to.equal(balancePreBurn-amountToBurn);
             
-            // mint
+            // mint        recipient: AztecAddress,
             console.log("minting!")
-            const commitment =Fr.fromHexString( hashCommitment( commitmentPreImg.nullifier_preimg, commitmentPreImg.secret, commitmentPreImg.destination_chain_id,commitmentPreImg.amount ))
+            const preCommitment = hashPreCommitment( commitmentPreImg.nullifier_preimg, commitmentPreImg.secret, commitmentPreImg.destination_chain_id)
+            const commitment = hashCommitment(preCommitment, amountToBurn)
 
             // get info to reproduce the leaf has of our commitment (unique_note_hash = leaf)
             const txEffect = (await PXE.getTxEffect(burnTx.txHash))
+            console.log({txEffect})
             const burnTxNullifier = txEffect?.data.nullifiers[0] as Fr
             console.log("finding unique_note_hash index within the tx")
-            const noteIndexOfCommitment = await findNoteHashIndex(AztecWarpToad,txEffect?.data.noteHashes!,commitment, burnTxNullifier)
-
-            await AztecWarpToad.methods.mint_local(commitmentPreImg.nullifier_preimg, commitmentPreImg.secret, commitmentPreImg.amount,recipient.getAddress(),burnTxNullifier,noteIndexOfCommitment).send().wait()
+            //const noteIndexOfCommitment = await findNoteHashIndex(AztecWarpToad,txEffect?.data.noteHashes!, Fr.fromHexString(ethers.toBeHex(commitment)), burnTxNullifier)
+            const aztecBlockNumber = await PXE.getBlockNumber()
+            await AztecWarpToad.methods.mint_local(recipient.getAddress(),aztecBlockNumber).send().wait()
             
             const balanceRecipient = await AztecWarpToad.methods.get_balance(recipient.getAddress()).simulate()
             expect(balanceRecipient).to.equal(commitmentPreImg.amount);
         });
     });
 });
-
-// TODO move this to different file ----
 async function findNoteHashIndex(AztecWarpToad:WarpToadCoreContract, noteHashesInTx: Fr[], plainNoteHash: Fr, firstNullifierInTx:Fr) {
     const contractAddress = AztecWarpToad.address;
     const getUniqueNote = async (index:bigint)=> await AztecWarpToad.methods.hash_unique_note_hash_helper(contractAddress, plainNoteHash, firstNullifierInTx, index).simulate()
@@ -161,17 +161,16 @@ async function findNoteHashIndex(AztecWarpToad:WarpToadCoreContract, noteHashesI
     throw new Error("couldn't find the note hash index :/");
 }
 
-async function hashUniqueNoteHash(AztecWarpToad:WarpToadCoreContract, noteHashesInTx: Fr[], plainNoteHash: Fr,firstNullifierInTx:Fr) {
-    const noteIndex = await findNoteHashIndex(AztecWarpToad, noteHashesInTx, plainNoteHash,firstNullifierInTx)
-    const uniqueNoteHash = await AztecWarpToad.methods.hash_unique_note_hash_helper(AztecWarpToad.address,plainNoteHash,firstNullifierInTx,noteIndex).simulate()
-    return uniqueNoteHash
-}
+// async function hashUniqueNoteHash(AztecWarpToad:WarpToadCoreContract, noteHashesInTx: Fr[], plainNoteHash: Fr,firstNullifierInTx:Fr) {
+//     const noteIndex = await findNoteHashIndex(AztecWarpToad, noteHashesInTx, plainNoteHash,firstNullifierInTx)
+//     const uniqueNoteHash = await AztecWarpToad.methods.hash_unique_note_hash_helper(AztecWarpToad.address,plainNoteHash,firstNullifierInTx,noteIndex).simulate()
+//     return uniqueNoteHash
+// }
 
-function hashCommitment(nullifier_preimg: bigint, secret: bigint, destination_chain_id: bigint, amount: bigint) {
-    let pre_commitment: bigint = poseidon3([nullifier_preimg, secret, destination_chain_id]);
-    let commitment: bigint = poseidon2([amount, pre_commitment]);
-    return ethers.toBeHex(commitment)
-}
-
+// function hashCommitment(nullifier_preimg: bigint, secret: bigint, destination_chain_id: bigint, amount: bigint) {
+//     let pre_commitment: bigint = poseidon3([nullifier_preimg, secret, destination_chain_id]);
+//     let commitment: bigint = poseidon2([amount, pre_commitment]);
+//     return ethers.toBeHex(commitment)
+// }
 
 //------------------
