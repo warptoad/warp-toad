@@ -37,7 +37,7 @@ export type ProofInputs = {
     nullifier_preimage: ethers.BytesLike,
     secret: ethers.BytesLike,
     aztec_merkle_data: AztecMerkleData,
-    local_merkle_data: EvmMerkleData,
+    evm_merkle_data: EvmMerkleData,
     giga_merkle_data: EvmMerkleData,
 }
 

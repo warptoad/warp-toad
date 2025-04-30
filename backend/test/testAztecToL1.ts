@@ -19,7 +19,7 @@ import { WarpToadCoreContractArtifact, WarpToadCoreContract } from '../contracts
 import { AztecMerkleData } from "../scripts/lib/types";
 import { ethers } from "ethers";
 import { hashNoteHashNonce } from "../scripts/lib/hashing";
-import { calculateFeeFactor, createProof, getProofInputs } from "../scripts/lib/proving";
+import { calculateFeeFactor, createProof, generateNoirTest, getProofInputs } from "../scripts/lib/proving";
 import { gasCostPerChain } from "../scripts/lib/constants";
 import { WarpToadCore as WarpToadEvm} from "../typechain-types";
 
@@ -57,7 +57,7 @@ describe("AztecWarpToad", function () {
         // Contracts are deployed using the first signer/account by default
         //const [owner, otherAccount] = await hre.ethers.getSigners();
         hre.ethers.getContractFactory("PoseidonT3",)
-        const gigaBridge = (await hre.ethers.getSigners())[0].address //TODO gigaBridge should be the contract not some rando EOA
+        const gigaBridge =  (await hre.ethers.getSigners())[0].address //TODO gigaBridge should be the contract not some rando EOA
         const nativeToken = await hre.ethers.deployContract("USDcoin",[],{ value: 0n, libraries: {} })
         const wrappedTokenSymbol = `wrpToad-${await nativeToken.symbol()}`
         const wrappedTokenName = `wrpToad-${await nativeToken.name()}`
@@ -86,9 +86,9 @@ describe("AztecWarpToad", function () {
             const sender = wallets[0]
             const recipient =  wallets[1]
             const evmWallets = await hre.ethers.getSigners()
-            const evmSender = evmWallets[0]
-            const evmRecipient = evmWallets[1]
-            const evmRelayer = evmWallets[2]
+            const evmRelayer = evmWallets[0]
+            const evmSender = evmWallets[1]
+            const evmRecipient = evmWallets[2]
 
 
             // free money!! 
@@ -129,14 +129,6 @@ describe("AztecWarpToad", function () {
             //expect(chainIdEvmProvider).to.not.equal(chainIdAztecFromContract);
             expect(balancePostBurn).to.equal(balancePreBurn-amountToBurn1-amountToBurn2);
             
-            // verify        
-            const commitment =Fr.fromHexString( hashCommitment( commitmentPreImg1.nullifier_preimg, commitmentPreImg1.secret, commitmentPreImg1.destination_chain_id,commitmentPreImg1.amount ))
-
-            // get info to reproduce the leaf has of our commitment (unique_note_hash = leaf)
-            const txEffect = (await PXE.getTxEffect(burnTx1.txHash))
-            const burnTxFirstNullifier = txEffect?.data.nullifiers[0] as Fr
-            const burnTxNoteHashes = txEffect?.data.noteHashes!
-            
             const priorityFee = 100000000n;// in wei (this is 0.1 gwei)
             const maxFee = 5n*10n**18n;   // no more than 5 usdc okay cool thanks
             const ethPriceInToken = 1700.34 // how much tokens you need to buy 1 eth. In this case 1700 usdc tokens to buy 1 eth. Cheap!
@@ -144,19 +136,10 @@ describe("AztecWarpToad", function () {
             const gasCost = Number(gasCostPerChain[Number(chainIdEvmProvider)])
             const relayerBonusFactor = 1.1 // 10% earnings on gas fees! 
             const feeFactor = calculateFeeFactor(ethPriceInToken,gasCost,relayerBonusFactor);
-            // const warpToadNoteFilter:NotesFilter = {
-            //     contractAddress: AztecWarpToad.address, 
-            //     storageSlot: 5n
-            // }
-            // const notes = await PXE.getNotes(warpToadNoteFilter)
-            // const nonce = notes[0].nonce // TODO for front end implementation: check if already redeemed? Or does PXE delete it if it has?
-            // console.log("txEffectBurn1:",{txNullifiers:txEffect?.data.nullifiers, publicDataWrites:txEffect?.data.publicDataWrites, noteHashes: txEffect?.data.noteHashes, data: txEffect?.data})
-            // for (const note of notes) {
-            //     console.log({note})
-            //     console.log({
-            //         items:note.note.items,
-            //     })
-            // }
+
+            L1WarpToad.connect(evmRelayer)
+            await L1WarpToad.receiveGigaRoot("0x69696969696969696969")
+            await L1WarpToad.storeLocalRootInHistory()
 
             const proofInputs = await getProofInputs(
                 L1WarpToad,
@@ -170,14 +153,38 @@ describe("AztecWarpToad", function () {
                 commitmentPreImg1.nullifier_preimg,
                 commitmentPreImg1.secret,
             )
+            //await generateNoirTest(proofInputs);
             const proof = await createProof(proofInputs, os.cpus().length )
 
-
-
-            // await AztecWarpToad.methods.mint_local(commitmentPreImg.nullifier_preimg, commitmentPreImg.secret, commitmentPreImg.amount,recipient.getAddress(),burnTxNullifier,noteIndexOfCommitment).send().wait()
             
-            // const balanceRecipient = await AztecWarpToad.methods.get_balance(recipient.getAddress()).simulate()
-            // expect(balanceRecipient).to.equal(commitmentPreImg.amount);
+
+            console.warn("WARNING an EOA bridged the root. This shouldn't be allowed in prod. TODO")
+            
+            const balanceRecipientPreMint =await L1WarpToad.balanceOf(await evmRecipient.getAddress())
+            const mintTx = await (await L1WarpToad.mint(
+              ethers.toBigInt(proofInputs.nullifier),
+              ethers.toBigInt(proofInputs.amount),
+              ethers.toBigInt(proofInputs.giga_root),
+              ethers.toBigInt(proofInputs.destination_local_root),
+              ethers.toBigInt(proofInputs.fee_factor),
+              ethers.toBigInt(proofInputs.priority_fee),
+              ethers.toBigInt(proofInputs.max_fee),
+              ethers.getAddress(proofInputs.relayer_address.toString()),
+              ethers.getAddress(proofInputs.recipient_address.toString()),
+              ethers.hexlify(proof.proof),
+              {
+                maxPriorityFeePerGas: ethers.toBigInt(proofInputs.priority_fee),
+                maxFeePerGas: ethers.toBigInt(proofInputs.priority_fee)*100n //Otherwise HRE does the gas calculations wrong to make sure we don't get `max_priority_fee_per_gas` greater than `max_fee_per_gas
+            }
+            )).wait(1)
+            const balanceRecipientPostMint = await L1WarpToad.balanceOf(await evmRecipient.getAddress())
+
+            const expectedFee = BigInt(Number(mintTx!.fee) * ethPriceInToken * relayerBonusFactor)
+            const feePaid = ethers.toBigInt(proofInputs.amount) - balanceRecipientPostMint-balanceRecipientPreMint
+            const overPayPercentage = (1 - Number(expectedFee) / Number(feePaid)) * 100
+            const marginOfErrorFee = 1 //no more than 1% off!
+            expect(overPayPercentage).approximately(0,marginOfErrorFee, "This likely failed because HRE does something bad in gas calculation. Run it in something like an anvil node/aztecSandbox instead. Or gas usage changed") 
+            expect(balanceRecipientPostMint).to.above(balanceRecipientPreMint + ethers.toBigInt(proofInputs.amount) - maxFee)
         });
     });
 });

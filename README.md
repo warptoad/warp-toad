@@ -25,7 +25,7 @@ aztec-up --version 0.85.0-alpha-testnet.2
 
 install noir and backend
 ```shell
-bbup -nv 1.0.0-beta.3; #apparently this is fine haha.
+bbup -nv 1.0.0-beta.3;
 noirup -v 1.0.0-beta.3;
 ```
 
@@ -70,17 +70,22 @@ yarn workspace @warp-toad/backend hardhat ignition deploy ./ignition/modules/L1W
 `yarn workspace @warp-toad/backend ts-node scripts/dev_op/deployAztecToadWarp.ts`
 
 ## test contracts
-test only one file just hardhat evm (ex L1WarpToad)
+test one just EVM
 ```shell
-yarn workspace @warp-toad/backend hardhat test test/testL1WarpToad.ts  
+yarn workspace @warp-toad/backend hardhat test test/testL1WarpToad.ts 
 ```
 
-test only one file (ex aztecWarpToad)
+test only one AZTEC
 ```shell
 yarn workspace @warp-toad/backend hardhat test test/testAztecToadWarp.ts  --network aztecSandbox
 ```
 
-test everything (might break because aztec sandbox is a bit unstable)
+test one CROSS-CHAIN
+```shell
+yarn workspace @warp-toad/backend hardhat test test/testAztecToL1.ts --network aztecSandbox
+```
+
+test EVERYTHING 
 ```shell
 yarn workspace @warp-toad/backend hardhat test --network aztecSandbox
 ```

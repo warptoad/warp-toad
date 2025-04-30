@@ -23,7 +23,7 @@ fn test_main() {
         leaf_nonce:                 0x0a55996a37573d8c0293e8829d5e0f6eb151899afb34c74e6b52317295a8efab,
         contract_address:           0x1e89c33dc4382f1eb3ede39cdbfb48e3e6998c446c3ea5b5abf77c90d1a46eef,
     };
-    let local_merkle_data: Evm_merkle_data<32> = Evm_merkle_data {
+    let evm_merkle_data: Evm_merkle_data<32> = Evm_merkle_data {
         leaf_index:                 0x00,
         hash_path:                  [0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00],
     };
@@ -47,7 +47,7 @@ fn test_main() {
         nullifier_preimage, 
         secret,
         aztec_merkle_data,
-        local_merkle_data,
+        evm_merkle_data,
         giga_merkle_data,
     )
 }

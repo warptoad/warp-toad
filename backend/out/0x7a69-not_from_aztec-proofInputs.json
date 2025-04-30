@@ -60,7 +60,7 @@
     "leaf_nonce": "0x00",
     "contract_address": "0x00"
   },
-  "local_merkle_data": {
+  "evm_merkle_data": {
     "leaf_index": "0x00",
     "hash_path": [
       "0x288af087319ba037f7342ec4be5fa8ab1281e70fa399a128d638dbdd779cc838",
