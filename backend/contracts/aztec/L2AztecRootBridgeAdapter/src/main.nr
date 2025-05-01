@@ -24,7 +24,7 @@ pub contract L2AztecRootBridgeAdapter {
     #[storage]
     struct Storage<Context> {
         config: PublicImmutable<Config, Context>,
-        temp_testing_giga_root: PublicMutable<Field, Context>,
+        giga_root: PublicMutable<Field, Context>,
         // temp for testing
         counter: PublicMutable<Field, Context>,
     }
@@ -58,8 +58,7 @@ pub contract L2AztecRootBridgeAdapter {
         // Consume message and emit nullifier
         context.consume_l1_to_l2_message(content_hash, secret, config.portal, message_leaf_index);
 
-        // TODO: call function on WarpToadCore
-        storage.temp_testing_giga_root.write(new_gigaroot);
+        storage.giga_root.write(new_gigaroot);
     }
 
     // temp for testing.  Need to call 2 functions to progress the L2 2 blocks
@@ -70,7 +69,7 @@ pub contract L2AztecRootBridgeAdapter {
 
     #[utility]
     unconstrained fn get_giga_root() -> pub Field {
-        storage.temp_testing_giga_root.read()
+        storage.giga_root.read()
     }
 
     // creates a L2 to L1 message 
