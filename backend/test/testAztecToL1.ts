@@ -48,7 +48,11 @@ describe("AztecWarpToad", function () {
     async function deployAztecWarpToad(nativeToken: USDcoin) {
         const { wallets, PXE } = await connectPXE();
         const deployerWallet = wallets[0]
-        const constructorArgs = [nativeToken.target]
+        const wrappedTokenSymbol = `wrpToad-${await nativeToken.symbol()}`
+        const wrappedTokenName = `wrpToad-${await nativeToken.name()}`
+        const decimals = 6n; // only 6 decimals what is this tether??
+
+        const constructorArgs = [nativeToken.target,wrappedTokenName,wrappedTokenSymbol,decimals]
         const AztecWarpToad = await Contract.deploy(deployerWallet, WarpToadCoreContractArtifact, constructorArgs)
             .send()
             .deployed() as WarpToadCoreContract;

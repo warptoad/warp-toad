@@ -6,5 +6,5 @@ authors = [""]
 [dependencies]
 trees = { git = "https://github.com/privacy-scaling-explorations/zk-kit.noir", tag = "main", directory = "packages/merkle-trees" }
 constants = { path = "../constants" }
-merkle_verify = { path = "../merkle_verify" }
+hashing = { path = "../hashing" }
 poseidon = { tag = "v0.1.0", git = "https://github.com/noir-lang/poseidon" }

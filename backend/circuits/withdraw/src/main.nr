@@ -7,21 +7,8 @@ use constants::{
 
 };
 
-use merkle_verify::{aztec_merkle_verify, evm_merkle_verify,Aztec_merkle_data,Evm_merkle_data};
+use hashing::{hash_commitment,aztec_merkle_verify, evm_merkle_verify,Aztec_merkle_data,Evm_merkle_data};
 
-
-//     commitmentHash (hashed onchain on deposit)
-//              /                       \
-//     pre_commitment_hash          amount (public)
-//  (hashed by user, private)
-//          |
-//     nullifierPreimg, secret, chain_id
-fn hash_commitment(nullifier_preimage: Field, secret: Field, chain_id: Field, amount: Field) -> (Field,Field) {
-    let computed_nullifier_hash: Field = poseidon::bn254::hash_1([nullifier_preimage]);
-    let pre_commitment_hash: Field =  poseidon::bn254::hash_3([nullifier_preimage,secret, chain_id]);
-    let commitment: Field = poseidon::bn254::hash_2([pre_commitment_hash,amount]);
-    (commitment,computed_nullifier_hash)
-}
 
 fn main(
     // ----- public inputs -----
