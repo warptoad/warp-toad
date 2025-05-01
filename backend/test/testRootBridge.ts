@@ -58,7 +58,6 @@ describe("GigaRootBridge core", function () {
 		const { wallets, PXE } = await connectPXE();
 		const deployerWallet = wallets[0]
 		const constructorArgs = [L1AztecRootBridgeAdapter.target];
-		const constructorArgs = [L1AztecRootBridgeAdapter.target];
 		const nodeInfo = (await PXE.getNodeInfo());
 
 		// This is also the "registry"
@@ -134,6 +133,7 @@ describe("GigaRootBridge core", function () {
 
 			const [l2ToL1MessageIndex, siblingPath] = await PXE.getL2ToL1MembershipWitness(
 				blockNumberAfterTxn,
+				//@ts-ignore some bs where the Fr type that getL2ToL1MembershipWitness wants is different messageLeaf has
 				messageLeaf
 			);
 
@@ -168,7 +168,6 @@ describe("GigaRootBridge core", function () {
 			expect(newL2Root.toString()).to.equal(BigInt(l2Root.toString()));
 
 			// call function to update gigaROot
-			const gigaRootUpdateTx = await GigaRootBridge.updateRoot([L1AztecRootBridgeAdapter.target]);
 			const gigaRootUpdateTx = await GigaRootBridge.updateRoot([L1AztecRootBridgeAdapter.target]);
 
 			const gigaRootUpdateReceipt = await gigaRootUpdateTx.wait(1);
@@ -230,8 +229,6 @@ describe("GigaRootBridge core", function () {
 			// New test logic
 			await L2AztecRootBridgeAdapter.methods.update_gigaroot(content_hash, index).send().wait();
 
-			const newGigaRootFromL2 = await L2AztecRootBridgeAdapter.methods.get_giga_root().simulate();
-			const newGigaRootField = new Fr(newGigaRootFromL2);
 			const newGigaRootFromL2 = await L2AztecRootBridgeAdapter.methods.get_giga_root().simulate();
 			const newGigaRootField = new Fr(newGigaRootFromL2);
 
