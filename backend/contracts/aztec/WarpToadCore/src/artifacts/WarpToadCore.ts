@@ -115,7 +115,7 @@ export class WarpToadCoreContract extends ContractBase {
   }
   
 
-  public static get storage(): ContractStorageLayout<'giga_root' | 'L1_contract' | 'balances'> {
+  public static get storage(): ContractStorageLayout<'giga_root' | 'L1_contract' | 'balances' | 'commitments'> {
       return {
         giga_root: {
       slot: new Fr(1n),
@@ -125,25 +125,31 @@ L1_contract: {
     },
 balances: {
       slot: new Fr(4n),
+    },
+commitments: {
+      slot: new Fr(5n),
     }
-      } as ContractStorageLayout<'giga_root' | 'L1_contract' | 'balances'>;
+      } as ContractStorageLayout<'giga_root' | 'L1_contract' | 'balances' | 'commitments'>;
     }
     
 
-  public static get notes(): ContractNotes<'ValueNote'> {
+  public static get notes(): ContractNotes<'WarpToadNote' | 'ValueNote'> {
     return {
-      ValueNote: {
+      WarpToadNote: {
+          id: new NoteSelector(1),
+        },
+ValueNote: {
           id: new NoteSelector(0),
         }
-    } as ContractNotes<'ValueNote'>;
+    } as ContractNotes<'WarpToadNote' | 'ValueNote'>;
   }
   
 
   /** Type-safe wrappers for the public methods exposed by the contract. */
   public declare methods: {
     
-    /** burn(amount: integer, destination_chain_id: field, secret: field, nullifier_preimg: field, sender: struct) */
-    burn: ((amount: (bigint | number), destination_chain_id: FieldLike, secret: FieldLike, nullifier_preimg: FieldLike, sender: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** burn(amount: integer, destination_chain_id: field, secret: field, nullifier_preimage: field, sender: struct) */
+    burn: ((amount: (bigint | number), destination_chain_id: FieldLike, secret: FieldLike, nullifier_preimage: FieldLike, sender: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** constructor(L1_contract: struct) */
     constructor: ((L1_contract: EthAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -169,8 +175,8 @@ balances: {
     /** mint_giga_root(amount: integer) */
     mint_giga_root: ((amount: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** mint_local(nullifier_preimg: field, secret: field, amount: integer, recipient: struct, burn_tx_first_nullifier: field, note_index_in_tx: integer) */
-    mint_local: ((nullifier_preimg: FieldLike, secret: FieldLike, amount: (bigint | number), recipient: AztecAddressLike, burn_tx_first_nullifier: FieldLike, note_index_in_tx: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** mint_local(recipient: struct, block_number: integer) */
+    mint_local: ((recipient: AztecAddressLike, block_number: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** public_dispatch(selector: field) */
     public_dispatch: ((selector: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;

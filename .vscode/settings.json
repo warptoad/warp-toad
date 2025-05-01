@@ -9,13 +9,16 @@
         "GIGATREEMERKLEVERIFY",
         "merkle",
         "nargo",
+        "Numberish",
         "permissionless",
         "preimg",
         "tornadocash",
         "typechain",
         "Uints",
         "warptoad",
-        "wrptd"
+        "wrptd",
+        "zkpass",
+        "zkpassport"
     ],
     "solidity.remappings": [
         "@zk-kit/lean-imt.sol/LeanIMT.sol/=./node_modules/@zk-kit/lean-imt.sol/LeanIMT.sol",

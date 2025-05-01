@@ -1,0 +1,9 @@
+{
+    "L1WarpToad": {
+        "maxTreeDepth":32,
+        "gigaBridge":"0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+        "nativeToken":"0x84eA74d481Ee0A5332c457a4d796187F6Ba67fEB",
+        "name":"wrptdNATIVETOKEN",
+        "symbol":"wrptdTKN"
+    }
+}
