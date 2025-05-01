@@ -21,6 +21,8 @@ import { GigaRootBridge, L1AztecRootBridgeAdapter } from "../typechain-types"
 //@ts-ignore
 import { expect } from "chai";
 
+import { getAztecNoteHashTreeRoot } from "../scripts/lib/proving";
+
 //@ts-ignore
 import { sha256ToField } from '@aztec/foundation/crypto';
 
@@ -63,11 +65,6 @@ describe("GigaRootBridge core", function () {
 		// This is also the "registry"
 		const L2AztecRootBridgeAdapter = await Contract.deploy(deployerWallet, L2AztecRootBridgeAdapterContractArtifact, constructorArgs).send().deployed();
 
-		// initialize L1 L1AztecRootBridgeAdapter
-		const registryAddress = nodeInfo.l1ContractAddresses.registryAddress.toString();
-		const l2Bridge = L2AztecRootBridgeAdapter.address.toString();
-		await L1AztecRootBridgeAdapter.initialize(registryAddress, l2Bridge);
-
 		hre.ethers.getContractFactory("PoseidonT3",)
 		const PoseidonT3Lib = await hre.ethers.deployContract("PoseidonT3", [], { value: 0n, libraries: {} })
 		const LazyIMTLib = await hre.ethers.deployContract("LazyIMT", [], { value: 0n, libraries: { PoseidonT3: PoseidonT3Lib } })
@@ -79,6 +76,11 @@ describe("GigaRootBridge core", function () {
 				LazyIMT: LazyIMTLib,
 			}
 		});
+
+		// initialize L1 L1AztecRootBridgeAdapter
+		const registryAddress = nodeInfo.l1ContractAddresses.registryAddress.toString();
+		const l2Bridge = L2AztecRootBridgeAdapter.address.toString();
+		await L1AztecRootBridgeAdapter.initialize(registryAddress, l2Bridge, GigaRootBridge.target);
 
 		return { GigaRootBridge, L1AztecRootBridgeAdapter, L2AztecRootBridgeAdapter, PXE }
 	}
@@ -100,16 +102,16 @@ describe("GigaRootBridge core", function () {
 
 			// send local root L2 -> L1
 
-			let l2Root = Fr.random();
-			// the block number will increment by 1 as soon as the below function 
-			// is called, so we have to do +1 if we want it to be the number of 
-			// the block that the transaction is executing in
-			let blockNumber = await PXE.getBlockNumber() + 1;
+			// block number before the transaction
+			let blockNumber = await PXE.getBlockNumber();
+			console.log("Block number before the transaction ", blockNumber);
 			let l2Bridge = AztecAddress.fromString(L2AztecRootBridgeAdapter.address.toString());
 			let version = await L1AztecRootBridgeAdapter.rollupVersion();
 			let l1PortalAddress = L1AztecRootBridgeAdapter.target;
 			let l1ChainId = 31337n;
 
+			let l2Root = new Fr(await getAztecNoteHashTreeRoot(blockNumber));
+			console.log("note hash tree root before transaction:", l2Root);
 
 			const content = sha256ToField([
 				l2Root.toBuffer(),
@@ -125,10 +127,13 @@ describe("GigaRootBridge core", function () {
 				content.toBuffer(),
 			]);
 
-			let l2TxReceipt = await L2AztecRootBridgeAdapter.methods.send_root_to_l1(l2Root).send().wait();
+			let l2TxReceipt = await L2AztecRootBridgeAdapter.methods.send_root_to_l1().send().wait();
+			const blockNumberAfterTxn = await PXE.getBlockNumber();
+			console.log("block number after transaction: ", blockNumberAfterTxn);
+
 
 			const [l2ToL1MessageIndex, siblingPath] = await PXE.getL2ToL1MembershipWitness(
-				blockNumber,
+				blockNumberAfterTxn,
 				messageLeaf
 			);
 
@@ -136,6 +141,7 @@ describe("GigaRootBridge core", function () {
 				'0x' + buffer.toString('hex')
 			);
 
+			// using the data before the block / transaction was included because 
 			let refreshRootTx = await L1AztecRootBridgeAdapter.refreshRoot(
 				l2Root.toString(),
 				BigInt(blockNumber),

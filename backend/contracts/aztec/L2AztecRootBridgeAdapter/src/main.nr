@@ -16,7 +16,7 @@ pub contract L2AztecRootBridgeAdapter {
 	use dep::aztec::protocol_types::hash::sha256_to_field;
 
     use dep::aztec::macros::{
-        functions::{initializer, public, utility, view},
+        functions::{initializer, private, public, utility, view},
         storage::storage,
     };
 
@@ -73,40 +73,34 @@ pub contract L2AztecRootBridgeAdapter {
         storage.temp_testing_giga_root.read()
     }
 
-    // creates a L2 to L1 message publicly
+    // creates a L2 to L1 message 
     // Sends the most recent state root to L1 to be consumed by AztecRootBridge.sol
 	// Aztec differs from other L2s we'll support in that we can just pass the chain's 
 	// entire state root
-    #[public]
-    fn send_root_to_l1(state_root: Field) {
+	// Needs to be private because accessing `block_header.state.partial.note_hash_tree.root` 
+	// can only be done from a private context
+    #[private]
+    fn send_root_to_l1() {
         let config = storage.config.read();
 
-        let block_number = context.block_number();
-		// TODO: get the current note hash tree root
-		// let block_header = context.get_block_header_at(block_number);
-		// let state_root = block_header.state.partial.note_hash_tree.root;
+		// Returns the header of a block whose state is used during private execution (not the block the transaction is included in).
+		let block_header = context.get_block_header();
+		let block_number = block_header.global_variables.block_number;
+		let state_root = block_header.state.partial.note_hash_tree.root;
 
-        let contentHash = get_content_hash(state_root, block_number);
-
-        // Send an L2 to L1 message
-        context.message_portal(config.portal, contentHash);
-    }
-
-    // Adds this hash to the message portal.  The L1 contract should be able to reconstruct this same hash
-	#[public]
-    fn get_content_hash(local_root: Field, block_number: Field) -> pub Field {
         let mut hash_bytes = [0; 64];
-        let local_root_bytes: [u8; 32] = local_root.to_be_bytes();
+        let state_root_bytes: [u8; 32] = state_root.to_be_bytes();
         let block_number_bytes: [u8; 32] = block_number.to_be_bytes();
 
         for i in 0..32 {
-            hash_bytes[i] = local_root_bytes[i];
+            hash_bytes[i] = state_root_bytes[i];
             hash_bytes[i + 32] = block_number_bytes[i];
         }
 
         let content_hash = sha256_to_field(hash_bytes);
-        content_hash
 
+        // Send an L2 to L1 message
+        context.message_portal(config.portal, content_hash);
     }
 
 }

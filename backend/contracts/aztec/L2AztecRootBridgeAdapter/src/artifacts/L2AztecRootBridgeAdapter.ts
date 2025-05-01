@@ -144,17 +144,14 @@ counter: {
     /** get_config_public() */
     get_config_public: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** get_content_hash(local_root: field, block_number: field) */
-    get_content_hash: ((local_root: FieldLike, block_number: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
     /** get_giga_root() */
     get_giga_root: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** public_dispatch(selector: field) */
     public_dispatch: ((selector: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** send_root_to_l1(state_root: field) */
-    send_root_to_l1: ((state_root: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** send_root_to_l1() */
+    send_root_to_l1: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** sync_notes() */
     sync_notes: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
