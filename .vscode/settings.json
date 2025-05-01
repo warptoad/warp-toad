@@ -1,24 +1,8 @@
 {
     "cSpell.words": [
-        "AZTECMERKLEVERIFY",
-        "basefee",
-        "chainid",
-        "codegen",
-        "EVMMERKLEVERIFY",
         "giga",
-        "GIGATREEMERKLEVERIFY",
         "merkle",
-        "nargo",
-        "Numberish",
-        "permissionless",
-        "preimg",
-        "tornadocash",
-        "typechain",
-        "Uints",
-        "warptoad",
-        "wrptd",
-        "zkpass",
-        "zkpassport"
+        "warptoad"
     ],
     "solidity.remappings": [
         "@zk-kit/lean-imt.sol/LeanIMT.sol/=./node_modules/@zk-kit/lean-imt.sol/LeanIMT.sol",

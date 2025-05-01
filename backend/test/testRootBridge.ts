@@ -32,6 +32,7 @@ import { getInitialTestAccountsWallets } from '@aztec/accounts/testing'; // idk 
 
 //@ts-ignore
 import { L2AztecRootBridgeAdapterContractArtifact, L2AztecRootBridgeAdapterContract } from '../contracts/aztec/L2AztecRootBridgeAdapter/src/artifacts/L2AztecRootBridgeAdapter'
+import { ContractTransactionResponse } from "ethers";
 
 const { PXE_URL = 'http://localhost:8080' } = process.env;
 
@@ -57,7 +58,7 @@ describe("GigaRootBridge core", function () {
 		// L2AztecRootBridgeAdapter (L2) deployment
 		const { wallets, PXE } = await connectPXE();
 		const deployerWallet = wallets[0]
-		const constructorArgs = [EthAddress.fromString(L1AztecRootBridgeAdapter.target)];
+		const constructorArgs = [L1AztecRootBridgeAdapter.target];
 		const nodeInfo = (await PXE.getNodeInfo());
 
 		// This is also the "registry"
@@ -85,30 +86,30 @@ describe("GigaRootBridge core", function () {
 
 	describe("Deployment", function () {
 		it("Should deploy and initialize", async function () {
-			let { GigaRootBridge, L1AztecRootBridgeAdapter, L2AztecRootBridgeAdapter, PXE } = await deploy();
+			const { GigaRootBridge, L1AztecRootBridgeAdapter, L2AztecRootBridgeAdapter, PXE } = await deploy();
 
 			expect(GigaRootBridge).not.equal(undefined);
 			expect(L1AztecRootBridgeAdapter).not.equal(undefined);
 			expect(L2AztecRootBridgeAdapter).not.equal(undefined);
 
-			let gigaRoot = await GigaRootBridge.gigaRoot();
+			const gigaRoot = await GigaRootBridge.gigaRoot();
 			expect(gigaRoot).to.equal(0n);
 		});
 
 		it("Should get the local root from L2, update gigaRoot, then send it back to L2", async function () {
-			let { GigaRootBridge, L1AztecRootBridgeAdapter, L2AztecRootBridgeAdapter, PXE } = await deploy();
+			const { GigaRootBridge, L1AztecRootBridgeAdapter, L2AztecRootBridgeAdapter, PXE } = await deploy();
 
 			// send local root L2 -> L1
 
-			let l2Root = Fr.random();
+			const l2Root = Fr.random();
 			// the block number will increment by 1 as soon as the below function 
 			// is called, so we have to do +1 if we want it to be the number of 
 			// the block that the transaction is executing in
-			let blockNumber = await PXE.getBlockNumber() + 1;
-			let l2Bridge = AztecAddress.fromString(L2AztecRootBridgeAdapter.address.toString());
-			let version = await L1AztecRootBridgeAdapter.rollupVersion();
-			let l1PortalAddress = L1AztecRootBridgeAdapter.target;
-			let l1ChainId = 31337n;
+			const blockNumber = await PXE.getBlockNumber() + 1;
+			const l2Bridge = AztecAddress.fromString(L2AztecRootBridgeAdapter.address.toString());
+			const version = await L1AztecRootBridgeAdapter.rollupVersion();
+			const l1PortalAddress = L1AztecRootBridgeAdapter.target;
+			const l1ChainId = 31337n;
 
 
 			const content = sha256ToField([
@@ -120,23 +121,20 @@ describe("GigaRootBridge core", function () {
 			const messageLeaf = sha256ToField([
 				l2Bridge.toBuffer(),
 				new Fr(version).toBuffer(),
-				EthAddress.fromString(l1PortalAddress).toBuffer32() ?? Buffer.alloc(32, 0),
+				EthAddress.fromString(l1PortalAddress.toString()).toBuffer32() ?? Buffer.alloc(32, 0),
 				new Fr(l1ChainId).toBuffer(),
 				content.toBuffer(),
 			]);
 
-			let l2TxReceipt = await L2AztecRootBridgeAdapter.methods.send_root_to_l1(l2Root).send().wait();
+			const l2TxReceipt = await L2AztecRootBridgeAdapter.methods.send_root_to_l1(l2Root).send().wait();
 
 			const [l2ToL1MessageIndex, siblingPath] = await PXE.getL2ToL1MembershipWitness(
 				blockNumber,
 				messageLeaf
 			);
 
-			const siblingPathArray = siblingPath.data.map(buffer =>
-				'0x' + buffer.toString('hex')
-			);
-
-			let refreshRootTx = await L1AztecRootBridgeAdapter.refreshRoot(
+			const siblingPathArray = siblingPath.toFields().map((f)=>f.toString());
+			const refreshRootTx = await L1AztecRootBridgeAdapter.refreshRoot(
 				l2Root.toString(),
 				BigInt(blockNumber),
 				l2ToL1MessageIndex,
@@ -147,17 +145,17 @@ describe("GigaRootBridge core", function () {
 
 
 			// Find the event in the logs
-			const refreshRootEvent = receipt.logs.find(
+			const refreshRootEvent = receipt!.logs.find(
 				log => log.topics[0] === L1AztecRootBridgeAdapter.interface.getEvent("receivedNewL2Root").topicHash
 			);
 
 			// Parse the refreshRootEvent data
 			const parsedrefreshRootEvent = L1AztecRootBridgeAdapter.interface.parseLog({
-				topics: refreshRootEvent.topics,
-				data: refreshRootEvent.data
+				topics: refreshRootEvent!.topics,
+				data: refreshRootEvent!.data
 			});
 
-			const newL2Root = parsedrefreshRootEvent.args[0];
+			const newL2Root = parsedrefreshRootEvent!.args[0];
 
 			expect(newL2Root).to.not.be.undefined;
 			console.log("l2 root seen by l1: ", newL2Root);
@@ -165,21 +163,21 @@ describe("GigaRootBridge core", function () {
 			expect(newL2Root.toString()).to.equal(BigInt(l2Root.toString()));
 
 			// call function to update gigaROot
-			let gigaRootUpdateTx = await GigaRootBridge.updateRoot([L1AztecRootBridgeAdapter.target]);
+			const gigaRootUpdateTx = await GigaRootBridge.updateRoot([L1AztecRootBridgeAdapter.target]);
 
 			const gigaRootUpdateReceipt = await gigaRootUpdateTx.wait(1);
 
 			// Find the event in the logs
-			const event = gigaRootUpdateReceipt.logs.find(
+			const event = gigaRootUpdateReceipt!.logs.find(
 				log => log.topics[0] === GigaRootBridge.interface.getEvent("constructedNewGigaRoot").topicHash
 			);
 
 			const parsedEvent = GigaRootBridge.interface.parseLog({
-				topics: event.topics,
-				data: event.data
+				topics: event!.topics,
+				data: event!.data
 			});
 
-			const newGigaRoot = parsedEvent.args[0];
+			const newGigaRoot = parsedEvent!.args[0];
 
 			// tree has depth 2 so the root should just be a hash of (newL2Root, 0)
 			const newGigaRootCalculated = poseidon2([newL2Root, 0n]);
@@ -197,23 +195,23 @@ describe("GigaRootBridge core", function () {
 			expect(newGigaRoot.toString()).to.equal(gigaRootFromContract.toString());
 
 			// sends the root to the L2AztecRootBridgeAdapter through the L1AztecRootBridgeAdapter
-			let sendGigaRootTx = await GigaRootBridge.sendRoot([L1AztecRootBridgeAdapter.target]);
-			let sendGigaRootReceipt = await sendGigaRootTx.wait(1);
+			const sendGigaRootTx = await GigaRootBridge.sendRoot([L1AztecRootBridgeAdapter.target]);
+			const sendGigaRootReceipt = await sendGigaRootTx.wait(1)
 
 			// Find the event in the logs
-			const sendGigaRootEvent = sendGigaRootReceipt.logs.find(
+			const sendGigaRootEvent = sendGigaRootReceipt!.logs.find(
 				log => log.topics[0] === L1AztecRootBridgeAdapter.interface.getEvent("newGigaRootSentToL2").topicHash
 			);
 
 			// Parse the event data
 			const parsedL1AdapterEvent = L1AztecRootBridgeAdapter.interface.parseLog({
-				topics: sendGigaRootEvent.topics,
-				data: sendGigaRootEvent.data
+				topics: sendGigaRootEvent!.topics,
+				data: sendGigaRootEvent!.data
 			});
 
-			const content_hash = parsedL1AdapterEvent.args[0];
-			const key = parsedL1AdapterEvent.args[1];
-			const index = parsedL1AdapterEvent.args[2];
+			const content_hash = parsedL1AdapterEvent!.args[0];
+			const key = parsedL1AdapterEvent!.args[1];
+			const index = parsedL1AdapterEvent!.args[2];
 
 			// call 2 unrelated functions on the l2 because of
 			// https://github.com/AztecProtocol/aztec-packages/blob/7e9e2681e314145237f95f79ffdc95ad25a0e319/yarn-project/end-to-end/src/shared/cross_chain_test_harness.ts#L354-L355
@@ -226,14 +224,12 @@ describe("GigaRootBridge core", function () {
 			// New test logic
 			await L2AztecRootBridgeAdapter.methods.update_gigaroot(content_hash, index).send().wait();
 
-			let newGigaRootFromL2 = await L2AztecRootBridgeAdapter.methods.get_giga_root().simulate();
-			let newGigaRootField = new Fr(newGigaRootFromL2);
+			const newGigaRootFromL2 = await L2AztecRootBridgeAdapter.methods.get_giga_root().simulate();
+			const newGigaRootField = new Fr(newGigaRootFromL2);
 
 			expect(newGigaRootField.toString()).to.equal(BigInt(newGigaRoot.toString()));
 		})
 	})
-
-
 })
 
 /*
