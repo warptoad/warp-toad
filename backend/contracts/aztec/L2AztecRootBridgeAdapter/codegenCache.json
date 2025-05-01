@@ -1,0 +1,10 @@
+{
+  "RootBridge-RootBridge.json": {
+    "contractName": "RootBridge",
+    "hash": "59f16f6347f71b5e46d71afeafdee99bde7fb6e5e2eb8767d8b74cd5263c61e4"
+  },
+  "L2AztecRootBridgeAdapter-L2AztecRootBridgeAdapter.json": {
+    "contractName": "L2AztecRootBridgeAdapter",
+    "hash": "5340a26dbf7191bd9e42bb6c093bc5bc7347e17c2af24ca3e09cd8f354801cb1"
+  }
+}
