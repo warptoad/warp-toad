@@ -27,6 +27,13 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore, ILocalRootProvider {
         require(msg.sender == gigaRootProvider, "Not gigaRootProvider");
         _; // what is that?
     }
+
+    modifier onlyDeployer() {
+        require(msg.sender == deployer, "Not the deployer");
+        _; // what is that?
+    }
+    address deployer;
+
     LazyIMTData public commitTreeData; // does this need to be public?
     uint8 public maxTreeDepth;
 
@@ -41,14 +48,19 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore, ILocalRootProvider {
 
     address public nativeToken;
 
-    constructor(uint8 _maxTreeDepth, address _gigaRootProvider, address _withdrawVerifier, address _nativeToken) {
+    constructor(uint8 _maxTreeDepth, address _withdrawVerifier, address _nativeToken) {
         maxTreeDepth = _maxTreeDepth;
         // maxBurns = 2 ** _maxTreeDepth; // circuit cant go above this number
 
-        gigaRootProvider = _gigaRootProvider;
         withdrawVerifier = _withdrawVerifier;
         LazyIMT.init(commitTreeData, _maxTreeDepth);
         nativeToken = _nativeToken;
+        deployer = msg.sender;
+    }
+
+    function initialize(address _gigaRootProvider) public onlyDeployer() {
+        require(gigaRootProvider == address(0), "gigaRootProvider is already set");
+        gigaRootProvider = _gigaRootProvider;
     }
 
     function isValidGigaRoot(uint256 _gigaRoot) public view returns (bool) {
@@ -121,7 +133,7 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore, ILocalRootProvider {
         require(IVerifier(withdrawVerifier).verify(_poof, _publicInputs), "invalid proof"); 
 
         // fee logic       
-        if (_feeFactor != 0 ) { 
+        if (_feeFactor != 0 ) { // 
             uint256 _relayerFee = _feeFactor * (block.basefee + _priorityFee); // TODO double check precision. Prob only breaks if the wrpToad token price is super high or gas cost super low
             require(_relayerFee <= _maxFee, "_relayerFee is larger than _maxFee");
             // for compatibility with permissionless relaying

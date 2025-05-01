@@ -3,7 +3,7 @@
 
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 //import { proxy, PoseidonT3 } from 'poseidon-solidity'
-
+console.warn("TODO broken gigaBridge should be removed from constructor")
 export default buildModule("L1WarpToad", (m) => {
   // TODO use nix method so we reused the same contract
   // https://github.com/chancehudson/poseidon-solidity?tab=readme-ov-file#deploy

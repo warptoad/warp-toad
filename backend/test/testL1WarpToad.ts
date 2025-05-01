@@ -1,4 +1,4 @@
-import hre from "hardhat"
+const hre = require("hardhat");
 
 //@ts-ignore
 import { expect } from "chai";
