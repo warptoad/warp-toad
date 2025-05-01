@@ -140,8 +140,8 @@ contract L1AztecRootBridgeAdapter is IL1RootBridgeAdapter {
     // adapter
     function getContentHash(
         bytes32 _newL2Root,
-        uint32 _l2BlockNumber
-    ) internal pure returns (bytes32) {
+        uint256 _l2BlockNumber
+    ) public pure returns (bytes32) {
         return Hash.sha256ToField(abi.encode(_newL2Root, _l2BlockNumber));
     }
 }
