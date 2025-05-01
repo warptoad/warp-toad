@@ -1,7 +1,8 @@
 // hardhat 
-import hre from "hardhat"
+const hre = require("hardhat");
 //@ts-ignore
 import { expect } from "chai";
+//@ts-ignore
 import { time, loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers.js";
 
 // aztec
@@ -22,7 +23,7 @@ import { hashNoteHashNonce } from "../scripts/lib/hashing";
 import { calculateFeeFactor, createProof, generateNoirTest, getProofInputs } from "../scripts/lib/proving";
 import { gasCostPerChain } from "../scripts/lib/constants";
 import { WarpToadCore as WarpToadEvm} from "../typechain-types";
-
+ 
 import os from 'os';
 
 async function connectPXE() {
@@ -41,7 +42,7 @@ async function connectPXE() {
 
 describe("AztecWarpToad", function () {
     async function deployAztecWarpToad() {
-        const nativeToken = await hre.ethers.deployContract("USDcoin", [], { value: 0n, libraries: {} })
+        const nativeToken = await hre?.ethers?.deployContract("USDcoin", [], { value: 0n, libraries: {} })
         const gigaRootHistorySize = 4n;
         const { wallets, PXE } = await connectPXE();
         const deployerWallet = wallets[0]
