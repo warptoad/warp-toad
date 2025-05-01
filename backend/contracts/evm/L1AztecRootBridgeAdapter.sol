@@ -56,6 +56,7 @@ contract L1AztecRootBridgeAdapter is IL1RootBridgeAdapter {
      * @notice adds an L2 message which can only be consumed publicly on Aztec
      * @param _newGigaRoot - The new gigaRoot to send to L2 as a message
      */
+    // TODO: only callable by gigaRootBridge
     function sendGigaRootToAdapter(uint256 _newGigaRoot) external {
         // l2Bridge is the Aztec address of the contract that will be retrieving the
         // message on the L2

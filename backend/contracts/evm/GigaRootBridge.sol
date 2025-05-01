@@ -142,7 +142,7 @@ contract GigaRootBridge {
 
             // use l2LeafIndexes mapping to verify that this rootBridgeAdapterAddress was initialized
             require(
-                l2LeafIndexes[thisBridgeAdapterAddress] > 0,
+                isRootBridgeAdapter[thisBridgeAdapterAddress],
                 "Address is not a registered root bridge adapter address"
             );
 

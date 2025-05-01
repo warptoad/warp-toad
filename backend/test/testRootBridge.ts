@@ -95,7 +95,7 @@ describe("GigaRootBridge core", function () {
 			expect(gigaRoot).to.equal(0n);
 		});
 
-		it("Should update the gigaRoot on L1", async function () {
+		it("Should get the local root from L2, update gigaRoot, then send it back to L2", async function () {
 			let { GigaRootBridge, L1AztecRootBridgeAdapter, L2AztecRootBridgeAdapter, PXE } = await deploy();
 
 			// send local root L2 -> L1
@@ -190,6 +190,46 @@ describe("GigaRootBridge core", function () {
 				"newGigaRootCalculated ", newGigaRoot
 			);
 			expect(newGigaRoot.toString()).to.equal(newGigaRootCalculated.toString());
+
+			// make sure it's updated in the contract
+			const gigaRootFromContract = await GigaRootBridge.gigaRoot();
+			console.log("gigaRootFromContract ", gigaRootFromContract);
+			expect(newGigaRoot.toString()).to.equal(gigaRootFromContract.toString());
+
+			// sends the root to the L2AztecRootBridgeAdapter through the L1AztecRootBridgeAdapter
+			let sendGigaRootTx = await GigaRootBridge.sendRoot([L1AztecRootBridgeAdapter.target]);
+			let sendGigaRootReceipt = await sendGigaRootTx.wait(1);
+
+			// Find the event in the logs
+			const sendGigaRootEvent = sendGigaRootReceipt.logs.find(
+				log => log.topics[0] === L1AztecRootBridgeAdapter.interface.getEvent("newGigaRootSentToL2").topicHash
+			);
+
+			// Parse the event data
+			const parsedL1AdapterEvent = L1AztecRootBridgeAdapter.interface.parseLog({
+				topics: sendGigaRootEvent.topics,
+				data: sendGigaRootEvent.data
+			});
+
+			const content_hash = parsedL1AdapterEvent.args[0];
+			const key = parsedL1AdapterEvent.args[1];
+			const index = parsedL1AdapterEvent.args[2];
+
+			// call 2 unrelated functions on the l2 because of
+			// https://github.com/AztecProtocol/aztec-packages/blob/7e9e2681e314145237f95f79ffdc95ad25a0e319/yarn-project/end-to-end/src/shared/cross_chain_test_harness.ts#L354-L355
+			console.log("Waiting 2 L2 blocks to make sure the message is included");
+			console.log("Current L2 block: ", await PXE.getBlockNumber());
+			await L2AztecRootBridgeAdapter.methods.count(0n).send().wait();
+			await L2AztecRootBridgeAdapter.methods.count(4n).send().wait();
+			console.log("L2 block after waiting: ", await PXE.getBlockNumber());
+
+			// New test logic
+			await L2AztecRootBridgeAdapter.methods.update_gigaroot(content_hash, index).send().wait();
+
+			let newGigaRootFromL2 = await L2AztecRootBridgeAdapter.methods.get_giga_root().simulate();
+			let newGigaRootField = new Fr(newGigaRootFromL2);
+
+			expect(newGigaRootField.toString()).to.equal(BigInt(newGigaRoot.toString()));
 		})
 	})
 
@@ -301,7 +341,26 @@ describe("RootBridgeAdapters (L1 <-> L2 message passing)", function () {
 			// is called, so we have to do +1 if we want it to be the number of 
 			// the block that the transaction is executing in
 			let blockNumber = await PXE.getBlockNumber() + 1;
-			let messageLeaf = getMessageLeaf(l2Root, blockNumber, L1AztecRootBridgeAdapter, L2AztecRootBridgeAdapter, PXE);
+			let l2Bridge = AztecAddress.fromString(L2AztecRootBridgeAdapter.address.toString());
+			let version = await L1AztecRootBridgeAdapter.rollupVersion();
+			let l1PortalAddress = L1AztecRootBridgeAdapter.target;
+			let l1ChainId = 31337n;
+
+
+			const content = sha256ToField([
+				l2Root.toBuffer(),
+				new Fr(blockNumber).toBuffer(),
+			]);
+
+			// is l2ToL1Message
+			const messageLeaf = sha256ToField([
+				l2Bridge.toBuffer(),
+				new Fr(version).toBuffer(),
+				EthAddress.fromString(l1PortalAddress).toBuffer32() ?? Buffer.alloc(32, 0),
+				new Fr(l1ChainId).toBuffer(),
+				content.toBuffer(),
+			]);
+
 
 			let l2TxReceipt = await L2AztecRootBridgeAdapter.methods.send_root_to_l1(l2Root).send().wait();
 
@@ -340,15 +399,17 @@ describe("RootBridgeAdapters (L1 <-> L2 message passing)", function () {
 			});
 
 			const newL2Root = parsedEvent.args[0];
+			const newL2RootBlockNumber = parsedEvent.args[1];
 
-			expect(newL2Root).to.not.be.undefined;
 			console.log("l2 root seen by l1: ", newL2Root);
-
 			expect(newL2Root.toString()).to.equal(BigInt(l2Root.toString()));
 
+			expect(newL2RootBlockNumber).to.equal(blockNumber);
+
 		})
+
 	})
 
 })
-*/
 
+*/
