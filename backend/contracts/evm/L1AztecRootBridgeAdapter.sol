@@ -36,13 +36,19 @@ contract L1AztecRootBridgeAdapter is IL1RootBridgeAdapter {
     IInbox public inbox;
     uint256 public rollupVersion;
 
+    address public gigaRootBridge;
+
     /**
      * @notice Initialize the portal
      * @param _registry - The registry address
      * @param _l2Bridge - The L2 bridge address
      */
     // TODO: anyone can call this to set the l2 bridge to something else.  Should make it only callable once
-    function initialize(address _registry, bytes32 _l2Bridge) external {
+    function initialize(
+        address _registry,
+        bytes32 _l2Bridge,
+        address _gigaRootBridge
+    ) external {
         registry = IRegistry(_registry);
         l2Bridge = _l2Bridge;
 
@@ -50,14 +56,22 @@ contract L1AztecRootBridgeAdapter is IL1RootBridgeAdapter {
         outbox = rollup.getOutbox();
         inbox = rollup.getInbox();
         rollupVersion = rollup.getVersion();
+
+        gigaRootBridge = _gigaRootBridge;
+    }
+
+    modifier onlyGigaRootBridge() {
+        require(msg.sender == gigaRootBridge, "Not gigaRootBridge");
+        _;
     }
 
     /**
      * @notice adds an L2 message which can only be consumed publicly on Aztec
      * @param _newGigaRoot - The new gigaRoot to send to L2 as a message
      */
-    // TODO: only callable by gigaRootBridge
-    function sendGigaRootToAdapter(uint256 _newGigaRoot) external {
+    function sendGigaRootToAdapter(
+        uint256 _newGigaRoot
+    ) external onlyGigaRootBridge {
         // l2Bridge is the Aztec address of the contract that will be retrieving the
         // message on the L2
         DataStructures.L2Actor memory actor = DataStructures.L2Actor(
@@ -106,8 +120,7 @@ contract L1AztecRootBridgeAdapter is IL1RootBridgeAdapter {
      * @param _newL2Root - the merkle root currently on the L2 to add into the GigaRoot
      * @param _l2BlockNumber - the block number of the L2 when the state root was created
      * @param _leafIndex - The amount to withdraw
-     * @param _path - Flag to use `msg.sender` as caller, otherwise address(0)
-     * Must match the caller of the message (specified from L2) to consume it.
+     * @param _path - Must match the caller of the message (specified from L2) to consume it.
      */
     function refreshRoot(
         bytes32 _newL2Root,
@@ -125,7 +138,15 @@ contract L1AztecRootBridgeAdapter is IL1RootBridgeAdapter {
             content: contentHash
         });
 
-        outbox.consume(message, _l2BlockNumber, _leafIndex, _path);
+        // The l2BlockNumber is the block number of the state tree root that we fetch
+        // from a private context inside L1AztecRootBridgeAdapter.  This means this block number
+        // is one behind the block the private transaction settles in.  But when consuming messages
+        // from the message tree, we have to know the block that the message got added to the tree,
+        // which is the block that the private transaction settles in.  So it's l2BlockNumber + 1
+        // TODO: shouldn't assume that the private transaction settles in the block after it's called
+        // In the future, look at the L2 txn receipt to see what block number it is in and use that as the
+        // block number in consume (and in client side code where we're creating the messageLeaf)
+        outbox.consume(message, _l2BlockNumber + 1, _leafIndex, _path);
 
         // convert from bytes32 to uint256
         uint256 newL2RootCast = uint256(_newL2Root);
