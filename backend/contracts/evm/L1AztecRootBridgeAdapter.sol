@@ -1,9 +1,6 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity 0.8.29;
-
-import "./IL1RootBridgeAdapter.sol";
-
 // TODO: remove
 // import "hardhat/console.sol";
 
@@ -13,37 +10,41 @@ import {IInbox} from "./aztec-interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "./aztec-interfaces/messagebridge/IOutbox.sol";
 import {IRollup} from "./aztec-interfaces/IRollup.sol";
 import {DataStructures} from "./aztec-interfaces/CoreDataStructures.sol";
-
+import {ILocalRootProvider} from "./interfaces/ILocalRootProvider.sol";
 // hash for message passing to L2
 import {Hash} from "./aztec-interfaces/crypto/Hash.sol";
 
-contract L1AztecRootBridgeAdapter is IL1RootBridgeAdapter {
+contract L1AztecRootBridgeAdapter is ILocalRootProvider {
+    modifier onlyGigaBridge() {
+        require(msg.sender == gigaBridge, "Not gigaBridge");
+        _; // what is that?
+    }
     // gigaRoot is emitted as a bytes32 here because thats how it's recovered on the
     // aztec L2 side of this rootBridgeAdapter.  Key and index are also used to
     // retrieve this newGigaRoot on aztec
     event newGigaRootSentToL2(bytes32 newGigaRoot, bytes32 key, uint256 index);
-    event receivedNewL2Root(uint256 newL2Root, uint32 l2Block);
+    event receivedNewL2Root(uint256 newL2Root, uint256 l2Block);
 
     IRegistry public registry;
     bytes32 public l2Bridge;
     // most recent warp toad state root from the L2
     uint256 public mostRecentL2Root;
     // the L2 block that the most recent L2 root came from
-    uint32 public mostRecentL2RootBlockNumber;
+    uint256 public mostRecentL2RootBlockNumber;
 
     IRollup public rollup;
     IOutbox public outbox;
     IInbox public inbox;
     uint256 public rollupVersion;
 
-    address public gigaRootBridge;
+    address public gigaBridge;
 
     /**
      * @notice Initialize the portal
      * @param _registry - The registry address
      * @param _l2Bridge - The L2 bridge address
      */
-    // TODO: anyone can call this to set the l2 bridge to something else.  Should make it only callable once
+    // TODO: anyone can call this to set the l2 bridge to something else.  Should make it only callable once. And only owner!
     function initialize(
         address _registry,
         bytes32 _l2Bridge,
@@ -57,21 +58,20 @@ contract L1AztecRootBridgeAdapter is IL1RootBridgeAdapter {
         inbox = rollup.getInbox();
         rollupVersion = rollup.getVersion();
 
-        gigaRootBridge = _gigaRootBridge;
-    }
-
-    modifier onlyGigaRootBridge() {
-        require(msg.sender == gigaRootBridge, "Not gigaRootBridge");
-        _;
+        gigaBridge = _gigaRootBridge;
     }
 
     /**
      * @notice adds an L2 message which can only be consumed publicly on Aztec
      * @param _newGigaRoot - The new gigaRoot to send to L2 as a message
      */
-    function sendGigaRootToAdapter(
+    function receiveGigaRoot(
         uint256 _newGigaRoot
-    ) external onlyGigaRootBridge {
+    ) external onlyGigaBridge {
+        _bridgeGigaRootToL2(_newGigaRoot);
+    }
+
+    function _bridgeGigaRootToL2(uint256 _newGigaRoot) internal {
         // l2Bridge is the Aztec address of the contract that will be retrieving the
         // message on the L2
         DataStructures.L2Actor memory actor = DataStructures.L2Actor(
@@ -100,9 +100,9 @@ contract L1AztecRootBridgeAdapter is IL1RootBridgeAdapter {
 
         // Emit event
         emit newGigaRootSentToL2(contentHash, key, index);
-    }
+    } 
 
-    function getMostRecentRootAndL2Block() external returns (uint256, uint32) {
+    function getLocalRootAndBlock() external returns (uint256, uint256) {
         require(
             mostRecentL2Root > 0,
             "An L2 root hasn't yet been bridged to this contract. refreshRoot must be called."
@@ -122,9 +122,9 @@ contract L1AztecRootBridgeAdapter is IL1RootBridgeAdapter {
      * @param _leafIndex - The amount to withdraw
      * @param _path - Must match the caller of the message (specified from L2) to consume it.
      */
-    function refreshRoot(
+    function getNewRootFromL2(
         bytes32 _newL2Root,
-        uint32 _l2BlockNumber,
+        uint256 _l2BlockNumber,
         uint256 _leafIndex,
         bytes32[] calldata _path
     ) external {

@@ -6,16 +6,14 @@
 // Anvil default port is 8545
 //https://github.com/AztecProtocol/aztec-packages/blob/master/l1-contracts/test/Inbox.t.sol
 
-//@ts-ignore
-import hre from "hardhat"
+const hre = require("hardhat"); // normal style import made red squiggles idk why this works
+import { ethers } from "ethers"
 
 //@ts-ignore
 import { IMT } from "@zk-kit/imt"
 
-//@ts-ignore
 import { poseidon2 } from "poseidon-lite"
 
-//@ts-ignore
 import { GigaRootBridge, L1AztecRootBridgeAdapter } from "../typechain-types"
 
 //@ts-ignore
@@ -32,7 +30,6 @@ import { computeSecretHash, EthAddress, createPXEClient, waitForPXE, AztecAddres
 //@ts-ignore
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing'; // idk why but node is bitching about this but bun doesnt care
 
-//@ts-ignore
 import { L2AztecRootBridgeAdapterContractArtifact, L2AztecRootBridgeAdapterContract } from '../contracts/aztec/L2AztecRootBridgeAdapter/src/artifacts/L2AztecRootBridgeAdapter'
 
 const { PXE_URL = 'http://localhost:8080' } = process.env;
@@ -59,7 +56,7 @@ describe("GigaRootBridge core", function () {
 		// L2AztecRootBridgeAdapter (L2) deployment
 		const { wallets, PXE } = await connectPXE();
 		const deployerWallet = wallets[0]
-		const constructorArgs = [EthAddress.fromString(L1AztecRootBridgeAdapter.target)];
+		const constructorArgs = [L1AztecRootBridgeAdapter.target];
 		const nodeInfo = (await PXE.getNodeInfo());
 
 		// This is also the "registry"
@@ -69,8 +66,8 @@ describe("GigaRootBridge core", function () {
 		const PoseidonT3Lib = await hre.ethers.deployContract("PoseidonT3", [], { value: 0n, libraries: {} })
 		const LazyIMTLib = await hre.ethers.deployContract("LazyIMT", [], { value: 0n, libraries: { PoseidonT3: PoseidonT3Lib } })
 		hre.ethers.getContractFactory("GigaRootBridge",);
-		const rootBridgeAdapterAddresses = [L1AztecRootBridgeAdapter.target];
-		const GigaRootBridge = await hre.ethers.deployContract("GigaRootBridge", [rootBridgeAdapterAddresses, 2], {
+		const gigaRootRecipients = [L1AztecRootBridgeAdapter.target]; //TODO add L1WarpToad
+		const GigaRootBridge = await hre.ethers.deployContract("GigaRootBridge", [gigaRootRecipients, 2], {
 			value: 0n,
 			libraries: {
 				LazyIMT: LazyIMTLib,
@@ -80,6 +77,7 @@ describe("GigaRootBridge core", function () {
 		// initialize L1 L1AztecRootBridgeAdapter
 		const registryAddress = nodeInfo.l1ContractAddresses.registryAddress.toString();
 		const l2Bridge = L2AztecRootBridgeAdapter.address.toString();
+		console.log({initializeArgs: [registryAddress, l2Bridge, GigaRootBridge.target]})
 		await L1AztecRootBridgeAdapter.initialize(registryAddress, l2Bridge, GigaRootBridge.target);
 
 		return { GigaRootBridge, L1AztecRootBridgeAdapter, L2AztecRootBridgeAdapter, PXE }
@@ -137,12 +135,9 @@ describe("GigaRootBridge core", function () {
 				messageLeaf
 			);
 
-			const siblingPathArray = siblingPath.data.map(buffer =>
-				'0x' + buffer.toString('hex')
-			);
-
+			const siblingPathArray = siblingPath.toFields().map((f)=>f.toString())
 			// using the data before the block / transaction was included because 
-			let refreshRootTx = await L1AztecRootBridgeAdapter.refreshRoot(
+			let refreshRootTx = await L1AztecRootBridgeAdapter.getNewRootFromL2(
 				l2Root.toString(),
 				BigInt(blockNumber),
 				l2ToL1MessageIndex,
@@ -154,7 +149,7 @@ describe("GigaRootBridge core", function () {
 
 			// Find the event in the logs
 			const refreshRootEvent = receipt.logs.find(
-				log => log.topics[0] === L1AztecRootBridgeAdapter.interface.getEvent("receivedNewL2Root").topicHash
+				(log: ethers.EventLog) => log.topics[0] === L1AztecRootBridgeAdapter.interface.getEvent("receivedNewL2Root").topicHash
 			);
 
 			// Parse the refreshRootEvent data
@@ -177,7 +172,7 @@ describe("GigaRootBridge core", function () {
 
 			// Find the event in the logs
 			const event = gigaRootUpdateReceipt.logs.find(
-				log => log.topics[0] === GigaRootBridge.interface.getEvent("constructedNewGigaRoot").topicHash
+				(log: ethers.EventLog) => log.topics[0] === GigaRootBridge.interface.getEvent("constructedNewGigaRoot").topicHash
 			);
 
 			const parsedEvent = GigaRootBridge.interface.parseLog({
@@ -208,7 +203,7 @@ describe("GigaRootBridge core", function () {
 
 			// Find the event in the logs
 			const sendGigaRootEvent = sendGigaRootReceipt.logs.find(
-				log => log.topics[0] === L1AztecRootBridgeAdapter.interface.getEvent("newGigaRootSentToL2").topicHash
+				(log: ethers.EventLog) => log.topics[0] === L1AztecRootBridgeAdapter.interface.getEvent("newGigaRootSentToL2").topicHash
 			);
 
 			// Parse the event data

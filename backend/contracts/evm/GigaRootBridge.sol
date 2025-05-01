@@ -1,126 +1,126 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity 0.8.29;
-import "./IL1RootBridgeAdapter.sol";
+import {ILocalRootProvider} from "./interfaces/ILocalRootProvider.sol";
 import {PoseidonT3} from "poseidon-solidity/PoseidonT3.sol";
 import {LazyIMT, LazyIMTData} from "@zk-kit/lazy-imt.sol/LazyIMT.sol";
 
 contract GigaRootBridge {
     event constructedNewGigaRoot(uint256 indexed newGigaRoot);
 
-    event receivedNewL2Root(
-        uint256 indexed newL2Root,
-        // l2 block number that this l2 root came from
-        uint32 indexed l2BlockNumber,
-        address indexed rootBridgeAdapter
+    event receivedNewLocalRoot(
+        uint256 indexed newLocalRoot,
+        // block number that this root came from
+        uint256 indexed localRootBlockNumber,
+        address indexed LocalRootProvider
     );
 
     LazyIMTData public rootTreeData; // does this need to be public?
-    IL1RootBridgeAdapter[] public rootBridgeAdapters;
+    ILocalRootProvider[] public localRootProviders;
     // just a membership mapping
-    mapping(address => bool) isRootBridgeAdapter;
-    // mapping of the rootBridgeAdapter addr to their L2 root's position in all
-    // the arrays used (rootTreeData, gigaRootL2BlockNumbers, and rootBridgeAdapters)
-    mapping(address => uint40) public l2LeafIndexes;
-    // mapping gigaRoot => block number of the L2 block each L2 root (leaf) came from
-    // The length of the array is always rootBridgeAdapters.length
-    mapping(uint256 => uint32[]) public gigaRootL2BlockNumbers;
+    mapping(address => bool) isLocalRootProvider;
+    // mapping of the LocalRootProvider addr to their local root's position in all
+    // the arrays used (rootTreeData, localRootBlockNumbers, and localRootProviders)
+    mapping(address => uint40) public localRootLeafIndexes;
+    // mapping gigaRoot => block number of the local block each local root (leaf) came from
+    // The length of the array is always localRootProviders.length
+    mapping(uint256 => uint256[]) public localRootBlockNumbers;
     uint8 public maxTreeDepth;
     uint256 public gigaRoot;
 
     /**
      * @notice Initialize the root bridge
-     * @param _bridgeAdapterAddresses - the L1 contracts that can receive roots from corresponding L2s
+     * @param _localRootProviders - the L1 contracts that can receive roots from corresponding locals
      */
-    constructor(address[] memory _bridgeAdapterAddresses, uint8 _maxTreeDepth) {
+    constructor(address[] memory _localRootProviders, uint8 _maxTreeDepth) {
         maxTreeDepth = _maxTreeDepth;
         // init doesn't add any leaves
         LazyIMT.init(rootTreeData, _maxTreeDepth);
 
-        // for each L1RootBridgeAdapter...
-        for (uint40 i = 0; i < _bridgeAdapterAddresses.length; i++) {
-            address thisBridgeAdapterAddress = _bridgeAdapterAddresses[i];
+        // for each L1LocalRootProvider...
+        for (uint40 i = 0; i < _localRootProviders.length; i++) {
+            address thisLocalRootProvider = _localRootProviders[i];
 
             // add to list of rootBridges
-            rootBridgeAdapters.push(
-                IL1RootBridgeAdapter(thisBridgeAdapterAddress)
+            localRootProviders.push(
+                ILocalRootProvider(thisLocalRootProvider)
             );
 
             // note the index of this root bridge.  This index will be used to in
-            // rootTreeData, gigaRootL2BlockNumbers, and rootBridgeAdapters to keep a
-            // "state" for each L2 which WarpToad is deployed on
-            l2LeafIndexes[thisBridgeAdapterAddress] = i;
-            isRootBridgeAdapter[thisBridgeAdapterAddress] = true;
+            // rootTreeData, localRootBlockNumbers, and localRootProviders to keep a
+            // "state" for each local which WarpToad is deployed on
+            localRootLeafIndexes[thisLocalRootProvider] = i;
+            isLocalRootProvider[thisLocalRootProvider] = true;
 
             // data has to be inserted before we can call update on indexes down below
             LazyIMT.insert(rootTreeData, 0);
         }
 
-        // initialize a list of 0 elements of length _bridgeAdapterAddresses.length
-        uint256 numberOfL2s = _bridgeAdapterAddresses.length;
-        uint32[] memory initialL2BlockNumbers = new uint32[](numberOfL2s);
+        // initialize a list of 0 elements of length _localRootProviders.length
+        uint256 numberOfLocalRoots = _localRootProviders.length;
+        uint256[] memory initiallocalRootBlockNumbers = new uint256[](numberOfLocalRoots);
 
         // and set the initial root to this list
-        gigaRootL2BlockNumbers[0] = initialL2BlockNumbers;
+        localRootBlockNumbers[0] = initiallocalRootBlockNumbers;
     }
 
     /**
      * @notice updates the current gigaRoot by querying for updates from the supplied
-     * list of L2 bridges.  You can pull updates from a subset of L2s for gas saving (don't have to update to all l2s).
+     * list of local root providers.  You can pull updates from a subset of local root providers for gas saving (don't have to update to all local root providers).
      */
-    function updateRoot(address[] memory _bridgeAdapterAddresses) external {
+    function updateRoot(address[] memory _localRootProviders) external {
         require(
-            _bridgeAdapterAddresses.length >= rootBridgeAdapters.length,
-            "Passed in too many bridgeAdapterAddresseses"
+            _localRootProviders.length >= localRootProviders.length,
+            "Passed in too many localRootProviderses"
         );
 
-        // get old array of l2BlockNumbers at the previous gigaRoot and overwrite it with
-        // new block numbers of the L2s were updating
-        uint32[] memory updatedL2BlockNumbers = gigaRootL2BlockNumbers[
+        // get old array of localRootBlockNumbers at the previous gigaRoot and overwrite it with
+        // new block numbers of the local root providers were updating
+        uint256[] memory updatedLocalRootBlockNumbers = localRootBlockNumbers[
             gigaRoot
         ];
 
-        // for each l2BridgeAdapter
-        for (uint40 i = 0; i < _bridgeAdapterAddresses.length; i++) {
-            address thisBridgeAdapterAddress = _bridgeAdapterAddresses[i];
+        // for each localRootProviders
+        for (uint40 i = 0; i < _localRootProviders.length; i++) {
+            address thisLocalRootProvider = _localRootProviders[i];
 
-            // get the index of this l2 (used in updatedL2BlockNumbers and rootTreeData)
-            uint40 l2LeafIndex = l2LeafIndexes[thisBridgeAdapterAddress];
+            // get the index of this localRootProvider (used in updatedLocalRootBlockNumbers and rootTreeData)
+            uint40 localRootIndex = localRootLeafIndexes[thisLocalRootProvider];
 
             // make sure this bridgeAdapterAddress was initialized
             require(
-                isRootBridgeAdapter[thisBridgeAdapterAddress],
+                isLocalRootProvider[thisLocalRootProvider],
                 "Address is not a registered root bridge address"
             );
 
-            // create IL1RootBridgeAdapter interface
-            IL1RootBridgeAdapter rootBridgeAdapter = IL1RootBridgeAdapter(
-                thisBridgeAdapterAddress
+            // create ILocalRootProvider interface
+            ILocalRootProvider localRootProvider = ILocalRootProvider(
+                thisLocalRootProvider
             );
 
             // get the most recent l2 root and the l2 block number it came from from this bridge
-            (uint256 newL2Root, uint32 l2BlockNumber) = rootBridgeAdapter
-                .getMostRecentRootAndL2Block();
+            (uint256 newLocalRoot, uint256 localRootBlockNumber) = localRootProvider
+                .getLocalRootAndBlock();
 
-            emit receivedNewL2Root(
-                newL2Root,
-                l2BlockNumber,
-                thisBridgeAdapterAddress
+            emit receivedNewLocalRoot(
+                newLocalRoot,
+                localRootBlockNumber,
+                thisLocalRootProvider
             );
 
             // update the root in the corresponding index in the merkle tree
             // TODO: this is pretty expensive.  Optimize batch updates
-            LazyIMT.update(rootTreeData, newL2Root, l2LeafIndex);
+            LazyIMT.update(rootTreeData, newLocalRoot, localRootIndex);
 
-            // update the list of L2 block numbers for the L2 whos root we just got
-            updatedL2BlockNumbers[l2LeafIndex] = l2BlockNumber;
+            // update the list of block numbers for the local root providers whos root we just got
+            updatedLocalRootBlockNumbers[localRootIndex] = localRootBlockNumber;
         }
 
         // compute new giga root
         uint256 newGigaRoot = LazyIMT.root(rootTreeData);
 
-        // set the updated list of L2Block numbers that this gigaRoot is updated to
-        gigaRootL2BlockNumbers[newGigaRoot] = updatedL2BlockNumbers;
+        // set the updated list of Block numbers that this gigaRoot is updated to
+        localRootBlockNumbers[newGigaRoot] = updatedLocalRootBlockNumbers;
 
         emit constructedNewGigaRoot(newGigaRoot);
 
@@ -130,29 +130,29 @@ contract GigaRootBridge {
 
     // Made this a second function because the addresses that want the gigaRoot
     // might be different from the addresses that are updating the root.
-    // Sends the most recent gigaRoot to an array of rootBridgeAdapters
-    function sendRoot(address[] memory _bridgeAdapterAddresses) external {
+    // Sends the most recent gigaRoot to an array of localRootProviders
+    function sendRoot(address[] memory _localRootProviders) external {
         require(
-            _bridgeAdapterAddresses.length >= rootBridgeAdapters.length,
-            "Passed in too many bridgeAdapterAddresseses"
+            _localRootProviders.length >= localRootProviders.length,
+            "Passed in too many localRootProviderses"
         );
 
-        for (uint256 i = 0; i < _bridgeAdapterAddresses.length; i++) {
-            address thisBridgeAdapterAddress = _bridgeAdapterAddresses[i];
+        for (uint256 i = 0; i < _localRootProviders.length; i++) {
+            address thisLocalRootProvider = _localRootProviders[i];
 
-            // use l2LeafIndexes mapping to verify that this rootBridgeAdapterAddress was initialized
+            // use localRootLeafIndexes mapping to verify that this LocalRootProviderAddress was initialized
             require(
-                isRootBridgeAdapter[thisBridgeAdapterAddress],
-                "Address is not a registered root bridge adapter address"
+                isLocalRootProvider[thisLocalRootProvider],
+                "Address is not a registered local root provider address"
             );
 
-            IL1RootBridgeAdapter rootBridgeAdapter = IL1RootBridgeAdapter(
-                thisBridgeAdapterAddress
+            ILocalRootProvider LocalRootProvider = ILocalRootProvider(
+                thisLocalRootProvider
             );
 
-            // send the most recent gigaRoot to this L1RootBridgeAdapter address, to later be bridged over
-            // and consumed by the corresponding L2RootBridgeAdapter on the L2
-            rootBridgeAdapter.sendGigaRootToAdapter(gigaRoot);
+            // send the most recent gigaRoot to this LocalRootProvider address. 
+            // They provide local roots but also like something back. A gigaRoot :0!!!
+            LocalRootProvider.receiveGigaRoot(gigaRoot);
         }
     }
 }

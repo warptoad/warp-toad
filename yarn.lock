@@ -1793,11 +1793,6 @@
   dependencies:
     buffer "^6.0.3"
 
-"@zkpassport/poseidon2@^0.6.1":
-  version "0.6.1"
-  resolved "https://registry.yarnpkg.com/@zkpassport/poseidon2/-/poseidon2-0.6.1.tgz#6c7d5345916d4632a3bfe25641605e9a6f6e0c2f"
-  integrity sha512-9jDOgCvZvrfZAoobPjDVKnBmcjE9HP2HwlCc/dpwAr87ERzGyV0WqY6y0AkomtlYEJIaAtAEjLeRgmKKNIqFCg==
-
 abbrev@1:
   version "1.1.1"
   resolved "https://registry.yarnpkg.com/abbrev/-/abbrev-1.1.1.tgz#f8f2c887ad10bf67f634f005b6987fed3179aac8"
