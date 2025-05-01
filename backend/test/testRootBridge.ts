@@ -59,7 +59,7 @@ describe("GigaRootBridge core", function () {
 		// L2AztecRootBridgeAdapter (L2) deployment
 		const { wallets, PXE } = await connectPXE();
 		const deployerWallet = wallets[0]
-		const constructorArgs = [EthAddress.fromString(L1AztecRootBridgeAdapter.target)];
+		const constructorArgs = [L1AztecRootBridgeAdapter.target];
 		const nodeInfo = (await PXE.getNodeInfo());
 
 		// This is also the "registry"
@@ -80,6 +80,7 @@ describe("GigaRootBridge core", function () {
 		// initialize L1 L1AztecRootBridgeAdapter
 		const registryAddress = nodeInfo.l1ContractAddresses.registryAddress.toString();
 		const l2Bridge = L2AztecRootBridgeAdapter.address.toString();
+		console.log({initializeArgs: [registryAddress, l2Bridge, GigaRootBridge.target]})
 		await L1AztecRootBridgeAdapter.initialize(registryAddress, l2Bridge, GigaRootBridge.target);
 
 		return { GigaRootBridge, L1AztecRootBridgeAdapter, L2AztecRootBridgeAdapter, PXE }
@@ -142,7 +143,7 @@ describe("GigaRootBridge core", function () {
 			);
 
 			// using the data before the block / transaction was included because 
-			let refreshRootTx = await L1AztecRootBridgeAdapter.refreshRoot(
+			let refreshRootTx = await L1AztecRootBridgeAdapter.getNewRootFromL2(
 				l2Root.toString(),
 				BigInt(blockNumber),
 				l2ToL1MessageIndex,

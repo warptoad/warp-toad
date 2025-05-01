@@ -15,8 +15,8 @@ import {ILocalRootProvider} from "./interfaces/ILocalRootProvider.sol";
 import {Hash} from "./aztec-interfaces/crypto/Hash.sol";
 
 contract L1AztecRootBridgeAdapter is ILocalRootProvider {
-    modifier onlyGigaRootProvider() {
-        require(msg.sender == gigaRootProvider, "Not gigaRootProvider");
+    modifier onlyGigaBridge() {
+        require(msg.sender == gigaBridge, "Not gigaBridge");
         _; // what is that?
     }
     // gigaRoot is emitted as a bytes32 here because thats how it's recovered on the
@@ -37,14 +37,14 @@ contract L1AztecRootBridgeAdapter is ILocalRootProvider {
     IInbox public inbox;
     uint256 public rollupVersion;
 
-    address public gigaRootProvider;
+    address public gigaBridge;
 
     /**
      * @notice Initialize the portal
      * @param _registry - The registry address
      * @param _l2Bridge - The L2 bridge address
      */
-    // TODO: anyone can call this to set the l2 bridge to something else.  Should make it only callable once
+    // TODO: anyone can call this to set the l2 bridge to something else.  Should make it only callable once. And only owner!
     function initialize(
         address _registry,
         bytes32 _l2Bridge,
@@ -58,7 +58,7 @@ contract L1AztecRootBridgeAdapter is ILocalRootProvider {
         inbox = rollup.getInbox();
         rollupVersion = rollup.getVersion();
 
-        gigaRootProvider = _gigaRootBridge;
+        gigaBridge = _gigaRootBridge;
     }
 
     /**
@@ -67,7 +67,11 @@ contract L1AztecRootBridgeAdapter is ILocalRootProvider {
      */
     function receiveGigaRoot(
         uint256 _newGigaRoot
-    ) external onlyGigaRootProvider {
+    ) external onlyGigaBridge {
+        _bridgeGigaRootToL2(_newGigaRoot);
+    }
+
+    function _bridgeGigaRootToL2(uint256 _newGigaRoot) internal {
         // l2Bridge is the Aztec address of the contract that will be retrieving the
         // message on the L2
         DataStructures.L2Actor memory actor = DataStructures.L2Actor(
@@ -96,7 +100,7 @@ contract L1AztecRootBridgeAdapter is ILocalRootProvider {
 
         // Emit event
         emit newGigaRootSentToL2(contentHash, key, index);
-    }
+    } 
 
     function getLocalRootAndBlock() external returns (uint256, uint256) {
         require(
@@ -118,7 +122,7 @@ contract L1AztecRootBridgeAdapter is ILocalRootProvider {
      * @param _leafIndex - The amount to withdraw
      * @param _path - Must match the caller of the message (specified from L2) to consume it.
      */
-    function refreshRoot(
+    function getNewRootFromL2(
         bytes32 _newL2Root,
         uint256 _l2BlockNumber,
         uint256 _leafIndex,
