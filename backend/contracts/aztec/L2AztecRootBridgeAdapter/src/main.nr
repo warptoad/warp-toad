@@ -13,7 +13,6 @@ pub contract L2AztecRootBridgeAdapter {
         EthAddress,  PublicImmutable, PublicMutable,
     };
 
-	use dep::aztec::oracle::debug_log::{ debug_log_format };
 	use dep::aztec::protocol_types::hash::sha256_to_field;
 
     use dep::aztec::macros::{
@@ -96,8 +95,6 @@ pub contract L2AztecRootBridgeAdapter {
     // Adds this hash to the message portal.  The L1 contract should be able to reconstruct this same hash
 	#[public]
     fn get_content_hash(local_root: Field, block_number: Field) -> pub Field {
-		debug_log_format("block_number: {0}", [block_number]);
-		debug_log_format("local_root: {0}", [local_root]);
         let mut hash_bytes = [0; 64];
         let local_root_bytes: [u8; 32] = local_root.to_be_bytes();
         let block_number_bytes: [u8; 32] = block_number.to_be_bytes();
@@ -108,7 +105,6 @@ pub contract L2AztecRootBridgeAdapter {
         }
 
         let content_hash = sha256_to_field(hash_bytes);
-		debug_log_format("content_hash: {0}", [content_hash]);
         content_hash
 
     }

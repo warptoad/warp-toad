@@ -16,8 +16,9 @@ contract GigaRootBridge {
     );
 
     LazyIMTData public rootTreeData; // does this need to be public?
-    address public wrapperToken;
     IL1RootBridgeAdapter[] public rootBridgeAdapters;
+    // just a membership mapping
+    mapping(address => bool) isRootBridgeAdapter;
     // mapping of the rootBridgeAdapter addr to their L2 root's position in all
     // the arrays used (rootTreeData, gigaRootL2BlockNumbers, and rootBridgeAdapters)
     mapping(address => uint40) public l2LeafIndexes;
@@ -33,7 +34,7 @@ contract GigaRootBridge {
      */
     constructor(address[] memory _bridgeAdapterAddresses, uint8 _maxTreeDepth) {
         maxTreeDepth = _maxTreeDepth;
-        // initialize rootTreeData with 0s
+        // init doesn't add any leaves
         LazyIMT.init(rootTreeData, _maxTreeDepth);
 
         // for each L1RootBridgeAdapter...
@@ -49,6 +50,10 @@ contract GigaRootBridge {
             // rootTreeData, gigaRootL2BlockNumbers, and rootBridgeAdapters to keep a
             // "state" for each L2 which WarpToad is deployed on
             l2LeafIndexes[thisBridgeAdapterAddress] = i;
+            isRootBridgeAdapter[thisBridgeAdapterAddress] = true;
+
+            // data has to be inserted before we can call update on indexes down below
+            LazyIMT.insert(rootTreeData, 0);
         }
 
         // initialize a list of 0 elements of length _bridgeAdapterAddresses.length
@@ -84,7 +89,7 @@ contract GigaRootBridge {
 
             // make sure this bridgeAdapterAddress was initialized
             require(
-                l2LeafIndex > 0,
+                isRootBridgeAdapter[thisBridgeAdapterAddress],
                 "Address is not a registered root bridge address"
             );
 

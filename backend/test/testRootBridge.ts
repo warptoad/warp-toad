@@ -10,6 +10,12 @@
 import hre from "hardhat"
 
 //@ts-ignore
+import { IMT } from "@zk-kit/imt"
+
+//@ts-ignore
+import { poseidon2 } from "poseidon-lite"
+
+//@ts-ignore
 import { GigaRootBridge, L1AztecRootBridgeAdapter } from "../typechain-types"
 
 //@ts-ignore
@@ -41,8 +47,158 @@ async function connectPXE() {
 	return { wallets, PXE }
 }
 
-describe("RootBridge", function () {
+describe("GigaRootBridge core", function () {
 	async function deploy() {
+
+		// L1AztecRootBridgeAdapter (L1) deployment
+		hre.ethers.getContractFactory("L1AztecRootBridgeAdapter",);
+		const L1AztecRootBridgeAdapter = await hre.ethers.deployContract("L1AztecRootBridgeAdapter", [],);
+
+		// L2AztecRootBridgeAdapter (L2) deployment
+		const { wallets, PXE } = await connectPXE();
+		const deployerWallet = wallets[0]
+		const constructorArgs = [EthAddress.fromString(L1AztecRootBridgeAdapter.target)];
+		const nodeInfo = (await PXE.getNodeInfo());
+
+		// This is also the "registry"
+		const L2AztecRootBridgeAdapter = await Contract.deploy(deployerWallet, L2AztecRootBridgeAdapterContractArtifact, constructorArgs).send().deployed();
+
+		// initialize L1 L1AztecRootBridgeAdapter
+		const registryAddress = nodeInfo.l1ContractAddresses.registryAddress.toString();
+		const l2Bridge = L2AztecRootBridgeAdapter.address.toString();
+		await L1AztecRootBridgeAdapter.initialize(registryAddress, l2Bridge);
+
+		hre.ethers.getContractFactory("PoseidonT3",)
+		const PoseidonT3Lib = await hre.ethers.deployContract("PoseidonT3", [], { value: 0n, libraries: {} })
+		const LazyIMTLib = await hre.ethers.deployContract("LazyIMT", [], { value: 0n, libraries: { PoseidonT3: PoseidonT3Lib } })
+		hre.ethers.getContractFactory("GigaRootBridge",);
+		const rootBridgeAdapterAddresses = [L1AztecRootBridgeAdapter.target];
+		const GigaRootBridge = await hre.ethers.deployContract("GigaRootBridge", [rootBridgeAdapterAddresses, 2], {
+			value: 0n,
+			libraries: {
+				LazyIMT: LazyIMTLib,
+			}
+		});
+
+		return { GigaRootBridge, L1AztecRootBridgeAdapter, L2AztecRootBridgeAdapter, PXE }
+	}
+
+	describe("Deployment", function () {
+		it("Should deploy and initialize", async function () {
+			let { GigaRootBridge, L1AztecRootBridgeAdapter, L2AztecRootBridgeAdapter, PXE } = await deploy();
+
+			expect(GigaRootBridge).not.equal(undefined);
+			expect(L1AztecRootBridgeAdapter).not.equal(undefined);
+			expect(L2AztecRootBridgeAdapter).not.equal(undefined);
+
+			let gigaRoot = await GigaRootBridge.gigaRoot();
+			expect(gigaRoot).to.equal(0n);
+		});
+
+		it("Should update the gigaRoot on L1", async function () {
+			let { GigaRootBridge, L1AztecRootBridgeAdapter, L2AztecRootBridgeAdapter, PXE } = await deploy();
+
+			// send local root L2 -> L1
+
+			let l2Root = Fr.random();
+			// the block number will increment by 1 as soon as the below function 
+			// is called, so we have to do +1 if we want it to be the number of 
+			// the block that the transaction is executing in
+			let blockNumber = await PXE.getBlockNumber() + 1;
+			let l2Bridge = AztecAddress.fromString(L2AztecRootBridgeAdapter.address.toString());
+			let version = await L1AztecRootBridgeAdapter.rollupVersion();
+			let l1PortalAddress = L1AztecRootBridgeAdapter.target;
+			let l1ChainId = 31337n;
+
+
+			const content = sha256ToField([
+				l2Root.toBuffer(),
+				new Fr(blockNumber).toBuffer(),
+			]);
+
+			// is l2ToL1Message
+			const messageLeaf = sha256ToField([
+				l2Bridge.toBuffer(),
+				new Fr(version).toBuffer(),
+				EthAddress.fromString(l1PortalAddress).toBuffer32() ?? Buffer.alloc(32, 0),
+				new Fr(l1ChainId).toBuffer(),
+				content.toBuffer(),
+			]);
+
+			let l2TxReceipt = await L2AztecRootBridgeAdapter.methods.send_root_to_l1(l2Root).send().wait();
+
+			const [l2ToL1MessageIndex, siblingPath] = await PXE.getL2ToL1MembershipWitness(
+				blockNumber,
+				messageLeaf
+			);
+
+			const siblingPathArray = siblingPath.data.map(buffer =>
+				'0x' + buffer.toString('hex')
+			);
+
+			let refreshRootTx = await L1AztecRootBridgeAdapter.refreshRoot(
+				l2Root.toString(),
+				BigInt(blockNumber),
+				l2ToL1MessageIndex,
+				siblingPathArray
+			);
+
+			const receipt = await refreshRootTx.wait(1);
+
+
+			// Find the event in the logs
+			const refreshRootEvent = receipt.logs.find(
+				log => log.topics[0] === L1AztecRootBridgeAdapter.interface.getEvent("receivedNewL2Root").topicHash
+			);
+
+			// Parse the refreshRootEvent data
+			const parsedrefreshRootEvent = L1AztecRootBridgeAdapter.interface.parseLog({
+				topics: refreshRootEvent.topics,
+				data: refreshRootEvent.data
+			});
+
+			const newL2Root = parsedrefreshRootEvent.args[0];
+
+			expect(newL2Root).to.not.be.undefined;
+			console.log("l2 root seen by l1: ", newL2Root);
+
+			expect(newL2Root.toString()).to.equal(BigInt(l2Root.toString()));
+
+			// call function to update gigaROot
+			let gigaRootUpdateTx = await GigaRootBridge.updateRoot([L1AztecRootBridgeAdapter.target]);
+
+			const gigaRootUpdateReceipt = await gigaRootUpdateTx.wait(1);
+
+			// Find the event in the logs
+			const event = gigaRootUpdateReceipt.logs.find(
+				log => log.topics[0] === GigaRootBridge.interface.getEvent("constructedNewGigaRoot").topicHash
+			);
+
+			const parsedEvent = GigaRootBridge.interface.parseLog({
+				topics: event.topics,
+				data: event.data
+			});
+
+			const newGigaRoot = parsedEvent.args[0];
+
+			// tree has depth 2 so the root should just be a hash of (newL2Root, 0)
+			const newGigaRootCalculated = poseidon2([newL2Root, 0n]);
+			console.log(
+				"newGigaRoot ", newGigaRoot
+			);
+			console.log(
+				"newGigaRootCalculated ", newGigaRoot
+			);
+			expect(newGigaRoot.toString()).to.equal(newGigaRootCalculated.toString());
+		})
+	})
+
+
+})
+
+/*
+describe("RootBridgeAdapters (L1 <-> L2 message passing)", function () {
+	async function deployAdapters() {
 
 		// L1AztecRootBridgeAdapter (L1) deployment
 		hre.ethers.getContractFactory("L1AztecRootBridgeAdapter",);
@@ -68,7 +224,7 @@ describe("RootBridge", function () {
 
 	describe("Deployment", function () {
 		it("Should deploy and initialize", async function () {
-			const { L1AztecRootBridgeAdapter, L2AztecRootBridgeAdapter, PXE } = await deploy();
+			const { L1AztecRootBridgeAdapter, L2AztecRootBridgeAdapter, PXE } = await deployAdapters();
 			expect(L1AztecRootBridgeAdapter).not.equal(undefined);
 			expect(L2AztecRootBridgeAdapter).not.equal(undefined);
 
@@ -78,12 +234,11 @@ describe("RootBridge", function () {
 		});
 	})
 
-	/*
 	describe("Send gigaroot L1 -> L2", function () {
 
 		it("Should send the message from L1 and retrieve it on L2", async function () {
 
-			const { L1AztecRootBridgeAdapter, L2AztecRootBridgeAdapter, PXE } = await deploy();
+			const { L1AztecRootBridgeAdapter, L2AztecRootBridgeAdapter, PXE } = await deployAdapters();
 
 			const fakeGigaRoot = Fr.random();
 			const paddedFakeGigaRoot = hre.ethers.zeroPadValue(fakeGigaRoot.toString(), 32);
@@ -137,68 +292,21 @@ describe("RootBridge", function () {
 			expect(newGigaRootField.toString()).to.equal(fakeGigaRoot.toString());
 		})
 	})
-	*/
 	describe("Send local root L2 -> L1", function () {
 		it("Should send the message from L2 and retrieve it on L1", async function () {
 
-			const { L1AztecRootBridgeAdapter, L2AztecRootBridgeAdapter, PXE } = await deploy();
-			let l2Bridge = AztecAddress.fromString(L2AztecRootBridgeAdapter.address.toString());
-			let version = await L1AztecRootBridgeAdapter.rollupVersion();
-			let l1PortalAddress = L1AztecRootBridgeAdapter.target;
-			let l1ChainId = 31337n;
-
+			const { L1AztecRootBridgeAdapter, L2AztecRootBridgeAdapter, PXE } = await deployAdapters();
 			let l2Root = Fr.random();
-			console.log("l2Root ", l2Root);
-
-			// the block number will increment by 1 as soon as the below function is called
-			let block_number = await PXE.getBlockNumber() + 1;
-			console.log("block_number: ", block_number);
-
-			const content = sha256ToField([
-				l2Root.toBuffer(),
-				new Fr(block_number).toBuffer(),
-			]);
-			console.log("content: ", content);
-
-			let convertedL2Bridge = l2Bridge.toBuffer();
-			let convertedVersion = new Fr(version).toBuffer();
-			let convertedL1PortalAddress = EthAddress.fromString(l1PortalAddress).toBuffer32() ?? Buffer.alloc(32, 0);
-			let convertedL1ChainId = new Fr(l1ChainId).toBuffer();
-			//let convertedL2Root = l2Root.toBuffer();
-			let convertedContent = content.toBuffer();
-
-			// is l2ToL1Message
-			const messageLeaf = sha256ToField([
-				convertedL2Bridge,
-				convertedVersion,
-				convertedL1PortalAddress,
-				convertedL1ChainId,
-				convertedContent
-			]);
-
-			let contentHashSolidity = await L1AztecRootBridgeAdapter.getContentHash(l2Root.toString(), block_number.toString());
-			console.log("content according to solidity function: ", contentHashSolidity);
-
+			// the block number will increment by 1 as soon as the below function 
+			// is called, so we have to do +1 if we want it to be the number of 
+			// the block that the transaction is executing in
+			let blockNumber = await PXE.getBlockNumber() + 1;
+			let messageLeaf = getMessageLeaf(l2Root, blockNumber, L1AztecRootBridgeAdapter, L2AztecRootBridgeAdapter, PXE);
 
 			let l2TxReceipt = await L2AztecRootBridgeAdapter.methods.send_root_to_l1(l2Root).send().wait();
-			console.log("send_root_to_l1 called in aztec block: ", l2TxReceipt.blockNumber);
-
-			// public async getL2ToL1MessageLeaf(
-			//   recipient: EthAddress,
-			//   l2Bridge: AztecAddress,
-			//
-			// const leaf = sha256ToField([
-			//   l2Bridge.toBuffer(),
-			//   new Fr(version).toBuffer(), // aztec version
-			//   EthAddress.fromString(this.portal.address).toBuffer32() ?? Buffer.alloc(32, 0),
-			//   new Fr(this.publicClient.chain.id).toBuffer(), // chain id
-			//   content.toBuffer(),
-			// ]);
-
-			console.log("Message leaf: ", messageLeaf);
 
 			const [l2ToL1MessageIndex, siblingPath] = await PXE.getL2ToL1MembershipWitness(
-				block_number,
+				blockNumber,
 				messageLeaf
 			);
 
@@ -211,7 +319,7 @@ describe("RootBridge", function () {
 
 			let tx = await L1AztecRootBridgeAdapter.refreshRoot(
 				l2Root.toString(),
-				BigInt(block_number),
+				BigInt(blockNumber),
 				l2ToL1MessageIndex,
 				siblingPathArray
 			);
@@ -238,9 +346,9 @@ describe("RootBridge", function () {
 
 			expect(newL2Root.toString()).to.equal(BigInt(l2Root.toString()));
 
-			// 2 minute timeout because we were timing out with the default 40 seconds
 		})
-		//.timeout(120000);
 	})
 
 })
+*/
+
