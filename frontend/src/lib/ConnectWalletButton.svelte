@@ -1,34 +1,15 @@
 <script lang="ts">
   import { ethers } from "ethers";
   import type { Account } from "@nemi-fi/wallet-sdk";
-  import { sdk, accountStore } from "../stores/walletStore";
+  import { walletStore, connectMetamaskWallet, connectObsidionWallet, disconnectWallet } from "../stores/walletStore";
+  import type {WalletStore} from "../stores/walletStore";
 
   let walletModal: HTMLDialogElement | null = null;
 
-  let account: Account | undefined;
-  const connectObsidionWallet = async () => {
-    try {
-      // Using the sdk instance to connect the wallet
-      account = await sdk.connect("obsidion");
-      accountStore.set(account); // Update the store with the connected account
-      closeModal();
-    } catch (error) {
-      console.log(error);
-    }
-    //TODO MODAL WITH WALLET SELECTION
-  };
-
-  const disconnectObsidionWallet = async () => {
-    try {
-      await sdk.disconnect();
-      accountStore.set(undefined); // Clear the account from the store
-    } catch (error) {
-      console.log("Failed to disconnect: ", error);
-    }
-  };
+  let wallet: WalletStore | undefined;
 
   // Subscribe to account store reactively
-  $: $accountStore, (account = $accountStore);
+  $: $walletStore, (wallet = $walletStore);
 
   function formatAddress(address: string) {
     if (!address) return "";
@@ -40,42 +21,6 @@
    * Let User Chose evm or Aztec Wallet
    * Let user Chose Chain Sepolia, whatever?
    * */
-
-  async function connectMetamaskWallet() {
-    if (!window.ethereum) throw new Error("No crypto wallet found");
-
-    await window.ethereum.request({ method: "eth_requestAccounts" });
-
-    const provider = new ethers.BrowserProvider(window.ethereum);
-    const signer = await provider.getSigner();
-    const address = await signer.getAddress();
-    const balance = await provider.getBalance(address);
-
-    closeModal();
-    return {
-      address,
-      balance: ethers.formatEther(balance),
-    };
-  }
-
-  async function disconnectMetamaskWallet() {
-  if (!window.ethereum) throw new Error("No crypto wallet found");
-
-  try {
-    // Clear local connection state (you must manage this manually)
-    // For example: accountStore.set(undefined);
-    console.log("Wallet disconnected on app side.");
-
-    // You can optionally prompt MetaMask to switch to an empty account by re-requesting accounts
-    // But there's no real disconnect API
-    await window.ethereum.request({ method: "wallet_requestPermissions", params: [{ eth_accounts: {} }] });
-
-    closeModal(); // If you have a modal to close
-  } catch (error) {
-    console.error("Error disconnecting wallet:", error);
-  }
-}
-
 
   function openModal() {
     walletModal?.showModal();
@@ -127,7 +72,7 @@
             />
             Metamask
           </button>
-          <button on:click={disconnectObsidionWallet}>Disconnect</button>
+          <button on:click={disconnectWallet}>Disconnect</button>
         </div>
       </div>
     </div>

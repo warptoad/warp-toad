@@ -1,18 +1,23 @@
 <script lang="ts">
-  import { AztecWalletSdk, obsidion } from "@nemi-fi/wallet-sdk"
   import type {Account} from "@nemi-fi/wallet-sdk"
-  import { accountStore } from '../stores/walletStore'; 
+  import { walletStore, isEvmAccount } from '../stores/walletStore'; 
+  import type {WalletStore} from "../stores/walletStore";
   
-  let account: Account | undefined;
+  let wallet: WalletStore | undefined;
 
   // Subscribe to the account store
-  $: $accountStore, account = $accountStore;
+  $: $walletStore, wallet = $walletStore;
 
 </script>
 
 <div>
-  {#if account}
-    <p>Your address: {account.address}</p>
+  {#if wallet !==undefined}
+    {#if wallet.walletType==="aztec"}
+      <p>Your address: {wallet.content.address.toString()}</p>
+    {/if}
+    {#if wallet.walletType==="evm" && isEvmAccount(wallet.content)}
+      <p>Your address: {wallet.content.address}</p>
+    {/if}
   {:else}
     <p>No account connected</p>
   {/if}
