@@ -1,0 +1,33 @@
+<svg width="890px" height="890px" viewBox="0 0 890 890" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>wallet-logo@3x</title>
+    <defs>
+        <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="linearGradient-1">
+            <stop stop-color="#616161" offset="0%"/>
+            <stop stop-color="#525252" offset="100%"/>
+        </linearGradient>
+        <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="linearGradient-2">
+            <stop stop-color="#F1F1F1" offset="0%"/>
+            <stop stop-color="#3E3E3E" offset="100%"/>
+        </linearGradient>
+        <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="linearGradient-3">
+            <stop stop-color="#BBBBBB" offset="0%"/>
+            <stop stop-color="#858585" offset="100%"/>
+        </linearGradient>
+        <linearGradient x1="50%" y1="0%" x2="50%" y2="146.35188%" id="linearGradient-4">
+            <stop stop-color="#6B80FF" offset="0.0573645105%"/>
+            <stop stop-color="#6552EA" offset="35.503979%"/>
+            <stop stop-color="#8F5CD7" offset="64.6019847%"/>
+            <stop stop-color="#5757A8" offset="100%"/>
+        </linearGradient>
+    </defs>
+    <g id="wallet-logo" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="logo" transform="translate(34, 0)">
+            <polygon id="btm_right" fill="url(#linearGradient-1)" points="411 890 822 445 646 428"/>
+            <polygon id="btm_left" fill="url(#linearGradient-1)" points="411 890 176 428 0 445"/>
+            <polygon id="middle" fill="url(#linearGradient-2)" points="411 0 646 428 411 890 176 428"/>
+            <polygon id="top_right" fill="url(#linearGradient-3)" points="411 0 822 445 646 428"/>
+            <polygon id="top_left" fill="url(#linearGradient-3)" points="411 0 176 428 0 445"/>
+            <polygon id="Rectangle" fill="url(#linearGradient-4)" style="mix-blend-mode: color;" points="411 0 822 444.997301 411 890 -4.68389771e-11 445"/>
+        </g>
+    </g>
+</svg>
