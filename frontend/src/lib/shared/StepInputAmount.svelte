@@ -1,7 +1,14 @@
 <script lang="ts">
+// StepInputAmount.svelte
+// Reusable step for entering an amount (e.g., deposit, transfer, etc.)
 import { createEventDispatcher } from 'svelte';
-const dispatch = createEventDispatcher();
 
+export let title: string = 'Enter Amount';
+export let message: string = '';
+export let buttonText: string = 'Next';
+export let feeCalculator: (amount: number) => string = (amount) => (amount * 0.01).toFixed(4) + ' ETH';
+
+const dispatch = createEventDispatcher();
 let amount = '';
 let estimatedFees = '';
 let error = '';
@@ -14,18 +21,20 @@ function handleNext() {
   }
   error = '';
   loading = true;
-  // Mock fee calculation
   setTimeout(() => {
-    estimatedFees = (Number(amount) * 0.01).toFixed(4) + ' ETH';
+    estimatedFees = feeCalculator(Number(amount));
     loading = false;
-    console.log('[DepositStepInputAmount] Amount:', amount, 'Estimated fees:', estimatedFees);
+    console.log('[StepInputAmount] Amount:', amount, 'Estimated fees:', estimatedFees);
     dispatch('next', { amount, estimatedFees });
   }, 800);
 }
 </script>
 
 <div class="flex flex-col items-center justify-center w-full h-full">
-  <h2 class="text-xl font-bold mb-4">Enter Amount to Deposit</h2>
+  <h2 class="text-xl font-bold mb-4">{title}</h2>
+  {#if message}
+    <p class="mb-2">{message}</p>
+  {/if}
   <input
     class="input input-bordered mb-2 text-center"
     type="number"
@@ -42,7 +51,17 @@ function handleNext() {
     <div class="text-red-500 mb-2">{error}</div>
   {/if}
   <button class="btn btn-primary" on:click={handleNext} disabled={loading}>
-    {loading ? 'Calculating...' : 'Next'}
+    {loading ? 'Calculating...' : buttonText}
   </button>
 </div>
-<!-- Logs and comments at key points for debugging --> 
+
+<!--
+  StepInputAmount.svelte
+  - Props:
+    - title: string (default: 'Enter Amount')
+    - message: string
+    - buttonText: string (default: 'Next')
+    - feeCalculator: (amount: number) => string (default: 1% fee)
+  - Emits: 'next' con { amount, estimatedFees }
+  - Logs y comentarios en puntos clave
+--> 
