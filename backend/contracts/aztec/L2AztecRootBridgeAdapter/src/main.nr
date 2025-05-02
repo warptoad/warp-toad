@@ -77,17 +77,16 @@ pub contract L2AztecRootBridgeAdapter {
 	// Needs to be private because accessing `block_header.state.partial.note_hash_tree.root` 
 	// can only be done from a private context
     #[private]
-    fn send_root_to_l1() {
+    fn send_root_to_l1(block_number: u32) {
         let config = storage.config.read();
 
 		// Returns the header of a block whose state is used during private execution (not the block the transaction is included in).
-		let block_header = context.get_block_header();
-		let block_number = block_header.global_variables.block_number;
+		let block_header = context.get_block_header_at(block_number);
 		let state_root = block_header.state.partial.note_hash_tree.root;
 
         let mut hash_bytes = [0; 64];
         let state_root_bytes: [u8; 32] = state_root.to_be_bytes();
-        let block_number_bytes: [u8; 32] = block_number.to_be_bytes();
+        let block_number_bytes: [u8; 32] = (block_number as Field).to_be_bytes();
 
         for i in 0..32 {
             hash_bytes[i] = state_root_bytes[i];

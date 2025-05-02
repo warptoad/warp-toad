@@ -36,6 +36,11 @@ cd backend/contracts/aztec/WarpToadCore;
 aztec-nargo compile;
 aztec codegen -o src/artifacts target;
 cd ../../../..
+
+cd backend/contracts/aztec/L2AztecRootBridgeAdapter;
+aztec-nargo compile;
+aztec codegen -o src/artifacts target;
+cd ../../../..
 ```
 
 ### generate EVM verifier contracts

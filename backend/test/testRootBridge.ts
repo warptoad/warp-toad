@@ -183,7 +183,8 @@ describe("GigaRootBridge core", function () {
 			});
 
 			const newGigaRoot = parsedEvent!.args[0];
-
+			
+			// TODO just reproduce the tree in js!
 			// tree has depth 2 so the root should just be a hash of (newL2Root, 0)
 			const newGigaRootCalculated = poseidon2([newL2Root, 0n]);
 			console.log(

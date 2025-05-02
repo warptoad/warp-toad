@@ -24,7 +24,7 @@ contract GigaRootBridge {
     mapping(address => uint40) public localRootLeafIndexes;
     // mapping gigaRoot => block number of the local block each local root (leaf) came from
     // The length of the array is always localRootProviders.length
-    mapping(uint256 => uint256[]) public localRootBlockNumbers;
+    mapping(uint256 => uint256[]) public localRootBlockNumbers; // TODO should be fixed sized array somehow
     uint8 public maxTreeDepth;
     uint256 public gigaRoot;
 
@@ -61,7 +61,7 @@ contract GigaRootBridge {
         uint256[] memory initiallocalRootBlockNumbers = new uint256[](numberOfLocalRoots);
 
         // and set the initial root to this list
-        localRootBlockNumbers[0] = initiallocalRootBlockNumbers;
+        localRootBlockNumbers[0] = initiallocalRootBlockNumbers; //TODO check this this looks broken
     }
 
     /**
@@ -70,8 +70,8 @@ contract GigaRootBridge {
      */
     function updateRoot(address[] memory _localRootProviders) external {
         require(
-            _localRootProviders.length >= localRootProviders.length,
-            "Passed in too many localRootProviderses"
+            _localRootProviders.length <= localRootProviders.length,
+            "Passed in too many localRootProviders"
         );
 
         // get old array of localRootBlockNumbers at the previous gigaRoot and overwrite it with
@@ -99,8 +99,7 @@ contract GigaRootBridge {
             );
 
             // get the most recent l2 root and the l2 block number it came from from this bridge
-            (uint256 newLocalRoot, uint256 localRootBlockNumber) = localRootProvider
-                .getLocalRootAndBlock();
+            (uint256 newLocalRoot, uint256 localRootBlockNumber) = localRootProvider.getLocalRootAndBlock();
 
             emit receivedNewLocalRoot(
                 newLocalRoot,
@@ -113,6 +112,7 @@ contract GigaRootBridge {
             LazyIMT.update(rootTreeData, newLocalRoot, localRootIndex);
 
             // update the list of block numbers for the local root providers whos root we just got
+            require(updatedLocalRootBlockNumbers[localRootIndex] < localRootBlockNumber);
             updatedLocalRootBlockNumbers[localRootIndex] = localRootBlockNumber;
         }
 
@@ -133,8 +133,8 @@ contract GigaRootBridge {
     // Sends the most recent gigaRoot to an array of localRootProviders
     function sendRoot(address[] memory _localRootProviders) external {
         require(
-            _localRootProviders.length >= localRootProviders.length,
-            "Passed in too many localRootProviderses"
+            _localRootProviders.length <= localRootProviders.length,
+            "Passed in too many localRootProviders"
         );
 
         for (uint256 i = 0; i < _localRootProviders.length; i++) {

@@ -1,5 +1,4 @@
 {
-
   "esbuildOptions": {
     "target": "esnext"
   },
@@ -32,21 +31,21 @@
     "typescript": "^5.8.2"
   },
   "dependencies": {
-		"@aztec/accounts": "0.85.0",
-		"@aztec/aztec.js": "0.85.0",
-		"@aztec/bb.js": "0.72.1",
-		"@aztec/ethereum": "0.85.0",
-		"@aztec/foundation": "^0.86.0",
-		"@noir-lang/noir_js": "1.0.0-beta.3",
-		"@noir-lang/noir_wasm": "1.0.0-beta.3",
-		"@openzeppelin/contracts": "^5.2.0",
-		"@types/argparse": "^2.0.17",
-		"@zk-kit/imt": "^2.0.0-beta.8",
-		"@zk-kit/lazy-imt.sol": "^2.0.0-beta.12",
-		"argparse": "^2.0.1",
-		"fixed-merkle-tree": "^0.7.3",
-		"poseidon-lite": "^0.3.0"
-	},
+    "@aztec/accounts": "0.85.0",
+    "@aztec/aztec.js": "0.85.0",
+    "@aztec/bb.js": "0.72.1",
+    "@aztec/ethereum": "0.85.0",
+    "@aztec/foundation": "^0.86.0",
+    "@noir-lang/noir_js": "1.0.0-beta.3",
+    "@noir-lang/noir_wasm": "1.0.0-beta.3",
+    "@openzeppelin/contracts": "^5.2.0",
+    "@types/argparse": "^2.0.17",
+    "@zk-kit/imt": "^2.0.0-beta.8",
+    "@zk-kit/lazy-imt.sol": "^2.0.0-beta.12",
+    "@zkpassport/poseidon2": "^0.6.1",
+    "argparse": "^2.0.1",
+    "fixed-merkle-tree": "^0.7.3",
+    "poseidon-lite": "^0.3.0"
+  },
   "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
-
 }
