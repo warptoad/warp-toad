@@ -22,7 +22,7 @@ contract L1AztecRootBridgeAdapter is ILocalRootProvider {
     // gigaRoot is emitted as a bytes32 here because thats how it's recovered on the
     // aztec L2 side of this rootBridgeAdapter.  Key and index are also used to
     // retrieve this newGigaRoot on aztec
-    event newGigaRootSentToL2(bytes32 newGigaRoot, bytes32 key, uint256 index); //TODO aks joss why newGigaRoot not contenthash
+    event newGigaRootSentToL2(bytes32 indexed newGigaRoot, bytes32 key, uint256 index); //newGigaRoot is also the content hash! wow!
     event receivedNewL2Root(uint256 newL2Root, uint256 l2Block);
 
     IRegistry public registry;

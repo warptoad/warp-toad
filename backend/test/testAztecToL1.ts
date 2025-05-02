@@ -32,6 +32,7 @@ import os from 'os';
 
 //@ts-ignore
 import { sha256ToField } from "@aztec/foundation/crypto";
+import { sendGigaRoot, bridgeNoteHashTreeRoot, parseEventFromTx, updateGigaRoot, receiveGigaRootOnAztec } from "../scripts/lib/bridging";
 
 async function connectPXE() {
     const { PXE_URL = 'http://localhost:8080' } = process.env;
@@ -127,92 +128,6 @@ describe("AztecWarpToad", function () {
         return { L2AztecRootBridgeAdapter, L1AztecRootBridgeAdapter, gigaBridge, L1WarpToad, nativeToken, LazyIMTLib, PoseidonT3Lib, AztecWarpToad, aztecWallets, evmWallets, PXE };
     }
 
-    async function bridgeNoteHashTreeRoot(
-        PXE: PXE,
-        L2AztecRootBridgeAdapter: L2AztecRootBridgeAdapterContract,
-        L1AztecRootBridgeAdapter: L1AztecRootBridgeAdapter,
-        provider: ethers.Provider,
-    ) {
-        const blockNumberOfRoot = await PXE.getBlockNumber();
-        const PXE_L2Root = (await PXE.getBlock(blockNumberOfRoot))?.header.state.partial.noteHashTree.root as Fr
-        const sendRootToL1Tx = await L2AztecRootBridgeAdapter.methods.send_root_to_l1(blockNumberOfRoot).send().wait();
-
-        const aztecChainVersion = await L1AztecRootBridgeAdapter.rollupVersion();
-        const l1PortalAddress = L1AztecRootBridgeAdapter.target;
-        const l1ChainId = (await provider.getNetwork()).chainId
-
-        const blockNumberOfMemberWitness = sendRootToL1Tx.blockNumber as number //await PXE.getBlockNumber()
-        const messageContent = sha256ToField([
-            PXE_L2Root.toBuffer(),
-            new Fr(blockNumberOfRoot).toBuffer(),
-        ]);
-        const l2Bridge = L2AztecRootBridgeAdapter.address;
-        const messageLeaf = sha256ToField([
-            l2Bridge.toBuffer(),
-            new Fr(aztecChainVersion).toBuffer(),
-            EthAddress.fromString(l1PortalAddress.toString()).toBuffer32() ?? Buffer.alloc(32, 0),
-            new Fr(l1ChainId).toBuffer(),
-            messageContent.toBuffer(),
-        ]);
-
-        const [l2ToL1MessageIndex, siblingPath] = await PXE.getL2ToL1MembershipWitness(
-            blockNumberOfMemberWitness, //cant use blockNumberOfRoot since that one is too old. We need a block where the tx above happened
-            //@ts-ignore some bs where the Fr type that getL2ToL1MembershipWitness wants is different messageLeaf has
-            messageLeaf
-        );
-        const siblingPathArray = siblingPath.toFields().map((f) => f.toString())
-
-        const refreshRootTx = await (await L1AztecRootBridgeAdapter.getNewRootFromL2(
-            PXE_L2Root.toString(),
-            BigInt(blockNumberOfRoot),
-            l2ToL1MessageIndex,
-            siblingPathArray
-        )).wait(1) as ethers.ContractTransactionReceipt;
-
-        return {refreshRootTx, sendRootToL1Tx, PXE_L2Root}
-    }
-
-    async function updateGigaRoot(
-        gigaBridge: GigaRootBridge,
-        localRootProviders: ethers.AddressLike[]
-    ) {
-        const gigaRootUpdateTx = await (await gigaBridge.updateRoot(
-            localRootProviders
-        )).wait(1) as ethers.ContractTransactionReceipt;
-        // todo check id tree reproduces by syncing events
-        // TODO make sure the gigaBridge contract also emits events updatedLocalRoot(indexed index, localRoot
-        return {gigaRootUpdateTx}
-    }
-
-    async function bridgeGigaRoot(
-        L2AztecRootBridgeAdapter: L2AztecRootBridgeAdapterContract,
-        L1AztecRootBridgeAdapter: L1AztecRootBridgeAdapter,
-        AztecWarpToad: AztecWarpToadCore,
-        gigaBridge: GigaRootBridge,
-        gigaRootRecipients: ethers.AddressLike[]
-    ) {
-        // sends the root to the L2AztecRootBridgeAdapter through the L1AztecRootBridgeAdapter
-        const sendGigaRootTx = await (await gigaBridge.sendRoot(
-            gigaRootRecipients
-        )
-        ).wait(1) as ethers.ContractTransactionReceipt;
-
-        // Parse the event data
-        const parsedL1AdapterEvent = parseEventFromTx(sendGigaRootTx, L1AztecRootBridgeAdapter, "newGigaRootSentToL2")
-
-        const content_hash = parsedL1AdapterEvent!.args[0];
-        const key = parsedL1AdapterEvent!.args[1];
-        const index = parsedL1AdapterEvent!.args[2];
-
-        // this is to make the sandbox progress n blocks
-        await L2AztecRootBridgeAdapter.methods.count(0n).send().wait();
-        await L2AztecRootBridgeAdapter.methods.count(4n).send().wait();
-        await L2AztecRootBridgeAdapter.methods.update_gigaroot(content_hash, index, AztecWarpToad.address).send().wait();
-        return {sendGigaRootTx}
-
-    }
-
-
     describe("deployment", function () {
         it("Should deploy warptoad for aztec and L1", async function () {
             const { L1WarpToad, nativeToken, LazyIMTLib, PoseidonT3Lib, AztecWarpToad, aztecWallets, evmWallets } = await deploy()
@@ -222,6 +137,8 @@ describe("AztecWarpToad", function () {
 
     describe("burnAztecMintEvm", function () {
         it("Should burn and verify with the evm circuit", async function () {
+            
+            //----------------------setup--------------------------------
             // setup contract and wallets
             const { L2AztecRootBridgeAdapter, L1AztecRootBridgeAdapter, L1WarpToad, nativeToken, LazyIMTLib, PoseidonT3Lib, AztecWarpToad, aztecWallets, evmWallets, gigaBridge, PXE } = await deploy()
             const aztecDeployer = aztecWallets[0]
@@ -263,11 +180,12 @@ describe("AztecWarpToad", function () {
                 nullifier_preimg: 432111111n, // Use Fr.random().toBigInt() in prod pls
             }
             const burnTx1 = await AztecWarpToadWithSender.methods.burn(commitmentPreImg1.amount, commitmentPreImg1.destination_chain_id, commitmentPreImg1.secret, commitmentPreImg1.nullifier_preimg).send().wait()
-
             const burnTx2 = await AztecWarpToadWithSender.methods.burn(commitmentPreImg2.amount, commitmentPreImg2.destination_chain_id, commitmentPreImg2.secret, commitmentPreImg2.nullifier_preimg).send().wait()
             const balancePostBurn = await AztecWarpToadWithSender.methods.balance_of(aztecSender.getAddress()).simulate()
-            // chain id is same as evm?? thats bad lmao
-            console.log("Make issue of this. These shouldn't be the same!!!", { aztecWalletChainId, chainIdEvmProvider })
+            // chain id is same as evm?? switch to context.version??
+            //console.log("Make issue of this. These shouldn't be the same!!!", { aztecWalletChainId, chainIdEvmProvider })
+            // its silly but aztec doesn't have a chainId (yet?) here is a issue i made on it: https://github.com/AztecProtocol/aztec-packages/issues/13961#issuecomment-2844691811
+            // TLDR is that context.version is basically their chainId likely. But we cant just use it as is because it doesnt care about conflicting with existing chainIds and currently return 1 (the same as L1  🙃)
             expect(chainIdAztecFromContract).to.equal(aztecWalletChainId);
             //expect(chainIdEvmProvider).to.not.equal(chainIdAztecFromContract);
             expect(balancePostBurn).to.equal(balancePreBurn - amountToBurn1 - amountToBurn2);
@@ -299,12 +217,19 @@ describe("AztecWarpToad", function () {
                 gigaBridge,
                 localRootProviders,
             )
-            const {sendGigaRootTx} = await bridgeGigaRoot(
+            const gigaRootRecipients = localRootProviders;
+            const {sendGigaRootTx} = await sendGigaRoot(
+                gigaBridge,
+                gigaRootRecipients,
+            )
+
+            const {update_gigarootTx} = await receiveGigaRootOnAztec(
                 L2AztecRootBridgeAdapter,
                 L1AztecRootBridgeAdapter,
                 AztecWarpToad,
-                gigaBridge,
-                localRootProviders
+                sendGigaRootTx,
+                PXE,
+                true
             )
             
             // check bridgeNoteHashTreeRoot()
@@ -326,6 +251,7 @@ describe("AztecWarpToad", function () {
             expect(newGigaRootFromL2.toString()).to.equal(BigInt(newGigaRootFromL1.toString()))
             //------------------------------------------------
             
+
             // -------------mint-----------------------------------
             console.log("mint!")
             const proofInputs = await getProofInputs(
@@ -363,7 +289,6 @@ describe("AztecWarpToad", function () {
 
             // check mint tx
             const balanceRecipientPostMint = await L1WarpToad.balanceOf(await evmRecipient.getAddress())
-
             const expectedFee = BigInt(Number(mintTx!.fee) * ethPriceInToken * relayerBonusFactor)
             const feePaid = ethers.toBigInt(proofInputs.amount) - balanceRecipientPostMint - balanceRecipientPreMint
             const overPayPercentage = (1 - Number(expectedFee) / Number(feePaid)) * 100
@@ -373,16 +298,3 @@ describe("AztecWarpToad", function () {
         });
     });
 });
-function parseEventFromTx(tx: ethers.TransactionReceipt, contract: ethers.Contract | any, eventName: string) {
-    const sendGigaRootEvent = tx.logs.find(
-        (log) => log.topics[0] === contract.interface.getEvent(eventName)?.topicHash
-    );
-
-    // Parse the event data
-    const parsedEvent = contract.interface.parseLog({
-        topics: sendGigaRootEvent!.topics,
-        data: sendGigaRootEvent!.data
-    });
-    return parsedEvent
-
-}

@@ -119,7 +119,7 @@ describe("GigaRootBridge core", function () {
 
 		it("Should get the local root from L2, update gigaRoot, then send it back to L2", async function () {
 			const { GigaRootBridge, L1AztecRootBridgeAdapter, L2AztecRootBridgeAdapter, PXE, AztecWarpToad } = await deploy();
-
+			// TODO use functions from backend/scripts/lib/bridging.ts instead
 			// send local root L2 -> L1
 
 			// block number before the transaction
