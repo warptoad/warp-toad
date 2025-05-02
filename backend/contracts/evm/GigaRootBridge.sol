@@ -141,10 +141,11 @@ contract GigaRootBridge {
             address thisLocalRootProvider = _localRootProviders[i];
 
             // use localRootLeafIndexes mapping to verify that this LocalRootProviderAddress was initialized
-            require(
-                isLocalRootProvider[thisLocalRootProvider],
-                "Address is not a registered local root provider address"
-            );
+            // require(
+            //     isLocalRootProvider[thisLocalRootProvider],
+            //     "Address is not a registered local root provider address"
+            // );
+            // we dont need that check. Any can get a giga root if they want!
 
             ILocalRootProvider LocalRootProvider = ILocalRootProvider(
                 thisLocalRootProvider
