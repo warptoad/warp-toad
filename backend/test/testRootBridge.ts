@@ -14,7 +14,7 @@ import { IMT } from "@zk-kit/imt"
 
 import { poseidon2 } from "poseidon-lite"
 
-import { GigaRootBridge, L1AztecRootBridgeAdapter } from "../typechain-types"
+import { GigaRootBridge, L1AztecRootBridgeAdapter, USDcoin } from "../typechain-types"
 
 //@ts-ignore
 import { expect } from "chai";
@@ -33,6 +33,9 @@ import { getInitialTestAccountsWallets } from '@aztec/accounts/testing'; // idk 
 import { L2AztecRootBridgeAdapterContractArtifact, L2AztecRootBridgeAdapterContract } from '../contracts/aztec/L2AztecRootBridgeAdapter/src/artifacts/L2AztecRootBridgeAdapter'
 import { ContractTransactionResponse } from "ethers";
 
+//@ts-ignore
+import { WarpToadCoreContractArtifact, WarpToadCoreContract as AztecWarpToadCore } from '../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
+
 const { PXE_URL = 'http://localhost:8080' } = process.env;
 
 
@@ -48,6 +51,20 @@ async function connectPXE() {
 }
 
 describe("GigaRootBridge core", function () {
+	async function deployAztecWarpToad(nativeToken: USDcoin) {
+		const { wallets, PXE } = await connectPXE();
+		const deployerWallet = wallets[0]
+		const wrappedTokenSymbol = `wrpToad-${await nativeToken.symbol()}`
+		const wrappedTokenName = `wrpToad-${await nativeToken.name()}`
+		const decimals = 6n; // only 6 decimals what is this tether??
+
+		const constructorArgs = [nativeToken.target,wrappedTokenName,wrappedTokenSymbol,decimals]
+		const AztecWarpToad = await Contract.deploy(deployerWallet, WarpToadCoreContractArtifact, constructorArgs)
+			.send()
+			.deployed() as AztecWarpToadCore;
+
+		return { AztecWarpToad, wallets, PXE, deployerWallet };
+	}
 	async function deploy() {
 
 		// L1AztecRootBridgeAdapter (L1) deployment
@@ -80,13 +97,17 @@ describe("GigaRootBridge core", function () {
 		const l2Bridge = L2AztecRootBridgeAdapter.address.toString();
 		console.log({initializeArgs: [registryAddress, l2Bridge, GigaRootBridge.target]})
 		await L1AztecRootBridgeAdapter.initialize(registryAddress, l2Bridge, GigaRootBridge.target);
-
-		return { GigaRootBridge, L1AztecRootBridgeAdapter, L2AztecRootBridgeAdapter, PXE }
+		
+		//native token
+		const nativeToken = await hre.ethers.deployContract("USDcoin", [], { value: 0n, libraries: {} })
+		// aztecWarptoad
+		const { AztecWarpToad } = await deployAztecWarpToad(nativeToken)
+		return { GigaRootBridge, L1AztecRootBridgeAdapter, L2AztecRootBridgeAdapter, PXE,AztecWarpToad }
 	}
 
 	describe("Deployment", function () {
 		it("Should deploy and initialize", async function () {
-			const { GigaRootBridge, L1AztecRootBridgeAdapter, L2AztecRootBridgeAdapter, PXE } = await deploy();
+			const { GigaRootBridge, L1AztecRootBridgeAdapter, L2AztecRootBridgeAdapter, PXE,AztecWarpToad } = await deploy();
 
 			expect(GigaRootBridge).not.equal(undefined);
 			expect(L1AztecRootBridgeAdapter).not.equal(undefined);
@@ -97,7 +118,7 @@ describe("GigaRootBridge core", function () {
 		});
 
 		it("Should get the local root from L2, update gigaRoot, then send it back to L2", async function () {
-			const { GigaRootBridge, L1AztecRootBridgeAdapter, L2AztecRootBridgeAdapter, PXE } = await deploy();
+			const { GigaRootBridge, L1AztecRootBridgeAdapter, L2AztecRootBridgeAdapter, PXE, AztecWarpToad } = await deploy();
 
 			// send local root L2 -> L1
 
@@ -126,7 +147,7 @@ describe("GigaRootBridge core", function () {
 				content.toBuffer(),
 			]);
 
-			const l2TxReceipt = await L2AztecRootBridgeAdapter.methods.send_root_to_l1().send().wait();
+			const l2TxReceipt = await L2AztecRootBridgeAdapter.methods.send_root_to_l1(blockNumber).send().wait();
 			const blockNumberAfterTxn = await PXE.getBlockNumber();
 			console.log("block number after transaction: ", blockNumberAfterTxn);
 
@@ -228,9 +249,9 @@ describe("GigaRootBridge core", function () {
 			console.log("L2 block after waiting: ", await PXE.getBlockNumber());
 
 			// New test logic
-			await L2AztecRootBridgeAdapter.methods.update_gigaroot(content_hash, index).send().wait();
+			await L2AztecRootBridgeAdapter.methods.update_gigaroot(content_hash, index,AztecWarpToad.address).send().wait();
 
-			const newGigaRootFromL2 = await L2AztecRootBridgeAdapter.methods.get_giga_root().simulate();
+			const newGigaRootFromL2 = await AztecWarpToad.methods.get_giga_root().simulate();
 			const newGigaRootField = new Fr(newGigaRootFromL2);
 
 			expect(newGigaRootField.toString()).to.equal(BigInt(newGigaRoot.toString()));

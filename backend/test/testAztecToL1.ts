@@ -121,7 +121,7 @@ describe("AztecWarpToad", function () {
         // initialize
         const registryAddress = (await PXE.getNodeInfo()).l1ContractAddresses.registryAddress.toString();
         await L1AztecRootBridgeAdapter.initialize(registryAddress, L2AztecRootBridgeAdapter.address.toString(), gigaBridge.target);
-        await L1WarpToad.initialize(evmWallets[0].getAddress())//gigaBridge.target)
+        await L1WarpToad.initialize(gigaBridge.target)//gigaBridge.target)
         //TODO aztecWarptoad needs to be aware of L2AztecRootBridgeAdapter
 
         return {L2AztecRootBridgeAdapter,L1AztecRootBridgeAdapter,gigaBridge, L1WarpToad, nativeToken, LazyIMTLib, PoseidonT3Lib, AztecWarpToad, aztecWallets, evmWallets, gigaBridge, PXE };
@@ -149,14 +149,6 @@ describe("AztecWarpToad", function () {
             PXE_L2Root.toBuffer(),
             new Fr(blockNumberOfRoot).toBuffer(),
         ]);
-        // is l2ToL1Message
-        // const messageLeaf = sha256ToField([
-        //     L2AztecRootBridgeAdapter.address.toBuffer(),
-        //     new Fr(aztecChainVersion).toBuffer(),
-        //     EthAddress.fromString(l1PortalAddress.toString()).toBuffer32() ?? Buffer.alloc(32, 0),
-        //     new Fr(l1ChainId).toBuffer(),
-        //     messageContent.toBuffer(),
-        // ]);
         const l2Bridge = L2AztecRootBridgeAdapter.address;
         const messageLeaf = sha256ToField([
             l2Bridge.toBuffer(),
@@ -216,7 +208,8 @@ describe("AztecWarpToad", function () {
 
         // sends the root to the L2AztecRootBridgeAdapter through the L1AztecRootBridgeAdapter
         const sendGigaRootTx =await (await gigaBridge.sendRoot(
-            [L1AztecRootBridgeAdapter.target])
+            gigaRootRecipients
+        )
         ).wait(1) as ethers.ContractTransactionReceipt;
 
 
