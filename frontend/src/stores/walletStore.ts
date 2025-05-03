@@ -57,3 +57,9 @@ export async function disconnectMetamaskWallet(): Promise<void> {
   //pseudo disconnect, just deletes store
   evmWalletStore.set(undefined)
 }
+
+export function truncateAddress(str: string): string {
+  if (str.length <= 11) return str; // No need to truncate
+  return `${str.slice(0, 5)}...${str.slice(-3)}`;
+}
+
