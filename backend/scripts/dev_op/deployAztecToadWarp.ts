@@ -28,7 +28,13 @@ async function main() {
     const ownerAddress = ownerWallet.getAddress();
 
     console.log("deploying")
-    const WarpToadCoreDeployed = await Contract.deploy(ownerWallet, WarpToadCoreContractArtifact, [0,ownerAddress])
+    const wrappedTokenSymbol = `wrpToad-${"symbol"}`
+    const wrappedTokenName = `wrpToad-${"name"}`
+    const decimals = 6n; // only 6 decimals what is this tether??
+    const giga_bridge_adapter = "0x0000000000000000000000000000000000000000000000000000000000000000"
+    //_giga_bridge_adapter: AztecAddress, _name: str<31>, _symbol: str<31>, _decimals: u8
+    const constructorArgs = [giga_bridge_adapter,wrappedTokenName,wrappedTokenSymbol,decimals]
+    const WarpToadCoreDeployed = await Contract.deploy(ownerWallet, WarpToadCoreContractArtifact, constructorArgs)
         .send()
         .deployed();
 

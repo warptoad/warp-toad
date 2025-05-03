@@ -31,8 +31,15 @@ noirup -v 1.0.0-beta.3;
 
 ## compile contracts
 ### aztec
-```
+```shell
+# aztec warpToad
 cd backend/contracts/aztec/WarpToadCore;
+aztec-nargo compile;
+aztec codegen -o src/artifacts target;
+cd ../../../..
+
+# L2AztecRootBridgeAdapter
+cd backend/contracts/aztec/L2AztecRootBridgeAdapter;
 aztec-nargo compile;
 aztec codegen -o src/artifacts target;
 cd ../../../..
@@ -70,22 +77,22 @@ yarn workspace @warp-toad/backend hardhat ignition deploy ./ignition/modules/L1W
 `yarn workspace @warp-toad/backend ts-node scripts/dev_op/deployAztecToadWarp.ts`
 
 ## test contracts
-test one just EVM
+test one just EVM (broken need updates)
 ```shell
 yarn workspace @warp-toad/backend hardhat test test/testL1WarpToad.ts 
 ```
 
-test only one AZTEC
+test only one AZTEC (broken need updates)
 ```shell
 yarn workspace @warp-toad/backend hardhat test test/testAztecToadWarp.ts  --network aztecSandbox
 ```
 
-test one CROSS-CHAIN
+test one CROSS-CHAIN (works! yay!)
 ```shell
 yarn workspace @warp-toad/backend hardhat test test/testAztecToL1.ts --network aztecSandbox
 ```
 
-test EVERYTHING 
+test EVERYTHING (testL1WarpToad and testAztecToadWarp are broken)
 ```shell
 yarn workspace @warp-toad/backend hardhat test --network aztecSandbox
 ```

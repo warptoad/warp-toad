@@ -6,27 +6,26 @@ import {PoseidonT3} from "poseidon-solidity/PoseidonT3.sol";
 import {LazyIMT, LazyIMTData} from "@zk-kit/lazy-imt.sol/LazyIMT.sol";
 
 contract GigaRootBridge {
-    event constructedNewGigaRoot(uint256 indexed newGigaRoot);
+    // get gigaRootFrom destination chain. look up at which block that got created at with: ConstructedNewGigaRoot(gigaRoot)
+    // get all leaves of giga tree by scanning for all indexes with ReceivedNewLocalRoot. Start at the block number found above ^
+    // get allIndexes you need by looking at amountOfLocalRoots
+    // work ur way down until you found all indexes.
 
-    event receivedNewLocalRoot(
+    event ConstructedNewGigaRoot(uint256 indexed newGigaRoot); 
+
+    event ReceivedNewLocalRoot(
         uint256 indexed newLocalRoot,
-        // block number that this root came from
-        uint256 indexed localRootBlockNumber,
-        address indexed LocalRootProvider
+        uint40 indexed localRootIndex, 
+        uint256  localRootBlockNumber
     );
 
-    LazyIMTData public rootTreeData; // does this need to be public?
-    ILocalRootProvider[] public localRootProviders;
-    // just a membership mapping
-    mapping(address => bool) isLocalRootProvider;
-    // mapping of the LocalRootProvider addr to their local root's position in all
-    // the arrays used (rootTreeData, localRootBlockNumbers, and localRootProviders)
-    mapping(address => uint40) public localRootLeafIndexes;
-    // mapping gigaRoot => block number of the local block each local root (leaf) came from
-    // The length of the array is always localRootProviders.length
-    mapping(uint256 => uint256[]) public localRootBlockNumbers;
+    LazyIMTData public rootTreeData; // does this need to be public? yes? maybe we can sync clients faster somehow?
     uint8 public maxTreeDepth;
     uint256 public gigaRoot;
+
+    mapping(address => uint40) private localRootProvidersIndexes; // getters are public btw
+    mapping(address => uint256) public localRootBlockNumbers; // current blocknumber per root. History is in events. We need this to check that incoming roots are not older than current
+    uint256 public amountOfLocalRoots;
 
     /**
      * @notice Initialize the root bridge
@@ -34,34 +33,27 @@ contract GigaRootBridge {
      */
     constructor(address[] memory _localRootProviders, uint8 _maxTreeDepth) {
         maxTreeDepth = _maxTreeDepth;
-        // init doesn't add any leaves
+        // init doesn't add any leaves. But the leaves are all 0 by default!
         LazyIMT.init(rootTreeData, _maxTreeDepth);
 
         // for each L1LocalRootProvider...
         for (uint40 i = 0; i < _localRootProviders.length; i++) {
-            address thisLocalRootProvider = _localRootProviders[i];
-
-            // add to list of rootBridges
-            localRootProviders.push(
-                ILocalRootProvider(thisLocalRootProvider)
-            );
-
-            // note the index of this root bridge.  This index will be used to in
-            // rootTreeData, localRootBlockNumbers, and localRootProviders to keep a
-            // "state" for each local which WarpToad is deployed on
-            localRootLeafIndexes[thisLocalRootProvider] = i;
-            isLocalRootProvider[thisLocalRootProvider] = true;
-
-            // data has to be inserted before we can call update on indexes down below
-            LazyIMT.insert(rootTreeData, 0);
+            _setLocalRootProvidersIndex(_localRootProviders[i], i);
+            LazyIMT.insert(rootTreeData,0); // TODO this is kind of expensive way to get around the error from `lazyIMT.update`: `leaf must exist`
         }
+        amountOfLocalRoots = _localRootProviders.length; 
+    }
 
-        // initialize a list of 0 elements of length _localRootProviders.length
-        uint256 numberOfLocalRoots = _localRootProviders.length;
-        uint256[] memory initiallocalRootBlockNumbers = new uint256[](numberOfLocalRoots);
+    function _setLocalRootProvidersIndex(address _localRootProvider, uint40 index) private {
+        localRootProvidersIndexes[_localRootProvider] = index + 1; //+1 because a mapping defaults to 0. so those don't exist!
+    }
 
-        // and set the initial root to this list
-        localRootBlockNumbers[0] = initiallocalRootBlockNumbers;
+    function getLocalRootProvidersIndex(address _localRootProvider) public view returns(uint40) {
+        return localRootProvidersIndexes[_localRootProvider] - 1; //-1 because a mapping defaults to 0. so those don't exist!
+    }
+
+    function isLocalRootProviders(address _localRootProvider) public view returns(bool) {
+        return localRootProvidersIndexes[_localRootProvider] > 0;
     }
 
     /**
@@ -69,82 +61,69 @@ contract GigaRootBridge {
      * list of local root providers.  You can pull updates from a subset of local root providers for gas saving (don't have to update to all local root providers).
      */
     function updateRoot(address[] memory _localRootProviders) external {
-        require(
-            _localRootProviders.length >= localRootProviders.length,
-            "Passed in too many localRootProviderses"
-        );
-
-        // get old array of localRootBlockNumbers at the previous gigaRoot and overwrite it with
-        // new block numbers of the local root providers were updating
-        uint256[] memory updatedLocalRootBlockNumbers = localRootBlockNumbers[
-            gigaRoot
-        ];
+        // require(
+        //     _localRootProviders.length <= localRootProviders.length,
+        //     "Passed in too many localRootProviders"
+        // ); //jimjim: i don't think we need this
 
         // for each localRootProviders
         for (uint40 i = 0; i < _localRootProviders.length; i++) {
-            address thisLocalRootProvider = _localRootProviders[i];
+            address localRootProviderAddress = _localRootProviders[i];
 
             // get the index of this localRootProvider (used in updatedLocalRootBlockNumbers and rootTreeData)
-            uint40 localRootIndex = localRootLeafIndexes[thisLocalRootProvider];
+            uint40 localRootIndex = getLocalRootProvidersIndex(localRootProviderAddress);
 
             // make sure this bridgeAdapterAddress was initialized
             require(
-                isLocalRootProvider[thisLocalRootProvider],
+                isLocalRootProviders(localRootProviderAddress),
                 "Address is not a registered root bridge address"
             );
 
             // create ILocalRootProvider interface
             ILocalRootProvider localRootProvider = ILocalRootProvider(
-                thisLocalRootProvider
+                localRootProviderAddress
             );
 
             // get the most recent l2 root and the l2 block number it came from from this bridge
-            (uint256 newLocalRoot, uint256 localRootBlockNumber) = localRootProvider
-                .getLocalRootAndBlock();
+            (uint256 newLocalRoot, uint256 localRootBlockNumber) = localRootProvider.getLocalRootAndBlock();
+            require(localRootBlockNumber >= localRootBlockNumbers[localRootProviderAddress], "localRoot has to be newer or the same"); 
+            localRootBlockNumbers[localRootProviderAddress] = localRootBlockNumber;
 
-            emit receivedNewLocalRoot(
-                newLocalRoot,
-                localRootBlockNumber,
-                thisLocalRootProvider
-            );
-
-            // update the root in the corresponding index in the merkle tree
-            // TODO: this is pretty expensive.  Optimize batch updates
             LazyIMT.update(rootTreeData, newLocalRoot, localRootIndex);
-
-            // update the list of block numbers for the local root providers whos root we just got
-            updatedLocalRootBlockNumbers[localRootIndex] = localRootBlockNumber;
+            //TODO can we emit 33 events?
+            emit ReceivedNewLocalRoot(
+                newLocalRoot,
+                localRootIndex,
+                localRootBlockNumber
+            );
         }
-
         // compute new giga root
-        uint256 newGigaRoot = LazyIMT.root(rootTreeData);
-
-        // set the updated list of Block numbers that this gigaRoot is updated to
-        localRootBlockNumbers[newGigaRoot] = updatedLocalRootBlockNumbers;
-
-        emit constructedNewGigaRoot(newGigaRoot);
+        uint256 newGigaRoot = LazyIMT.root(rootTreeData, maxTreeDepth);
+        emit ConstructedNewGigaRoot(newGigaRoot);
 
         // set new gigaRoot in contract
         gigaRoot = newGigaRoot;
     }
 
     // Made this a second function because the addresses that want the gigaRoot
-    // might be different from the addresses that are updating the root.
+    // might be different from the addresses that are updating their localRoot.
+    // since most of the time everyone wants the latest gigaRoot but not everyone has a localRoot that is new
     // Sends the most recent gigaRoot to an array of localRootProviders
     function sendRoot(address[] memory _localRootProviders) external {
-        require(
-            _localRootProviders.length >= localRootProviders.length,
-            "Passed in too many localRootProviderses"
-        );
+        // require(
+        //     _localRootProviders.length <= localRootProviders.length,
+        //     "Passed in too many localRootProviders"
+        // ); //jimjim: i don't think we need this
 
         for (uint256 i = 0; i < _localRootProviders.length; i++) {
             address thisLocalRootProvider = _localRootProviders[i];
 
             // use localRootLeafIndexes mapping to verify that this LocalRootProviderAddress was initialized
-            require(
-                isLocalRootProvider[thisLocalRootProvider],
-                "Address is not a registered local root provider address"
-            );
+            // require(
+            //     isLocalRootProvider[thisLocalRootProvider],
+            //     "Address is not a registered local root provider address"
+            // );
+            // we dont need that check. Any can get a giga root if they want!
 
             ILocalRootProvider LocalRootProvider = ILocalRootProvider(
                 thisLocalRootProvider

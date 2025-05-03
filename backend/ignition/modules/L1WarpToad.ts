@@ -1,10 +1,10 @@
 // @NOTICE will be changed to deploy the full WarpToad 
 
-
+//@ts-ignore
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 //import { proxy, PoseidonT3 } from 'poseidon-solidity'
-
-export default buildModule("L1WarpToad", (m) => {
+console.warn("TODO broken gigaBridge should be removed from constructor")
+export default buildModule("L1WarpToad", (m:any) => {
   // TODO use nix method so we reused the same contract
   // https://github.com/chancehudson/poseidon-solidity?tab=readme-ov-file#deploy
   const PoseidonT3Lib = m.library("PoseidonT3");
@@ -23,7 +23,7 @@ export default buildModule("L1WarpToad", (m) => {
 
 
 
-  const L1WarpToad = m.contract("L1WarpToad", [maxTreeDepth,gigaBridge,withdrawVerifier,nativeToken,name,symbol], {
+  const L1WarpToad = m.contract("L1WarpToad", [maxTreeDepth,withdrawVerifier,nativeToken,name,symbol], {
     value: 0n,
     libraries: {
       LazyIMT: LazyIMTLib,

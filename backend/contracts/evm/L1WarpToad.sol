@@ -3,9 +3,9 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract L1WarpToad is WarpToadCore {
-    constructor(uint8 _maxTreeDepth, address _gigaBridge, address _withdrawVerifier, address _nativeToken, string memory name, string memory symbol) 
+    constructor(uint8 _maxTreeDepth, address _withdrawVerifier, address _nativeToken, string memory name, string memory symbol) 
     ERC20(name, symbol) 
-    WarpToadCore(_maxTreeDepth, _gigaBridge, _withdrawVerifier, _nativeToken)  {
+    WarpToadCore(_maxTreeDepth, _withdrawVerifier, _nativeToken)  {
     }
 
     function wrap(uint256 _amount) public {

@@ -11,6 +11,9 @@ const DEFAULT_PRIV_KEYS_ANVIL = ["0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed
 
 
 const config = {
+  mocha: {
+    timeout: 600000, // 10 minutes for tests
+  },
   solidity: {
     version: "0.8.29",
     settings: {

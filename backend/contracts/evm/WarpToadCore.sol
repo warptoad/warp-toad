@@ -27,13 +27,22 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore, ILocalRootProvider {
         require(msg.sender == gigaRootProvider, "Not gigaRootProvider");
         _; // what is that?
     }
+
+    modifier onlyDeployer() {
+        require(msg.sender == deployer, "Not the deployer");
+        _; // what is that?
+    }
+    address deployer;
+
     LazyIMTData public commitTreeData; // does this need to be public?
     uint8 public maxTreeDepth;
 
+    uint256 public cachedLocalRoot;
     uint256 public gigaRoot;
     mapping(uint256 => bool) public gigaRootHistory; // TODO limit the history so we override slots is more efficient and is easier for clients to implement contract interactions
     mapping(uint256 => bool) public localRootHistory; 
 
+    address public l1BridgeAdapter;
     address public gigaRootProvider;
     address public withdrawVerifier;
 
@@ -41,14 +50,22 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore, ILocalRootProvider {
 
     address public nativeToken;
 
-    constructor(uint8 _maxTreeDepth, address _gigaRootProvider, address _withdrawVerifier, address _nativeToken) {
+    constructor(uint8 _maxTreeDepth, address _withdrawVerifier, address _nativeToken) {
         maxTreeDepth = _maxTreeDepth;
         // maxBurns = 2 ** _maxTreeDepth; // circuit cant go above this number
 
-        gigaRootProvider = _gigaRootProvider;
         withdrawVerifier = _withdrawVerifier;
         LazyIMT.init(commitTreeData, _maxTreeDepth);
         nativeToken = _nativeToken;
+        deployer = msg.sender;
+    }
+
+    // needs initialize because the gigaBridge sets its localRootProvider (inc L1WarpToad) in the constructor
+    // 
+    function initialize(address _gigaRootProvider, address _l1BridgeAdapter) public onlyDeployer() {
+        require(gigaRootProvider == address(0), "gigaRootProvider is already set");
+        gigaRootProvider = _gigaRootProvider;
+        l1BridgeAdapter = _l1BridgeAdapter;
     }
 
     function isValidGigaRoot(uint256 _gigaRoot) public view returns (bool) {
@@ -69,6 +86,7 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore, ILocalRootProvider {
     // our tree is lazy so we 
     function storeLocalRootInHistory() public returns(uint256) {
         uint256 root = localRoot();
+        cachedLocalRoot = root;
         localRootHistory[root] = true;
         return root;
     }
@@ -84,7 +102,7 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore, ILocalRootProvider {
         uint256 _maxFee,
         address _relayer,
         address _recipient
-    ) public view returns (bytes32[] memory) {
+    ) public pure returns (bytes32[] memory) {
         bytes32[] memory publicInputs = new bytes32[](10);
         // TODO is this expensive gas wise?
         uint256[8] memory uintInputs = [_nullifier,_chainId,_amount,_gigaRoot,_localRoot,_feeFactor,_priorityFee,_maxFee];
@@ -121,7 +139,7 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore, ILocalRootProvider {
         require(IVerifier(withdrawVerifier).verify(_poof, _publicInputs), "invalid proof"); 
 
         // fee logic       
-        if (_feeFactor != 0 ) { 
+        if (_feeFactor != 0 ) { // 
             uint256 _relayerFee = _feeFactor * (block.basefee + _priorityFee); // TODO double check precision. Prob only breaks if the wrpToad token price is super high or gas cost super low
             require(_relayerFee <= _maxFee, "_relayerFee is larger than _maxFee");
             // for compatibility with permissionless relaying
@@ -152,6 +170,7 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore, ILocalRootProvider {
 
 
     function getLocalRootAndBlock() external returns (uint256, uint256) {
-        return (localRoot(), block.number);
+        storeLocalRootInHistory();
+        return (cachedLocalRoot, block.number);
     }
 }

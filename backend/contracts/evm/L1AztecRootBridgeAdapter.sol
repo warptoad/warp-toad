@@ -19,14 +19,19 @@ contract L1AztecRootBridgeAdapter is ILocalRootProvider {
         require(msg.sender == gigaBridge, "Not gigaBridge");
         _; // what is that?
     }
+
+    modifier onlyDeployer() {
+        require(msg.sender == deployer, "Not the deployer");
+        _; // what is that?
+    }
     // gigaRoot is emitted as a bytes32 here because thats how it's recovered on the
     // aztec L2 side of this rootBridgeAdapter.  Key and index are also used to
     // retrieve this newGigaRoot on aztec
-    event newGigaRootSentToL2(bytes32 newGigaRoot, bytes32 key, uint256 index);
-    event receivedNewL2Root(uint256 newL2Root, uint256 l2Block);
+    event NewGigaRootSentToL2(bytes32 indexed newGigaRoot, bytes32 key, uint256 index); //newGigaRoot is also the content hash! wow!
+    event ReceivedNewL2Root(uint256 newL2Root, uint256 l2Block);
 
     IRegistry public registry;
-    bytes32 public l2Bridge;
+    bytes32 public l2AztecRootBridgeAdapter;
     // most recent warp toad state root from the L2
     uint256 public mostRecentL2Root;
     // the L2 block that the most recent L2 root came from
@@ -39,19 +44,22 @@ contract L1AztecRootBridgeAdapter is ILocalRootProvider {
 
     address public gigaBridge;
 
+    address deployer;
+    constructor() {
+        deployer = msg.sender;
+    }
     /**
      * @notice Initialize the portal
      * @param _registry - The registry address
-     * @param _l2Bridge - The L2 bridge address
+     * @param _l2AztecRootBridgeAdapter - The L2 bridge address
      */
-    // TODO: anyone can call this to set the l2 bridge to something else.  Should make it only callable once. And only owner!
     function initialize(
         address _registry,
-        bytes32 _l2Bridge,
+        bytes32 _l2AztecRootBridgeAdapter,
         address _gigaRootBridge
-    ) external {
+    ) external onlyDeployer() {
         registry = IRegistry(_registry);
-        l2Bridge = _l2Bridge;
+        l2AztecRootBridgeAdapter = _l2AztecRootBridgeAdapter;
 
         rollup = IRollup(registry.getCanonicalRollup());
         outbox = rollup.getOutbox();
@@ -72,10 +80,10 @@ contract L1AztecRootBridgeAdapter is ILocalRootProvider {
     }
 
     function _bridgeGigaRootToL2(uint256 _newGigaRoot) internal {
-        // l2Bridge is the Aztec address of the contract that will be retrieving the
+        // l2AztecRootBridgeAdapter is the Aztec address of the contract that will be retrieving the
         // message on the L2
         DataStructures.L2Actor memory actor = DataStructures.L2Actor(
-            l2Bridge,
+            l2AztecRootBridgeAdapter,
             rollupVersion
         );
 
@@ -99,10 +107,10 @@ contract L1AztecRootBridgeAdapter is ILocalRootProvider {
         );
 
         // Emit event
-        emit newGigaRootSentToL2(contentHash, key, index);
+        emit NewGigaRootSentToL2(contentHash, key, index);
     } 
 
-    function getLocalRootAndBlock() external returns (uint256, uint256) {
+    function getLocalRootAndBlock() view external returns (uint256, uint256) {
         require(
             mostRecentL2Root > 0,
             "An L2 root hasn't yet been bridged to this contract. refreshRoot must be called."
@@ -118,43 +126,37 @@ contract L1AztecRootBridgeAdapter is ILocalRootProvider {
      * @notice gets the L2 root from the portal
      * @dev Second part of getting the L2 root to L1, must be initiated from L2 first as it will consume a message from outbox
      * @param _newL2Root - the merkle root currently on the L2 to add into the GigaRoot
-     * @param _l2BlockNumber - the block number of the L2 when the state root was created
+     * @param _bridgedL2BlockNumber - the block number that is in the content hash (should exactly match the block _newL2Root is from)
+     * @param _witnessL2BlockNumber - the block number where we retrieve the message proof from (should exactly match the block at which the witness (aka _path) is retrieved )
      * @param _leafIndex - The amount to withdraw
      * @param _path - Must match the caller of the message (specified from L2) to consume it.
      */
     function getNewRootFromL2(
         bytes32 _newL2Root,
-        uint256 _l2BlockNumber,
+        uint256 _bridgedL2BlockNumber,
+        uint256 _witnessL2BlockNumber,
         uint256 _leafIndex,
         bytes32[] calldata _path
     ) external {
         // this hash should match the hash created on the aztec side of this root bridge
         // adapter
-        bytes32 contentHash = getContentHash(_newL2Root, _l2BlockNumber);
+        bytes32 contentHash = getContentHash(_newL2Root, _bridgedL2BlockNumber);
 
         DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
-            sender: DataStructures.L2Actor(l2Bridge, rollupVersion),
+            sender: DataStructures.L2Actor(l2AztecRootBridgeAdapter, rollupVersion),
             recipient: DataStructures.L1Actor(address(this), block.chainid),
             content: contentHash
         });
 
-        // The l2BlockNumber is the block number of the state tree root that we fetch
-        // from a private context inside L1AztecRootBridgeAdapter.  This means this block number
-        // is one behind the block the private transaction settles in.  But when consuming messages
-        // from the message tree, we have to know the block that the message got added to the tree,
-        // which is the block that the private transaction settles in.  So it's l2BlockNumber + 1
-        // TODO: shouldn't assume that the private transaction settles in the block after it's called
-        // In the future, look at the L2 txn receipt to see what block number it is in and use that as the
-        // block number in consume (and in client side code where we're creating the messageLeaf)
-        outbox.consume(message, _l2BlockNumber + 1, _leafIndex, _path);
+        outbox.consume(message, _witnessL2BlockNumber, _leafIndex, _path);//@TODO @jimjim remove + 1 see if it breaks
 
         // convert from bytes32 to uint256
         uint256 newL2RootCast = uint256(_newL2Root);
 
-        emit receivedNewL2Root(newL2RootCast, _l2BlockNumber);
+        emit ReceivedNewL2Root(newL2RootCast, _bridgedL2BlockNumber);
 
         mostRecentL2Root = newL2RootCast;
-        mostRecentL2RootBlockNumber = _l2BlockNumber;
+        mostRecentL2RootBlockNumber = _bridgedL2BlockNumber;
     }
 
     // hashes _newL2Root and _l2BlockNumber so it's representation can fit inside of a
@@ -162,8 +164,8 @@ contract L1AztecRootBridgeAdapter is ILocalRootProvider {
     // adapter
     function getContentHash(
         bytes32 _newL2Root,
-        uint256 _l2BlockNumber
+        uint256 _bridgedL2BlockNumber
     ) public pure returns (bytes32) {
-        return Hash.sha256ToField(abi.encode(_newL2Root, _l2BlockNumber));
+        return Hash.sha256ToField(abi.encode(_newL2Root, _bridgedL2BlockNumber));
     }
 }
