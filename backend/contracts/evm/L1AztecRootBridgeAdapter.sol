@@ -110,7 +110,7 @@ contract L1AztecRootBridgeAdapter is ILocalRootProvider {
         emit newGigaRootSentToL2(contentHash, key, index);
     } 
 
-    function getLocalRootAndBlock() external returns (uint256, uint256) {
+    function getLocalRootAndBlock() view external returns (uint256, uint256) {
         require(
             mostRecentL2Root > 0,
             "An L2 root hasn't yet been bridged to this contract. refreshRoot must be called."

@@ -100,7 +100,7 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore, ILocalRootProvider {
         uint256 _maxFee,
         address _relayer,
         address _recipient
-    ) public view returns (bytes32[] memory) {
+    ) public pure returns (bytes32[] memory) {
         bytes32[] memory publicInputs = new bytes32[](10);
         // TODO is this expensive gas wise?
         uint256[8] memory uintInputs = [_nullifier,_chainId,_amount,_gigaRoot,_localRoot,_feeFactor,_priorityFee,_maxFee];
@@ -167,7 +167,7 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore, ILocalRootProvider {
     }
 
 
-    function getLocalRootAndBlock() external returns (uint256, uint256) {
+    function getLocalRootAndBlock() view external returns (uint256, uint256) {
         return (localRoot(), block.number);
     }
 }
