@@ -48,13 +48,13 @@ fn main(
     assert(priority_fee != 0, "priority_fee cant be 0");
 
     // verify origin_local_root is valid
-    // if (destination_local_root == origin_local_root) {
-    //     // Is the same as origin_local_root? cool we shouldn't do anything. destination_local_root is a public input so its safe  :)
-    //     // Besides, by not checking, it allows us to use a local_root that has never been used to make a giga_root yet!
-    // } else {
-    //     // origin_local_root should be in the giga_root!
-    //     evm_merkle_verify(giga_root, origin_local_root, giga_merkle_data);
-    // }
+    if (destination_local_root == origin_local_root) {
+        // Is the same as origin_local_root? cool we shouldn't do anything. destination_local_root is a public input so its safe  :)
+        // Besides, by not checking, it allows us to use a local_root that has never been used to make a giga_root yet!
+    } else {
+        // origin_local_root should be in the giga_root!
+        evm_merkle_verify(giga_root, origin_local_root, giga_merkle_data);
+    }
 
     // verify commitment is part of destination_local_root
     let (commitment, _nullifier) = hash_commitment(nullifier_preimage, secret, chain_id, amount);

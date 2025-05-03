@@ -126,6 +126,7 @@ pub contract WarpToadCore {
     }
 
     // a separate function for evm vs aztec since aztec uses poseidon2. But evm not yet
+    // this works without creating a gigaRoot history right? we just need to make sure the block number we provide matches what gigaRoot was at that time in here!
     #[private]
     fn mint_giga_root_evm(
         amount: Field,

@@ -98,7 +98,7 @@ contract GigaRootBridge {
             );
         }
         // compute new giga root
-        uint256 newGigaRoot = LazyIMT.root(rootTreeData);
+        uint256 newGigaRoot = LazyIMT.root(rootTreeData, maxTreeDepth);
         emit ConstructedNewGigaRoot(newGigaRoot);
 
         // set new gigaRoot in contract

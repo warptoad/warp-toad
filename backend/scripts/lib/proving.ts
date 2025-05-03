@@ -5,7 +5,7 @@ import os from 'os';
 import circuit from "../../circuits/withdraw/target/withdraw.json"
 import { ProofData } from "@aztec/bb.js";
 
-import { WarpToadCore as WarpToadEvm } from "../../typechain-types";
+import { GigaRootBridge, WarpToadCore as WarpToadEvm } from "../../typechain-types";
 import { WarpToadCoreContract as WarpToadAztec } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
 import { BytesLike, ethers } from "ethers";
 import { MerkleTree, Element } from "fixed-merkle-tree";
@@ -25,6 +25,8 @@ const { PXE_URL = 'http://localhost:8080' } = process.env;
 import { poseidon2 } from "poseidon-lite";
 
 import fs from "fs/promises";
+const abiCoder = new ethers.AbiCoder()
+
 
 export async function connectPXE() {
     console.log("creating PXE client")
@@ -37,8 +39,6 @@ export async function connectPXE() {
     return { wallets, PXE }
 }
 
-
-
 /**
  * kind of weird number but its the thing that is multiplied with (baseFee+priorityFee) to get the amount of tokens the relayers gets to compensate for gas fees.
  * @param ethPriceInToken       how many tokens need to buy 1 ETH (or other native gas token if the chain is weird)
@@ -50,11 +50,11 @@ export function calculateFeeFactor(ethPriceInToken: number, gasCost: number, rel
     return BigInt(Math.round(ethPriceInToken * gasCost * relayerBonusFactor))
 }
 
-async function getEvmMerkleData(warpToadOrigin: WarpToadEvm, commitment: bigint, treeDepth: number) {
-    console.warn("warning event scanning code sucks and will break outside tests")
+async function getEvmMerkleData(warpToadOrigin: WarpToadEvm, commitment: bigint, treeDepth: number, localRootBlockNumber:number) {
+
     // TODO do proper event scanning. This will break in prod
     const filter = warpToadOrigin.filters.Burn()
-    const events = await warpToadOrigin.queryFilter(filter, 0) // this goes from 0 to latest. No rpc can do that! this will break outside tests!!
+    const events = await warpToadOrigin.queryFilter(filter, 0,localRootBlockNumber) // this goes from 0 to latest. No rpc can do that! this will break outside tests!!
     const abiCoder = new ethers.AbiCoder()
     const types = ["uint256", "uint256"]
 
@@ -71,12 +71,45 @@ async function getEvmMerkleData(warpToadOrigin: WarpToadEvm, commitment: bigint,
     const hashFunc = (left, right) => poseidon2([left, right])
     //@ts-ignore
     const tree = new MerkleTree(treeDepth, leafs, { hashFunction: hashFunc })
-    const MerkleData = {
+    const merkleData = {
         leaf_index: ethers.toBeHex(leafIndex),
         hash_path: tree.proof(commitment as any as Element).pathElements.map((e) => ethers.toBeHex(e)) // TODO actually take typescript seriously at some point
     } as EvmMerkleData
 
-    return MerkleData
+    return merkleData
+}
+
+export async function getGigaMerkleData(gigaBridge:GigaRootBridge,localRoot:bigint, localRootIndex:bigint, treeDepth:number, gigaRootBlockNumber:number) {
+    const amountOfLocalRoots = await gigaBridge.amountOfLocalRoots()
+    const allRootIndexes = new Array(Number(amountOfLocalRoots)).fill(0).map((v,i)=>ethers.toBeHex(i)) as ethers.BigNumberish[]
+    //@ts-ignore i hate typescript
+    const filter = gigaBridge.filters.ReceivedNewLocalRoot(undefined,allRootIndexes,undefined)
+    const events = await gigaBridge.queryFilter(filter, 0,gigaRootBlockNumber)
+    // only the latest events pls
+
+    const eventPerIndex = events.reduce((newObj: any, event)=>{
+        const index = ethers.toBeHex(event.args[1])
+        if (index in newObj) {
+            newObj[index].push(event)
+        } else {
+            newObj[index] = [event]
+        }
+        return newObj
+    },{})
+    const mostRecentEvents = Object.keys(eventPerIndex).map((index)=>getLatestEvent(eventPerIndex[index]))
+    // TODO we can do it in less loops idk how yet. ill do it later
+    const leafsWithIndexes = mostRecentEvents.map((e) =>{return {localRoot:e.args[0], index:e.args[1]}}) // arg[0] = localRoot in this event
+    const sortedLeafsWithIndexes = leafsWithIndexes.sort((a,b)=>ethers.toNumber(a.index) - ethers.toNumber(b.index))
+    const sortedLeafs = sortedLeafsWithIndexes.map((leaf)=>leaf.localRoot)
+    //@ts-ignore
+    const hashFunc = (left, right) => poseidon2([left, right])
+    //@ts-ignore
+    const tree = new MerkleTree(treeDepth, sortedLeafs, { hashFunction: hashFunc })
+    const merkleData = {
+        leaf_index: ethers.toBeHex(localRootIndex),
+        hash_path: tree.proof(localRoot as any as Element).pathElements.map((e) => ethers.toBeHex(e)) // TODO actually take typescript seriously at some point
+    } as EvmMerkleData
+    return merkleData
 }
 
 export async function getAztecNoteHashTreeRoot(blockNumber:number): Promise<bigint> {
@@ -86,7 +119,49 @@ export async function getAztecNoteHashTreeRoot(blockNumber:number): Promise<bigi
     return block?.header.state.partial.noteHashTree.root.toBigInt() as bigint
 }
 
-export async function getAztecMerkleData(WarpToad:WarpToadAztec, commitment:bigint, latestBridgedBlockNumber: number): Promise<AztecMerkleData>  {
+export async function getBlockNumberOfGigaRoot(gigaBridge:GigaRootBridge, gigaRoot:bigint) {
+
+}
+
+export function getLatestEvent(events:ethers.EventLog[]|any[]) {
+    return events.reduce((latestEv:any, ev)=> {
+        if (latestEv.blockNumber > ev.blockNumber) {
+            return latestEv
+        } else {
+            return ev
+        }
+    }, events[0] )
+    
+}
+
+export async function getGigaRootBlockNumber(gigaBridge:GigaRootBridge, gigaRoot:bigint) {
+    const filter = gigaBridge.filters.ConstructedNewGigaRoot(gigaRoot)
+    const events = await gigaBridge.queryFilter(filter, 0) // TODO scan in chunks. start at latest go to deployment block.stop when you found 1
+    const gigaRootEvent = getLatestEvent(events) // someone can create the same gigaroot twice if they really try. Idk might not matter is this context
+    const gigaRootBlockNumber = gigaRootEvent.blockNumber
+    return gigaRootBlockNumber  
+}
+
+
+
+export async function getLocalRootInGigaRoot(gigaBridge:GigaRootBridge, gigaRoot:bigint, gigaRootBlockNumber: number, warpToadOrigin:WarpToadEvm|WarpToadAztec) {
+    const isFromAztec = !("target" in warpToadOrigin);
+
+    const l1BridgeAdapter = isFromAztec ? await getL1BridgeAdapterAztec(warpToadOrigin) : await warpToadOrigin.l1BridgeAdapter()
+    const localRootIndex = await gigaBridge.getLocalRootProvidersIndex(l1BridgeAdapter)
+    const filter = gigaBridge.filters.ReceivedNewLocalRoot(undefined,localRootIndex)
+    const events = await gigaBridge.queryFilter(filter, 0) // TODO scan in chunks. start at latest go to deployment block
+    const [localRoot,,localRootL2BlockNumber] = events[0].args
+    return  {localRoot, localRootL2BlockNumber, gigaRootBlockNumber,localRootIndex}
+}
+
+export async function getL1BridgeAdapterAztec(WarpToad:WarpToadAztec) {
+    const response = await WarpToad.methods.get_l1_bridge_adapter().simulate()
+    const address = ethers.getAddress(ethers.toBeHex(response.inner)) // EthAddress type in aztec is a lil silly thats why
+    return address
+}
+
+export async function getAztecMerkleData(WarpToad:WarpToadAztec, commitment:bigint, destinationLocalRootBlock:number)  {
     const {PXE} = await connectPXE()
     console.log("finding unique_note_hash index within the tx")
     const warpToadNoteFilter:NotesFilter = {
@@ -98,7 +173,7 @@ export async function getAztecMerkleData(WarpToad:WarpToadAztec, commitment:bigi
     const currentNote = notes.find((n)=> hashCommitmentFromNoteItems(n.note.items) === commitment);
     const siloedNoteHash = await hashSiloedNoteHash(WarpToad.address.toBigInt() ,commitment)
     const uniqueNoteHash = await hashUniqueNoteHash(currentNote!.nonce.toBigInt(),siloedNoteHash)
-    const witness = await WarpToad.methods.get_note_proof(latestBridgedBlockNumber,uniqueNoteHash ).simulate()
+    const witness = await WarpToad.methods.get_note_proof(destinationLocalRootBlock,uniqueNoteHash ).simulate()
     const merkleData: AztecMerkleData = {
         leaf_index: ethers.toBeHex(witness.index),
         hash_path: witness.path.map((h:bigint)=>ethers.toBeHex(h)),
@@ -111,28 +186,48 @@ export async function getAztecMerkleData(WarpToad:WarpToadAztec, commitment:bigi
     return merkleData
 }
 
-export async function getMerkleData(warpToadOrigin: WarpToadEvm | WarpToadAztec,warpToadDestination:WarpToadEvm, commitment:bigint) { 
-    const isFromAztec = !("target" in warpToadOrigin);
-    let aztecMerkleData:AztecMerkleData = emptyAztecMerkleData;
-    let evmMerkleData:EvmMerkleData = emptyEvmMerkleData;
-    let originLocalRoot:bigint;
-    if (isFromAztec) {
-        const {PXE} = await connectPXE()  // TODO  const = isFromAztec ? happens too ofter do something cleaner
-        const aztecLatestBridgedBlockNumber = await PXE.getBlockNumber()
-        aztecMerkleData = await getAztecMerkleData(warpToadOrigin, commitment, aztecLatestBridgedBlockNumber as number);
-        originLocalRoot = await getAztecNoteHashTreeRoot(aztecLatestBridgedBlockNumber as number)
+// if you ever run into a bug with this. I am so sorry
+// TODO make it so can also do evm -> aztec
+// you need to allow warpToadDestination also to be able to a aztec contract, if so no isOnlyLocal and no isFromAztec. prob only change how to get giga root
+// no need to fuck with getProofInputs for aztec withdraws. its not the same circuit any way
+export async function getMerkleData(gigaBridge:GigaRootBridge, warpToadOrigin: WarpToadEvm | WarpToadAztec, warpToadDestination:WarpToadEvm, commitment:bigint) { 
+
+
+    let originLocalRoot;
+    let gigaMerkleData;
+    let destinationLocalRootL2Block;
+    const gigaRoot = await warpToadDestination.gigaRoot()
+    const isOnlyLocal = warpToadDestination === warpToadOrigin;
+    console.log("getting gigaProof")
+    if (isOnlyLocal) {
+        originLocalRoot = await warpToadDestination.cachedLocalRoot()
+        gigaMerkleData = emptyGigaMerkleData
     } else {
-        evmMerkleData = await getEvmMerkleData(warpToadOrigin, commitment, EVM_TREE_DEPTH)
-        originLocalRoot = await warpToadOrigin.cachedLocalRoot()
+        const gigaRootBlockNumber = await getGigaRootBlockNumber(gigaBridge, gigaRoot)
+        const {localRoot, localRootL2BlockNumber,localRootIndex:originLocalRootIndex } = await getLocalRootInGigaRoot(gigaBridge, gigaRoot,gigaRootBlockNumber, warpToadOrigin)
+        originLocalRoot = localRoot
+        destinationLocalRootL2Block = localRootL2BlockNumber;
+
+        gigaMerkleData = await getGigaMerkleData(gigaBridge, originLocalRoot, originLocalRootIndex, GIGA_TREE_DEPTH, gigaRootBlockNumber)
     }
 
-    const isOnlyLocal = warpToadDestination === warpToadOrigin;
-    const gigaMerkleData: EvmMerkleData = isOnlyLocal ? emptyGigaMerkleData : emptyGigaMerkleData //doesn't work-> await generateEvmMerkleData(warpToadDestination, originLocalRoot, GIGA_TREE_DEPTH);
+    console.log("getting localProof")
+    let aztecMerkleData:AztecMerkleData;
+    let evmMerkleData:EvmMerkleData;
+    const isFromAztec = !("target" in warpToadOrigin);
+    if (isFromAztec) {
+        aztecMerkleData = await getAztecMerkleData(warpToadOrigin, commitment, Number(destinationLocalRootL2Block)) 
+        evmMerkleData = emptyEvmMerkleData
+    } else {
+        aztecMerkleData = emptyAztecMerkleData
+        evmMerkleData = await getEvmMerkleData(warpToadOrigin, commitment, EVM_TREE_DEPTH,Number(destinationLocalRootL2Block));
+    }
 
     return {isFromAztec, gigaMerkleData,evmMerkleData,aztecMerkleData, originLocalRoot}
 }
 
 export async function getProofInputs(
+    gigaBridge:GigaRootBridge,
     warpToadDestination: WarpToadEvm,
     warpToadOrigin: WarpToadEvm | WarpToadAztec, // warptoadEvm = {WarpToadCore} from typechain-types and WarpToadAztec = {WarpToadCoreContract} from `aztec-nargo codegen` 
     amount: bigint,
@@ -163,7 +258,7 @@ export async function getProofInputs(
         evmMerkleData,
         aztecMerkleData, 
         originLocalRoot
-    } = await getMerkleData(warpToadOrigin,warpToadDestination, commitment)
+    } = await getMerkleData(gigaBridge,warpToadOrigin,warpToadDestination, commitment)
     
     const proofInputs: ProofInputs = {
         // ----- public inputs -----
@@ -186,7 +281,7 @@ export async function getProofInputs(
         secret: ethers.toBeHex(secret),
         aztec_merkle_data: aztecMerkleData,
         evm_merkle_data: evmMerkleData,
-        giga_merkle_data: gigaMerkleData,
+        giga_merkle_data: gigaMerkleData as EvmMerkleData,
     }
     return proofInputs
 }
