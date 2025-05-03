@@ -46,8 +46,9 @@ export async function bridgeNoteHashTreeRoot(
         messageContent.toBuffer(),
     ]);
 
+    const witnessBlocknumber =  await PXE.getBlockNumber() // any block number after send_root_to_l1 happened
     const [l2ToL1MessageIndex, siblingPath] = await PXE.getL2ToL1MembershipWitness(
-        await PXE.getBlockNumber(), // any block number after send_root_to_l1 happened
+        witnessBlocknumber, 
         //@ts-ignore some bs where the Fr type that getL2ToL1MembershipWitness wants is different messageLeaf has
         messageLeaf
     );
@@ -56,6 +57,7 @@ export async function bridgeNoteHashTreeRoot(
     const refreshRootTx = await (await L1AztecRootBridgeAdapter.getNewRootFromL2(
         PXE_L2Root.toString(),
         BigInt(blockNumberOfRoot), // has to be the same block as when as the root bridged. since this function uses it to create the content_hash
+        BigInt(witnessBlocknumber), // hash to be the same block as the witness was retrieved since that is what the witness will be proved against
         l2ToL1MessageIndex,
         siblingPathArray
     )).wait(1) as ethers.ContractTransactionReceipt;
