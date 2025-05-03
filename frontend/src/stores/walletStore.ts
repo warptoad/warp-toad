@@ -2,22 +2,10 @@ import { writable, get } from 'svelte/store';
 import { AztecWalletSdk, obsidion } from "@nemi-fi/wallet-sdk";
 import type { Account } from "@nemi-fi/wallet-sdk";
 import { ethers } from 'ethers';
-import type { Eip1193Account } from '@nemi-fi/wallet-sdk/eip1193';
 
 //OBSIDION CONSTANTS
 export const NODE_URL = "https://registry.obsidion.xyz/node";
 export const WALLET_URL = "https://app.obsidion.xyz";
-
-
-export type WalletStore = {
-  walletType: 'aztec' | 'evm';
-  content: Eip1193Account | EvmAccount;
-}
-//typeguard for evm account
-export function isEvmAccount(content: Account | EvmAccount): content is EvmAccount {
-  return 'provider' in content && 'signer' in content;
-}
-
 
 export type EvmAccount = {
   address: string;
@@ -25,7 +13,8 @@ export type EvmAccount = {
   signer: ethers.JsonRpcSigner;
 }
 
-export const walletStore = writable<WalletStore | undefined>(undefined);
+export const evmWalletStore = writable<EvmAccount | undefined>(undefined);
+export const aztecWalletStore = writable<Account | undefined>(undefined);
 
 // Aztec Wallet SDK
 export const sdk = new AztecWalletSdk({
@@ -33,6 +22,13 @@ export const sdk = new AztecWalletSdk({
   connectors: [obsidion({ walletUrl: WALLET_URL })],
 });
 
+export function isEvmConnected(): boolean {
+  return get(evmWalletStore) !== undefined;
+}
+
+export function isAztecConnected(): boolean {
+  return get(aztecWalletStore) !== undefined;
+}
 
 export async function connectMetamaskWallet(): Promise<void> {
   if (!window.ethereum) throw new Error("MetaMask not found");
@@ -49,24 +45,19 @@ export async function connectMetamaskWallet(): Promise<void> {
     signer,
   };
 
-  walletStore.set({walletType:'evm', content: evmAccount});
+  evmWalletStore.set(evmAccount);
 }
 
 export async function connectObsidionWallet(): Promise<void> {
-  const account = await sdk.connect("obsidion");
-  walletStore.set({walletType:'aztec', content: account});
+  aztecWalletStore.set(await sdk.connect("obsidion"));
 }
 
-//universal disconnect
-export async function disconnectWallet(): Promise<void> {
+export async function disconnectObsidionWallet(): Promise<void> {
   await sdk.disconnect();
-  const walletType = get(walletStore)!.walletType;
-  console.log(walletType);
+  aztecWalletStore.set(undefined)
+}
 
-  if (walletType === 'aztec') {
-    await sdk.disconnect();
-  }
-  // For EVM, no true disconnect; we just clear state.
-  
-  walletStore.set(undefined);
+export async function disconnectMetamaskWallet(): Promise<void> {
+  //pseudo disconnect, just deletes store
+  evmWalletStore.set(undefined)
 }

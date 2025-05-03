@@ -1,15 +1,17 @@
 <script lang="ts">
   import { ethers } from "ethers";
   import type { Account } from "@nemi-fi/wallet-sdk";
-  import { walletStore, connectMetamaskWallet, connectObsidionWallet, disconnectWallet } from "../stores/walletStore";
-  import type {WalletStore} from "../stores/walletStore";
+  import { evmWalletStore, aztecWalletStore, isEvmConnected, isAztecConnected, connectMetamaskWallet, connectObsidionWallet, disconnectMetamaskWallet, disconnectObsidionWallet } from "../stores/walletStore";
+  import type {EvmAccount} from "../stores/walletStore";
 
   let walletModal: HTMLDialogElement | null = null;
 
-  let wallet: WalletStore | undefined;
+  let evmWallet: EvmAccount | undefined;
+  let aztecWallet: Account | undefined
 
   // Subscribe to account store reactively
-  $: $walletStore, (wallet = $walletStore);
+  $: $evmWalletStore, evmWallet = $evmWalletStore;
+  $: $aztecWalletStore, aztecWallet = $aztecWalletStore;
 
   function formatAddress(address: string) {
     if (!address) return "";
@@ -28,6 +30,12 @@
 
   function closeModal() {
     walletModal?.close();
+  }
+
+  async function disconnectAll() {
+    await disconnectMetamaskWallet();
+    await disconnectObsidionWallet();
+    closeModal()
   }
 </script>
 
@@ -72,7 +80,7 @@
             />
             Metamask
           </button>
-          <button on:click={disconnectWallet}>Disconnect</button>
+          <button on:click={disconnectAll}>Disconnect</button>
         </div>
       </div>
     </div>
