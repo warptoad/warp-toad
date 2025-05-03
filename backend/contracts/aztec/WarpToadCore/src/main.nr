@@ -5,7 +5,7 @@ mod hashing;
 // https://github.com/privacy-scaling-explorations/zk-kit.noir/blob/fa5fdb0f0d0867e367388f85079db3b1f9a47590/packages/merkle-trees/src/merkle.nr#L3
 
 // token functionality based of: https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0/noir-projects/noir-contracts/contracts/easy_private_token_contract/src/main.nr
-// TODO upgrade to more fleshed out version at: https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0/noir-projects/noir-contracts/contracts/token_contract/src/main.nr
+// TODO post hackathon upgrade to more fleshed out version at: https://github.com/AztecProtocol/aztec-packages/blob/v0.84.0/noir-projects/noir-contracts/contracts/token_contract/src/main.nr
 #[aztec]
 pub contract WarpToadCore {
 
@@ -61,15 +61,16 @@ pub contract WarpToadCore {
     struct Storage<Context> {
 
         giga_root: PublicMutable<Field, Context>,
-
-        giga_root_provider: PublicImmutable<AztecAddress, Context>,
-
+        native_token: PublicImmutable<EthAddress, Context>,
         balances: Map<AztecAddress, EasyPrivateUint<Context>, Context>,
         commitments: PrivateSet<WarpToadNote, Context>,
         symbol: PublicImmutable<FieldCompressedString, Context>,
         name: PublicImmutable<FieldCompressedString, Context>,
         // docs:start:storage_decimals
         decimals: PublicImmutable<u8, Context>,
+        deployer: PublicImmutable<AztecAddress, Context>,
+        giga_root_provider: PublicImmutable<AztecAddress, Context>,
+        l1_bridge_adapter:PublicImmutable<EthAddress, Context>,
     }
 
     /**
@@ -77,12 +78,19 @@ pub contract WarpToadCore {
      */
     #[initializer]
     #[public]
-    fn constructor(_giga_root_provider: AztecAddress, _name: str<31>, _symbol: str<31>, _decimals: u8) {
-        storage.giga_root_provider.initialize(_giga_root_provider);
+    fn constructor(native_token: EthAddress,_name: str<31>, _symbol: str<31>, _decimals: u8) {
+        storage.native_token.initialize(native_token);
         storage.name.initialize(FieldCompressedString::from_string(_name));
         storage.symbol.initialize(FieldCompressedString::from_string(_symbol));
         // docs:start:initialize_decimals
         storage.decimals.initialize(_decimals); // cant be set too high since we use u64 which cant support large numbers
+        storage.deployer.initialize(context.msg_sender());
+    }
+    #[public]
+    fn initialize(_giga_root_provider: AztecAddress, _l1_bridge_adapter: EthAddress) {
+        assert(context.msg_sender() == storage.deployer.read(), "you're not the deployer.");
+        storage.giga_root_provider.initialize(_giga_root_provider); 
+        storage.l1_bridge_adapter.initialize(_l1_bridge_adapter);
     }
 
     //-------warptoad things----------------------
@@ -95,13 +103,10 @@ pub contract WarpToadCore {
 
     #[public]
     fn receive_giga_root(giga_root: Field) {
-        // TODO make only the bridge able to use this function. And also make sure the contract that send the bridge transfer is L1_contract
+        assert(context.msg_sender() == storage.giga_root_provider.read(), "you are not the giga_root_provider.");
         storage.giga_root.write(giga_root);
     }
 
-    // TODO this is not safe. if sender reveals their viewing keys others can spend their token(they should only be able to see them!)
-    // Look at the token contract example for how to do that
-    // https://discord.com/channels/1144692727120937080/1359842526915203096
     #[private]
     fn burn(amount: u64, destination_chain_id: Field, secret: Field, nullifier_preimage: Field) {
         let sender = context.msg_sender();
@@ -254,6 +259,11 @@ pub contract WarpToadCore {
         get_note_hash_membership_witness(block_number, note_hash)
     }
 
+    #[utility]
+    unconstrained fn get_l1_bridge_adapter() -> pub EthAddress {
+        storage.l1_bridge_adapter.read()
+    }
+
     // DEBUG remove later
     #[utility]
     unconstrained fn get_chain_id() -> pub Field {
@@ -263,7 +273,7 @@ pub contract WarpToadCore {
 
     // -------------standard token things------------
     // inspired by https://github.com/AztecProtocol/aztec-packages/tree/v0.86.0/noir-projects/noir-contracts/contracts/app/easy_private_token_contract
-    // TODO make it more like: https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr
+    // TODO post hackathon make it more like: https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr
     // so it can support u128 balances
     // but simplified to reduce scope for the hackathon
     #[derive(Serialize)]

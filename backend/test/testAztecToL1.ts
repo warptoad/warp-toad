@@ -128,14 +128,18 @@ describe("AztecWarpToad", function () {
         // initialize
         const aztecNativeBridgeRegistryAddress = (await PXE.getNodeInfo()).l1ContractAddresses.registryAddress.toString();
         await L1AztecRootBridgeAdapter.initialize(aztecNativeBridgeRegistryAddress, L2AztecRootBridgeAdapter.address.toString(), gigaBridge.target);
-        await L1WarpToad.initialize(gigaBridge.target, L1WarpToad.target)
-
+        await L1WarpToad.initialize(gigaBridge.target, L1WarpToad.target) // <- L1WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
+        await AztecWarpToad.methods.initialize(L2AztecRootBridgeAdapter.address, L1AztecRootBridgeAdapter.target).send().wait()// all other warptoad initializations will look like this
         return { L2AztecRootBridgeAdapter, L1AztecRootBridgeAdapter, gigaBridge, L1WarpToad, nativeToken, LazyIMTLib, PoseidonT3Lib, AztecWarpToad, aztecWallets, evmWallets, PXE };
     }
 
     describe("deployment", function () {
         it("Should deploy warptoad for aztec and L1", async function () {
-            const { L1WarpToad, nativeToken, LazyIMTLib, PoseidonT3Lib, AztecWarpToad, aztecWallets, evmWallets } = await deploy()
+            const { L1WarpToad, nativeToken, LazyIMTLib, PoseidonT3Lib, AztecWarpToad, aztecWallets, evmWallets,L1AztecRootBridgeAdapter } = await deploy()
+            //@TODO more things like this test!
+            const aztecsL1Adapter = ethers.getAddress(ethers.toBeHex(( await AztecWarpToad.methods.get_l1_bridge_adapter().simulate()).inner)) // EthAddress type in noir is struct with .inner, which contains the address as a Field
+            console.log({aztecsL1Adapter})
+            expect(aztecsL1Adapter).to.eq(L1AztecRootBridgeAdapter.target)
         })
 
     })

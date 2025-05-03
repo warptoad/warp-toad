@@ -76,14 +76,14 @@ export class WarpToadCoreContract extends ContractBase {
   /**
    * Creates a tx to deploy a new instance of this contract.
    */
-  public static deploy(wallet: Wallet, _giga_bridge_adapter: AztecAddressLike, _name: string, _symbol: string, _decimals: (bigint | number)) {
+  public static deploy(wallet: Wallet, native_token: EthAddressLike, _name: string, _symbol: string, _decimals: (bigint | number)) {
     return new DeployMethod<WarpToadCoreContract>(PublicKeys.default(), wallet, WarpToadCoreContractArtifact, WarpToadCoreContract.at, Array.from(arguments).slice(1));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public keys hash to derive the address.
    */
-  public static deployWithPublicKeys(publicKeys: PublicKeys, wallet: Wallet, _giga_bridge_adapter: AztecAddressLike, _name: string, _symbol: string, _decimals: (bigint | number)) {
+  public static deployWithPublicKeys(publicKeys: PublicKeys, wallet: Wallet, native_token: EthAddressLike, _name: string, _symbol: string, _decimals: (bigint | number)) {
     return new DeployMethod<WarpToadCoreContract>(publicKeys, wallet, WarpToadCoreContractArtifact, WarpToadCoreContract.at, Array.from(arguments).slice(2));
   }
 
@@ -121,12 +121,12 @@ export class WarpToadCoreContract extends ContractBase {
   }
   
 
-  public static get storage(): ContractStorageLayout<'giga_root' | 'giga_bridge_adapter' | 'balances' | 'commitments' | 'symbol' | 'name' | 'decimals'> {
+  public static get storage(): ContractStorageLayout<'giga_root' | 'native_token' | 'balances' | 'commitments' | 'symbol' | 'name' | 'decimals' | 'deployer' | 'giga_root_provider' | 'l1_bridge_adapter'> {
       return {
         giga_root: {
       slot: new Fr(1n),
     },
-giga_bridge_adapter: {
+native_token: {
       slot: new Fr(2n),
     },
 balances: {
@@ -143,8 +143,17 @@ name: {
     },
 decimals: {
       slot: new Fr(10n),
+    },
+deployer: {
+      slot: new Fr(12n),
+    },
+giga_root_provider: {
+      slot: new Fr(14n),
+    },
+l1_bridge_adapter: {
+      slot: new Fr(16n),
     }
-      } as ContractStorageLayout<'giga_root' | 'giga_bridge_adapter' | 'balances' | 'commitments' | 'symbol' | 'name' | 'decimals'>;
+      } as ContractStorageLayout<'giga_root' | 'native_token' | 'balances' | 'commitments' | 'symbol' | 'name' | 'decimals' | 'deployer' | 'giga_root_provider' | 'l1_bridge_adapter'>;
     }
     
 
@@ -172,8 +181,8 @@ WarpToadNote: {
     /** burn(amount: integer, destination_chain_id: field, secret: field, nullifier_preimage: field) */
     burn: ((amount: (bigint | number), destination_chain_id: FieldLike, secret: FieldLike, nullifier_preimage: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** constructor(_giga_bridge_adapter: struct, _name: string, _symbol: string, _decimals: integer) */
-    constructor: ((_giga_bridge_adapter: AztecAddressLike, _name: string, _symbol: string, _decimals: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** constructor(native_token: struct, _name: string, _symbol: string, _decimals: integer) */
+    constructor: ((native_token: EthAddressLike, _name: string, _symbol: string, _decimals: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** get_chain_id() */
     get_chain_id: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -184,8 +193,14 @@ WarpToadNote: {
     /** get_giga_root() */
     get_giga_root: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** get_l1_bridge_adapter() */
+    get_l1_bridge_adapter: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** get_note_proof(block_number: integer, note_hash: field) */
     get_note_proof: ((block_number: (bigint | number), note_hash: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** initialize(_giga_root_provider: struct, _l1_bridge_adapter: struct) */
+    initialize: ((_giga_root_provider: AztecAddressLike, _l1_bridge_adapter: EthAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** mint_for_testing(amount: integer, recipient: struct) */
     mint_for_testing: ((amount: (bigint | number), recipient: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;

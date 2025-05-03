@@ -31,12 +31,14 @@ noirup -v 1.0.0-beta.3;
 
 ## compile contracts
 ### aztec
-```
+```shell
+# aztec warpToad
 cd backend/contracts/aztec/WarpToadCore;
 aztec-nargo compile;
 aztec codegen -o src/artifacts target;
 cd ../../../..
 
+# L2AztecRootBridgeAdapter
 cd backend/contracts/aztec/L2AztecRootBridgeAdapter;
 aztec-nargo compile;
 aztec codegen -o src/artifacts target;
