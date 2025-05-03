@@ -37,6 +37,7 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore, ILocalRootProvider {
     LazyIMTData public commitTreeData; // does this need to be public?
     uint8 public maxTreeDepth;
 
+    uint256 public cachedLocalRoot;
     uint256 public gigaRoot;
     mapping(uint256 => bool) public gigaRootHistory; // TODO limit the history so we override slots is more efficient and is easier for clients to implement contract interactions
     mapping(uint256 => bool) public localRootHistory; 
@@ -85,6 +86,7 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore, ILocalRootProvider {
     // our tree is lazy so we 
     function storeLocalRootInHistory() public returns(uint256) {
         uint256 root = localRoot();
+        cachedLocalRoot = root;
         localRootHistory[root] = true;
         return root;
     }
@@ -167,7 +169,8 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore, ILocalRootProvider {
     }
 
 
-    function getLocalRootAndBlock() view external returns (uint256, uint256) {
-        return (localRoot(), block.number);
+    function getLocalRootAndBlock() external returns (uint256, uint256) {
+        storeLocalRootInHistory();
+        return (cachedLocalRoot, block.number);
     }
 }

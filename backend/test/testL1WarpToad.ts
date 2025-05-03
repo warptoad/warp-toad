@@ -109,8 +109,8 @@ describe("L1WarpToad", function () {
 
       // --------------bridge root -----------------------------------------------------------
       const gigaRoot = await L1WarpToad.gigaRoot()
-      const localRoot = await L1WarpToad.localRoot()
       await L1WarpToad.storeLocalRootInHistory(); // TODO make relayer do this and get a root from history instead
+      const localRoot = await L1WarpToad.cachedLocalRoot()
       await L1WarpToad.receiveGigaRoot(gigaRoot); // TODO this is not how it is supposed to work. GigaBridge should do this
 
 

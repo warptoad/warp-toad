@@ -242,13 +242,13 @@ describe("AztecWarpToad", function () {
             )
             
             // check bridgeNoteHashTreeRoot()
-            const parsedRefreshRootEvent = parseEventFromTx(refreshRootTx, L1AztecRootBridgeAdapter, "receivedNewL2Root")
+            const parsedRefreshRootEvent = parseEventFromTx(refreshRootTx, L1AztecRootBridgeAdapter, "ReceivedNewL2Root")
             const bridgedL2Root = parsedRefreshRootEvent!.args[0];
             expect(bridgedL2Root).to.not.be.undefined;
             expect(bridgedL2Root.toString()).to.equal(BigInt(PXE_L2Root.toString()));
 
             // check updateGigaRoot
-            const parsedGigaRootUpdateEvent = parseEventFromTx(gigaRootUpdateTx,gigaBridge,"constructedNewGigaRoot")
+            const parsedGigaRootUpdateEvent = parseEventFromTx(gigaRootUpdateTx,gigaBridge,"ConstructedNewGigaRoot")
             const newGigaRootFromBridgeEvent = parsedGigaRootUpdateEvent!.args[0];
             const gigaRootFromContract = await gigaBridge.gigaRoot();
             expect(newGigaRootFromBridgeEvent.toString()).to.equal(gigaRootFromContract.toString());

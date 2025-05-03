@@ -14,8 +14,8 @@ contract GigaRootBridge {
     event ConstructedNewGigaRoot(uint256 indexed newGigaRoot); 
 
     event ReceivedNewLocalRoot(
-        uint40 indexed localRootIndex,
-        uint256 indexed newLocalRoot, 
+        uint256 indexed newLocalRoot,
+        uint40 indexed localRootIndex, 
         uint256  localRootBlockNumber
     );
 
@@ -39,6 +39,7 @@ contract GigaRootBridge {
         // for each L1LocalRootProvider...
         for (uint40 i = 0; i < _localRootProviders.length; i++) {
             _setLocalRootProvidersIndex(_localRootProviders[i], i);
+            LazyIMT.insert(rootTreeData,0); // TODO this is kind of expensive way to get around the error from `lazyIMT.update`: `leaf must exist`
         }
         amountOfLocalRoots = _localRootProviders.length; 
     }
@@ -91,8 +92,8 @@ contract GigaRootBridge {
             LazyIMT.update(rootTreeData, newLocalRoot, localRootIndex);
             //TODO can we emit 33 events?
             emit ReceivedNewLocalRoot(
-                localRootIndex,
                 newLocalRoot,
+                localRootIndex,
                 localRootBlockNumber
             );
         }

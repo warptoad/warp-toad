@@ -172,7 +172,7 @@ describe("GigaRootBridge core", function () {
 
 			// Find the event in the logs
 			const refreshRootEvent = receipt.logs.find(
-				(log: ethers.EventLog) => log.topics[0] === L1AztecRootBridgeAdapter.interface.getEvent("receivedNewL2Root").topicHash
+				(log: ethers.EventLog) => log.topics[0] === L1AztecRootBridgeAdapter.interface.getEvent("ReceivedNewL2Root").topicHash
 			);
 
 			// Parse the refreshRootEvent data
@@ -227,7 +227,7 @@ describe("GigaRootBridge core", function () {
 
 			// Find the event in the logs
 			const sendGigaRootEvent = sendGigaRootReceipt.logs.find(
-				(log: ethers.EventLog) => log.topics[0] === L1AztecRootBridgeAdapter.interface.getEvent("newGigaRootSentToL2").topicHash
+				(log: ethers.EventLog) => log.topics[0] === L1AztecRootBridgeAdapter.interface.getEvent("NewGigaRootSentToL2").topicHash
 			);
 
 			// Parse the event data
@@ -315,7 +315,7 @@ describe("RootBridgeAdapters (L1 <-> L2 message passing)", function () {
 
 			// Find the event in the logs
 			const event = receipt.logs.find(
-				log => log.topics[0] === L1AztecRootBridgeAdapter.interface.getEvent("newGigaRootSentToL2").topicHash
+				log => log.topics[0] === L1AztecRootBridgeAdapter.interface.getEvent("NewGigaRootSentToL2").topicHash
 			);
 
 			// Parse the event data
@@ -412,7 +412,7 @@ describe("RootBridgeAdapters (L1 <-> L2 message passing)", function () {
 
 			// Find the event in the logs
 			const event = receipt.logs.find(
-				log => log.topics[0] === L1AztecRootBridgeAdapter.interface.getEvent("receivedNewL2Root").topicHash
+				log => log.topics[0] === L1AztecRootBridgeAdapter.interface.getEvent("ReceivedNewL2Root").topicHash
 			);
 
 			// Parse the event data

@@ -27,8 +27,8 @@ contract L1AztecRootBridgeAdapter is ILocalRootProvider {
     // gigaRoot is emitted as a bytes32 here because thats how it's recovered on the
     // aztec L2 side of this rootBridgeAdapter.  Key and index are also used to
     // retrieve this newGigaRoot on aztec
-    event newGigaRootSentToL2(bytes32 indexed newGigaRoot, bytes32 key, uint256 index); //newGigaRoot is also the content hash! wow!
-    event receivedNewL2Root(uint256 newL2Root, uint256 l2Block);
+    event NewGigaRootSentToL2(bytes32 indexed newGigaRoot, bytes32 key, uint256 index); //newGigaRoot is also the content hash! wow!
+    event ReceivedNewL2Root(uint256 newL2Root, uint256 l2Block);
 
     IRegistry public registry;
     bytes32 public l2AztecRootBridgeAdapter;
@@ -107,7 +107,7 @@ contract L1AztecRootBridgeAdapter is ILocalRootProvider {
         );
 
         // Emit event
-        emit newGigaRootSentToL2(contentHash, key, index);
+        emit NewGigaRootSentToL2(contentHash, key, index);
     } 
 
     function getLocalRootAndBlock() view external returns (uint256, uint256) {
@@ -153,7 +153,7 @@ contract L1AztecRootBridgeAdapter is ILocalRootProvider {
         // convert from bytes32 to uint256
         uint256 newL2RootCast = uint256(_newL2Root);
 
-        emit receivedNewL2Root(newL2RootCast, _bridgedL2BlockNumber);
+        emit ReceivedNewL2Root(newL2RootCast, _bridgedL2BlockNumber);
 
         mostRecentL2Root = newL2RootCast;
         mostRecentL2RootBlockNumber = _bridgedL2BlockNumber;

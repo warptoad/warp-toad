@@ -123,7 +123,7 @@ export async function getMerkleData(warpToadOrigin: WarpToadEvm | WarpToadAztec,
         originLocalRoot = await getAztecNoteHashTreeRoot(aztecLatestBridgedBlockNumber as number)
     } else {
         evmMerkleData = await getEvmMerkleData(warpToadOrigin, commitment, EVM_TREE_DEPTH)
-        originLocalRoot = await warpToadOrigin.localRoot()
+        originLocalRoot = await warpToadOrigin.cachedLocalRoot()
     }
 
     const isOnlyLocal = warpToadDestination === warpToadOrigin;
@@ -150,7 +150,7 @@ export async function getProofInputs(
     // TODO performance: do all these awaits concurrently 
     const chainId = (await warpToadDestination.runner?.provider?.getNetwork())?.chainId as bigint
     const gigaRoot = await warpToadDestination.gigaRoot()
-    const destinationLocalRoot = await warpToadDestination.localRoot()
+    const destinationLocalRoot = await warpToadDestination.cachedLocalRoot() //TODO if this breaks. means you have to cache it first
     const preCommitment = hashPreCommitment(nullifierPreImage, secret, chainId)
     const commitment = hashCommitment(preCommitment, amount)
     const nullifier = hashNullifier(nullifierPreImage)

@@ -122,7 +122,7 @@ export async function receiveGigaRootOnAztec(
     L2AztecRootBridgeAdapter: L2AztecRootBridgeAdapterContract,
     L1AztecRootBridgeAdapter: L1AztecRootBridgeAdapter,
     AztecWarpToad: AztecWarpToadCore,
-    sendGigaRootTx: ethers.TransactionReceipt, // either get it from sendGigaRoot. or event scan for a specific gigaRoot with "newGigaRootSentToL2"
+    sendGigaRootTx: ethers.TransactionReceipt, // either get it from sendGigaRoot. or event scan for a specific gigaRoot with "NewGigaRootSentToL2"
     PXE: PXE,
     isSandBox?: boolean,
     
@@ -131,13 +131,13 @@ export async function receiveGigaRootOnAztec(
     isSandBox = (isSandBox === undefined) ? 31337n === (await L1AztecRootBridgeAdapter.runner?.provider?.getNetwork())?.chainId : isSandBox
     // contenthash is just gigaRoot in this case since we only need to bridge 1 Field but normally its sha256ToField(_newL2Root.toBuffer(), _l2BlockNumber.toBuffer()))
     // sha256ToField = hashing with sha256 and then making that hash fit into a field somehow. (it just removes the last byte and then adds byte(1) in front)
-    const parsedL1AdapterEvent = parseEventFromTx(sendGigaRootTx, L1AztecRootBridgeAdapter, "newGigaRootSentToL2") 
+    const parsedL1AdapterEvent = parseEventFromTx(sendGigaRootTx, L1AztecRootBridgeAdapter, "NewGigaRootSentToL2") 
     const content_hash = parsedL1AdapterEvent!.args[0]; 
     const key = parsedL1AdapterEvent!.args[1];                          
     const index = parsedL1AdapterEvent!.args[2];
 
 
-    const blocksToWait = 2 //should be newGigaRootSentToL2Event.tx.blocknumber + 2
+    const blocksToWait = 2 //should be NewGigaRootSentToL2Event.tx.blocknumber + 2
     if (isSandBox) {
         // this is to make the sandbox progress n blocks
         await L2AztecRootBridgeAdapter.methods.count(0n).send().wait();
