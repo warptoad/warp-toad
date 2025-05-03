@@ -62,7 +62,7 @@ pub contract WarpToadCore {
 
         giga_root: PublicMutable<Field, Context>,
 
-        giga_bridge_adapter: PublicImmutable<AztecAddress, Context>,
+        giga_root_provider: PublicImmutable<AztecAddress, Context>,
 
         balances: Map<AztecAddress, EasyPrivateUint<Context>, Context>,
         commitments: PrivateSet<WarpToadNote, Context>,
@@ -77,8 +77,8 @@ pub contract WarpToadCore {
      */
     #[initializer]
     #[public]
-    fn constructor(_giga_bridge_adapter: AztecAddress, _name: str<31>, _symbol: str<31>, _decimals: u8) {
-        storage.giga_bridge_adapter.initialize(_giga_bridge_adapter);
+    fn constructor(_giga_root_provider: AztecAddress, _name: str<31>, _symbol: str<31>, _decimals: u8) {
+        storage.giga_root_provider.initialize(_giga_root_provider);
         storage.name.initialize(FieldCompressedString::from_string(_name));
         storage.symbol.initialize(FieldCompressedString::from_string(_symbol));
         // docs:start:initialize_decimals
