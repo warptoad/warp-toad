@@ -22,12 +22,8 @@ export const sdk = new AztecWalletSdk({
   connectors: [obsidion({ walletUrl: WALLET_URL })],
 });
 
-export function isEvmConnected(): boolean {
-  return get(evmWalletStore) !== undefined;
-}
-
-export function isAztecConnected(): boolean {
-  return get(aztecWalletStore) !== undefined;
+export function isWalletConnected(instance:any): boolean {
+  return instance !== undefined;
 }
 
 export async function connectMetamaskWallet(): Promise<void> {

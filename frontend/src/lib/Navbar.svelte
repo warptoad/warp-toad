@@ -1,5 +1,5 @@
 <script lang="ts">
-    import ConnectWalletButton from "./ConnectWalletButton.svelte";
+    import WalletModal from "./wallet/ConnectWallet.svelte";
     import placeHolderLogo from '/logo.svg'
 
 </script>
@@ -13,6 +13,6 @@
     </a>
     </div>
     <div class="navbar-end">
-        <ConnectWalletButton/>
+        <WalletModal/>
     </div>
   </div>
