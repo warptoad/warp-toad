@@ -7,7 +7,7 @@ import { time, loadFixture } from "@nomicfoundation/hardhat-toolbox/network-help
 
 // aztec
 //@ts-ignore
-import { createPXEClient, waitForPXE, Contract, ContractArtifact, loadContractArtifact, NoirCompiledContract, Fr, NotesFilter, PXE, EthAddress } from "@aztec/aztec.js"
+import { createPXEClient, waitForPXE, Contract, ContractArtifact, loadContractArtifact, NoirCompiledContract, Fr, NotesFilter, PXE, EthAddress, Wallet as AztecWallet } from "@aztec/aztec.js"
 //@ts-ignore
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing'; // idk why but node is bitching about this but bun doesnt care
 // //@ts-ignore
@@ -49,9 +49,7 @@ async function connectPXE() {
 
 
 describe("AztecWarpToad", function () {
-    async function deployAztecWarpToad(nativeToken: USDcoin) {
-        const { wallets, PXE } = await connectPXE();
-        const deployerWallet = wallets[0]
+    async function deployAztecWarpToad(nativeToken: USDcoin, deployerWallet:AztecWallet) {
         const wrappedTokenSymbol = `wrpToad-${await nativeToken.symbol()}`
         const wrappedTokenName = `wrpToad-${await nativeToken.name()}`
         const decimals = 6n; // only 6 decimals what is this tether??
@@ -61,7 +59,7 @@ describe("AztecWarpToad", function () {
             .send()
             .deployed() as AztecWarpToadCore;
 
-        return { AztecWarpToad, wallets, PXE, deployerWallet };
+        return { AztecWarpToad};
     }
     async function deployL1Warptoad(nativeToken: USDcoin, LazyIMTLib: LazyIMT, PoseidonT3Lib: PoseidonT3) {
         const wrappedTokenSymbol = `wrpToad-${await nativeToken.symbol()}`
@@ -90,8 +88,15 @@ describe("AztecWarpToad", function () {
         return { gigaBridge }
 
     }
+
+    async function deployL2AztecRootBridgeAdapterContract(aztecDeployerWallet:AztecWallet,constructorArgs:ethers.BytesLike[]):Promise<L2AztecRootBridgeAdapterContract> {
+        return await Contract.deploy(aztecDeployerWallet, L2AztecRootBridgeAdapterContractArtifact, constructorArgs).send().deployed() as L2AztecRootBridgeAdapterContract;
+        
+    }
     async function deploy() {
         const evmWallets = await hre.ethers.getSigners()
+        const {PXE, wallets: aztecWallets} = await connectPXE()
+        const aztecDeployerWallet =  aztecWallets[0];
 
         // native token
         const nativeToken = await hre.ethers.deployContract("USDcoin", [], { value: 0n, libraries: {} })
@@ -100,30 +105,30 @@ describe("AztecWarpToad", function () {
         const PoseidonT3Lib = await hre.ethers.deployContract("PoseidonT3", [], { value: 0n, libraries: {} })
         const LazyIMTLib = await hre.ethers.deployContract("LazyIMT", [], { value: 0n, libraries: { PoseidonT3: PoseidonT3Lib } })
 
-        //L1 warptoad
+        //L1 warptoad 
+        // also needs gigaBridgeProvider and L1BridgeAdapter (is just L1WarpToad)
         const { L1WarpToad, WithdrawVerifier } = await deployL1Warptoad(nativeToken, LazyIMTLib, PoseidonT3Lib)
 
         // Aztec warptoad
-        const { AztecWarpToad, wallets: aztecWallets, PXE, deployerWallet } = await deployAztecWarpToad(nativeToken)
+        const { AztecWarpToad } = await deployAztecWarpToad(nativeToken, aztecDeployerWallet)
+
 
         // L1 adapters
         const L1AztecRootBridgeAdapter = await hre.ethers.deployContract("L1AztecRootBridgeAdapter", [],);
 
-        // L2 adapter
+        // L2 adapters
+        // aztec
         const constructorArgs = [L1AztecRootBridgeAdapter.target];
-        const L2AztecRootBridgeAdapter = await Contract.deploy(
-            deployerWallet, L2AztecRootBridgeAdapterContractArtifact, constructorArgs
-        ).send().deployed() as L2AztecRootBridgeAdapterContract;
+        const L2AztecRootBridgeAdapter = await deployL2AztecRootBridgeAdapterContract(aztecDeployerWallet, constructorArgs)
 
         // L1 GIGA!!!
         const gigaRootRecipients: ethers.AddressLike[] = [L1WarpToad.target, L1AztecRootBridgeAdapter.target]
         const { gigaBridge } = await deployL1GigaBridge(LazyIMTLib, gigaRootRecipients)
 
         // initialize
-        const registryAddress = (await PXE.getNodeInfo()).l1ContractAddresses.registryAddress.toString();
-        await L1AztecRootBridgeAdapter.initialize(registryAddress, L2AztecRootBridgeAdapter.address.toString(), gigaBridge.target);
-        await L1WarpToad.initialize(gigaBridge.target)//gigaBridge.target)
-        //TODO aztecWarptoad needs to be aware of L2AztecRootBridgeAdapter
+        const aztecNativeBridgeRegistryAddress = (await PXE.getNodeInfo()).l1ContractAddresses.registryAddress.toString();
+        await L1AztecRootBridgeAdapter.initialize(aztecNativeBridgeRegistryAddress, L2AztecRootBridgeAdapter.address.toString(), gigaBridge.target);
+        await L1WarpToad.initialize(gigaBridge.target, L1WarpToad.target)
 
         return { L2AztecRootBridgeAdapter, L1AztecRootBridgeAdapter, gigaBridge, L1WarpToad, nativeToken, LazyIMTLib, PoseidonT3Lib, AztecWarpToad, aztecWallets, evmWallets, PXE };
     }

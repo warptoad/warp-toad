@@ -41,6 +41,7 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore, ILocalRootProvider {
     mapping(uint256 => bool) public gigaRootHistory; // TODO limit the history so we override slots is more efficient and is easier for clients to implement contract interactions
     mapping(uint256 => bool) public localRootHistory; 
 
+    address public l1BridgeAdapter;
     address public gigaRootProvider;
     address public withdrawVerifier;
 
@@ -58,9 +59,12 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore, ILocalRootProvider {
         deployer = msg.sender;
     }
 
-    function initialize(address _gigaRootProvider) public onlyDeployer() {
+    // needs initialize because the gigaBridge sets its localRootProvider (inc L1WarpToad) in the constructor
+    // 
+    function initialize(address _gigaRootProvider, address _l1BridgeAdapter) public onlyDeployer() {
         require(gigaRootProvider == address(0), "gigaRootProvider is already set");
         gigaRootProvider = _gigaRootProvider;
+        l1BridgeAdapter = _l1BridgeAdapter;
     }
 
     function isValidGigaRoot(uint256 _gigaRoot) public view returns (bool) {
