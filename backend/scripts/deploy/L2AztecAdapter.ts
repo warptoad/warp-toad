@@ -10,12 +10,10 @@ import { ethers } from "ethers";
 
 const { PXE_URL = 'http://localhost:8080' } = process.env;
 
-async function deployL2AztecAdapter(L1AztecRootBridgeAdapter:ethers.AddressLike,deployerWallet:AztecWallet) {
+export  async function deployL2AztecAdapter(L1AztecRootBridgeAdapter:ethers.AddressLike,deployerWallet:AztecWallet) {
 
     const constructorArgs = [L1AztecRootBridgeAdapter]
-    const L2AztecRootBridgeAdapter = await Contract.deploy(deployerWallet, L2AztecRootBridgeAdapterContractArtifact, constructorArgs)
-        .send()
-        .deployed() as L2AztecRootBridgeAdapterContract;
+    const L2AztecRootBridgeAdapter = await Contract.deploy(deployerWallet, L2AztecRootBridgeAdapterContractArtifact, constructorArgs).send().deployed() as L2AztecRootBridgeAdapterContract;
 
     return { L2AztecRootBridgeAdapter };
 }

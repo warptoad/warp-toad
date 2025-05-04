@@ -75,9 +75,21 @@ yarn workspace @warp-toad/backend hardhat ignition deploy ignition/modules/TestT
 ```
 
 deploy warptoad
+L1
 ```shell
 NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network aztecSandbox
 ```
+<!-- ```shell
+NATIVE_TOKEN_ADDRESS=0x84eA74d481Ee0A5332c457a4d796187F6Ba67fEB yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network aztecSandbox
+``` -->
+
+```shell
+L1_AZTEC_ADAPTER_ADDRESS=0xTheAdapterAddress NATIVE_TOKEN_ADDRESS=0xUrTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network aztecSandbox
+```
+
+<!-- ```shell
+L1_AZTEC_ADAPTER_ADDRESS=0x851356ae760d987E095750cCeb3bC6014560891C NATIVE_TOKEN_ADDRESS=0x84eA74d481Ee0A5332c457a4d796187F6Ba67fEB yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network aztecSandbox
+``` -->
 
 ```shell
 yarn workspace @warp-toad/backend hardhat ignition deploy ./ignition/modules/L1WarpToad.ts --parameters ignition/WarpToadCoreParameters.json --network aztecSandbox
