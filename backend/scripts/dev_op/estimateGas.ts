@@ -40,7 +40,7 @@ async function estimateMintGas(signer: ethers.Signer, warpToadAddress: string,am
     console.warn("giga root is not correctly set. Instead a fake testing root is set (this will break in actual bridging)")
     await (await warpToad.storeLocalRootInHistory()).wait(1); // TODO make relayer do this and get a root from history instead
     await (await warpToad.receiveGigaRoot(ethers.toBeHex(123n))).wait(1); // TODO this is not how it is supposed to work. GigaBridge should do this
-    const proofInputs = await getProofInputs(warpToad,warpToad,amount,feeFactor,priorityFee,maxFee,relayer,recipient,nullifierPreimage,secret)
+    const proofInputs = await getProofInputs(gigaBridge, warpToad,warpToad,amount,feeFactor,priorityFee,maxFee,relayer,recipient,nullifierPreimage,secret)
 
     console.log({proofInputs})
     const proof = await createProof(proofInputs, os.cpus().length)

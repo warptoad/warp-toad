@@ -45,6 +45,8 @@ contract L1AztecRootBridgeAdapter is ILocalRootProvider {
     address public gigaBridge;
 
     address deployer;
+
+    bool isInitialized = false;
     constructor() {
         deployer = msg.sender;
     }
@@ -58,6 +60,9 @@ contract L1AztecRootBridgeAdapter is ILocalRootProvider {
         bytes32 _l2AztecRootBridgeAdapter,
         address _gigaRootBridge
     ) external onlyDeployer() {
+        require(isInitialized == false, "cant initialize twice");
+        isInitialized = true;
+
         registry = IRegistry(_registry);
         l2AztecRootBridgeAdapter = _l2AztecRootBridgeAdapter;
 

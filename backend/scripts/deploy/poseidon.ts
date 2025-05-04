@@ -50,7 +50,6 @@ export async function deployPoseidon() {
     const solHash = await PoseidonT3Contract.hash(preImg)
     //@ts-ignore
     ethers.assert(jsHash === solHash, "whoop hash didn't match something is really wrong!!")
-    console.log({jsHash, solHash})
     console.log(`PoseidonT3 deployed to: ${PoseidonT3.address}`)
     return PoseidonT3.address
 }
