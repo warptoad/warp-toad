@@ -212,7 +212,7 @@ describe("AztecWarpToad", function () {
             console.log("bridge!")
             await L1WarpToad.storeLocalRootInHistory()
             const localRootProviders = [L1WarpToad.target, L1AztecRootBridgeAdapter.target]
-            const gigaRootRecipients = localRootProviders
+            const gigaRootRecipients = [L1WarpToad.target, L1AztecRootBridgeAdapter.target]
             const {refreshRootTx, PXE_L2Root, gigaRootUpdateTx} = await doFullBridgeAztec(        
                 PXE,
                 L2AztecRootBridgeAdapter,

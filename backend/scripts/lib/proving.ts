@@ -85,9 +85,8 @@ export async function getGigaMerkleData(gigaBridge:GigaRootBridge,localRoot:bigi
     //@ts-ignore i hate typescript
     const filter = gigaBridge.filters.ReceivedNewLocalRoot(undefined,allRootIndexes,undefined)
     const events = await gigaBridge.queryFilter(filter, 0,gigaRootBlockNumber)
-    // only the latest events pls
-
-    const eventPerIndex = events.reduce((newObj: any, event)=>{
+    
+    const eventsPerIndex = events.reduce((newObj: any, event)=>{
         const index = ethers.toBeHex(event.args[1])
         if (index in newObj) {
             newObj[index].push(event)
@@ -96,11 +95,17 @@ export async function getGigaMerkleData(gigaBridge:GigaRootBridge,localRoot:bigi
         }
         return newObj
     },{})
-    const mostRecentEvents = Object.keys(eventPerIndex).map((index)=>getLatestEvent(eventPerIndex[index]))
-    // TODO we can do it in less loops idk how yet. ill do it later
-    const leafsWithIndexes = mostRecentEvents.map((e) =>{return {localRoot:e.args[0], index:e.args[1]}}) // arg[0] = localRoot in this event
-    const sortedLeafsWithIndexes = leafsWithIndexes.sort((a,b)=>ethers.toNumber(a.index) - ethers.toNumber(b.index))
-    const sortedLeafs = sortedLeafsWithIndexes.map((leaf)=>leaf.localRoot)
+
+    let sortedLeafs = [];
+    for (const index of allRootIndexes) {
+        if (index.toString() in eventsPerIndex){
+            sortedLeafs[ethers.toNumber(index)] = getLatestEvent(eventsPerIndex[index.toString()]).args[0] //arg[0] = localRoot
+        } else {
+            console.log(`whoop this index wasn't in there: ${index}`)
+            sortedLeafs[ethers.toNumber(index)] = 0n
+        }
+    }
+    
     //@ts-ignore
     const hashFunc = (left, right) => poseidon2([left, right])
     //@ts-ignore
@@ -169,7 +174,6 @@ export async function getAztecMerkleData(WarpToad:WarpToadAztec, commitment:bigi
         storageSlot: WarpToadAztec.storage.commitments.slot
     }
     const notes = await PXE.getNotes(warpToadNoteFilter)
-    // WarpToadAztec.notes.WarpToadNote.fields notes[0].note
     const currentNote = notes.find((n)=> hashCommitmentFromNoteItems(n.note.items) === commitment);
     const siloedNoteHash = await hashSiloedNoteHash(WarpToad.address.toBigInt() ,commitment)
     const uniqueNoteHash = await hashUniqueNoteHash(currentNote!.nonce.toBigInt(),siloedNoteHash)
@@ -178,9 +182,6 @@ export async function getAztecMerkleData(WarpToad:WarpToadAztec, commitment:bigi
         leaf_index: ethers.toBeHex(witness.index),
         hash_path: witness.path.map((h:bigint)=>ethers.toBeHex(h)),
         leaf_nonce: ethers.toBeHex(currentNote!.nonce.toBigInt()),
-        // contract_address: {
-        //     inner: ethers.toBeHex(WarpToad.address.toBigInt())
-        // }
         contract_address: ethers.toBeHex(WarpToad.address.toBigInt())
     }
     return merkleData
