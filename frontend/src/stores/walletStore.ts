@@ -2,7 +2,7 @@ import { writable, get } from 'svelte/store';
 import { AztecWalletSdk, obsidion } from "@nemi-fi/wallet-sdk";
 import type { Account } from "@nemi-fi/wallet-sdk";
 import { ethers } from 'ethers';
-import { NETWORKS } from '../lib/networks/network';
+import { CHAINS } from '../lib/networks/network';
 
 //OBSIDION CONSTANTS
 export const NODE_URL = "https://registry.obsidion.xyz/node";
@@ -49,7 +49,7 @@ export async function connectMetamaskWallet(): Promise<void> {
 
   window.ethereum.on('chainChanged', handleChainChanged);
 }
-  
+
 const handleChainChanged = async () => {
   try {
     const newProvider = new ethers.BrowserProvider(window.ethereum);
@@ -93,28 +93,35 @@ export function truncateAddress(str: string): string {
 
 // EVM/METAMASK FUNCTIONS
 
-export async function switchNetwork(networkKey: keyof typeof NETWORKS): Promise<void> {
+export async function switchNetwork(chainId: string): Promise<void> {
   if (!window.ethereum) {
     throw new Error('MetaMask is not available');
   }
 
-  const network = NETWORKS[networkKey];
-  if (!network) {
-    throw new Error(`Unknown network key: ${networkKey}`);
+  const chain = CHAINS.find(c => c.id.toLowerCase() === chainId.toLowerCase());
+
+  if (!chain) {
+    throw new Error(`Unknown chainId: ${chainId}`);
   }
 
   try {
     await window.ethereum.request({
       method: 'wallet_switchEthereumChain',
-      params: [{ chainId: network.chainId }],
+      params: [{ chainId: chain.chainId }],
     });
   } catch (switchError: any) {
     if (switchError.code === 4902) {
-      // The network is not added to MetaMask
+      // Network not added, attempt to add it
       try {
         await window.ethereum.request({
           method: 'wallet_addEthereumChain',
-          params: [network],
+          params: [{
+            chainId: chain.chainId,
+            chainName: chain.chainName,
+            rpcUrls: chain.rpcUrls,
+            blockExplorerUrls: chain.blockExplorerUrls,
+            nativeCurrency: chain.nativeCurrency,
+          }],
         });
       } catch (addError) {
         console.error('Failed to add network', addError);
@@ -139,15 +146,18 @@ export async function getCurrentNetwork(): Promise<ethers.Network> {
   return network; // Contains `chainId`, `name`, etc.
 }
 
+export function getNetworkLogoFromName(chainId: string): string | undefined {
 
-export function getNetworkLogo(chainId: number | string): string | undefined {
-  const normalizedId = typeof chainId === 'number' ? `0x${chainId.toString(16)}` : chainId.toLowerCase();
-
-  for (const [key, config] of Object.entries(NETWORKS)) {
-    if (config.chainId.toLowerCase() === normalizedId) {
-      return config.svg;
-    }
-  }
-
-  return undefined;
+  const chain = CHAINS.find(c => c.id.toLowerCase() === chainId.toLowerCase());
+  return chain?.svg;
 }
+
+export function getNetworkLogoFromId(chainId: number | string): string | undefined {
+  const normalizedId = typeof chainId === 'number'
+    ? `0x${chainId.toString(16)}`
+    : chainId.toLowerCase();
+
+  const chain = CHAINS.find(c => c.chainId.toLowerCase() === normalizedId);
+  return chain?.svg;
+}
+
