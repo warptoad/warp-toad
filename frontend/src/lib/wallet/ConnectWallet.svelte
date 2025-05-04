@@ -13,6 +13,7 @@
 
   import EvmWallet from "./EvmWallet.svelte";
   import AztecWallet from "./AztecWallet.svelte";
+    import WalletNetworkSwitch from "./WalletNetworkSwitch.svelte";
 
   let walletModal: HTMLDialogElement | null = null;
 
@@ -50,6 +51,7 @@
 </script>
 
 <div class="flex gap-2 items-center">
+  <WalletNetworkSwitch/>
   <button
     class="btn btn-outline btn-info"
     on:click={openModal}
