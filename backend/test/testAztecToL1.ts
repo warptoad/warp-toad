@@ -101,6 +101,7 @@ describe("AztecWarpToad", function () {
         // native token
         const nativeToken = await hre.ethers.deployContract("USDcoin", [], { value: 0n, libraries: {} })
 
+        //---------------deploy the toads!!!!!!-----------------------
         // libs
         const PoseidonT3Lib = await hre.ethers.deployContract("PoseidonT3", [], { value: 0n, libraries: {} })
         const LazyIMTLib = await hre.ethers.deployContract("LazyIMT", [], { value: 0n, libraries: { PoseidonT3: PoseidonT3Lib } })
@@ -111,25 +112,34 @@ describe("AztecWarpToad", function () {
 
         // Aztec warptoad
         const { AztecWarpToad } = await deployAztecWarpToad(nativeToken, aztecDeployerWallet)
+        //-----------------------------------------------------------------------
 
-
+        //-----------------------infra------------------------------------
         // L1 adapters
         const L1AztecRootBridgeAdapter = await hre.ethers.deployContract("L1AztecRootBridgeAdapter", [],);
-
-        // L2 adapters
-        // aztec
-        const constructorArgs = [L1AztecRootBridgeAdapter.target];
-        const L2AztecRootBridgeAdapter = await deployL2AztecRootBridgeAdapterContract(aztecDeployerWallet, constructorArgs)
 
         // L1 GIGA!!!
         const gigaRootRecipients: ethers.AddressLike[] = [L1WarpToad.target, L1AztecRootBridgeAdapter.target]
         const { gigaBridge } = await deployL1GigaBridge(LazyIMTLib, gigaRootRecipients)
 
+               
+        // L2 adapters
+        // aztec
+        const constructorArgs = [L1AztecRootBridgeAdapter.target];
+        const L2AztecRootBridgeAdapter = await deployL2AztecRootBridgeAdapterContract(aztecDeployerWallet, constructorArgs)
+
+ 
+
+        //-------------------connect everything together!--------------------------------------
         // initialize
+        // connect adapters
         const aztecNativeBridgeRegistryAddress = (await PXE.getNodeInfo()).l1ContractAddresses.registryAddress.toString();
         await L1AztecRootBridgeAdapter.initialize(aztecNativeBridgeRegistryAddress, L2AztecRootBridgeAdapter.address.toString(), gigaBridge.target);
+        
+        //connect toads
         await L1WarpToad.initialize(gigaBridge.target, L1WarpToad.target) // <- L1WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
         await AztecWarpToad.methods.initialize(L2AztecRootBridgeAdapter.address, L1AztecRootBridgeAdapter.target).send().wait()// all other warptoad initializations will look like this
+
         return { L2AztecRootBridgeAdapter, L1AztecRootBridgeAdapter, gigaBridge, L1WarpToad, nativeToken, LazyIMTLib, PoseidonT3Lib, AztecWarpToad, aztecWallets, evmWallets, PXE };
     }
 

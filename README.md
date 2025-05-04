@@ -69,6 +69,16 @@ VERSION=0.85.0-alpha-testnet.2 aztec start --sandbox
 
 ## deploy
 ### deploy L1 aztec-sandbox
+deploy test token
+```shell
+yarn workspace @warp-toad/backend hardhat ignition deploy ignition/modules/TestToken.ts --network aztecSandbox
+```
+
+deploy warptoad
+```shell
+NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network aztecSandbox
+```
+
 ```shell
 yarn workspace @warp-toad/backend hardhat ignition deploy ./ignition/modules/L1WarpToad.ts --parameters ignition/WarpToadCoreParameters.json --network aztecSandbox
 ```
