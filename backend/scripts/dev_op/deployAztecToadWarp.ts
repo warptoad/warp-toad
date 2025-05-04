@@ -1,46 +1,54 @@
-import WarpToadCoreContractArtifactJson from '../../contracts/aztec/WarpToadCore/target/WarpToadCore-WarpToadCore.json'
-//@ts-ignore
-import { createPXEClient, waitForPXE, Contract, ContractArtifact,loadContractArtifact, NoirCompiledContract } from "@aztec/aztec.js"
-export const WarpToadCoreContractArtifact = loadContractArtifact(WarpToadCoreContractArtifactJson as NoirCompiledContract);
 
 //@ts-ignore
-import { createPXEClient, waitForPXE, Contract, ContractArtifact } from "@aztec/aztec.js"
+import { createPXEClient, waitForPXE, Contract, ContractArtifact,loadContractArtifact, NoirCompiledContract } from "@aztec/aztec.js"
+import { WarpToadCoreContractArtifact, WarpToadCoreContract as AztecWarpToadCore } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
+
+//@ts-ignore
+import { createPXEClient, waitForPXE, Contract, ContractArtifact,Wallet as AztecWallet  } from "@aztec/aztec.js"
 
 //@ts-ignore
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing'; // idk why but node is bitching about this but bun doesnt care
 
 import { writeFileSync } from 'fs';
 import { fileURLToPath } from 'url';
+import { USDcoin } from '../../typechain-types';
+import { ethers } from "ethers";
 
 const { PXE_URL = 'http://localhost:8080' } = process.env;
 
 // this is the way to do it in a testing environment.
 // for test/dev/main do this https://docs.aztec.network/developers/guides/js_apps/deploy_contract#using-generated-contract-class
 // TODO create that script
-async function main() {
-    console.log("creating PXE client")
-    const pxe = createPXEClient(PXE_URL);
-    console.log("waiting on PXE client", PXE_URL)
-    await waitForPXE(pxe);
 
-    console.log("getting test accounts")
-    const [ownerWallet] = await getInitialTestAccountsWallets(pxe);
-    const ownerAddress = ownerWallet.getAddress();
-
-    console.log("deploying")
-    const wrappedTokenSymbol = `wrpToad-${"symbol"}`
-    const wrappedTokenName = `wrpToad-${"name"}`
+async function deployAztecWarpToad(nativeToken: USDcoin|any, deployerWallet:AztecWallet) {
+    const wrappedTokenSymbol = `wrpToad-${await nativeToken.symbol()}`
+    const wrappedTokenName = `wrpToad-${await nativeToken.name()}`
     const decimals = 6n; // only 6 decimals what is this tether??
-    const giga_bridge_adapter = "0x0000000000000000000000000000000000000000000000000000000000000000"
-    //_giga_bridge_adapter: AztecAddress, _name: str<31>, _symbol: str<31>, _decimals: u8
-    const constructorArgs = [giga_bridge_adapter,wrappedTokenName,wrappedTokenSymbol,decimals]
-    const WarpToadCoreDeployed = await Contract.deploy(ownerWallet, WarpToadCoreContractArtifact, constructorArgs)
+
+    const constructorArgs = [nativeToken.target, wrappedTokenName, wrappedTokenSymbol, decimals]
+    const AztecWarpToad = await Contract.deploy(deployerWallet, WarpToadCoreContractArtifact, constructorArgs)
         .send()
-        .deployed();
+        .deployed() as AztecWarpToadCore;
 
-    console.log(`contract deployed at ${WarpToadCoreDeployed.address.toString()}`);
+    return { AztecWarpToad };
+}
 
-    const addresses = { contract: WarpToadCoreDeployed.address.toString() };
-    writeFileSync('WarptoadCoreAztecDeployment.json', JSON.stringify(addresses, null, 2));
+async function main() {
+    console.warn("WARNING: this is ONLY FOR TESTING. This is NOT FOR PROD")
+    console.log("creating PXE client")
+    const PXE = createPXEClient(PXE_URL);
+    console.log("waiting on PXE client", PXE_URL)
+    await waitForPXE(PXE);
+    const wallets = await getInitialTestAccountsWallets(PXE);
+    const deployWallet = wallets[0]
+
+    // fake native token
+    const fakeNativeToken = {
+        symbol:async () => "symbol",
+        name:async () => "name",
+        target:ethers.getAddress("0x0000000000000000000000000000000000000000")
+    }
+    const {AztecWarpToad} = await deployAztecWarpToad(fakeNativeToken,deployWallet )
+    console.log(`contract deployed at ${AztecWarpToad.address.toString()}`);
 }
 main();

@@ -73,8 +73,8 @@ VERSION=0.85.0-alpha-testnet.2 aztec start --sandbox
 yarn workspace @warp-toad/backend hardhat ignition deploy ./ignition/modules/L1WarpToad.ts --parameters ignition/WarpToadCoreParameters.json --network aztecSandbox
 ```
 
-### deploy L2 aztec-sandbox
-`yarn workspace @warp-toad/backend ts-node scripts/dev_op/deployAztecToadWarp.ts`
+### deploy L2 test version AztecWarpToad (only works with bun)
+`yarn workspace @warp-toad/backend bun scripts/dev_op/deployAztecToadWarp.ts`
 
 ## test contracts
 test one just EVM (broken need updates)
