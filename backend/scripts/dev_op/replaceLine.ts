@@ -27,8 +27,6 @@ async function main() {
         description: 'quick lil script to replace 1 line',
         usage: `yarn ts-node scripts_dev_op/replaceLine.ts --file contracts/evm/WithdrawVerifier.sol --remove "contract UltraVerifier is BaseUltraVerifier {" --replace "contract WithdrawVerifier is BaseUltraVerifier {"`
     });
-    console.log(parser)
-
     parser.add_argument('-f', '--file', { help: 'file to read', required: true, type: 'str' });
     parser.add_argument('-r', '--remove', { help: 'specify what line to replace', required: true, type: 'str' });
     parser.add_argument('-p', '--replace', { help: 'specify what to replace it with', required: true, type: 'str' });

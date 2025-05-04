@@ -1,0 +1,54 @@
+// initializing more than one contract? use try and catch!
+//@ts-ignore
+import { Contract, createPXEClient, waitForPXE } from "@aztec/aztec.js";
+import { WarpToadCoreContract, WarpToadCoreContractArtifact } from "../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore";
+//@ts-ignore
+import { getInitialTestAccountsWallets } from "@aztec/accounts/testing";
+import { getContractAddressesAztec, getContractAddressesEvm } from "../dev_op/getDeployedAddresses";
+const { PXE_URL = 'http://localhost:8080' } = process.env;
+const hre = require("hardhat")
+
+async function main() {
+    //----PXE and wallet-----
+    console.log("creating PXE client")
+    const PXE = createPXEClient(PXE_URL);
+    console.log("waiting on PXE client", PXE_URL)
+    await waitForPXE(PXE);
+    console.warn("using getInitialTestAccountsWallets. This will break on testnet!!")
+    const wallets = await getInitialTestAccountsWallets(PXE);
+    const aztecWallet = wallets[0]
+
+    const provider = hre.ethers.provider
+    const chainId = (await provider.getNetwork()).chainId
+    const evmContractAddresses = await getContractAddressesEvm(chainId)
+    const aztecContractAddresses = await getContractAddressesAztec()
+
+    const L1AztecRootBridgeAdapter = evmContractAddresses["L1InfraModule#L1AztecRootBridgeAdapter"]
+
+    const AztecWarpToadAddress = aztecContractAddresses["AztecWarpToad"]
+    const L2AztecAdapterAddress =  aztecContractAddresses["L2AztecRootBridgeAdapter"]
+
+    
+    const AztecWarpToad = await Contract.at(AztecWarpToadAddress, WarpToadCoreContractArtifact, aztecWallet) as WarpToadCoreContract
+    
+    const initializationStatus:any = {}
+
+    try{
+        await AztecWarpToad.methods.initialize(L2AztecAdapterAddress, L1AztecRootBridgeAdapter).send().wait() // <- L1WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
+        initializationStatus["AztecWarpToad"] = true
+    } catch {
+        console.warn(`couldn't initialize: AztecWarpToad at: ${AztecWarpToad.address}. 
+        Was it already initialized?     
+        `)
+        initializationStatus["AztecWarpToad"] = false
+    }
+
+    console.log(`
+        initialized: 
+            AztecWarpToad:              ${AztecWarpToad.address}
+            initializationSuccess?:     ${initializationStatus["AztecWarpToad"] }
+            args:                       ${JSON.stringify({L2AztecAdapterAddress, L1AztecRootBridgeAdapter}, null, 2)}
+        `)
+
+}
+main()
