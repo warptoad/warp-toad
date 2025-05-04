@@ -59,7 +59,6 @@ export async function disconnectMetamaskWallet(): Promise<void> {
 }
 
 export function truncateAddress(str: string): string {
-  if (str.length <= 11) return str; // No need to truncate
-  return `${str.slice(0, 5)}...${str.slice(-3)}`;
+  return `${str.slice(0, 6)}...${str.slice(-4)}`;
 }
 

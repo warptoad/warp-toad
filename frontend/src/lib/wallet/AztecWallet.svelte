@@ -18,7 +18,7 @@
         class:text-success={isWalletConnected($aztecWalletStore)}
         class:text-error={!isWalletConnected($aztecWalletStore)}
     >
-        <p>Obsidion Wallets</p>
+        <p>Aztec Wallets</p>
         {#if isWalletConnected(aztecWallet)}
             <svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -61,7 +61,7 @@
                 <p>{truncateAddress(aztecWallet?.getAddress().toString()!)}</p>
             </div>
             <button
-                class="btn btn-ghost btn-outline border-[rgba(255,255,255,.25)] w-full flex items-center gap-2 justify-start px-2 py-6"
+                class="btn btn-error w-full flex items-center gap-2 justify-start px-2 py-6"
                 on:click={disconnectObsidionWallet}
             >
                 <div class="bg-white p-1 rounded-md">

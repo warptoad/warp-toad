@@ -92,6 +92,7 @@ yarn workspace @warp-toad/backend hardhat ignition deploy ./ignition/modules/L1W
 yarn workspace @warp-toad/backend ts-node scripts/dev_op/estimateGas.ts -d ignition/deployments/chain-31337/deployed_addresses.json;
 ```
 
+# frontend
 ## frontend preparation
 copy the ```template.env``` file and rename it to ```.env```
 
@@ -100,7 +101,8 @@ copy the ```template.env``` file and rename it to ```.env```
  yarn f:dev
  ```
 
-## connectiong wallet to frontend:
+## connecting wallet to frontend:
 we are using obsidion wallet for the frontend.
 first you must create a wallet at [app.obsidion.xyz](https://app.obsidion.xyz/).
+for non testnet interactions change the network to sandbox (if a local aztec sandbox is running).
 After creating a wallet on the same browser as the frontend is running on you can connect to it through a pop up window.
