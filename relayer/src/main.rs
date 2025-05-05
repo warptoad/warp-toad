@@ -24,10 +24,6 @@ use anyhow::{Context, Result};
 use dotenv::dotenv;
 use std::{env, sync::Arc};
 
-// TODO:
-const CONTRACT_ABI_PATH: &str =
-    "../ignition/deployments/chain-11155111/artifacts/UltraAnonModule#UltraAnon.json";
-
 #[rocket::main]
 async fn main() -> Result<()> {
     dotenv().ok();
@@ -43,6 +39,12 @@ async fn main() -> Result<()> {
         .context("set PRIVATE_KEY in a .env file")
         .unwrap();
 
+    // leave unset for altruistic relayer
+    let min_profit_usd: Option<f64> = env::var("MIN_PROFIT_USD").map_or_else(
+        |_| None,
+        |amt| Some(amt.parse().context("parse MIN_PROFIT_USD as f64").unwrap()),
+    );
+
     let signer: PrivateKeySigner = private_key.parse().expect("should parse private key");
     let wallet = EthereumWallet::from(signer.clone());
 
@@ -54,7 +56,7 @@ async fn main() -> Result<()> {
     let app_state = AppState {
         provider,
         contract_address: contract_address.parse().context("parse address").unwrap(),
-        private_key,
+        min_profit_usd,
     };
 
     let _ = rocket::build()
