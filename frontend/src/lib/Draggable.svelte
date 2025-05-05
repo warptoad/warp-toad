@@ -44,7 +44,7 @@
 
 <section
 	bind:this={dragWindow}
-	class={`absolute rounded-md bg-base-300 border-2 ${isVisible?'':'invisible'}`}
+	class={`absolute flex flex-col rounded-md bg-base-300 border-2 ${isVisible ? '' : 'invisible'}`}
 	style="left: {x}px; top: {y}px; min-width: {width}%; min-height: {height}%; max-width: 75%; max-height: 75%;"
 >
 	<div
@@ -59,7 +59,8 @@
 		<div>{title}</div>
 		<button class="closeButton hover:text-warning transition-colors duration-200" on:click={handleCloseWindow}>X</button>
 	</div>
-	<div class="p-2 h-full w-full overflow-auto">
+	<!-- This is the slot container where the content needs to be centered -->
+	<div class="flex-grow p-2 flex justify-center items-center overflow-auto">
 		<slot></slot>
 	</div>
 </section>
@@ -74,3 +75,4 @@
 		cursor: pointer;
 	}
 </style>
+
