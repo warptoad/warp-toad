@@ -19,7 +19,7 @@ pub contract WarpToadCore {
 
     use dep::easy_private_state::EasyPrivateUint;
     use dep::value_note::balance_utils;
-    use compressed_string::FieldCompressedString;
+    use compressed_string::{FieldCompressedString, CompressedString};
     use poseidon::poseidon;
 
     // TODO remove unused imports once you are sure you dont need them
@@ -138,7 +138,7 @@ pub contract WarpToadCore {
         giga_merkle_data: Evm_merkle_data<GIGA_TREE_DEPTH>,
         evm_merkle_data: Evm_merkle_data<EVM_TREE_DEPTH>,
     ) {
-        let chain_id: Field = context.chain_id();
+        let chain_id: Field = get_chain_id(context.version());
         let giga_root_slot: Field =
             aztec::state_vars::storage::Storage::get_storage_slot(storage.giga_root);
         let contract_address: AztecAddress = context.this_address();
@@ -170,7 +170,7 @@ pub contract WarpToadCore {
         giga_merkle_data: Evm_merkle_data<GIGA_TREE_DEPTH>,
         aztec_merkle_data: Aztec_merkle_data<AZTEC_TREE_DEPTH>,
     ) {
-        let chain_id: Field = context.chain_id();
+        let chain_id: Field = get_chain_id(context.version());
         let giga_root_slot: Field =
             aztec::state_vars::storage::Storage::get_storage_slot(storage.giga_root);
         let contract_address: AztecAddress = context.this_address();
@@ -203,7 +203,7 @@ pub contract WarpToadCore {
         let note_hash_root = block_header.state.partial.note_hash_tree.root; // <- would be input in evm circuit
 
         // check chain id
-        let chain_id = context.chain_id();
+        let chain_id = get_chain_id(context.version());
         assert(
             retrieved_note.note.chain_id == chain_id,
             "notes chain_id doesnt match current chain_id",
@@ -269,10 +269,25 @@ pub contract WarpToadCore {
         storage.l1_bridge_adapter.read()
     }
 
+    // we hallucinate our own chainId since we just need a unique identifier to identify the chain
+    // maybe we can just use the context.version as our chainId since it looks like it doesn't collide with existing chainIds?
+    // also is context.version even safe?? will it update with network upgrades??
+    #[contract_library_method]
+    fn get_chain_id(aztec_version:Field) -> Field {
+        let salt: CompressedString<32, 24> = CompressedString::from_string("aztecPlsJustPickAChainId");
+        poseidon::bn254::hash_2([salt.serialize()[0], aztec_version])
+    }
+
+
     // DEBUG remove later
     #[utility]
-    unconstrained fn get_chain_id() -> pub Field {
-        context.chain_id()
+    unconstrained fn get_chain_id_unconstrained(aztec_version:Field) -> pub Field {
+        get_chain_id(aztec_version)
+    }
+
+    #[utility]
+    unconstrained fn get_version() -> Field {
+        context.version()
     }
     //-----------------------------------------------
 

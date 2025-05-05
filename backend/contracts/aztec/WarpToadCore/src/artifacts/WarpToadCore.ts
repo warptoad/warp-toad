@@ -184,8 +184,8 @@ WarpToadNote: {
     /** constructor(native_token: struct, _name: string, _symbol: string, _decimals: integer) */
     constructor: ((native_token: EthAddressLike, _name: string, _symbol: string, _decimals: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** get_chain_id() */
-    get_chain_id: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** get_chain_id_unconstrained(aztec_version: field) */
+    get_chain_id_unconstrained: ((aztec_version: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** get_decimals() */
     get_decimals: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -198,6 +198,9 @@ WarpToadNote: {
 
     /** get_note_proof(block_number: integer, note_hash: field) */
     get_note_proof: ((block_number: (bigint | number), note_hash: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** get_version() */
+    get_version: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** initialize(_giga_root_provider: struct, _l1_bridge_adapter: struct) */
     initialize: ((_giga_root_provider: AztecAddressLike, _l1_bridge_adapter: EthAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;

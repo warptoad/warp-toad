@@ -184,20 +184,24 @@ describe("AztecWarpToad", function () {
             const balanceSenderNativeToken =await nativeTokenWithSender.balanceOf(evmSender)
             const wrapTx = await (await L1WarpToadWithSender.wrap(initialBalanceSender)).wait(1)
             const balancePreBurn = await L1WarpToadWithSender.balanceOf(evmSender.getAddress())
-            const aztecWalletChainId = aztecRecipient.getChainId().toBigInt();
             const { chainId: chainIdEvmProvider } = await provider.getNetwork()
 
+            const aztecVersion = (await PXE.getNodeInfo()).rollupVersion
+            const aztecVersionFromContract = await AztecWarpToad.methods.get_version().simulate();
+            console.log({aztecVersion,aztecVersionFromContract})
+            const chainIdAztecFromContract = hre.ethers.toBigInt(await AztecWarpToad.methods.get_chain_id_unconstrained(aztecVersion).simulate())
+            console.log({chainIdAztecFromContract})
 
             const commitmentPreImg1 = {
                 amount: amountToBurn1,
-                destination_chain_id: aztecWalletChainId,
+                destination_chain_id: chainIdAztecFromContract,
                 secret: 1234n,
                 nullifier_preimg: 4321n, // Use Fr.random().toBigInt() in prod pls
             }
 
             const commitmentPreImg2 = {
                 amount: amountToBurn2,
-                destination_chain_id: aztecWalletChainId,
+                destination_chain_id: chainIdAztecFromContract,
                 secret: 12341111111n,
                 nullifier_preimg: 432111111n, // Use Fr.random().toBigInt() in prod pls
             }

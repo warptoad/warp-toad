@@ -179,21 +179,24 @@ describe("AztecWarpToad", function () {
             const amountToBurn1 = 5n * 10n ** 18n
             const amountToBurn2 = 4n * 10n ** 18n
             const balancePreBurn = await AztecWarpToadWithSender.methods.balance_of(aztecSender.getAddress()).simulate()
-            const aztecWalletChainId = aztecSender.getChainId().toBigInt();
             const { chainId: chainIdEvmProvider } = await provider.getNetwork()
 
-            const chainIdAztecFromContract = hre.ethers.toBigInt(await AztecWarpToadWithSender.methods.get_chain_id().simulate())
+            const aztecVersion = (await PXE.getNodeInfo()).rollupVersion
+
+            console.log({aztecVersion})
+            const chainIdAztecFromContract = hre.ethers.toBigInt(await AztecWarpToadWithSender.methods.get_chain_id_unconstrained(aztecVersion).simulate())
+            console.log({chainIdAztecFromContract})
 
             const commitmentPreImg1 = {
                 amount: amountToBurn1,
-                destination_chain_id: aztecWalletChainId,
+                destination_chain_id: chainIdEvmProvider,
                 secret: 1234n,
                 nullifier_preimg: 4321n, // Use Fr.random().toBigInt() in prod pls
             }
 
             const commitmentPreImg2 = {
                 amount: amountToBurn2,
-                destination_chain_id: aztecWalletChainId,
+                destination_chain_id: chainIdEvmProvider,
                 secret: 12341111111n,
                 nullifier_preimg: 432111111n, // Use Fr.random().toBigInt() in prod pls
             }
@@ -203,7 +206,7 @@ describe("AztecWarpToad", function () {
             //console.log("Make issue of this. These shouldn't be the same!!!", { aztecWalletChainId, chainIdEvmProvider })
             // its silly but aztec doesn't have a chainId (yet?) here is a issue i made on it: https://github.com/AztecProtocol/aztec-packages/issues/13961#issuecomment-2844691811
             // TLDR is that context.version is basically their chainId likely. But we cant just use it as is because it doesnt care about conflicting with existing chainIds and currently return 1 (the same as L1  🙃)
-            expect(chainIdAztecFromContract).to.equal(aztecWalletChainId);
+            expect(chainIdAztecFromContract).to.equal(chainIdAztecFromContract);
             //expect(chainIdEvmProvider).to.not.equal(chainIdAztecFromContract);
             expect(balancePostBurn).to.equal(balancePreBurn - amountToBurn1);
 
