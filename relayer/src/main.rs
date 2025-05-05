@@ -7,12 +7,13 @@ use alloy::{
     contract::{ContractInstance, Interface},
     dyn_abi::DynSolValue,
     hex::ToHexExt,
-    network::EthereumWallet,
+    network::{Ethereum, EthereumWallet},
     primitives::Address,
-    providers::ProviderBuilder,
+    providers::{Provider, ProviderBuilder, ReqwestProvider},
     signers::local::PrivateKeySigner,
 };
 use rocket::{State, post, routes, serde::json::Json};
+use types::AppState;
 // use types::TransactionResponse;
 // use types::{PrivateTransactionRequest, PublicTransactionRequest};
 #[macro_use]
@@ -21,7 +22,11 @@ extern crate dotenv;
 use anyhow::{Context, Result};
 
 use dotenv::dotenv;
-use std::env;
+use std::{env, sync::Arc};
+
+// TODO:
+const CONTRACT_ABI_PATH: &str =
+    "../ignition/deployments/chain-11155111/artifacts/UltraAnonModule#UltraAnon.json";
 
 #[rocket::main]
 async fn main() -> Result<()> {
@@ -38,8 +43,16 @@ async fn main() -> Result<()> {
         .context("set PRIVATE_KEY in a .env file")
         .unwrap();
 
+    let signer: PrivateKeySigner = private_key.parse().expect("should parse private key");
+    let wallet = EthereumWallet::from(signer.clone());
+
+    let provider = ProviderBuilder::new()
+        .wallet(wallet)
+        .connect_http(provider_url.parse().unwrap())
+        .erased();
+
     let app_state = AppState {
-        provider_url,
+        provider,
         contract_address: contract_address.parse().context("parse address").unwrap(),
         private_key,
     };
@@ -55,12 +68,4 @@ async fn main() -> Result<()> {
         .await?;
 
     Ok(())
-}
-
-struct AppState {
-    // TODO: use arc<Provider> instead of creating a new provider lol
-    // I can't be fucked to deal with alloy types rn
-    provider_url: String,
-    contract_address: Address,
-    private_key: String,
 }
