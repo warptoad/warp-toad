@@ -49,6 +49,8 @@
 >
 	<div
 		class="border-b-2 p-2 mb-2 draggable flex justify-between items-center bg-base-100"
+    	class:cursor-grabbing={moving}
+		class:cursor-grab={!moving}
 		on:mousedown={onMouseDown}
 		aria-label="Drag window"
 		role="button"
