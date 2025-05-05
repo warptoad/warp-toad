@@ -1,14 +1,5 @@
-use alloy::{
-    contract::{ContractInstance, Interface},
-    dyn_abi::DynSolValue,
-    hex::ToHexExt,
-    network::EthereumWallet,
-    primitives::Address,
-    providers::{DynProvider, Provider, RootProvider},
-    signers::local::PrivateKeySigner,
-};
+use alloy::{dyn_abi::DynSolValue, primitives::Address, providers::DynProvider};
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 
 // TODO:
 pub const CONTRACT_ABI_PATH: &str =
@@ -17,8 +8,6 @@ pub const CONTRACT_ABI_PATH: &str =
 pub const MINT_FUNCTION_NAME: &str = "mint";
 
 pub struct AppState {
-    // TODO: use arc<Provider> instead of creating a new provider lol
-    // I can't be fucked to deal with alloy types rn
     pub provider: DynProvider,
     pub contract_address: Address,
     pub min_profit_usd: Option<f64>,

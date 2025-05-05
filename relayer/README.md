@@ -4,7 +4,7 @@ This is a small webserver for executing warp toad contract calls for others. Thi
 
 # Running
 
-By default it will run locally at port 8000. Requires env vars `PROVIDER_URL`, `CONTRACT_ADDRESS` and `PRIVATE_KEY`.
+By default it will run locally at port 8000. Requires env vars `PROVIDER_URL`, `CONTRACT_ADDRESS`, `MIN_PROFIT_USD` (min profit to execute a transaction. Leave empty to relay every transaction, even at a loss) and `PRIVATE_KEY`.
 
 After setting your `.env`, source it with `source .env`.
 Run with `cargo run` (dev) or `cargo run --release` (prod).

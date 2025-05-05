@@ -1,19 +1,16 @@
 mod routes;
 
-use routes::hello;
+use routes::{hello, mint};
 
 mod types;
 use alloy::{
-    contract::{ContractInstance, Interface},
-    dyn_abi::DynSolValue,
-    hex::ToHexExt,
-    network::{Ethereum, EthereumWallet},
-    primitives::Address,
-    providers::{Provider, ProviderBuilder, ReqwestProvider},
+    network::EthereumWallet,
+    providers::{Provider, ProviderBuilder},
     signers::local::PrivateKeySigner,
 };
-use rocket::{State, post, routes, serde::json::Json};
+use rocket::routes;
 use types::AppState;
+
 // use types::TransactionResponse;
 // use types::{PrivateTransactionRequest, PublicTransactionRequest};
 #[macro_use]
@@ -22,7 +19,7 @@ extern crate dotenv;
 use anyhow::{Context, Result};
 
 use dotenv::dotenv;
-use std::{env, sync::Arc};
+use std::env;
 
 #[rocket::main]
 async fn main() -> Result<()> {
@@ -41,9 +38,13 @@ async fn main() -> Result<()> {
 
     // leave unset for altruistic relayer
     let min_profit_usd: Option<f64> = env::var("MIN_PROFIT_USD").map_or_else(
-        |_| None,
+        |_| {
+            println!("MIN_PROFIT_USD not set. Relayer will act altruistically and relay any transaction it receives");
+            None
+        },
         |amt| Some(amt.parse().context("parse MIN_PROFIT_USD as f64").unwrap()),
     );
+    println!("min profit usd: {min_profit_usd:?}");
 
     let signer: PrivateKeySigner = private_key.parse().expect("should parse private key");
     let wallet = EthereumWallet::from(signer.clone());
@@ -63,8 +64,7 @@ async fn main() -> Result<()> {
         // .attach(Cors)
         .manage(app_state)
         .mount("/", routes![hello])
-        // .mount("/private_transfer", routes![private_transfer])
-        // .mount("/public_transfer", routes![public_transfer])
+        .mount("/mint", routes![mint])
         .configure(rocket::Config::figment().merge(("address", "0.0.0.0")))
         .launch()
         .await?;
