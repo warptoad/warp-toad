@@ -19,8 +19,10 @@ fn main(
     destination_local_root: pub Field,
 
     // fee_factor is what the contract multiplies by the (baseFee+priorityFee) and pays that to relayer. 
-    // So calculating it would be fee_factor = gasCost * wrptdTOKENPriceWei * relayerBonusFactor
-    // relayerBonusFactor eg: 1.10 <= relayer earns 10% on top of the gas fees
+    // So calculating it would be fee_factor = gasCost * EthPriceInWrptdTOKEN * relayerBonusFactor 
+    // ex for usdc fee_factor = 520968 * 1817 * 1.05.
+    // gasCost=520968, ethPriceInUsdc=1817, relayerBonusFactor=1.05=5% earnings on top of gas fees
+    // look in backend/scripts/lib/constants.ts for gas prices per chain
     
     fee_factor: pub Field, 
     priority_fee: pub Field,
