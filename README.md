@@ -75,8 +75,10 @@ yarn workspace @warp-toad/backend hardhat ignition deploy ignition/modules/TestT
 ```shell
 NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network aztecSandbox;
 ```
-<!-- ```shell
-NATIVE_TOKEN_ADDRESS=0x809d550fca64d94Bd9F66E60752A544199cfAC3D yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network aztecSandbox
+<!--  
+if you just restarted sandbox then the test token address will be the same as below and you can just copy paste this
+```shell
+NATIVE_TOKEN_ADDRESS=0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network aztecSandbox
 ``` -->
 
 #### deploy on aztec
@@ -84,8 +86,10 @@ NATIVE_TOKEN_ADDRESS=0x809d550fca64d94Bd9F66E60752A544199cfAC3D yarn workspace @
 NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network aztecSandbox;
 ```
 
-<!-- ```shell
-NATIVE_TOKEN_ADDRESS=0x809d550fca64d94Bd9F66E60752A544199cfAC3D yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network aztecSandbox
+<!--
+if you just restarted sandbox then the test token address will be the same as below and you can just copy paste this
+```shell
+NATIVE_TOKEN_ADDRESS=0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network aztecSandbox
 ``` -->
 #### initialize contracts
 ```shell
@@ -95,8 +99,11 @@ yarn workspace @warp-toad/backend hardhat run scripts/deploy/initializeL1.ts --n
 yarn workspace @warp-toad/backend hardhat run scripts/deploy/initializeAztec.ts --network aztecSandbox;
 ```
 
-### deploy L2 test version AztecWarpToad (only works with bun)
-`yarn workspace @warp-toad/backend bun scripts/dev_op/deployAztecToadWarp.ts`
+## bridge
+#### sandbox 
+```shell
+yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --isAztec
+```
 
 ## test contracts
 test one just EVM (broken need updates)

@@ -5,7 +5,6 @@ import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 import { EVM_TREE_DEPTH } from "../../scripts/lib/constants";
 
 export default buildModule("L1WarpToadModule", (m: any) => {
-  console.warn(" TODO poseidon should use nix method so we reused the same contract")
   // TODO use nix method so we reused the same contract
   // https://github.com/chancehudson/poseidon-solidity?tab=readme-ov-file#deploy
 
