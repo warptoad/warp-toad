@@ -129,7 +129,7 @@ pub contract WarpToadCore {
     // this works without creating a gigaRoot history right? we just need to make sure the block number we provide matches what gigaRoot was at that time in here!
     #[private]
     fn mint_giga_root_evm(
-        amount: Field,
+        amount: u64,
         secret: Field,
         nullifier_preimage: Field,
         recipient: AztecAddress,
@@ -146,19 +146,22 @@ pub contract WarpToadCore {
             giga_root_slot,
             contract_address,
         );
-        let (commitment, nullifier) = hash_commitment(nullifier_preimage, secret, chain_id, amount);
+        let (commitment, nullifier) = hash_commitment(nullifier_preimage, secret, chain_id, amount as Field);
 
         // verify origin_local_root is part of giga_root
         evm_merkle_verify(giga_root, origin_local_root, giga_merkle_data);
         // verify commitment is part of origin_local_root
         evm_merkle_verify(origin_local_root, commitment, evm_merkle_data);
         context.push_nullifier(nullifier);
+        storage.balances.at(recipient).add(amount , recipient, context.msg_sender());
     }
 
     // just incase there will other instance of aztec we will bridge too :D
+    // TODO untested. if someone by accident burns with the aztec chainId, then this is their only method to recover.
+    // but besides accidents users should never use this in a world where there is only one aztec. just use the normal private transfers
     #[private]
     fn mint_giga_root_aztec(
-        amount: Field,
+        amount: u64,
         secret: Field,
         nullifier_preimage: Field,
         recipient: AztecAddress,
@@ -175,7 +178,7 @@ pub contract WarpToadCore {
             giga_root_slot,
             contract_address,
         );
-        let (commitment, nullifier) = hash_commitment(nullifier_preimage, secret, chain_id, amount);
+        let (commitment, nullifier) = hash_commitment(nullifier_preimage, secret, chain_id, amount as Field);
 
         // no skip giga_root check here because you shouldn't burn + mint only on aztec. users should use private transfers. try it! its cool :D
         // verify origin_local_root is part of giga_root
@@ -183,6 +186,7 @@ pub contract WarpToadCore {
         // verify commitment is part of origin_local_root
         aztec_merkle_verify(origin_local_root, commitment, aztec_merkle_data);
         context.push_nullifier(nullifier);
+        storage.balances.at(recipient).add(amount, recipient, context.msg_sender());
     }
 
     // technically this function is useless. You can make full private transfers with UTXO notes on aztec through the private transfer function.
