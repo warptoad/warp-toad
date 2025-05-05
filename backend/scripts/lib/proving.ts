@@ -13,7 +13,7 @@ import { findNoteHashIndex, hashCommitment, hashNullifier, hashPreCommitment, ha
 import { EVM_TREE_DEPTH, AZTEC_TREE_DEPTH, emptyAztecMerkleData, emptyGigaMerkleData, emptyEvmMerkleData, GIGA_TREE_DEPTH } from "./constants";
 
 //@ts-ignore
-import { createPXEClient, waitForPXE,NotesFilter, AztecAddress } from "@aztec/aztec.js";
+import { createPXEClient, waitForPXE,NotesFilter, AztecAddress, PXE } from "@aztec/aztec.js";
 //@ts-ignore
 import { getInitialTestAccountsWallets } from "@aztec/accounts/testing";
 
@@ -117,10 +117,10 @@ export async function getGigaMerkleData(gigaBridge:GigaRootBridge,localRoot:bigi
     return merkleData
 }
 
-export async function getAztecNoteHashTreeRoot(blockNumber:number): Promise<bigint> {
+export async function getAztecNoteHashTreeRoot(blockNumber:number, PXE?:PXE): Promise<bigint> {
     // do aztec things
-    const PXE = await connectPXE()
-    const block = await PXE.PXE.getBlock(blockNumber)
+    PXE = PXE ? PXE : (await connectPXE()).PXE;
+    const block = await PXE.getBlock(blockNumber)
     return block?.header.state.partial.noteHashTree.root.toBigInt() as bigint
 }
 
@@ -187,23 +187,40 @@ export async function getAztecMerkleData(WarpToad:WarpToadAztec, commitment:bigi
     return merkleData
 }
 
+
+async function getAztecLocalData() {
+    const {PXE} = await connectPXE()
+    const blockNumber = await PXE.getBlockNumber()
+    const noteHashTreeRoot = await getAztecNoteHashTreeRoot(blockNumber,PXE)
+    return {blockNumber,localRoot:noteHashTreeRoot}
+}
+
+async function getEvmLocalData(warpToadOrigin:WarpToadEvm) {
+    const provider = warpToadOrigin.runner?.provider
+    const blockNumber = BigInt(await provider?.getBlockNumber() as number) 
+    const localRoot = await warpToadOrigin.cachedLocalRoot()
+    return {blockNumber,localRoot}
+}
+
 // if you ever run into a bug with this. I am so sorry
-// TODO make it so can also do evm -> aztec
-// you need to allow warpToadDestination also to be able to a aztec contract, if so no isOnlyLocal and no isFromAztec. prob only change how to get giga root
-// no need to fuck with getProofInputs for aztec withdraws. its not the same circuit any way
-export async function getMerkleData(gigaBridge:GigaRootBridge, warpToadOrigin: WarpToadEvm | WarpToadAztec, warpToadDestination:WarpToadEvm, commitment:bigint) { 
-
-
+export async function getMerkleData(gigaBridge:GigaRootBridge, warpToadOrigin: WarpToadEvm | WarpToadAztec, warpToadDestination:WarpToadEvm | WarpToadAztec, commitment:bigint) { 
+    const isToAztec = !("target" in warpToadDestination);
+    const isFromAztec = !("target" in warpToadOrigin);
+    const isOnlyLocal = warpToadDestination === warpToadOrigin;
+    const gigaRoot = isToAztec ? await warpToadDestination.methods.get_giga_root().simulate() : await warpToadDestination.gigaRoot()
+    
+    console.log("getting gigaProof")
     let originLocalRoot;
     let gigaMerkleData;
     let destinationLocalRootL2Block;
-    const gigaRoot = await warpToadDestination.gigaRoot()
-    const isOnlyLocal = warpToadDestination === warpToadOrigin;
-    console.log("getting gigaProof")
     if (isOnlyLocal) {
-        originLocalRoot = await warpToadDestination.cachedLocalRoot()
+        // get local root directly from the contract instead of extracting it from the gigaRoot (we wont use gigaRoot anyway)
+        const  {blockNumber,localRoot} = isFromAztec ? await getAztecLocalData() : await getEvmLocalData(warpToadOrigin)
+        destinationLocalRootL2Block = blockNumber
+        originLocalRoot = localRoot
         gigaMerkleData = emptyGigaMerkleData
     } else {
+        // you need to get the local root from the event that created the gigaRoot. Other wise you might end up using a local root that hasn't been bridged into a gigaRoot yet ☝🤓
         const gigaRootBlockNumber = await getGigaRootBlockNumber(gigaBridge, gigaRoot)
         const {localRoot, localRootL2BlockNumber,localRootIndex:originLocalRootIndex } = await getLocalRootInGigaRoot(gigaBridge, gigaRoot,gigaRootBlockNumber, warpToadOrigin)
         originLocalRoot = localRoot
@@ -215,7 +232,6 @@ export async function getMerkleData(gigaBridge:GigaRootBridge, warpToadOrigin: W
     console.log("getting localProof")
     let aztecMerkleData:AztecMerkleData;
     let evmMerkleData:EvmMerkleData;
-    const isFromAztec = !("target" in warpToadOrigin);
     if (isFromAztec) {
         aztecMerkleData = await getAztecMerkleData(warpToadOrigin, commitment, Number(destinationLocalRootL2Block)) 
         evmMerkleData = emptyEvmMerkleData
@@ -224,7 +240,7 @@ export async function getMerkleData(gigaBridge:GigaRootBridge, warpToadOrigin: W
         evmMerkleData = await getEvmMerkleData(warpToadOrigin, commitment, EVM_TREE_DEPTH,Number(destinationLocalRootL2Block));
     }
 
-    return {isFromAztec, gigaMerkleData,evmMerkleData,aztecMerkleData, originLocalRoot}
+    return {isFromAztec, gigaMerkleData,evmMerkleData,aztecMerkleData, originLocalRoot, blockNumber:BigInt(destinationLocalRootL2Block)}
 }
 
 export async function getProofInputs(
