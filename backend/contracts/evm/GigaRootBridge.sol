@@ -42,6 +42,9 @@ contract GigaRootBridge {
             LazyIMT.insert(rootTreeData,0); // TODO this is kind of expensive way to get around the error from `lazyIMT.update`: `leaf must exist`
         }
         amountOfLocalRoots = _localRootProviders.length; 
+
+        // other wise gigaRoot can be 0. Which i cant see how that would be a issue but it scares so we do this to be safe
+        gigaRoot = LazyIMT.root(rootTreeData, maxTreeDepth);
     }
 
     function _setLocalRootProvidersIndex(address _localRootProvider, uint40 index) private {

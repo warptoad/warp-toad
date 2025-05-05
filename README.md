@@ -106,22 +106,22 @@ yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --isAztec
 ```
 
 ## test contracts
-test one just EVM (broken need updates)
+test L1->Aztec
 ```shell
-yarn workspace @warp-toad/backend hardhat test test/testL1WarpToad.ts 
+yarn workspace @warp-toad/backend hardhat test test/testL1ToAztec.ts --network aztecSandbox
 ```
 
-test only one AZTEC (broken need updates)
-```shell
-yarn workspace @warp-toad/backend hardhat test test/testAztecToadWarp.ts  --network aztecSandbox
-```
-
-test one CROSS-CHAIN (works! yay!)
+test Aztec->L1
 ```shell
 yarn workspace @warp-toad/backend hardhat test test/testAztecToL1.ts --network aztecSandbox
 ```
 
-test EVERYTHING (testL1WarpToad and testAztecToadWarp are broken)
+test L1->L1
+```shell
+yarn workspace @warp-toad/backend hardhat test test/testL1ToL1.ts --network aztecSandbox
+```
+
+test EVERYTHING
 ```shell
 yarn workspace @warp-toad/backend hardhat test --network aztecSandbox
 ```
