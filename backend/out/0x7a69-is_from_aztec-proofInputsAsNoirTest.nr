@@ -1,0 +1,53 @@
+
+#[test]
+fn test_main() {
+    let nullifier:              Field = 0x187ba16490abbc9983dd173e0d491aa5cb45d3aa1c2976716dec69a8680828b8;
+    let chain_id:               Field = 0x7a69;
+    let amount:                 Field = 0x4563918244f40000;
+    let giga_root:              Field = 0x083ff684aeec0450cfec4b2424c59ea05e74ca2ce857397c952cb4c5f5b1a06b;
+    let destination_local_root: Field = 0x2f68a1c58e257e42a17a6c61dff5551ed560b9922ab119d5ac8e184c9734ead9;
+    let fee_factor:             Field = 0x3a143d8a;
+    let priority_fee:           Field = 0x05f5e100;
+    let max_fee:                Field = 0x4563918244f40000;
+    let relayer_address:        Field = 0x70997970c51812dc3a010c7d01b50e0d17dc79c8;            
+    let recipient_address:      Field = 0x90f79bf6eb2c4f870365e785982e1f101e93b906;          
+
+    // ----- private inputs -----
+    let origin_local_root:      Field = 0x223af95bef6d19e56cd86bf5c4e5d8364cb8c9b30364cf74c8e0563b2d76ed23;
+    let is_from_aztec:          bool  = true;
+    let nullifier_preimage:     Field = 0x10e1;
+    let secret:                 Field = 0x04d2;
+    let aztec_merkle_data: Aztec_merkle_data<40> = Aztec_merkle_data {
+        leaf_index:                 0x0c41,
+        hash_path:                  [0x2f90c9047ac771de6309ef2d1d89000753eb8c591b9b9e0a9f23f4abf8d5f47d,0x0b63a53787021a4a962a452c2921b3663aff1ffd8d5510540f8e659e782956f1,0x0e34ac2c09f45a503d2908bcb12f1cbae5fa4065759c88d501c097506a8b2290,0x21f9172d72fdcdafc312eee05cf5092980dda821da5b760a9fb8dbdf607c8a20,0x2373ea368857ec7af97e7b470d705848e2bf93ed7bef142a490f2119bcf82d8e,0x120157cfaaa49ce3da30f8b47879114977c24b266d58b0ac18b325d878aafddf,0x1ca7586b238b5d724490f73f0ca099ea9cda7aa251faed2c9de737407b23cbf2,0x2d78ed82f93b61ba718b17c2dfe5b52375b4d37cbbed6f1fc98b47614b0cf21b,0x067243231eddf4222f3911defbba7705aff06ed45960b27f6f91319196ef97e1,0x1849b85f3c693693e732dfc4577217acc18295193bede09ce8b97ad910310972,0x05c655a7ee533dd3ec27b743bd1b53b5292bc49f4b1474ef18ac38d4fdfaf868,0x233e20ce8a923a6ef40633de2ef69ca8c9235719394c417decf13a187edc060b,0x0d07f6e7a8a0e9199d6d92801fff867002ff5b4808962f9da2ba5ce1bdd26a73,0x1c4954081e324939350febc2b918a293ebcdaead01be95ec02fcbe8d2c1635d1,0x0197f2171ef99c2d053ee1fb5ff5ab288d56b9b41b4716c9214a4d97facc4c4a,0x2b9cdd484c5ba1e4d6efcc3f18734b5ac4c4a0b9102e2aeb48521a661d3feee9,0x14f44d672eb357739e42463497f9fdac46623af863eea4d947ca00a497dcdeb3,0x071d7627ae3b2eabda8a810227bf04206370ac78dbf6c372380182dbd3711fe3,0x2fdc08d9fe075ac58cb8c00f98697861a13b3ab6f9d41a4e768f75e477475bf5,0x20165fe405652104dceaeeca92950aa5adc571b8cafe192878cba58ff1be49c5,0x1c8c3ca0b3a3d75850fcd4dc7bf1e3445cd0cfff3ca510630fd90b47e8a24755,0x1f0c1a8fb16b0d2ac9a146d7ae20d8d179695a92a79ed66fc45d9da4532459b3,0x038146ec5a2573e1c30d2fb32c66c8440f426fbd108082df41c7bebd1d521c30,0x17d3d12b17fe762de4b835b2180b012e808816a7f2ff69ecb9d65188235d8fd4,0x0e1a6b7d63a6e5a9e54e8f391dd4e9d49cdfedcbc87f02cd34d4641d2eb30491,0x09244eec34977ff795fc41036996ce974136377f521ac8eb9e04642d204783d2,0x1646d6f544ec36df9dc41f778a7ef1690a53c730b501471b6acd202194a7e8e9,0x064769603ba3f6c41f664d266ecb9a3a0f6567cd3e48b40f34d4894ee4c361b3,0x1595bb3cd19f84619dc2e368175a88d8627a7439eda9397202cdb1167531fd3f,0x2a529be462b81ca30265b558763b1498289c9d88277ab14f0838cb1fce4b472c,0x0c08da612363088ad0bbc78abd233e8ace4c05a56fdabdd5e5e9b05e428bdaee,0x14748d0241710ef47f54b931ac5a58082b1d56b0f0c30d55fb71a6e8c9a6be14,0x0b59baa35b9dc267744f0ccb4e3b0255c1fc512460d91130c6bc19fb2668568d,0x2c45bb0c3d5bc1dc98e0baef09ff46d18c1a451e724f41c2b675549bb5c80e59,0x121468e6710bf1ffec6d0f26743afe6f88ef55dab40b83ca0a39bc44b196374c,0x2042c32c823a7440ceb6c342f9125f1fe426b02c527cd8fb28c85d02b705e759,0x0d582c10ff8115413aa5b70564fdd2f3cefe1f33a1e43a47bc495081e91e73e5,0x0f55a0d491a9da093eb999fa0dffaf904620cbc78d07e63c6f795c5c7512b523,0x21849764e1aa64b83a69e39d27eedaec2a8f97066e5ddb74634ffdb11388dd9a,0x2e33ee2008411c04b99c24b313513d097a0d21a5040b6193d1f978b8226892d6],
+        leaf_nonce:                 0x10a23a4ef9e41d326de019d70e019d46f5a8c11eb93254abbf8c23a324dd9867,
+        contract_address:           0x245c8867ce43997c522d94f09c6a271e1e7c00992f6411b52e6ef331bdd4782c,
+    };
+    let evm_merkle_data: Evm_merkle_data<32> = Evm_merkle_data {
+        leaf_index:                 0x00,
+        hash_path:                  [0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00],
+    };
+    let giga_merkle_data: Evm_merkle_data<5> = Evm_merkle_data {
+        leaf_index:                 0x01,
+        hash_path:                  [0x2f68a1c58e257e42a17a6c61dff5551ed560b9922ab119d5ac8e184c9734ead9,0x2098f5fb9e239eab3ceac3f27b81e481dc3124d55ffed523a839ee8446b64864,0x1069673dcdb12263df301a6ff584a7ec261a44cb9dc68df067a4774460b1f1e1,0x18f43331537ee2af2e3d758d50f72106467c6eea50371dd528d57eb2b856d238,0x07f9d837cb17b0d36320ffe93ba52345f1b728571a568265caac97559dbc952a],
+    };
+    main(
+        nullifier,
+        chain_id,
+        amount,
+        giga_root,
+        destination_local_root,
+        fee_factor, 
+        priority_fee,
+        max_fee,
+        relayer_address,              
+        recipient_address,             
+        origin_local_root, 
+        is_from_aztec,
+        nullifier_preimage, 
+        secret,
+        aztec_merkle_data,
+        evm_merkle_data,
+        giga_merkle_data,
+    )
+}

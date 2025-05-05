@@ -7,6 +7,8 @@ import {LazyIMT, LazyIMTData} from "@zk-kit/lazy-imt.sol/LazyIMT.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IWarpToadCore} from "./interfaces/IWarpToadCore.sol";
+import {ILocalRootProvider} from "./interfaces/ILocalRootProvider.sol";
+
 // tutorial https://github.com/privacy-scaling-explorations/zk-kit.solidity/blob/main/packages/lean-imt/contracts/test/LazyIMTTest.sol
 // noir equivalent (normal merkle tree): https://github.com/privacy-scaling-explorations/zk-kit.noir/tree/main/packages/merkle-trees
 // ts/js: https://github.com/privacy-scaling-explorations/zk-kit/tree/main/packages/lean-imt
@@ -18,38 +20,53 @@ interface IVerifier {
     ) external view returns (bool);
 }
 
-abstract contract WarpToadCore is ERC20, IWarpToadCore {
+
+
+abstract contract WarpToadCore is ERC20, IWarpToadCore, ILocalRootProvider {
+    modifier onlyGigaRootProvider() {
+        require(msg.sender == gigaRootProvider, "Not gigaRootProvider");
+        _; // what is that?
+    }
+
+    modifier onlyDeployer() {
+        require(msg.sender == deployer, "Not the deployer");
+        _; // what is that?
+    }
+    address deployer;
+
     LazyIMTData public commitTreeData; // does this need to be public?
     uint8 public maxTreeDepth;
 
+    uint256 public cachedLocalRoot;
     uint256 public gigaRoot;
     mapping(uint256 => bool) public gigaRootHistory; // TODO limit the history so we override slots is more efficient and is easier for clients to implement contract interactions
     mapping(uint256 => bool) public localRootHistory; 
 
-    address public gigaBridge;
+    address public l1BridgeAdapter;  // just here so we can look it up in frontend (l1BridgeAdapter is the address that maps to leaves(localRoots) in the gigaTree)
+    address public gigaRootProvider; // only contract that is allowed to provide giga roots
     address public withdrawVerifier;
 
     uint256 public lastLeafIndex;
 
     address public nativeToken;
 
-    constructor(uint8 _maxTreeDepth, address _gigaBridge, address _withdrawVerifier, address _nativeToken) {
+    constructor(uint8 _maxTreeDepth, address _withdrawVerifier, address _nativeToken) {
         maxTreeDepth = _maxTreeDepth;
         // maxBurns = 2 ** _maxTreeDepth; // circuit cant go above this number
 
-        gigaBridge = _gigaBridge;
         withdrawVerifier = _withdrawVerifier;
         LazyIMT.init(commitTreeData, _maxTreeDepth);
         nativeToken = _nativeToken;
+        deployer = msg.sender;
     }
 
-    function receiveGigaRoot(uint256 _gigaRoot) public {
-        require(
-            msg.sender == gigaBridge,
-            "only gigaBridge can send the gigaRoot"
-        );
-        gigaRootHistory[_gigaRoot] = true;
-        gigaRoot = _gigaRoot;
+    // needs initialize because the gigaBridge sets its localRootProvider (inc L1WarpToad) in the constructor
+    // 
+    function initialize(address _gigaRootProvider, address _l1BridgeAdapter) public onlyDeployer() {
+        require(gigaRootProvider == address(0), "gigaRootProvider is already set");
+        require(l1BridgeAdapter == address(0), "l1BridgeAdapter is already set");
+        gigaRootProvider = _gigaRootProvider;
+        l1BridgeAdapter = _l1BridgeAdapter;
     }
 
     function isValidGigaRoot(uint256 _gigaRoot) public view returns (bool) {
@@ -70,6 +87,7 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore {
     // our tree is lazy so we 
     function storeLocalRootInHistory() public returns(uint256) {
         uint256 root = localRoot();
+        cachedLocalRoot = root;
         localRootHistory[root] = true;
         return root;
     }
@@ -85,7 +103,7 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore {
         uint256 _maxFee,
         address _relayer,
         address _recipient
-    ) public view returns (bytes32[] memory) {
+    ) public pure returns (bytes32[] memory) {
         bytes32[] memory publicInputs = new bytes32[](10);
         // TODO is this expensive gas wise?
         uint256[8] memory uintInputs = [_nullifier,_chainId,_amount,_gigaRoot,_localRoot,_feeFactor,_priorityFee,_maxFee];
@@ -122,7 +140,7 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore {
         require(IVerifier(withdrawVerifier).verify(_poof, _publicInputs), "invalid proof"); 
 
         // fee logic       
-        if (_feeFactor != 0 ) { 
+        if (_feeFactor != 0 ) { // 
             uint256 _relayerFee = _feeFactor * (block.basefee + _priorityFee); // TODO double check precision. Prob only breaks if the wrpToad token price is super high or gas cost super low
             require(_relayerFee <= _maxFee, "_relayerFee is larger than _maxFee");
             // for compatibility with permissionless relaying
@@ -137,10 +155,6 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore {
         }
     }
 
-    // function indexOf(uint256 leaf) public view returns (uint256) {
-    //     return LazyIMT.indexOf(commitTreeData, leaf);
-    // }
-
     function localRoot() public view returns (uint256) {
         return LazyIMT.root(commitTreeData, maxTreeDepth);
     }
@@ -148,16 +162,16 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore {
     function isValidLocalRoot(uint256 _localRoot) public view returns (bool) {
         return localRootHistory[_localRoot];
     }
+
+    // gigaRootProvider can call directly since are on the L1 already and dont need adapter
+    function receiveGigaRoot(uint256 _gigaRoot) public onlyGigaRootProvider() {
+        gigaRootHistory[_gigaRoot] = true;
+        gigaRoot = _gigaRoot;
+    }
+
+
+    function getLocalRootAndBlock() external returns (uint256, uint256) {
+        storeLocalRootInHistory();
+        return (cachedLocalRoot, block.number);
+    }
 }
-
-/* notes:
-
-you can make recursive proofs of proving chainRoot -> gigaRoot. 
-And just save them somewhere to speed up proof time
-root and indexOf might need a more specific name since this contract will 
-be extended with gigaTree on L1 and gigaRoot on L2's
-
-gigaRoot will only update with deposits made at the current chain if it is 
-bridged to L1 and back to L2 first which sucks for those who want to withdraw on the same chain they deposited at
-
-*/

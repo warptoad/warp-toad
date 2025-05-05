@@ -1,4 +1,4 @@
-import hre from "hardhat"
+const hre = require("hardhat");
 
 //@ts-ignore
 import { expect } from "chai";
@@ -19,12 +19,25 @@ import {hashPreCommitment, hashCommitment, hashNullifier} from "../scripts/lib/h
 import {calculateFeeFactor} from "../scripts/lib/proving"
 
 import { getProofInputs, createProof } from "../scripts/lib/proving";
-import { WarpToadCore as WarpToadEvm} from "../typechain-types";
-import {gasCostPerChain} from "../scripts/lib/constants"
+import { LazyIMT, WarpToadCore as WarpToadEvm} from "../typechain-types";
+import {gasCostPerChain, GIGA_TREE_DEPTH} from "../scripts/lib/constants"
 
 import os from 'os';
+import { WarpToadCoreContract } from "../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore";
+import { poseidon3 } from "poseidon-lite/poseidon3";
 
 describe("L1WarpToad", function () {
+  async function deployL1GigaBridge(LazyIMTLib: LazyIMT, gigaRootRecipients: ethers.AddressLike[]) {
+    const gigaTreeDepth = GIGA_TREE_DEPTH
+    const gigaBridge = await hre.ethers.deployContract("GigaRootBridge", [gigaRootRecipients, gigaTreeDepth], {
+        value: 0n,
+        libraries: {
+            LazyIMT: LazyIMTLib,
+        }
+    });
+    return { gigaBridge }
+
+}
   // We define a fixture to reuse the same setup in every test.
   // We use loadFixture to run this setup once, snapshot that state,
   // and reset Hardhat Network to that snapshot in every test.
@@ -32,7 +45,8 @@ describe("L1WarpToad", function () {
     // Contracts are deployed using the first signer/account by default
     //const [owner, otherAccount] = await hre.ethers.getSigners();
     hre.ethers.getContractFactory("PoseidonT3",)
-    const gigaBridge = (await hre.ethers.getSigners())[0].address //TODO gigaBridge should be the contract not some rando EOA
+
+    const fakeEOAGigaBridge = (await hre.ethers.getSigners())[0].address //TODO gigaBridge should be the contract not some rando EOA
     const nativeToken = await hre.ethers.deployContract("USDcoin",[],{ value: 0n, libraries: {} })
     const wrappedTokenSymbol = `wrpToad-${await nativeToken.symbol()}`
     const wrappedTokenName = `wrpToad-${await nativeToken.name()}`
@@ -41,15 +55,16 @@ describe("L1WarpToad", function () {
     const PoseidonT3Lib = await hre.ethers.deployContract("PoseidonT3", [], { value: 0n, libraries: {} })
     const WithdrawVerifier = await hre.ethers.deployContract("WithdrawVerifier", [], { value: 0n, libraries: {} })
     const LazyIMTLib = await hre.ethers.deployContract("LazyIMT", [], { value: 0n, libraries: { PoseidonT3: PoseidonT3Lib } })
-    const L1WarpToad = await hre.ethers.deployContract("L1WarpToad", [maxTreeDepth,gigaBridge,WithdrawVerifier.target,nativeToken.target,wrappedTokenSymbol,wrappedTokenName], {
+    const { gigaBridge:unusedRealGigaBridge } = await deployL1GigaBridge(LazyIMTLib, []) 
+    const L1WarpToad = await hre.ethers.deployContract("L1WarpToad", [maxTreeDepth,WithdrawVerifier.target,nativeToken.target,wrappedTokenSymbol,wrappedTokenName], {
       value: 0n,
       libraries: {
         LazyIMT: LazyIMTLib,
         PoseidonT3: PoseidonT3Lib 
       }
     });
-
-    return { L1WarpToad,nativeToken, LazyIMTLib, PoseidonT3Lib };
+    await L1WarpToad.initialize(fakeEOAGigaBridge)
+    return { L1WarpToad,nativeToken, LazyIMTLib, PoseidonT3Lib,unusedRealGigaBridge };
   }
 
   describe("Deployment", function () {
@@ -64,7 +79,7 @@ describe("L1WarpToad", function () {
   describe("Burn", function () {
     it("Should burn and mint on the same chain", async function () {
       // ---------------setup -----------------------------------
-      const { L1WarpToad, nativeToken } = await loadFixture(deployWarpToad);
+      const { L1WarpToad, nativeToken,unusedRealGigaBridge } = await loadFixture(deployWarpToad);
 
       // ------------free money!! -----------------------
       const amount1 = 50n*10n**18n; // 50 usdc
@@ -107,8 +122,8 @@ describe("L1WarpToad", function () {
 
       // --------------bridge root -----------------------------------------------------------
       const gigaRoot = await L1WarpToad.gigaRoot()
-      const localRoot = await L1WarpToad.localRoot()
       await L1WarpToad.storeLocalRootInHistory(); // TODO make relayer do this and get a root from history instead
+      const localRoot = await L1WarpToad.cachedLocalRoot()
       await L1WarpToad.receiveGigaRoot(gigaRoot); // TODO this is not how it is supposed to work. GigaBridge should do this
 
 
@@ -125,7 +140,8 @@ describe("L1WarpToad", function () {
 
      
       // -------------check public inputs-----------------
-      const proofInputs = await getProofInputs(L1WarpToad,L1WarpToad,amount1,feeFactor,priorityFee,maxFee,relayer,recipient,nullifierPreimage1,secret1)
+      // TODO this broken
+      const proofInputs = await getProofInputs(unusedRealGigaBridge,L1WarpToad,L1WarpToad,amount1,feeFactor,priorityFee,maxFee,relayer,recipient,nullifierPreimage1,secret1)
       const proof = await createProof(proofInputs,os.cpus().length ); // TODO
       const onchainFormattedPublicInputs:string[] = (await L1WarpToad._formatPublicInputs(
         ethers.toBigInt(proofInputs.nullifier),
@@ -141,6 +157,7 @@ describe("L1WarpToad", function () {
       )).map((i:ethers.BytesLike)=>i.toString())
 
       expect(proof.publicInputs ).to.deep.equal(onchainFormattedPublicInputs)
+      console.log({proof},onchainFormattedPublicInputs)
       
       // ------------- mint -------------------------
       const balanceRecipientPreMint =await L1WarpToad.balanceOf(recipient)

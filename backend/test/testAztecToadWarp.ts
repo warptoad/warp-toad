@@ -16,6 +16,7 @@ import { poseidon2, poseidon3 } from 'poseidon-lite'
 // artifacts
 //@ts-ignore
 import { WarpToadCoreContractArtifact, WarpToadCoreContract } from '../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
+import { hashCommitment, hashPreCommitment } from "../scripts/lib/hashing";
 
 async function connectPXE() {
     const { PXE_URL = 'http://localhost:8080' } = process.env;
@@ -37,7 +38,11 @@ describe("AztecWarpToad", function () {
         const gigaRootHistorySize = 4n;
         const { wallets, PXE } = await connectPXE();
         const deployerWallet = wallets[0]
-        const constructorArgs = [nativeToken.target]
+        const wrappedTokenSymbol = `wrpToad-${await nativeToken.symbol()}`
+        const wrappedTokenName = `wrpToad-${await nativeToken.name()}`
+        const decimals = 6n; // only 6 decimals what is this tether??
+
+        const constructorArgs = [nativeToken.target,wrappedTokenName,wrappedTokenSymbol,decimals]
         const AztecWarpToad = await Contract.deploy(deployerWallet, WarpToadCoreContractArtifact, constructorArgs)
             .send()
             .deployed() as WarpToadCoreContract;
@@ -61,11 +66,11 @@ describe("AztecWarpToad", function () {
             const initialBalanceSender = 100n
             await AztecWarpToad.methods.mint_for_testing(initialBalanceSender,sender.getAddress()).send().wait();
 
-            const balancePreSend = await AztecWarpToad.methods.get_balance(wallets[0].getAddress()).simulate()
+            const balancePreSend = await AztecWarpToad.methods.balance_of(wallets[0].getAddress()).simulate()
             const amountToSend = 1n
-            await AztecWarpToad.methods.transfer(1n,wallets[0].getAddress(), wallets[1].getAddress()).send().wait()
+            await AztecWarpToad.methods.transfer(wallets[1].getAddress(),1n).send().wait()
 
-            const balancePostSend = await AztecWarpToad.methods.get_balance(wallets[0].getAddress()).simulate()
+            const balancePostSend = await AztecWarpToad.methods.balance_of(wallets[0].getAddress()).simulate()
 
             expect(balancePostSend).to.equal(balancePreSend-amountToSend);
 
@@ -107,20 +112,19 @@ describe("AztecWarpToad", function () {
             // burn!!!!
             console.log("burning!")
             const amountToBurn = 2n
-            const balancePreBurn = await AztecWarpToad.methods.get_balance(sender.getAddress()).simulate()
+            const balancePreBurn = await AztecWarpToad.methods.balance_of(sender.getAddress()).simulate()
             const aztecWalletChainId = sender.getChainId().toBigInt();
             const { chainId: chainIdEvmProvider } = await hre.ethers.provider.getNetwork()
 
             const chainIdAztecFromContract = hre.ethers.toBigInt(await AztecWarpToad.methods.get_chain_id().simulate())
-
             const commitmentPreImg = {
                 amount: amountToBurn,
                 destination_chain_id: aztecWalletChainId,
                 secret: 1234n,
                 nullifier_preimg: 4321n, // Use Fr.random().toBigInt() in prod pls
             }
-            const burnTx = await AztecWarpToad.methods.burn(commitmentPreImg.amount, commitmentPreImg.destination_chain_id, commitmentPreImg.secret, commitmentPreImg.nullifier_preimg, sender.getAddress()).send().wait()
-            const balancePostBurn = await AztecWarpToad.methods.get_balance(sender.getAddress()).simulate()
+            const burnTx = await AztecWarpToad.methods.burn(commitmentPreImg.amount, commitmentPreImg.destination_chain_id, commitmentPreImg.secret, commitmentPreImg.nullifier_preimg).send().wait()
+            const balancePostBurn = await AztecWarpToad.methods.balance_of(sender.getAddress()).simulate()
 
             // chain id is same as evm?? thats bad lmao
             console.log("Make issue of this. These shouldn't be the same!!!",{ aztecWalletChainId, chainIdEvmProvider})
@@ -128,50 +132,22 @@ describe("AztecWarpToad", function () {
             //expect(chainIdEvmProvider).to.not.equal(chainIdAztecFromContract);
             expect(balancePostBurn).to.equal(balancePreBurn-amountToBurn);
             
-            // mint
+            // mint        recipient: AztecAddress,
             console.log("minting!")
-            const commitment =Fr.fromHexString( hashCommitment( commitmentPreImg.nullifier_preimg, commitmentPreImg.secret, commitmentPreImg.destination_chain_id,commitmentPreImg.amount ))
+            const preCommitment = hashPreCommitment( commitmentPreImg.nullifier_preimg, commitmentPreImg.secret, commitmentPreImg.destination_chain_id)
+            const commitment = hashCommitment(preCommitment, amountToBurn)
 
             // get info to reproduce the leaf has of our commitment (unique_note_hash = leaf)
             const txEffect = (await PXE.getTxEffect(burnTx.txHash))
+            console.log({txEffect})
             const burnTxNullifier = txEffect?.data.nullifiers[0] as Fr
             console.log("finding unique_note_hash index within the tx")
-            const noteIndexOfCommitment = await findNoteHashIndex(AztecWarpToad,txEffect?.data.noteHashes!,commitment, burnTxNullifier)
-
-            await AztecWarpToad.methods.mint_local(commitmentPreImg.nullifier_preimg, commitmentPreImg.secret, commitmentPreImg.amount,recipient.getAddress(),burnTxNullifier,noteIndexOfCommitment).send().wait()
+            //const noteIndexOfCommitment = await findNoteHashIndex(AztecWarpToad,txEffect?.data.noteHashes!, Fr.fromHexString(ethers.toBeHex(commitment)), burnTxNullifier)
+            const aztecBlockNumber = await PXE.getBlockNumber()
+            await AztecWarpToad.methods.mint_local(recipient.getAddress(),aztecBlockNumber).send().wait()
             
-            const balanceRecipient = await AztecWarpToad.methods.get_balance(recipient.getAddress()).simulate()
+            const balanceRecipient = await AztecWarpToad.methods.balance_of(recipient.getAddress()).simulate()
             expect(balanceRecipient).to.equal(commitmentPreImg.amount);
         });
     });
 });
-
-// TODO move this to different file ----
-async function findNoteHashIndex(AztecWarpToad:WarpToadCoreContract, noteHashesInTx: Fr[], plainNoteHash: Fr, firstNullifierInTx:Fr) {
-    const contractAddress = AztecWarpToad.address;
-    const getUniqueNote = async (index:bigint)=> await AztecWarpToad.methods.hash_unique_note_hash_helper(contractAddress, plainNoteHash, firstNullifierInTx, index).simulate()
-    for (let index = 0; index < noteHashesInTx.length; index++) {
-        const hashInTx = noteHashesInTx[index]
-        const hashAttempt = await getUniqueNote(BigInt(index))
-        if (hashAttempt === hashInTx.toBigInt() ) {
-            return index;
-        }
-    }
-
-    throw new Error("couldn't find the note hash index :/");
-}
-
-async function hashUniqueNoteHash(AztecWarpToad:WarpToadCoreContract, noteHashesInTx: Fr[], plainNoteHash: Fr,firstNullifierInTx:Fr) {
-    const noteIndex = await findNoteHashIndex(AztecWarpToad, noteHashesInTx, plainNoteHash,firstNullifierInTx)
-    const uniqueNoteHash = await AztecWarpToad.methods.hash_unique_note_hash_helper(AztecWarpToad.address,plainNoteHash,firstNullifierInTx,noteIndex).simulate()
-    return uniqueNoteHash
-}
-
-function hashCommitment(nullifier_preimg: bigint, secret: bigint, destination_chain_id: bigint, amount: bigint) {
-    let pre_commitment: bigint = poseidon3([nullifier_preimg, secret, destination_chain_id]);
-    let commitment: bigint = poseidon2([amount, pre_commitment]);
-    return ethers.toBeHex(commitment)
-}
-
-
-//------------------

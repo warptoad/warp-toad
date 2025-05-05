@@ -4,10 +4,8 @@ Cross bridge privacy
 # WARNING KNOWN ISSUES
 jimjim:   
 1. event scanning will scan from block 0 to latest. This will break outside of tests and anvil  
-1. scripts/lib/proving.ts only works on burning and minting on the same chain. Because gigaTree and aztec proofs provided are just zeros   
-1. scripts/lib/proving.ts assumes that every local root is always immediately bridged and included into gigaRoot. That is bad and will break when you do async bridging   
-
-
+1. getMerkle proof in scripts/lib/proving.ts wont work on L1 -> aztec yet. The rest is supported
+ 
 
 ## install
 make sure you're on node 20 (hardhat needs it)
@@ -31,8 +29,15 @@ noirup -v 1.0.0-beta.3;
 
 ## compile contracts
 ### aztec
-```
+```shell
+# aztec warpToad
 cd backend/contracts/aztec/WarpToadCore;
+aztec-nargo compile;
+aztec codegen -o src/artifacts target;
+cd ../../../..
+
+# L2AztecRootBridgeAdapter
+cd backend/contracts/aztec/L2AztecRootBridgeAdapter;
 aztec-nargo compile;
 aztec codegen -o src/artifacts target;
 cd ../../../..
@@ -62,30 +67,66 @@ VERSION=0.85.0-alpha-testnet.2 aztec start --sandbox
 
 ## deploy
 ### deploy L1 aztec-sandbox
+#### deploy test token
 ```shell
-yarn workspace @warp-toad/backend hardhat ignition deploy ./ignition/modules/L1WarpToad.ts --parameters ignition/WarpToadCoreParameters.json --network aztecSandbox
+yarn workspace @warp-toad/backend hardhat ignition deploy ignition/modules/TestToken.ts --network aztecSandbox
+```
+#### deploy on L1
+```shell
+NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network aztecSandbox;
+```
+<!--  
+if you just restarted sandbox then the test token address will be the same as below and you can just copy paste this
+```shell
+NATIVE_TOKEN_ADDRESS=0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network aztecSandbox
+``` -->
+
+#### deploy on aztec
+```shell
+NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network aztecSandbox;
 ```
 
-### deploy L2 aztec-sandbox
-`yarn workspace @warp-toad/backend ts-node scripts/dev_op/deployAztecToadWarp.ts`
+<!--
+if you just restarted sandbox then the test token address will be the same as below and you can just copy paste this
+```shell
+NATIVE_TOKEN_ADDRESS=0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network aztecSandbox
+``` -->
+#### initialize contracts
+```shell
+#L1
+yarn workspace @warp-toad/backend hardhat run scripts/deploy/initializeL1.ts --network aztecSandbox;
+#aztec
+yarn workspace @warp-toad/backend hardhat run scripts/deploy/initializeAztec.ts --network aztecSandbox;
+```
+
+## bridge
+#### sandbox 
+```shell
+yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --isAztec
+```
 
 ## test contracts
-test only one file just hardhat evm (ex L1WarpToad)
+test one just EVM (broken need updates)
 ```shell
-yarn workspace @warp-toad/backend hardhat test test/testL1WarpToad.ts  
+yarn workspace @warp-toad/backend hardhat test test/testL1WarpToad.ts 
 ```
 
-test only one file (ex aztecWarpToad)
+test only one AZTEC (broken need updates)
 ```shell
 yarn workspace @warp-toad/backend hardhat test test/testAztecToadWarp.ts  --network aztecSandbox
 ```
 
-test everything (might break because aztec sandbox is a bit unstable)
+test one CROSS-CHAIN (works! yay!)
+```shell
+yarn workspace @warp-toad/backend hardhat test test/testAztecToL1.ts --network aztecSandbox
+```
+
+test EVERYTHING (testL1WarpToad and testAztecToadWarp are broken)
 ```shell
 yarn workspace @warp-toad/backend hardhat test --network aztecSandbox
 ```
 
-get gas estimation minting
+get gas estimation minting (broken)
 ```shell
 rm -fr backend/ignition/deployments/chain-31337/;
 yarn workspace @warp-toad/backend hardhat ignition deploy ./ignition/modules/L1WarpToadWithTestToken.ts --parameters ignition/WarpToadCoreParametersTesting.json --network aztecSandbox;
