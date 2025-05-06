@@ -22,7 +22,7 @@ aztec-up 0.85.0-alpha-testnet.9
 
 install noir and backend
 ```shell
-bbup -nv 1.0.0-beta.3;
+bbup -v 0.72.1;
 noirup -v 1.0.0-beta.3;
 ```
 
