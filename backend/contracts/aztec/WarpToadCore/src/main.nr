@@ -19,7 +19,7 @@ pub contract WarpToadCore {
 
     use dep::easy_private_state::EasyPrivateUint;
     use dep::value_note::balance_utils;
-    use compressed_string::FieldCompressedString;
+    use compressed_string::{FieldCompressedString, CompressedString};
     use poseidon::poseidon;
 
     // TODO remove unused imports once you are sure you dont need them
@@ -129,7 +129,7 @@ pub contract WarpToadCore {
     // this works without creating a gigaRoot history right? we just need to make sure the block number we provide matches what gigaRoot was at that time in here!
     #[private]
     fn mint_giga_root_evm(
-        amount: Field,
+        amount: u64,
         secret: Field,
         nullifier_preimage: Field,
         recipient: AztecAddress,
@@ -138,7 +138,7 @@ pub contract WarpToadCore {
         giga_merkle_data: Evm_merkle_data<GIGA_TREE_DEPTH>,
         evm_merkle_data: Evm_merkle_data<EVM_TREE_DEPTH>,
     ) {
-        let chain_id: Field = context.chain_id();
+        let chain_id: Field = get_chain_id(context.version());
         let giga_root_slot: Field =
             aztec::state_vars::storage::Storage::get_storage_slot(storage.giga_root);
         let contract_address: AztecAddress = context.this_address();
@@ -146,19 +146,22 @@ pub contract WarpToadCore {
             giga_root_slot,
             contract_address,
         );
-        let (commitment, nullifier) = hash_commitment(nullifier_preimage, secret, chain_id, amount);
+        let (commitment, nullifier) = hash_commitment(nullifier_preimage, secret, chain_id, amount as Field);
 
         // verify origin_local_root is part of giga_root
         evm_merkle_verify(giga_root, origin_local_root, giga_merkle_data);
         // verify commitment is part of origin_local_root
         evm_merkle_verify(origin_local_root, commitment, evm_merkle_data);
         context.push_nullifier(nullifier);
+        storage.balances.at(recipient).add(amount , recipient, context.msg_sender());
     }
 
     // just incase there will other instance of aztec we will bridge too :D
+    // TODO untested. if someone by accident burns with the aztec chainId, then this is their only method to recover.
+    // but besides accidents users should never use this in a world where there is only one aztec. just use the normal private transfers
     #[private]
     fn mint_giga_root_aztec(
-        amount: Field,
+        amount: u64,
         secret: Field,
         nullifier_preimage: Field,
         recipient: AztecAddress,
@@ -167,7 +170,7 @@ pub contract WarpToadCore {
         giga_merkle_data: Evm_merkle_data<GIGA_TREE_DEPTH>,
         aztec_merkle_data: Aztec_merkle_data<AZTEC_TREE_DEPTH>,
     ) {
-        let chain_id: Field = context.chain_id();
+        let chain_id: Field = get_chain_id(context.version());
         let giga_root_slot: Field =
             aztec::state_vars::storage::Storage::get_storage_slot(storage.giga_root);
         let contract_address: AztecAddress = context.this_address();
@@ -175,7 +178,7 @@ pub contract WarpToadCore {
             giga_root_slot,
             contract_address,
         );
-        let (commitment, nullifier) = hash_commitment(nullifier_preimage, secret, chain_id, amount);
+        let (commitment, nullifier) = hash_commitment(nullifier_preimage, secret, chain_id, amount as Field);
 
         // no skip giga_root check here because you shouldn't burn + mint only on aztec. users should use private transfers. try it! its cool :D
         // verify origin_local_root is part of giga_root
@@ -183,6 +186,7 @@ pub contract WarpToadCore {
         // verify commitment is part of origin_local_root
         aztec_merkle_verify(origin_local_root, commitment, aztec_merkle_data);
         context.push_nullifier(nullifier);
+        storage.balances.at(recipient).add(amount, recipient, context.msg_sender());
     }
 
     // technically this function is useless. You can make full private transfers with UTXO notes on aztec through the private transfer function.
@@ -199,7 +203,7 @@ pub contract WarpToadCore {
         let note_hash_root = block_header.state.partial.note_hash_tree.root; // <- would be input in evm circuit
 
         // check chain id
-        let chain_id = context.chain_id();
+        let chain_id = get_chain_id(context.version());
         assert(
             retrieved_note.note.chain_id == chain_id,
             "notes chain_id doesnt match current chain_id",
@@ -265,10 +269,25 @@ pub contract WarpToadCore {
         storage.l1_bridge_adapter.read()
     }
 
+    // we hallucinate our own chainId since we just need a unique identifier to identify the chain
+    // maybe we can just use the context.version as our chainId since it looks like it doesn't collide with existing chainIds?
+    // also is context.version even safe?? will it update with network upgrades??
+    #[contract_library_method]
+    fn get_chain_id(aztec_version:Field) -> Field {
+        let salt: CompressedString<32, 24> = CompressedString::from_string("aztecPlsJustPickAChainId");
+        poseidon::bn254::hash_2([salt.serialize()[0], aztec_version])
+    }
+
+
     // DEBUG remove later
     #[utility]
-    unconstrained fn get_chain_id() -> pub Field {
-        context.chain_id()
+    unconstrained fn get_chain_id_unconstrained(aztec_version:Field) -> pub Field {
+        get_chain_id(aztec_version)
+    }
+
+    #[utility]
+    unconstrained fn get_version() -> Field {
+        context.version()
     }
     //-----------------------------------------------
 

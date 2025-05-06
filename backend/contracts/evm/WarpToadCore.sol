@@ -58,6 +58,9 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore, ILocalRootProvider {
         LazyIMT.init(commitTreeData, _maxTreeDepth);
         nativeToken = _nativeToken;
         deployer = msg.sender;
+
+        // other wise cachedLocalRoot can be 0. Which i cant see how that would be a issue but it scares so we do this to be safe
+        storeLocalRootInHistory();
     }
 
     // needs initialize because the gigaBridge sets its localRootProvider (inc L1WarpToad) in the constructor

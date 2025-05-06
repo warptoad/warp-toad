@@ -184,8 +184,8 @@ WarpToadNote: {
     /** constructor(native_token: struct, _name: string, _symbol: string, _decimals: integer) */
     constructor: ((native_token: EthAddressLike, _name: string, _symbol: string, _decimals: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** get_chain_id() */
-    get_chain_id: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** get_chain_id_unconstrained(aztec_version: field) */
+    get_chain_id_unconstrained: ((aztec_version: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** get_decimals() */
     get_decimals: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -199,17 +199,20 @@ WarpToadNote: {
     /** get_note_proof(block_number: integer, note_hash: field) */
     get_note_proof: ((block_number: (bigint | number), note_hash: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** get_version() */
+    get_version: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** initialize(_giga_root_provider: struct, _l1_bridge_adapter: struct) */
     initialize: ((_giga_root_provider: AztecAddressLike, _l1_bridge_adapter: EthAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** mint_for_testing(amount: integer, recipient: struct) */
     mint_for_testing: ((amount: (bigint | number), recipient: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** mint_giga_root_aztec(amount: field, secret: field, nullifier_preimage: field, recipient: struct, block_number: integer, origin_local_root: field, giga_merkle_data: struct, aztec_merkle_data: struct) */
-    mint_giga_root_aztec: ((amount: FieldLike, secret: FieldLike, nullifier_preimage: FieldLike, recipient: AztecAddressLike, block_number: (bigint | number), origin_local_root: FieldLike, giga_merkle_data: { leaf_index: FieldLike, hash_path: FieldLike[] }, aztec_merkle_data: { leaf_index: FieldLike, hash_path: FieldLike[], leaf_nonce: FieldLike, contract_address: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** mint_giga_root_aztec(amount: integer, secret: field, nullifier_preimage: field, recipient: struct, block_number: integer, origin_local_root: field, giga_merkle_data: struct, aztec_merkle_data: struct) */
+    mint_giga_root_aztec: ((amount: (bigint | number), secret: FieldLike, nullifier_preimage: FieldLike, recipient: AztecAddressLike, block_number: (bigint | number), origin_local_root: FieldLike, giga_merkle_data: { leaf_index: FieldLike, hash_path: FieldLike[] }, aztec_merkle_data: { leaf_index: FieldLike, hash_path: FieldLike[], leaf_nonce: FieldLike, contract_address: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** mint_giga_root_evm(amount: field, secret: field, nullifier_preimage: field, recipient: struct, block_number: integer, origin_local_root: field, giga_merkle_data: struct, evm_merkle_data: struct) */
-    mint_giga_root_evm: ((amount: FieldLike, secret: FieldLike, nullifier_preimage: FieldLike, recipient: AztecAddressLike, block_number: (bigint | number), origin_local_root: FieldLike, giga_merkle_data: { leaf_index: FieldLike, hash_path: FieldLike[] }, evm_merkle_data: { leaf_index: FieldLike, hash_path: FieldLike[] }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** mint_giga_root_evm(amount: integer, secret: field, nullifier_preimage: field, recipient: struct, block_number: integer, origin_local_root: field, giga_merkle_data: struct, evm_merkle_data: struct) */
+    mint_giga_root_evm: ((amount: (bigint | number), secret: FieldLike, nullifier_preimage: FieldLike, recipient: AztecAddressLike, block_number: (bigint | number), origin_local_root: FieldLike, giga_merkle_data: { leaf_index: FieldLike, hash_path: FieldLike[] }, evm_merkle_data: { leaf_index: FieldLike, hash_path: FieldLike[] }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** mint_local(recipient: struct, block_number: integer) */
     mint_local: ((recipient: AztecAddressLike, block_number: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
