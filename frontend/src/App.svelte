@@ -5,8 +5,9 @@
   import Footer from "./lib/Footer.svelte";
   import Draggable from "./lib/Draggable.svelte";
   import DepositApplication from "./lib/applications/DepositApplication.svelte";
+  import WalletTest from "./lib/WalletTest.svelte"
 
-  let isDepositOpen = true;
+  let isDepositOpen = false;
   let isWithdrawOpen = false;
   let isFaqOpen = false;
 </script>
@@ -56,6 +57,7 @@
       bind:faqOpen={isFaqOpen}
     />
   </div>
+  <WalletTest/>
   <Footer />
 </main>
 

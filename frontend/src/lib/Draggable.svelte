@@ -44,7 +44,7 @@
 
 <section
 	bind:this={dragWindow}
-	class={`absolute flex flex-col rounded-md bg-base-300 border-2 ${isVisible ? '' : 'invisible'}`}
+	class={`absolute flex flex-col rounded-md bg-base-200 border-2 ${isVisible ? '' : 'invisible'}`}
 	style="left: {x}px; top: {y}px; min-width: {width}%; min-height: {height}%; max-width: 75%; max-height: 75%;"
 >
 	<div
