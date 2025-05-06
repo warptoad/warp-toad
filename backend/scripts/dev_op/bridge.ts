@@ -40,8 +40,7 @@ async function getAztecContracts(aztecWallet: aztecWallet|any) {
     const contracts = await getContractAddressesAztec()
     const L2AztecRootBridgeAdapter =await L2AztecRootBridgeAdapterContract.at(contracts["L2AztecRootBridgeAdapter"], aztecWallet)
     const AztecWarpToad =await WarpToadCoreContract.at(contracts["AztecWarpToad"], aztecWallet)
-    return {L2AztecRootBridgeAdapter, AztecWarpToad} 
-    
+    return {L2AztecRootBridgeAdapter, AztecWarpToad}   
 }
 
 async function main() {

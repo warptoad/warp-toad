@@ -11,7 +11,7 @@ jimjim:
 make sure you're on node 20 (hardhat needs it)
 ```shell
 nvm install 20.19.1;
-nvm use 20;
+nvm use 20.19.1;
 npm install --global yarn;
 yarn install;
 ```
@@ -30,39 +30,21 @@ noirup -v 1.0.0-beta.3;
 ## compile contracts
 ### aztec
 ```shell
-# aztec warpToad
-cd backend/contracts/aztec/WarpToadCore;
-aztec-nargo compile;
-aztec codegen -o src/artifacts target;
-cd ../../../..
-
-# L2AztecRootBridgeAdapter
-cd backend/contracts/aztec/L2AztecRootBridgeAdapter;
-aztec-nargo compile;
-aztec codegen -o src/artifacts target;
-cd ../../../..
+# aztec warpToad && L2AztecRootBridgeAdapter
+yarn b:aztec
 ```
 
 ### generate EVM verifier contracts
 <!-- //this should be a bash script lmao -->
 ```shell
-cd backend/circuits/withdraw/; 
-nargo compile; 
-bb write_vk -b ./target/withdraw.json;
-bb contract;
-cd ../../..;
-
-# move to contracts folder
-mv backend/circuits/withdraw/target/contract.sol backend/contracts/evm/WithdrawVerifier.sol
-
-# rename the contract
-yarn workspace @warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file ./contracts/evm/WithdrawVerifier.sol --remove "contract UltraVerifier is BaseUltraVerifier {" --replace "contract WithdrawVerifier is BaseUltraVerifier {"
+# circuits && move to contracts folder && rename the contract
+yarn b:contract
 ```
 
 
 ## run sandbox
 ```shell
-VERSION=0.85.0-alpha-testnet.2 aztec start --sandbox
+yarn b:sandbox #VERSION=0.85.0-alpha-testnet.2 aztec start --sandbox
 ```
 
 ## deploy
@@ -73,7 +55,7 @@ yarn workspace @warp-toad/backend hardhat ignition deploy ignition/modules/TestT
 ```
 #### deploy on L1
 ```shell
-NATIVE_TOKEN_ADDRESS=0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network aztecSandbox;
+NATIVE_TOKEN_ADDRESS=0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network aztecSandbox;
 ```
 <!--  
 if you just restarted sandbox then the test token address will be the same as below and you can just copy paste this
@@ -83,7 +65,7 @@ NATIVE_TOKEN_ADDRESS=0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f yarn workspace @
 
 #### deploy on aztec
 ```shell
-NATIVE_TOKEN_ADDRESS=0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network aztecSandbox;
+NATIVE_TOKEN_ADDRESS=0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network aztecSandbox;
 ```
 
 <!--
