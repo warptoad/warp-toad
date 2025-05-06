@@ -33,7 +33,7 @@ async function main() {
     const provider = hre.ethers.provider
     const chainId = (await provider.getNetwork()).chainId
     const evmContractAddresses = await getContractAddressesEvm(chainId)
-    const aztecContractAddresses = await getContractAddressesAztec()
+    const aztecContractAddresses = await getContractAddressesAztec(chainId)
 
     const L1AztecRootBridgeAdapter = evmContractAddresses["L1InfraModule#L1AztecRootBridgeAdapter"]
 

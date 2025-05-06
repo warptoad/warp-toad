@@ -36,36 +36,45 @@ const obsidionDeployerFPCAddress = AztecAddress.fromField(Fr.fromHexString("0x19
 //lian told me it was 0>
 const OBSIDION_DEPLOYER_SECRET_KEY = "0x00"
 
-const delay = async(timeInMs:number)=> await new Promise((resolve)=>setTimeout(resolve, timeInMs)) 
-export async function getAztecWallet(pxe: PXE, obsidionDeployerFPCSigningKey: Fq, nodeUrl: string) {
-    //await getObsidionDeployerFPC(pxe, nodeUrl,obsidionDeployerFPCAddress,obsidionDeployerFPCSigningKey.toField().toString(),OBSIDION_DEPLOYER_SECRET_KEY)
-    const node = createAztecNodeClient(nodeUrl)
-    const contract = await node.getContract(obsidionDeployerFPCAddress as any)
-    if (!contract) {
-        throw new Error("Contract not found")
-    }
-    await delay(30000)
-    // const obsidionDeployerFPC = await (
-    //     await AccountManager.create(
-    //         pxe,
-    //         Fr.fromString(OBSIDION_DEPLOYER_SECRET_KEY),
-    //         new ObsidionDeployerFPCContractClass(obsidionDeployerFPCSigningKey),
-    //         contract.salt as unknown as Salt,
-    //     )
-    // ).getWallet()
+const delay = async (timeInMs: number) => await new Promise((resolve) => setTimeout(resolve, timeInMs))
+export async function getAztecWallet(pxe: PXE, privateKey: string, nodeUrl: string, chainId: bigint) {
+    if (chainId == 31337n) { 
+        console.warn("assuming ur on sanbox since chainId is 31337")
+        return (await getInitialTestAccountsWallets(pxe))[0]
 
-    await pxe.registerAccount(
-        Fr.fromString(OBSIDION_DEPLOYER_SECRET_KEY),
-        await computePartialAddress(contract as any) as any as Fr,
-    )
-    await delay(30000)
-    await pxe.registerContract({
-        instance: contract as any,
-        artifact: ObsidionDeployerFPCContractArtifact,
-    })
-    await delay(30000)
-    const wallet = await getObsidionDeployerFPCWallet(pxe, obsidionDeployerFPCAddress, obsidionDeployerFPCSigningKey)
-    return wallet
+    }else {
+        const obsidionDeployerFPCSigningKey = GrumpkinScalar.fromHexString(privateKey as string)
+        console.warn("assuming ur on testnet/mainnet since chainId is NOT 31337")
+        //await getObsidionDeployerFPC(pxe, nodeUrl,obsidionDeployerFPCAddress,obsidionDeployerFPCSigningKey.toField().toString(),OBSIDION_DEPLOYER_SECRET_KEY)
+        const node = createAztecNodeClient(nodeUrl)
+        const contract = await node.getContract(obsidionDeployerFPCAddress as any)
+        if (!contract) {
+            throw new Error("Contract not found")
+        }
+        //await delay(30000)
+        // const obsidionDeployerFPC = await (
+        //     await AccountManager.create(
+        //         pxe,
+        //         Fr.fromString(OBSIDION_DEPLOYER_SECRET_KEY),
+        //         new ObsidionDeployerFPCContractClass(obsidionDeployerFPCSigningKey),
+        //         contract.salt as unknown as Salt,
+        //     )
+        // ).getWallet()
+
+        await pxe.registerAccount(
+            Fr.fromString(OBSIDION_DEPLOYER_SECRET_KEY),
+            await computePartialAddress(contract as any) as any as Fr,
+        )
+        //await delay(30000)
+        await pxe.registerContract({
+            instance: contract as any,
+            artifact: ObsidionDeployerFPCContractArtifact,
+        })
+        //await delay(30000)
+        const wallet = await getObsidionDeployerFPCWallet(pxe, obsidionDeployerFPCAddress, obsidionDeployerFPCSigningKey)
+        return wallet
+
+    }
 }
 
 function getEnvArgs() {
@@ -86,14 +95,13 @@ function getEnvArgs() {
 
     const nativeTokenAddress = ethers.getAddress(process.env.NATIVE_TOKEN_ADDRESS as string);
     const PXE_URL = process.env.PXE_URL as string
-    const obsidionDeployerFPCSigningKey = GrumpkinScalar.fromHexString(process.env.PRIVATE_KEY as string)
-    return { nativeTokenAddress, PXE_URL, obsidionDeployerFPCSigningKey }
+    return { nativeTokenAddress, PXE_URL, privateKey:process.env.PRIVATE_KEY }
 
 }
 
 async function main() {
     //----arguments------
-    const { nativeTokenAddress, PXE_URL, obsidionDeployerFPCSigningKey } = getEnvArgs()
+    const { nativeTokenAddress, PXE_URL, privateKey } = getEnvArgs()
     const provider = hre.ethers.provider
     const nativeToken = new ethers.Contract(nativeTokenAddress, er20Abi, provider)
     const chainId = (await provider.getNetwork()).chainId
@@ -107,19 +115,21 @@ async function main() {
     console.log("waiting on PXE client", PXE_URL)
     await waitForPXE(PXE);
     //const wallets = await getInitialTestAccountsWallets(PXE);
-    const deployWallet = (await getAztecWallet(PXE, obsidionDeployerFPCSigningKey, "https://full-node.alpha-testnet.aztec.network"))//wallets[0]
+
+    const deployWallet = (await getAztecWallet(PXE, privateKey, "https://full-node.alpha-testnet.aztec.network", chainId))//wallets[0]
     // get PXE to know about fee contract
     // https://github.com/obsidionlabs/obsidion-wallet/blob/e514a5cea462b66704fa3fd94f14e198dc14a614/packages/backend/index.ts#L320
     console.log({ deployWalletAddress: deployWallet.getAddress() })
 
     //------deploy-------------
     const { AztecWarpToad } = await deployAztecWarpToad(nativeToken, deployWallet)
-    await delay(30000)
-    console.log({AztecWarpToad: AztecWarpToad.address})
+    //await delay(30000)
+    console.log({ AztecWarpToad: AztecWarpToad.address })
     const { L2AztecRootBridgeAdapter } = await deployL2AztecAdapter(L1AztecAdapterAddress, deployWallet)
-    console.log({L2AztecRootBridgeAdapter: L2AztecRootBridgeAdapter.address})
+    console.log({ L2AztecRootBridgeAdapter: L2AztecRootBridgeAdapter.address })
     const deployments = { AztecWarpToad: AztecWarpToad.address, L2AztecRootBridgeAdapter: L2AztecRootBridgeAdapter.address }
-    const folderPath = `${__dirname}/aztecDeployments/`
+    const folderPath = `${__dirname}/aztecDeployments/${Number(chainId)}/`
+    try{fs.mkdir(folderPath)} catch{console.warn(`praying the folder already exist ${folderPath}`)}
     const deployedAddressesPath = `${folderPath}/deployed_addresses.json`
     // try {
     //     await fs.mkdir(folderPath)

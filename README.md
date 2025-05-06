@@ -16,9 +16,9 @@ npm install --global yarn;
 yarn install;
 ```
 
-make sure you're on aztec alpha-testnet
+make sure you're on aztec 0.85.0-alpha-testnet.9
 ```shell
-aztec-up alpha-testnet
+aztec-up 0.85.0-alpha-testnet.9
 ```
 
 install noir and backend
@@ -62,18 +62,18 @@ yarn workspace @warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file
 
 ## run sandbox
 ```shell
-VERSION=alpha-testnet aztec start --sandbox
+VERSION=0.85.0-alpha-testnet.9 aztec start --sandbox
 ```
 
-## run PXE on alpha testnet
+## run PXE on alpha testnet (@danish skip this)
 ```shell
-aztec start --port 8080 --pxe --pxe.nodeUrl=http://34.107.66.170 --l1-chain-id 11155111 --l1-rpc-urls https://sepolia.infura.io/v3/urkey
+aztec start --port 8080 --pxe --pxe.nodeUrl=https://full-node.alpha-testnet.aztec.network --l1-chain-id 11155111 --l1-rpc-urls https://sepolia.infura.io/v3/urkey
 
 ```
 
-## aztec testnet deploy envirment
+## aztec testnet deploy environment
 ```shell
-export NODE_URL=http://34.107.66.170
+export NODE_URL=https://full-node.alpha-testnet.aztec.network
 export SPONSORED_FPC_ADDRESS=0x0b27e30667202907fc700d50e9bc816be42f8141fae8b9f2281873dbdb9fc2e5
 ```
 
@@ -94,7 +94,8 @@ NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend ha
 <!--  
 if you just restarted sandbox then the test token address will be the same as below and you can just copy paste this
 ```shell
-NATIVE_TOKEN_ADDRESS=0xa80405F9F1FA485cff83Bb1479A74F70a139C64b yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network sepolia;
+NATIVE_TOKEN_ADDRESS=0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network sepolia;
+NATIVE_TOKEN_ADDRESS=0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network aztecSandbox;
 ``` -->
 
 #### deploy on aztec
@@ -105,7 +106,7 @@ NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress PXE_URL=http://localhost:8080 yarn w
 <!--
 if you just restarted sandbox then the test token address will be the same as below and you can just copy paste this
 ```shell
-PRIVATE_KEY=ASuperSecretPrivateKeyIGotFromEngineerAtObsidion NATIVE_TOKEN_ADDRESS=0xa80405F9F1FA485cff83Bb1479A74F70a139C64b PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network sepolia;
+PRIVATE_KEY=ASuperSecretPrivateKeyIGotFromEngineerAtObsidion NATIVE_TOKEN_ADDRESS=0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network sepolia;
 ``` -->
 #### initialize contracts
 ```shell

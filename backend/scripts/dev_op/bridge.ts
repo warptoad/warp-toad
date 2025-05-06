@@ -36,8 +36,8 @@ async function getL1Contracts(l1ChainId:bigint, signer:ethers.Signer) {
 
 }
 
-async function getAztecContracts(aztecWallet: aztecWallet|any) {
-    const contracts = await getContractAddressesAztec()
+async function getAztecContracts(aztecWallet: aztecWallet|any, chainId:number) {
+    const contracts = await getContractAddressesAztec(chainId)
     const L2AztecRootBridgeAdapter =await L2AztecRootBridgeAdapterContract.at(contracts["L2AztecRootBridgeAdapter"], aztecWallet)
     const AztecWarpToad =await WarpToadCoreContract.at(contracts["AztecWarpToad"], aztecWallet)
     return {L2AztecRootBridgeAdapter, AztecWarpToad} 
@@ -70,7 +70,7 @@ async function main() {
     const gigaRootRecipients = args.gigaRootRecipients ? args.gigaRootRecipients : await getLocalRootProviders(l1ChainId)
 
     const {L1AztecRootBridgeAdapter, gigaBridge} = await getL1Contracts(l1ChainId, l1Wallet)
-    const {L2AztecRootBridgeAdapter, AztecWarpToad} =  args.isAztec ?  await getAztecContracts(aztecWallet) : {L2AztecRootBridgeAdapter:undefined, AztecWarpToad:undefined}
+    const {L2AztecRootBridgeAdapter, AztecWarpToad} =  args.isAztec ?  await getAztecContracts(aztecWallet, Number(l1ChainId)) : {L2AztecRootBridgeAdapter:undefined, AztecWarpToad:undefined}
     
     //The L2ToL1Message you are trying to prove inclusion of does not exist
     //await AztecWarpToad?.methods.mint_for_testing(1n, aztecWallet?.getAddress() as AztecAddressLike).send().wait();

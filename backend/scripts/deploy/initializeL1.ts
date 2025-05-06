@@ -54,7 +54,7 @@ async function main() {
 
     const chainId = (await provider.getNetwork()).chainId
     const evmDeployedAddresses = await getContractAddressesEvm(chainId)
-    const aztecDeployedAddresses =await getContractAddressesAztec()
+    const aztecDeployedAddresses =await getContractAddressesAztec(chainId)
     const L1WarpToadAddress = evmDeployedAddresses["L1WarpToadModule#L1WarpToad"]
     const gigaBridgeAddress = evmDeployedAddresses["L1InfraModule#GigaRootBridge"]
     const L1AztecRootBridgeAdapterAddress = evmDeployedAddresses["L1InfraModule#L1AztecRootBridgeAdapter"]
