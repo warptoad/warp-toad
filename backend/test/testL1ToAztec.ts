@@ -1,7 +1,7 @@
 // hardhat 
 const hre = require("hardhat");
 //@ts-ignore
-//import { expect } from "chai";
+import { expect } from "chai";
 //@ts-ignore
 import { time, loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers.js";
 

@@ -10,7 +10,7 @@ jimjim:
 ## install
 make sure you're on node 20 (hardhat needs it)
 ```shell
-nvm install 20;
+nvm install 20.19.1;
 nvm use 20;
 npm install --global yarn;
 yarn install;
@@ -30,21 +30,39 @@ noirup -v 1.0.0-beta.3;
 ## compile contracts
 ### aztec
 ```shell
-# aztec warpToad && L2AztecRootBridgeAdapter
-yarn b:aztec
+# aztec warpToad
+cd backend/contracts/aztec/WarpToadCore;
+aztec-nargo compile;
+aztec codegen -o src/artifacts target;
+cd ../../../..
+
+# L2AztecRootBridgeAdapter
+cd backend/contracts/aztec/L2AztecRootBridgeAdapter;
+aztec-nargo compile;
+aztec codegen -o src/artifacts target;
+cd ../../../..
 ```
 
 ### generate EVM verifier contracts
 <!-- //this should be a bash script lmao -->
 ```shell
-# circuits && move to contracts folder && rename the contract
-yarn b:contract
+cd backend/circuits/withdraw/; 
+nargo compile; 
+bb write_vk -b ./target/withdraw.json;
+bb contract;
+cd ../../..;
+
+# move to contracts folder
+mv backend/circuits/withdraw/target/contract.sol backend/contracts/evm/WithdrawVerifier.sol
+
+# rename the contract
+yarn workspace @warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file ./contracts/evm/WithdrawVerifier.sol --remove "contract UltraVerifier is BaseUltraVerifier {" --replace "contract WithdrawVerifier is BaseUltraVerifier {"
 ```
 
 
 ## run sandbox
 ```shell
-yarn b:sandbox #VERSION=0.85.0-alpha-testnet.2 aztec start --sandbox
+VERSION=0.85.0-alpha-testnet.2 aztec start --sandbox
 ```
 
 ## deploy
