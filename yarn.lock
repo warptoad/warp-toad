@@ -60,6 +60,18 @@
     pako "^2.1.0"
     tslib "^2.4.0"
 
+"@aztec/bb.js@0.85.0":
+  version "0.85.0"
+  resolved "https://registry.yarnpkg.com/@aztec/bb.js/-/bb.js-0.85.0.tgz#a653e7dace6d966946d54df3a5caae9b20f8dc5f"
+  integrity sha512-uNaXq6CmPWV5vb2Yr9nEI4VR7PahVXRA0eo1p3YfrHMfxhsWSee3yBTsQ3CktSC5yZdyJR10d2yld/mUGkDxKQ==
+  dependencies:
+    comlink "^4.4.1"
+    commander "^12.1.0"
+    debug "^4.3.4"
+    fflate "^0.8.0"
+    pako "^2.1.0"
+    tslib "^2.4.0"
+
 "@aztec/bb.js@0.85.0-alpha-testnet.2":
   version "0.85.0-alpha-testnet.2"
   resolved "https://registry.yarnpkg.com/@aztec/bb.js/-/bb.js-0.85.0-alpha-testnet.2.tgz#66fb32a410ef6cedafc7bb18e32ad45dca8cc01d"
@@ -72,16 +84,14 @@
     pako "^2.1.0"
     tslib "^2.4.0"
 
-"@aztec/bb.js@0.85.0-alpha-testnet.9":
-  version "0.85.0-alpha-testnet.9"
-  resolved "https://registry.yarnpkg.com/@aztec/bb.js/-/bb.js-0.85.0-alpha-testnet.9.tgz#a6adf5e7e672d1dc8d8e8d11bb2b6772cea3b673"
-  integrity sha512-6kvt+Neq4m+tStou0gI84r+i4DwnBSBqn5uc2OuhpyZQMXT1SkAeYqFO9ltghFRIbUT4PZlATXUMmaLG/21ASQ==
+"@aztec/blob-lib@0.85.0":
+  version "0.85.0"
+  resolved "https://registry.yarnpkg.com/@aztec/blob-lib/-/blob-lib-0.85.0.tgz#03e8af3e7acfb2ea0af58a9e599a98c7dd416173"
+  integrity sha512-C098+LZ8i8nSas7jnVwYheE65orG/SEKbaosZ59p+FGtN9G1X1kWJLw/j3jLFqRJSzdnpCXuW7sQ9P0pFBhdXw==
   dependencies:
-    comlink "^4.4.1"
-    commander "^12.1.0"
-    debug "^4.3.4"
-    fflate "^0.8.0"
-    pako "^2.1.0"
+    "@aztec/constants" "0.85.0"
+    "@aztec/foundation" "0.85.0"
+    c-kzg "4.0.0-alpha.1"
     tslib "^2.4.0"
 
 "@aztec/blob-lib@0.85.0-alpha-testnet.2":
@@ -94,27 +104,17 @@
     c-kzg "4.0.0-alpha.1"
     tslib "^2.4.0"
 
-"@aztec/blob-lib@0.85.0-alpha-testnet.9":
-  version "0.85.0-alpha-testnet.9"
-  resolved "https://registry.yarnpkg.com/@aztec/blob-lib/-/blob-lib-0.85.0-alpha-testnet.9.tgz#ef918190a4fd75acc3acc62b634497e4a35b2240"
-  integrity sha512-6vQMCuh+cvkMJ+mTzAmvPHfWGDuQXUSs1L6DUbvCPf5jtVSoJpl/E02lpjs+JbO4J6C4Tc8y0Dw8r5HtndO00g==
+"@aztec/constants@0.85.0":
+  version "0.85.0"
+  resolved "https://registry.yarnpkg.com/@aztec/constants/-/constants-0.85.0.tgz#d5bfcf0dd94d8a6e5de0548e21f29d6d0f686dfc"
+  integrity sha512-h43MR0FUDCVkI04nPCDZ2S6sVQLpS0CFApyyO698abanOm8VKNboHVeZuHu5aeBKJeQE//jKtbv7qXlAGfF33Q==
   dependencies:
-    "@aztec/constants" "0.85.0-alpha-testnet.9"
-    "@aztec/foundation" "0.85.0-alpha-testnet.9"
-    c-kzg "4.0.0-alpha.1"
     tslib "^2.4.0"
 
 "@aztec/constants@0.85.0-alpha-testnet.2":
   version "0.85.0-alpha-testnet.2"
   resolved "https://registry.yarnpkg.com/@aztec/constants/-/constants-0.85.0-alpha-testnet.2.tgz#d5e9f3a7b348085cc550e0da4fe98f49a5411fc3"
   integrity sha512-qJx8t9hxcmRTVP6oxBw7EMsANOHkfYxDuFYoWG9EruiexESzoEYjY0yhPHdPLEcjRaFTqKPEA2oSUoJWXvJowQ==
-  dependencies:
-    tslib "^2.4.0"
-
-"@aztec/constants@0.85.0-alpha-testnet.9":
-  version "0.85.0-alpha-testnet.9"
-  resolved "https://registry.yarnpkg.com/@aztec/constants/-/constants-0.85.0-alpha-testnet.9.tgz#6628e00584e9591c4b2ebe3a021c784b8b17c8a1"
-  integrity sha512-i16sUEHgrU/Uf0KCVsRNS6ynolU0VcCOuvr1sKs4UW+9a2nPNb2XknjL+zWrZ+ItUyGxTKiDy3ao5KH5zfuV3Q==
   dependencies:
     tslib "^2.4.0"
 
@@ -157,6 +157,34 @@
     viem "2.23.7"
     zod "^3.23.8"
 
+"@aztec/foundation@0.85.0":
+  version "0.85.0"
+  resolved "https://registry.yarnpkg.com/@aztec/foundation/-/foundation-0.85.0.tgz#71dd5a8dd08784c246cf3bf6dd21fab6f36338fd"
+  integrity sha512-aJZsMswdL8TlJW+FpgUt9jToxGMEPdxYwE5SLwA9gw2n2DfIdpCtNW5GIbazqwASMchpzWdoxExNyT05efNY9A==
+  dependencies:
+    "@aztec/bb.js" "0.85.0"
+    "@koa/cors" "^5.0.0"
+    "@noble/curves" "^1.2.0"
+    bn.js "^5.2.1"
+    c-kzg "4.0.0-alpha.1"
+    colorette "^2.0.20"
+    debug "^4.3.4"
+    detect-node "^2.1.0"
+    hash.js "^1.1.7"
+    koa "^2.16.1"
+    koa-bodyparser "^4.4.0"
+    koa-compress "^5.1.0"
+    koa-router "^12.0.0"
+    leveldown "^6.1.1"
+    lodash.chunk "^4.2.0"
+    lodash.clonedeepwith "^4.5.0"
+    pako "^2.1.0"
+    pino "^9.5.0"
+    pino-pretty "^13.0.0"
+    sha3 "^2.1.4"
+    undici "^5.28.5"
+    zod "^3.23.8"
+
 "@aztec/foundation@0.85.0-alpha-testnet.2":
   version "0.85.0-alpha-testnet.2"
   resolved "https://registry.yarnpkg.com/@aztec/foundation/-/foundation-0.85.0-alpha-testnet.2.tgz#97ef1c338c66187ee1f6a71a30879981cf9514a6"
@@ -185,45 +213,17 @@
     undici "^5.28.5"
     zod "^3.23.8"
 
-"@aztec/foundation@0.85.0-alpha-testnet.9":
-  version "0.85.0-alpha-testnet.9"
-  resolved "https://registry.yarnpkg.com/@aztec/foundation/-/foundation-0.85.0-alpha-testnet.9.tgz#b83e8e8b4259549fb0b9392541e4dfc2af988b0f"
-  integrity sha512-Le70Y+dwwDrJQznFUYji+ZSbGMgJft6YxYlGhJMYGK73ePBnwF/JrTdEYJqcovxSLHtfMZHlELJ4RsHM3LmimQ==
+"@aztec/l1-artifacts@0.85.0":
+  version "0.85.0"
+  resolved "https://registry.yarnpkg.com/@aztec/l1-artifacts/-/l1-artifacts-0.85.0.tgz#b43b6e53796c5a4ea771ea73eade967b632275f8"
+  integrity sha512-YKv/6JyX4X03qNaEKVJXE/yRqrorTUVhtbcYDr0ZAMP/L7LLW4k/U6N1z0kzhk3ICFrvybnfglRK/Oz/yW7F0Q==
   dependencies:
-    "@aztec/bb.js" "0.85.0-alpha-testnet.9"
-    "@koa/cors" "^5.0.0"
-    "@noble/curves" "^1.2.0"
-    bn.js "^5.2.1"
-    c-kzg "4.0.0-alpha.1"
-    colorette "^2.0.20"
-    debug "^4.3.4"
-    detect-node "^2.1.0"
-    hash.js "^1.1.7"
-    koa "^2.16.1"
-    koa-bodyparser "^4.4.0"
-    koa-compress "^5.1.0"
-    koa-router "^12.0.0"
-    leveldown "^6.1.1"
-    lodash.chunk "^4.2.0"
-    lodash.clonedeepwith "^4.5.0"
-    pako "^2.1.0"
-    pino "^9.5.0"
-    pino-pretty "^13.0.0"
-    sha3 "^2.1.4"
-    undici "^5.28.5"
-    zod "^3.23.8"
+    tslib "^2.4.0"
 
 "@aztec/l1-artifacts@0.85.0-alpha-testnet.2":
   version "0.85.0-alpha-testnet.2"
   resolved "https://registry.yarnpkg.com/@aztec/l1-artifacts/-/l1-artifacts-0.85.0-alpha-testnet.2.tgz#9ffc47940005b05a99600a1dc3ab1ea3191146d6"
   integrity sha512-N+608LQNjIwg81coXTjGtP4RwEq49XyXbbBrnHqZaFH+3XyL/FS9le9Ce6X81opj07UmsXKsjdo7K0XW6sowEQ==
-  dependencies:
-    tslib "^2.4.0"
-
-"@aztec/l1-artifacts@0.85.0-alpha-testnet.9":
-  version "0.85.0-alpha-testnet.9"
-  resolved "https://registry.yarnpkg.com/@aztec/l1-artifacts/-/l1-artifacts-0.85.0-alpha-testnet.9.tgz#395ce159ce2322513307fdafa7cd3c285190e43f"
-  integrity sha512-QaQl2VDBkYkuDuBltTgHomkINsY1WEVMK3YWh4QRacAKLRkblZzbHIrapYqH6j05EADVA+pxK58OfVDJ21NjJw==
   dependencies:
     tslib "^2.4.0"
 

@@ -15,7 +15,7 @@ import { USDcoin } from '../../typechain-types';
 import { ethers } from "ethers";
 import { deployAztecWarpToad } from "./aztecToadWarp";
 import er20Abi from "../dev_op/erc20ABI.json"
-import { deployL2AztecAdapter } from "./L2AztecAdapter";
+import { deployL2AztecBridgeAdapter } from "./L2AztecBridgeAdapter";
 
 import hre, { network } from "hardhat"
 import { getContractAddressesEvm } from "../dev_op/getDeployedAddresses";
@@ -125,7 +125,7 @@ async function main() {
     const { AztecWarpToad } = await deployAztecWarpToad(nativeToken, deployWallet)
     //await delay(30000)
     console.log({ AztecWarpToad: AztecWarpToad.address })
-    const { L2AztecBridgeAdapter } = await deployL2AztecAdapter(L1AztecAdapterAddress, deployWallet)
+    const { L2AztecBridgeAdapter } = await deployL2AztecBridgeAdapter(L1AztecAdapterAddress, deployWallet)
     console.log({ L2AztecBridgeAdapter: L2AztecBridgeAdapter.address })
     const deployments = { AztecWarpToad: AztecWarpToad.address, L2AztecBridgeAdapter: L2AztecBridgeAdapter.address }
     const folderPath = `${__dirname}/aztecDeployments/${Number(chainId)}/`
