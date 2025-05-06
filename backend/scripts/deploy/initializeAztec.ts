@@ -5,10 +5,22 @@ import { WarpToadCoreContract, WarpToadCoreContractArtifact } from "../../contra
 //@ts-ignore
 import { getInitialTestAccountsWallets } from "@aztec/accounts/testing";
 import { getContractAddressesAztec, getContractAddressesEvm } from "../dev_op/getDeployedAddresses";
-const { PXE_URL = 'http://localhost:8080' } = process.env;
 const hre = require("hardhat")
 
+
+function getArgs() {
+    if(!Boolean(process.env.PXE_URL) ) { 
+        throw new Error("PXE_URL not set. do PXE_URL=http://UR.PXE yarn workspace @warp-toad/backend hardhat run scripts/deploy/initializeAztec.ts  --network aztecSandbox")
+    }
+
+    //const nativeTokenAddress = ethers.getAddress(process.env.NATIVE_TOKEN_ADDRESS as string);
+    const PXE_URL = process.env.PXE_URL as string
+    return { PXE_URL}
+
+}
+
 async function main() {
+    const {PXE_URL} = getArgs()
     //----PXE and wallet-----
     console.log("creating PXE client")
     const PXE = createPXEClient(PXE_URL);
@@ -21,7 +33,7 @@ async function main() {
     const provider = hre.ethers.provider
     const chainId = (await provider.getNetwork()).chainId
     const evmContractAddresses = await getContractAddressesEvm(chainId)
-    const aztecContractAddresses = await getContractAddressesAztec()
+    const aztecContractAddresses = await getContractAddressesAztec(chainId)
 
     const L1AztecRootBridgeAdapter = evmContractAddresses["L1InfraModule#L1AztecRootBridgeAdapter"]
 

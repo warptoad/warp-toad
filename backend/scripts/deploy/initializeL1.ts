@@ -18,18 +18,26 @@ import { getInitialTestAccountsWallets } from "@aztec/accounts/testing";
 import fs from "fs/promises";
 import { getContractAddressesAztec, getContractAddressesEvm } from "../dev_op/getDeployedAddresses";
 
-const { PXE_URL = 'http://localhost:8080' } = process.env;
 
 function getArgs() {
-    if(!Boolean(process.env.NATIVE_TOKEN_ADDRESS) ) { 
-        throw new Error("NATIVE_TOKEN_ADDRESS not set. do NATIVE_TOKEN_ADDRESS=0xurTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts  --network aztecSandbox")
-    } else if (!ethers.isAddress(process.env.NATIVE_TOKEN_ADDRESS)) {
-        throw new Error(`the value: ${process.env.NATIVE_TOKEN_ADDRESS} is not a valid address. Set NATIVE_TOKEN_ADDRESS= to a valid address`)
+    // if(!Boolean(process.env.NATIVE_TOKEN_ADDRESS) ) { 
+    //     throw new Error("NATIVE_TOKEN_ADDRESS not set. do NATIVE_TOKEN_ADDRESS=0xurTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts  --network aztecSandbox")
+    // } else if (!ethers.isAddress(process.env.NATIVE_TOKEN_ADDRESS)) {
+    //     throw new Error(`the value: ${process.env.NATIVE_TOKEN_ADDRESS} is not a valid address. Set NATIVE_TOKEN_ADDRESS= to a valid address`)
+    // }
+    if(!Boolean(process.env.PXE_URL) ) { 
+        throw new Error("PXE_URL not set. do PXE_URL=http://UR.PXE yarn workspace @warp-toad/backend hardhat run scripts/deploy/initializeL1.ts  --network aztecSandbox")
     }
+
+    //const nativeTokenAddress = ethers.getAddress(process.env.NATIVE_TOKEN_ADDRESS as string);
+    const PXE_URL = process.env.PXE_URL as string
+    return { PXE_URL}
+
 }
 
 async function main() {
     //----PXE and wallet-----
+    const {PXE_URL} = getArgs()
     console.log("creating PXE client")
     const PXE = createPXEClient(PXE_URL);
     console.log("waiting on PXE client", PXE_URL)
@@ -46,7 +54,7 @@ async function main() {
 
     const chainId = (await provider.getNetwork()).chainId
     const evmDeployedAddresses = await getContractAddressesEvm(chainId)
-    const aztecDeployedAddresses =await getContractAddressesAztec()
+    const aztecDeployedAddresses =await getContractAddressesAztec(chainId)
     const L1WarpToadAddress = evmDeployedAddresses["L1WarpToadModule#L1WarpToad"]
     const gigaBridgeAddress = evmDeployedAddresses["L1InfraModule#GigaRootBridge"]
     const L1AztecRootBridgeAdapterAddress = evmDeployedAddresses["L1InfraModule#L1AztecRootBridgeAdapter"]

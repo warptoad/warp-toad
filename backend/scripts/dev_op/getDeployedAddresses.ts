@@ -1,7 +1,7 @@
 import fs from "fs/promises";
 
-export async function getContractAddressesAztec() {
-    const folderPath = `${__dirname}/../deploy/aztecDeployments/`
+export async function getContractAddressesAztec(chainId:number) {
+    const folderPath = `${__dirname}/../deploy/aztecDeployments/${Number(chainId)}/`
     const deployedAddressesPath = `${folderPath}/deployed_addresses.json`
     const json = (await fs.readFile(deployedAddressesPath)).toString()
     return JSON.parse(json)
