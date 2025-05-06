@@ -156,3 +156,18 @@ rm -fr backend/ignition/deployments/chain-31337/;
 yarn workspace @warp-toad/backend hardhat ignition deploy ./ignition/modules/L1WarpToadWithTestToken.ts --parameters ignition/WarpToadCoreParametersTesting.json --network aztecSandbox;
 yarn workspace @warp-toad/backend ts-node scripts/dev_op/estimateGas.ts -d ignition/deployments/chain-31337/deployed_addresses.json;
 ```
+
+# frontend
+## frontend preparation
+copy the ```template.env``` file and rename it to ```.env```
+
+## run frontend in dev mode
+```shell
+ yarn f:dev
+ ```
+
+## connecting wallet to frontend:
+we are using obsidion wallet for the frontend.
+first you must create a wallet at [app.obsidion.xyz](https://app.obsidion.xyz/).
+for non testnet interactions change the network to sandbox (if a local aztec sandbox is running).
+After creating a wallet on the same browser as the frontend is running on you can connect to it through a pop up window.

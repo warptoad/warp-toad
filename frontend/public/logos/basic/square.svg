@@ -1,0 +1,13 @@
+<svg width="32" height="32" viewBox="0 0 32 32" version="1.1" id="svg1" xml:space="preserve"
+  xmlns="http://www.w3.org/2000/svg" xmlns:svg="http://www.w3.org/2000/svg">
+  <defs id="defs1" />
+  <g id="layer1">
+    <path fill="currentColor" id="rect1" width="32" height="32" x="-0.039113946" y="0"
+      d="M 4.7608861,0 H 27.160886 a 4.8,4.8 45 0 1 4.8,4.8 v 22.4 a 4.8,4.8 135 0 1 -4.8,4.8 H 4.7608861 A 4.8,4.8 45 0 1 -0.03911395,27.2 V 4.8 A 4.8,4.8 135 0 1 4.7608861,0 Z" />
+  </g>
+  <g id="layer2" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" transform="translate(4,4)"
+    fill="none" stroke="yellow">
+    <path d="M12 8v8" />
+    <path d="m8 12 4 4 4-4" />
+  </g>
+</svg>

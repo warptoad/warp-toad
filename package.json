@@ -8,6 +8,9 @@
     "tests",
     "scripts"
   ],
+  "scripts": {
+    "f:dev": "yarn workspace @warp-toad/frontend dev"
+  },
   "repository": "https://github.com/JossDuff/warp-toad.git",
   "author": "jossduff <jduff360@gmail.com>",
   "license": "MIT",

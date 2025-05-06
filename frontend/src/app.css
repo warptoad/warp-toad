@@ -1,0 +1,121 @@
+
+@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&family=Quicksand:wght@300..700&display=swap');
+@import "tailwindcss";
+
+
+@plugin "daisyui";
+@plugin "daisyui/theme" {
+  name: "warptoad";
+  default: false;
+  prefersdark: false;
+  color-scheme: "dark";
+  --color-base-100: #1e1e37;
+  --color-base-200: #26123b;
+  --color-base-300: #2e154e;
+  --color-base-content: #fef0a8;
+  --color-primary: #336ed5;
+  --color-primary-content: #fef0a8;
+  --color-secondary: #33d53e;
+  --color-secondary-content: #26123b;
+  --color-accent: #bc33d5;
+  --color-accent-content: #fef0a8;
+  --color-neutral: #1e1e37;
+  --color-neutral-content: #fef0a8;
+  --color-info: #33d5c9;
+  --color-info-content: #26123b;
+  --color-success: #75d533;
+  --color-success-content: #26123b;
+  --color-warning: #d57233;
+  --color-warning-content: #26123b;
+  --color-error: #d53335;
+  --color-error-content: #fef0a8;
+  --radius-selector: 0.5rem;
+  --radius-field: 0.5rem;
+  --radius-box: 0.5rem;
+  --size-selector: 0.25rem;
+  --size-field: 0.25rem;
+  --border: 1px;
+  --depth: 0;
+  --noise: 0;
+}
+
+
+@font-face {
+  font-family: 'SheilaCrayon';
+  src: url('/fonts/SheilaCrayon.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+
+}
+
+
+  html{
+    background-color:  var(--color-base-200);
+    
+  }
+  #app{
+    height: 100vh;
+  }
+  
+  @layer base {
+    body {
+      @apply text-base font-normal text-base-content;
+      font-family: 'SheilaCrayon', sans-serif;
+      letter-spacing: 2px
+    }
+  
+    h1 {
+      @apply text-4xl font-bold leading-tight text-primary;
+      font-family: 'SheilaCrayon', sans-serif;
+      letter-spacing: 2px
+    }
+  
+    h2 {
+      @apply text-3xl font-semibold leading-snug text-primary;
+      font-family: 'SheilaCrayon', sans-serif;
+      letter-spacing: 2px
+    }
+  
+    h3 {
+      @apply text-2xl font-medium leading-snug text-primary;
+      font-family: 'SheilaCrayon', sans-serif;
+      letter-spacing: 2px
+    }
+  
+    h4 {
+      @apply text-xl font-medium leading-snug text-primary;
+      font-family: 'SheilaCrayon', sans-serif;
+      letter-spacing: 2px
+    }
+  
+    h5 {
+      @apply text-lg font-medium text-base-content;
+      font-family: 'SheilaCrayon', sans-serif;
+      letter-spacing: 2px
+    }
+  
+    h6 {
+      @apply text-base font-medium text-base-content;
+      font-family: 'SheilaCrayon', sans-serif;
+      letter-spacing: 2px
+    }
+  
+    p, span, li, a, label {
+      @apply text-base font-normal leading-relaxed text-base-content;
+      font-family: 'SheilaCrayon', sans-serif;
+      letter-spacing: 2px
+    }
+  
+    small {
+      @apply text-sm text-neutral-content;
+      font-family: 'SheilaCrayon', sans-serif;
+      letter-spacing: 2px
+    }
+  
+    button, input, select, textarea {
+      @apply font-medium text-base;
+      font-family: 'SheilaCrayon', sans-serif;
+      letter-spacing: 2px
+    }
+  }
+  
