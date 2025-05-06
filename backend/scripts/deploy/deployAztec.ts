@@ -28,7 +28,7 @@ import { SingleKeyAccountContract } from "@aztec/accounts/single_key";
 import { getObsidionDeployerFPCWallet } from "../dev_op/getObsidionWallet/getObsidionWallet";
 
 
-const obsidionDeployerFPCAddress = AztecAddress.fromField(Fr.fromHexString("0x19f8873315cad78e160bdcb686bcdc8bd3760ca215966b677b79ba2cfb68c1b5"))
+const obsidionDeployerFPCAddress = AztecAddress.fromField(Fr.fromHexString("0x0b27e30667202907fc700d50e9bc816be42f8141fae8b9f2281873dbdb9fc2e5")) //0x19f8873315cad78e160bdcb686bcdc8bd3760ca215966b677b79ba2cfb68c1b5
 
 
 export async function getAztecWallet(pxe: PXE,obsidionDeployerFPCSigningKey:Fq) {

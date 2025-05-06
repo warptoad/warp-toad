@@ -67,7 +67,7 @@ VERSION=alpha-testnet aztec start --sandbox
 
 ## run PXE on alpha testnet
 ```shell
-aztec start --port 8081 --pxe --pxe.nodeUrl=http://34.107.66.170 --l1-chain-id 11155111 --l1-rpc-urls https://sepolia.infura.io/v3/urkey
+aztec start --port 8080 --pxe --pxe.nodeUrl=http://34.107.66.170 --l1-chain-id 11155111 --l1-rpc-urls https://sepolia.infura.io/v3/urkey
 
 ```
 
@@ -94,7 +94,7 @@ NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend ha
 <!--  
 if you just restarted sandbox then the test token address will be the same as below and you can just copy paste this
 ```shell
-NATIVE_TOKEN_ADDRESS=0xC66B04bdD1Fc7d41fbfB5BA5180227C35e18e414 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network sepolia;
+NATIVE_TOKEN_ADDRESS=0xa80405F9F1FA485cff83Bb1479A74F70a139C64b yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network sepolia;
 ``` -->
 
 #### deploy on aztec
@@ -105,7 +105,7 @@ NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress PXE_URL=http://localhost:8080 yarn w
 <!--
 if you just restarted sandbox then the test token address will be the same as below and you can just copy paste this
 ```shell
-NATIVE_TOKEN_ADDRESS=0xC66B04bdD1Fc7d41fbfB5BA5180227C35e18e414 PXE_URL=http:/localhost:8081 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network sepolia;
+PRIVATE_KEY=ASuperSecretPrivateKeyIGotFromEngineerAtObsidion NATIVE_TOKEN_ADDRESS=0xa80405F9F1FA485cff83Bb1479A74F70a139C64b PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network sepolia;
 ``` -->
 #### initialize contracts
 ```shell
