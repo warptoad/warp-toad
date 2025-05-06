@@ -116,7 +116,7 @@ async function main() {
     await waitForPXE(PXE);
     //const wallets = await getInitialTestAccountsWallets(PXE);
 
-    const deployWallet = (await getAztecWallet(PXE, privateKey, "https://full-node.alpha-testnet.aztec.network", chainId))//wallets[0]
+    const deployWallet = (await getAztecWallet(PXE, privateKey as string, "https://full-node.alpha-testnet.aztec.network", chainId))//wallets[0]
     // get PXE to know about fee contract
     // https://github.com/obsidionlabs/obsidion-wallet/blob/e514a5cea462b66704fa3fd94f14e198dc14a614/packages/backend/index.ts#L320
     console.log({ deployWalletAddress: deployWallet.getAddress() })
@@ -129,7 +129,8 @@ async function main() {
     console.log({ L2AztecRootBridgeAdapter: L2AztecRootBridgeAdapter.address })
     const deployments = { AztecWarpToad: AztecWarpToad.address, L2AztecRootBridgeAdapter: L2AztecRootBridgeAdapter.address }
     const folderPath = `${__dirname}/aztecDeployments/${Number(chainId)}/`
-    try{fs.mkdir(folderPath)} catch{console.warn(`praying the folder already exist ${folderPath}`)}
+
+    try{await fs.mkdir(folderPath)} catch{console.warn(`praying the folder already exist ${folderPath}`)}
     const deployedAddressesPath = `${folderPath}/deployed_addresses.json`
     // try {
     //     await fs.mkdir(folderPath)
