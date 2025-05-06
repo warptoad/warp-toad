@@ -6,7 +6,7 @@
   import Draggable from "./lib/Draggable.svelte";
   import DepositApplication from "./lib/applications/DepositApplication.svelte";
 
-  let isDepositOpen = true;
+  let isDepositOpen = false;
   let isWithdrawOpen = false;
   let isFaqOpen = false;
 </script>
