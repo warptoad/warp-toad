@@ -7,14 +7,14 @@ import { bridgeNoteHashTreeRoot, receiveGigaRootOnAztec, sendGigaRoot, updateGig
 import { createPXEClient, PXE, waitForPXE, Wallet as aztecWallet, AztecAddressLike } from '@aztec/aztec.js';
 //@ts-ignore
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
-import { GigaRootBridge__factory, L1AztecRootBridgeAdapter__factory } from '../../typechain-types';
-import { L2AztecRootBridgeAdapterContract } from '../../contracts/aztec/L2AztecRootBridgeAdapter/src/artifacts/L2AztecRootBridgeAdapter';
+import { GigaBridge__factory, L1AztecBridgeAdapter__factory } from '../../typechain-types';
+import { L2AztecBridgeAdapterContract } from '../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter';
 import { WarpToadCoreContract } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore';
 
 
 async function getLocalRootProviders(chainId: bigint) {
     const contracts = await getContractAddressesEvm(chainId)
-    return [contracts["L1WarpToadModule#L1WarpToad"], contracts["L1InfraModule#L1AztecRootBridgeAdapter"]]
+    return [contracts["L1WarpToadModule#L1WarpToad"], contracts["L1InfraModule#L1AztecBridgeAdapter"]]
 }
 
 async function connectPXE(PXE_URL:string) {
@@ -30,17 +30,17 @@ async function connectPXE(PXE_URL:string) {
 
 async function getL1Contracts(l1ChainId:bigint, signer:ethers.Signer) {
     const contracts = await getContractAddressesEvm(l1ChainId)
-    const gigaBridge = GigaRootBridge__factory.connect(contracts["L1InfraModule#GigaRootBridge"], signer)
-    const L1AztecRootBridgeAdapter = L1AztecRootBridgeAdapter__factory.connect(contracts["L1InfraModule#L1AztecRootBridgeAdapter"], signer)
-    return {L1AztecRootBridgeAdapter, gigaBridge}
+    const gigaBridge = GigaBridge__factory.connect(contracts["L1InfraModule#GigaBridge"], signer)
+    const L1AztecBridgeAdapter = L1AztecBridgeAdapter__factory.connect(contracts["L1InfraModule#L1AztecBridgeAdapter"], signer)
+    return {L1AztecBridgeAdapter, gigaBridge}
 
 }
 
 async function getAztecContracts(aztecWallet: aztecWallet|any, chainId:number) {
     const contracts = await getContractAddressesAztec(chainId)
-    const L2AztecRootBridgeAdapter =await L2AztecRootBridgeAdapterContract.at(contracts["L2AztecRootBridgeAdapter"], aztecWallet)
+    const L2AztecBridgeAdapter =await L2AztecBridgeAdapterContract.at(contracts["L2AztecBridgeAdapter"], aztecWallet)
     const AztecWarpToad =await WarpToadCoreContract.at(contracts["AztecWarpToad"], aztecWallet)
-    return {L2AztecRootBridgeAdapter, AztecWarpToad}   
+    return {L2AztecBridgeAdapter, AztecWarpToad}   
 }
 
 async function main() {
@@ -68,8 +68,8 @@ async function main() {
     const localRootProviders = args.localRootProviders ? args.localRootProviders : await getLocalRootProviders(l1ChainId)
     const gigaRootRecipients = args.gigaRootRecipients ? args.gigaRootRecipients : await getLocalRootProviders(l1ChainId)
 
-    const {L1AztecRootBridgeAdapter, gigaBridge} = await getL1Contracts(l1ChainId, l1Wallet)
-    const {L2AztecRootBridgeAdapter, AztecWarpToad} =  args.isAztec ?  await getAztecContracts(aztecWallet, Number(l1ChainId)) : {L2AztecRootBridgeAdapter:undefined, AztecWarpToad:undefined}
+    const {L1AztecBridgeAdapter, gigaBridge} = await getL1Contracts(l1ChainId, l1Wallet)
+    const {L2AztecBridgeAdapter, AztecWarpToad} =  args.isAztec ?  await getAztecContracts(aztecWallet, Number(l1ChainId)) : {L2AztecBridgeAdapter:undefined, AztecWarpToad:undefined}
     
     //The L2ToL1Message you are trying to prove inclusion of does not exist
     //await AztecWarpToad?.methods.mint_for_testing(1n, aztecWallet?.getAddress() as AztecAddressLike).send().wait();
@@ -78,8 +78,8 @@ async function main() {
         try {
             const { sendRootToL1Tx, refreshRootTx, PXE_L2Root } = await bridgeNoteHashTreeRoot(
                 PXE as PXE,
-                L2AztecRootBridgeAdapter as L2AztecRootBridgeAdapterContract,
-                L1AztecRootBridgeAdapter,
+                L2AztecBridgeAdapter as L2AztecBridgeAdapterContract,
+                L1AztecBridgeAdapter,
                 l1Provider
             )
             console.log({sendRootToL1Tx:sendRootToL1Tx.txHash,refreshRootTx:refreshRootTx.hash, PXE_L2Root:PXE_L2Root.toBigInt()})
@@ -109,8 +109,8 @@ async function main() {
     // ------- retrieve the giga root from the adapters on L2 and send them to the toads!!! ----------
     if (args.isAztec) {
         const {update_gigarootTx} = await receiveGigaRootOnAztec(
-            L2AztecRootBridgeAdapter as L2AztecRootBridgeAdapterContract,
-            L1AztecRootBridgeAdapter,
+            L2AztecBridgeAdapter as L2AztecBridgeAdapterContract,
+            L1AztecBridgeAdapter,
             AztecWarpToad as WarpToadCoreContract,
             sendGigaRootTx,
             PXE as PXE,

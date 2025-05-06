@@ -7,7 +7,7 @@ import { deployPoseidon } from "./poseidon";
 import L1WarpToadModule from "../../ignition/modules/L1WarpToad"
 import L1InfraModule from "../../ignition/modules/L1Infra"
 
-import { ERC20__factory, L1AztecRootBridgeAdapter__factory, L1WarpToad__factory, USDcoin__factory } from "../../typechain-types";
+import { ERC20__factory, L1AztecBridgeAdapter__factory, L1WarpToad__factory, USDcoin__factory } from "../../typechain-types";
 
 import er20Abi from "../dev_op/erc20ABI.json"
 //@ts-ignore
@@ -56,30 +56,30 @@ async function main() {
     const evmDeployedAddresses = await getContractAddressesEvm(chainId)
     const aztecDeployedAddresses =await getContractAddressesAztec(chainId)
     const L1WarpToadAddress = evmDeployedAddresses["L1WarpToadModule#L1WarpToad"]
-    const gigaBridgeAddress = evmDeployedAddresses["L1InfraModule#GigaRootBridge"]
-    const L1AztecRootBridgeAdapterAddress = evmDeployedAddresses["L1InfraModule#L1AztecRootBridgeAdapter"]
+    const gigaBridgeAddress = evmDeployedAddresses["L1InfraModule#GigaBridge"]
+    const L1AztecBridgeAdapterAddress = evmDeployedAddresses["L1InfraModule#L1AztecBridgeAdapter"]
 
-    const L2AztecAdapterAddress = aztecDeployedAddresses["L2AztecRootBridgeAdapter"]
+    const L2AztecAdapterAddress = aztecDeployedAddresses["L2AztecBridgeAdapter"]
 
-    const L1AztecRootBridgeAdapter = L1AztecRootBridgeAdapter__factory.connect(L1AztecRootBridgeAdapterAddress, signer)
+    const L1AztecBridgeAdapter = L1AztecBridgeAdapter__factory.connect(L1AztecBridgeAdapterAddress, signer)
     const L1WarpToad = L1WarpToad__factory.connect(L1WarpToadAddress, signer)
     const initializationStatus:any = {}
 
     try{
-        await L1AztecRootBridgeAdapter.initialize(aztecNativeBridgeRegistryAddress, L2AztecAdapterAddress, gigaBridgeAddress);
-        initializationStatus["L1AztecRootBridgeAdapter"] = true
+        await L1AztecBridgeAdapter.initialize(aztecNativeBridgeRegistryAddress, L2AztecAdapterAddress, gigaBridgeAddress);
+        initializationStatus["L1AztecBridgeAdapter"] = true
     } catch {
-        console.warn(`couldn't initialize: L1AztecRootBridgeAdapter at: ${L1AztecRootBridgeAdapter.target}. 
+        console.warn(`couldn't initialize: L1AztecBridgeAdapter at: ${L1AztecBridgeAdapter.target}. 
         Was it already initialized?     
         `)
-        initializationStatus["L1AztecRootBridgeAdapter"] = false
+        initializationStatus["L1AztecBridgeAdapter"] = false
     }
     
     try{
         await L1WarpToad.initialize(gigaBridgeAddress, L1WarpToad.target) // <- L1WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
         initializationStatus["L1WarpToad"] = true
     } catch {
-        console.warn(`couldn't initialize: L1WarpToad at: ${L1AztecRootBridgeAdapter.target}. 
+        console.warn(`couldn't initialize: L1WarpToad at: ${L1AztecBridgeAdapter.target}. 
         Was it already initialized?     
         `)
         initializationStatus["L1WarpToad"] = false
@@ -89,8 +89,8 @@ async function main() {
 
     console.log(`
     initialized: 
-        L1AztecRootBridgeAdapter:   ${L1AztecRootBridgeAdapter.target}
-        initializationSuccess?:     ${initializationStatus["L1AztecRootBridgeAdapter"] }
+        L1AztecBridgeAdapter:   ${L1AztecBridgeAdapter.target}
+        initializationSuccess?:     ${initializationStatus["L1AztecBridgeAdapter"] }
         args:                       ${JSON.stringify({aztecNativeBridgeRegistryAddress, L2AztecAdapterAddress, gigaBridgeAddress},null,2)}
 
         L1WarpToad:                 ${L1WarpToad.target}

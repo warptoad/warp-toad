@@ -39,7 +39,7 @@ async function main() {
     });
 
     //--------------------infra------------------------
-    const  {gigaBridge, L1AztecRootBridgeAdapter} = await hre.ignition.deploy(L1InfraModule, {
+    const  {gigaBridge, L1AztecBridgeAdapter} = await hre.ignition.deploy(L1InfraModule, {
         parameters: {
             L1InfraModule: {
                 LazyIMTLibAddress:LazyIMTLib.target,
@@ -57,7 +57,7 @@ async function main() {
         L1WarpToad:                 ${L1WarpToad.target}
         withdrawVerifier:           ${withdrawVerifier.target}
         
-        L1AztecRootBridgeAdapter:   ${L1AztecRootBridgeAdapter.target}
+        L1AztecBridgeAdapter:   ${L1AztecBridgeAdapter.target}
     `)
 
 }

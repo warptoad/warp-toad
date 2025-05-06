@@ -1,5 +1,5 @@
 [package]
-name = "L2AztecRootBridgeAdapter"
+name = "L2AztecBridgeAdapter"
 type = "contract"
 authors = [""]
 

@@ -107,7 +107,7 @@ async function main() {
     const chainId = (await provider.getNetwork()).chainId
 
     const deployedAddresses = await getContractAddressesEvm(chainId)
-    const L1AztecAdapterAddress = deployedAddresses["L1InfraModule#L1AztecRootBridgeAdapter"]
+    const L1AztecAdapterAddress = deployedAddresses["L1InfraModule#L1AztecBridgeAdapter"]
 
     //----PXE and wallet-----
     console.log("creating PXE client")
@@ -125,9 +125,9 @@ async function main() {
     const { AztecWarpToad } = await deployAztecWarpToad(nativeToken, deployWallet)
     //await delay(30000)
     console.log({ AztecWarpToad: AztecWarpToad.address })
-    const { L2AztecRootBridgeAdapter } = await deployL2AztecAdapter(L1AztecAdapterAddress, deployWallet)
-    console.log({ L2AztecRootBridgeAdapter: L2AztecRootBridgeAdapter.address })
-    const deployments = { AztecWarpToad: AztecWarpToad.address, L2AztecRootBridgeAdapter: L2AztecRootBridgeAdapter.address }
+    const { L2AztecBridgeAdapter } = await deployL2AztecAdapter(L1AztecAdapterAddress, deployWallet)
+    console.log({ L2AztecBridgeAdapter: L2AztecBridgeAdapter.address })
+    const deployments = { AztecWarpToad: AztecWarpToad.address, L2AztecBridgeAdapter: L2AztecBridgeAdapter.address }
     const folderPath = `${__dirname}/aztecDeployments/${Number(chainId)}/`
 
     try{await fs.mkdir(folderPath)} catch{console.warn(`praying the folder already exist ${folderPath}`)}
@@ -140,7 +140,7 @@ async function main() {
     console.log(`
     deployed: 
         AztecWarpToad:              ${AztecWarpToad.address}
-        L2AztecRootBridgeAdapter:   ${L2AztecRootBridgeAdapter.address}
+        L2AztecBridgeAdapter:   ${L2AztecBridgeAdapter.address}
     `)
 }
 

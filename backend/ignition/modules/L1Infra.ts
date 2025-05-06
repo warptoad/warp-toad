@@ -12,21 +12,21 @@ export default buildModule("L1InfraModule", (m: any) => {
     const LazyIMTLib = m.contractAt("LazyIMT",LazyIMTLibAddress)
     const L1WarpToad = m.contractAt("L1WarpToad",L1WarpToadAddress)
 
-    const L1AztecRootBridgeAdapter = m.contract("L1AztecRootBridgeAdapter", [], {
+    const L1AztecBridgeAdapter = m.contract("L1AztecBridgeAdapter", [], {
         value: 0n,
         libraries: {
         },
     });
 
-    const L1Adapters = [L1AztecRootBridgeAdapter]
+    const L1Adapters = [L1AztecBridgeAdapter]
     const gigaRootRecipients = [L1WarpToad, ...L1Adapters]
     const gigaBridgeConstructorArg =  [gigaRootRecipients, GIGA_TREE_DEPTH]
-    const gigaBridge = m.contract("GigaRootBridge",gigaBridgeConstructorArg, {
+    const gigaBridge = m.contract("GigaBridge",gigaBridgeConstructorArg, {
         value: 0n,
         libraries: {
             LazyIMT: LazyIMTLib,
         }
     });
 
-    return {gigaBridge, L1AztecRootBridgeAdapter};
+    return {gigaBridge, L1AztecBridgeAdapter};
 });

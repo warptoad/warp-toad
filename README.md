@@ -35,8 +35,8 @@ aztec-nargo compile;
 aztec codegen -o src/artifacts target;
 cd ../../../..
 
-# L2AztecRootBridgeAdapter
-cd backend/contracts/aztec/L2AztecRootBridgeAdapter;
+# L2AztecBridgeAdapter
+cd backend/contracts/aztec/L2AztecBridgeAdapter;
 aztec-nargo compile;
 aztec codegen -o src/artifacts target;
 cd ../../../..

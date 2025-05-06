@@ -34,21 +34,21 @@ import {
   type U128Like,
   type WrappedFieldLike,
 } from '@aztec/aztec.js';
-import L2AztecRootBridgeAdapterContractArtifactJson from '../../target/L2AztecRootBridgeAdapter-L2AztecRootBridgeAdapter.json' assert { type: 'json' };
-export const L2AztecRootBridgeAdapterContractArtifact = loadContractArtifact(L2AztecRootBridgeAdapterContractArtifactJson as NoirCompiledContract);
+import L2AztecBridgeAdapterContractArtifactJson from '../../target/L2AztecBridgeAdapter-L2AztecBridgeAdapter.json' assert { type: 'json' };
+export const L2AztecBridgeAdapterContractArtifact = loadContractArtifact(L2AztecBridgeAdapterContractArtifactJson as NoirCompiledContract);
 
 
 
 /**
- * Type-safe interface for contract L2AztecRootBridgeAdapter;
+ * Type-safe interface for contract L2AztecBridgeAdapter;
  */
-export class L2AztecRootBridgeAdapterContract extends ContractBase {
+export class L2AztecBridgeAdapterContract extends ContractBase {
   
   private constructor(
     instance: ContractInstanceWithAddress,
     wallet: Wallet,
   ) {
-    super(instance, L2AztecRootBridgeAdapterContractArtifact, wallet);
+    super(instance, L2AztecBridgeAdapterContractArtifact, wallet);
   }
   
 
@@ -63,7 +63,7 @@ export class L2AztecRootBridgeAdapterContract extends ContractBase {
     address: AztecAddress,
     wallet: Wallet,
   ) {
-    return Contract.at(address, L2AztecRootBridgeAdapterContract.artifact, wallet) as Promise<L2AztecRootBridgeAdapterContract>;
+    return Contract.at(address, L2AztecBridgeAdapterContract.artifact, wallet) as Promise<L2AztecBridgeAdapterContract>;
   }
 
   
@@ -71,28 +71,28 @@ export class L2AztecRootBridgeAdapterContract extends ContractBase {
    * Creates a tx to deploy a new instance of this contract.
    */
   public static deploy(wallet: Wallet, portal: EthAddressLike) {
-    return new DeployMethod<L2AztecRootBridgeAdapterContract>(PublicKeys.default(), wallet, L2AztecRootBridgeAdapterContractArtifact, L2AztecRootBridgeAdapterContract.at, Array.from(arguments).slice(1));
+    return new DeployMethod<L2AztecBridgeAdapterContract>(PublicKeys.default(), wallet, L2AztecBridgeAdapterContractArtifact, L2AztecBridgeAdapterContract.at, Array.from(arguments).slice(1));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public keys hash to derive the address.
    */
   public static deployWithPublicKeys(publicKeys: PublicKeys, wallet: Wallet, portal: EthAddressLike) {
-    return new DeployMethod<L2AztecRootBridgeAdapterContract>(publicKeys, wallet, L2AztecRootBridgeAdapterContractArtifact, L2AztecRootBridgeAdapterContract.at, Array.from(arguments).slice(2));
+    return new DeployMethod<L2AztecBridgeAdapterContract>(publicKeys, wallet, L2AztecBridgeAdapterContractArtifact, L2AztecBridgeAdapterContract.at, Array.from(arguments).slice(2));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified constructor method.
    */
-  public static deployWithOpts<M extends keyof L2AztecRootBridgeAdapterContract['methods']>(
+  public static deployWithOpts<M extends keyof L2AztecBridgeAdapterContract['methods']>(
     opts: { publicKeys?: PublicKeys; method?: M; wallet: Wallet },
-    ...args: Parameters<L2AztecRootBridgeAdapterContract['methods'][M]>
+    ...args: Parameters<L2AztecBridgeAdapterContract['methods'][M]>
   ) {
-    return new DeployMethod<L2AztecRootBridgeAdapterContract>(
+    return new DeployMethod<L2AztecBridgeAdapterContract>(
       opts.publicKeys ?? PublicKeys.default(),
       opts.wallet,
-      L2AztecRootBridgeAdapterContractArtifact,
-      L2AztecRootBridgeAdapterContract.at,
+      L2AztecBridgeAdapterContractArtifact,
+      L2AztecBridgeAdapterContract.at,
       Array.from(arguments).slice(1),
       opts.method ?? 'constructor',
     );
@@ -104,14 +104,14 @@ export class L2AztecRootBridgeAdapterContract extends ContractBase {
    * Returns this contract's artifact.
    */
   public static get artifact(): ContractArtifact {
-    return L2AztecRootBridgeAdapterContractArtifact;
+    return L2AztecBridgeAdapterContractArtifact;
   }
 
   /**
    * Returns this contract's artifact with public bytecode.
    */
   public static get artifactForPublic(): ContractArtifact {
-    return loadContractArtifactForPublic(L2AztecRootBridgeAdapterContractArtifactJson as NoirCompiledContract);
+    return loadContractArtifactForPublic(L2AztecBridgeAdapterContractArtifactJson as NoirCompiledContract);
   }
   
 

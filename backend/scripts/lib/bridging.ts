@@ -1,8 +1,8 @@
 //@ts-ignore
 import {  Fr, PXE, EthAddress } from "@aztec/aztec.js"
 import { ethers } from "ethers";
-import { WarpToadCore as WarpToadEvm, USDcoin, PoseidonT3, LazyIMT, L1AztecRootBridgeAdapter, GigaRootBridge } from "../../typechain-types";
-import {  L2AztecRootBridgeAdapterContract } from '../../contracts/aztec/L2AztecRootBridgeAdapter/src/artifacts/L2AztecRootBridgeAdapter'
+import { WarpToadCore as WarpToadEvm, USDcoin, PoseidonT3, LazyIMT, L1AztecBridgeAdapter, GigaBridge } from "../../typechain-types";
+import {  L2AztecBridgeAdapterContract } from '../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter'
 import { WarpToadCoreContract as AztecWarpToadCore } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
 //@ts-ignore
 import { sha256ToField } from "@aztec/foundation/crypto";
@@ -14,30 +14,30 @@ import { sha256ToField } from "@aztec/foundation/crypto";
  * L2aztecAdapter -> L1AztecAdapter 
  * after this gigaBridge can call L1AztecAdapter.getLocalRootAndBlock() and use that to make a new gigaRoot
  * @param PXE 
- * @param L2AztecRootBridgeAdapter 
- * @param L1AztecRootBridgeAdapter 
+ * @param L2AztecBridgeAdapter 
+ * @param L1AztecBridgeAdapter 
  * @param provider 
  * @returns 
  */
 export async function bridgeNoteHashTreeRoot(
     PXE: PXE,
-    L2AztecRootBridgeAdapter: L2AztecRootBridgeAdapterContract,
-    L1AztecRootBridgeAdapter: L1AztecRootBridgeAdapter,
+    L2AztecBridgeAdapter: L2AztecBridgeAdapterContract,
+    L1AztecBridgeAdapter: L1AztecBridgeAdapter,
     provider: ethers.Provider,
 ) {
     const blockNumberOfRoot = await PXE.getBlockNumber();
     const PXE_L2Root = (await PXE.getBlock(blockNumberOfRoot))?.header.state.partial.noteHashTree.root as Fr
-    const sendRootToL1Tx = await L2AztecRootBridgeAdapter.methods.send_root_to_l1(blockNumberOfRoot).send().wait();
+    const sendRootToL1Tx = await L2AztecBridgeAdapter.methods.send_root_to_l1(blockNumberOfRoot).send().wait();
 
-    const aztecChainVersion = await L1AztecRootBridgeAdapter.rollupVersion();
-    const l1PortalAddress = L1AztecRootBridgeAdapter.target;
+    const aztecChainVersion = await L1AztecBridgeAdapter.rollupVersion();
+    const l1PortalAddress = L1AztecBridgeAdapter.target;
     const l1ChainId = (await provider.getNetwork()).chainId
 
     const messageContent = sha256ToField([ // does sha256(PXE_L2Root, blockNumberOfRoot) then removes the last byte and then adds byte(1) in front (to fit into a field)
         PXE_L2Root.toBuffer(),
         new Fr(blockNumberOfRoot).toBuffer(),
     ]);
-    const l2Bridge = L2AztecRootBridgeAdapter.address;
+    const l2Bridge = L2AztecBridgeAdapter.address;
     const messageLeaf = sha256ToField([
         l2Bridge.toBuffer(),
         new Fr(aztecChainVersion).toBuffer(),
@@ -54,7 +54,7 @@ export async function bridgeNoteHashTreeRoot(
     );
     const siblingPathArray = siblingPath.toFields().map((f) => f.toString())
 
-    const refreshRootTx = await (await L1AztecRootBridgeAdapter.getNewRootFromL2(
+    const refreshRootTx = await (await L1AztecBridgeAdapter.getNewRootFromL2(
         PXE_L2Root.toString(),
         BigInt(blockNumberOfRoot), // has to be the same block as when as the root bridged. since this function uses it to create the content_hash
         BigInt(witnessBlocknumber), // hash to be the same block as the witness was retrieved since that is what the witness will be proved against
@@ -75,7 +75,7 @@ export async function bridgeNoteHashTreeRoot(
  * @returns 
  */
 export async function updateGigaRoot(
-    gigaBridge: GigaRootBridge,
+    gigaBridge: GigaBridge,
     localRootProviders: ethers.AddressLike[]
 ) {
     const gigaRootUpdateTx = await (await gigaBridge.updateRoot(
@@ -99,10 +99,10 @@ export async function updateGigaRoot(
  * @returns 
  */
 export async function sendGigaRoot(
-    gigaBridge: GigaRootBridge,
+    gigaBridge: GigaBridge,
     gigaRootRecipients: ethers.AddressLike[],
 ) {
-    // sends the root to the L2AztecRootBridgeAdapter through the L1AztecRootBridgeAdapter
+    // sends the root to the L2AztecBridgeAdapter through the L1AztecBridgeAdapter
     const sendGigaRootTx = await (await gigaBridge.sendRoot(
         gigaRootRecipients
     )
@@ -114,13 +114,13 @@ export async function sendGigaRoot(
 
 /**
  * happens after sendGigaRoot
- * makes the L2AztecRootBridgeAdapter retrieve the gigaRoot from the native aztec bridge on L2
+ * makes the L2AztecBridgeAdapter retrieve the gigaRoot from the native aztec bridge on L2
  * @param params 
  * @returns 
  */
 export async function receiveGigaRootOnAztec(
-    L2AztecRootBridgeAdapter: L2AztecRootBridgeAdapterContract,
-    L1AztecRootBridgeAdapter: L1AztecRootBridgeAdapter,
+    L2AztecBridgeAdapter: L2AztecBridgeAdapterContract,
+    L1AztecBridgeAdapter: L1AztecBridgeAdapter,
     AztecWarpToad: AztecWarpToadCore,
     sendGigaRootTx: ethers.TransactionReceipt, // either get it from sendGigaRoot. or event scan for a specific gigaRoot with "NewGigaRootSentToL2"
     PXE: PXE,
@@ -128,10 +128,10 @@ export async function receiveGigaRootOnAztec(
     
 ) {
     // auto detects based on chainId (they cant stop me from making cursed one liners >:) )
-    isSandBox = (isSandBox === undefined) ? 31337n === (await L1AztecRootBridgeAdapter.runner?.provider?.getNetwork())?.chainId : isSandBox
+    isSandBox = (isSandBox === undefined) ? 31337n === (await L1AztecBridgeAdapter.runner?.provider?.getNetwork())?.chainId : isSandBox
     // contenthash is just gigaRoot in this case since we only need to bridge 1 Field but normally its sha256ToField(_newL2Root.toBuffer(), _l2BlockNumber.toBuffer()))
     // sha256ToField = hashing with sha256 and then making that hash fit into a field somehow. (it just removes the last byte and then adds byte(1) in front)
-    const parsedL1AdapterEvent = parseEventFromTx(sendGigaRootTx, L1AztecRootBridgeAdapter, "NewGigaRootSentToL2") 
+    const parsedL1AdapterEvent = parseEventFromTx(sendGigaRootTx, L1AztecBridgeAdapter, "NewGigaRootSentToL2") 
     const content_hash = parsedL1AdapterEvent!.args[0]; 
     const key = parsedL1AdapterEvent!.args[1];                          
     const index = parsedL1AdapterEvent!.args[2];
@@ -140,14 +140,14 @@ export async function receiveGigaRootOnAztec(
     const blocksToWait = 2 //should be NewGigaRootSentToL2Event.tx.blocknumber + 2
     if (isSandBox) {
         // this is to make the sandbox progress n blocks
-        await L2AztecRootBridgeAdapter.methods.count(0n).send().wait();
-        await L2AztecRootBridgeAdapter.methods.count(4n).send().wait();
+        await L2AztecBridgeAdapter.methods.count(0n).send().wait();
+        await L2AztecBridgeAdapter.methods.count(4n).send().wait();
     } else {
         console.warn("isSandBox is not set or detected. I hope ur indeed not on sandbox because it will break if u are!")
         await waitForBlocksAztec(blocksToWait, PXE);
     }
 
-    const update_gigarootTx = await L2AztecRootBridgeAdapter.methods.update_gigaroot(content_hash, index, AztecWarpToad.address).send().wait();
+    const update_gigarootTx = await L2AztecBridgeAdapter.methods.update_gigaroot(content_hash, index, AztecWarpToad.address).send().wait();
     return {update_gigarootTx}
 }
 

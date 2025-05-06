@@ -20,9 +20,7 @@ interface IVerifier {
     ) external view returns (bool);
 }
 
-
-
-abstract contract WarpToadCore is ERC20, IWarpToadCore, ILocalRootProvider {
+abstract contract WarpToadCore is ERC20, IWarpToadCore {
     modifier onlyGigaRootProvider() {
         require(msg.sender == gigaRootProvider, "Not gigaRootProvider");
         _; // what is that?
@@ -121,7 +119,6 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore, ILocalRootProvider {
         }
         return publicInputs;
     }
-
 
     // TODO relayer support
     function mint(

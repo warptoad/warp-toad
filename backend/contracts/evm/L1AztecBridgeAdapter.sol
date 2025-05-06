@@ -1,8 +1,6 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity 0.8.29;
-// TODO: remove
-// import "hardhat/console.sol";
 
 // Messaging
 import {IRegistry} from "./aztec-interfaces/IRegistry.sol";
@@ -13,8 +11,9 @@ import {DataStructures} from "./aztec-interfaces/CoreDataStructures.sol";
 import {ILocalRootProvider} from "./interfaces/ILocalRootProvider.sol";
 // hash for message passing to L2
 import {Hash} from "./aztec-interfaces/crypto/Hash.sol";
+import {IL1BridgeAdapter} from "./interfaces/IL1BridgeAdapter.sol";
 
-contract L1AztecRootBridgeAdapter is ILocalRootProvider {
+contract L1AztecBridgeAdapter is IL1BridgeAdapter {
     modifier onlyGigaBridge() {
         require(msg.sender == gigaBridge, "Not gigaBridge");
         _; // what is that?
@@ -24,14 +23,8 @@ contract L1AztecRootBridgeAdapter is ILocalRootProvider {
         require(msg.sender == deployer, "Not the deployer");
         _; // what is that?
     }
-    // gigaRoot is emitted as a bytes32 here because thats how it's recovered on the
-    // aztec L2 side of this rootBridgeAdapter.  Key and index are also used to
-    // retrieve this newGigaRoot on aztec
-    event NewGigaRootSentToL2(bytes32 indexed newGigaRoot, bytes32 key, uint256 index); //newGigaRoot is also the content hash! wow!
-    event ReceivedNewL2Root(uint256 newL2Root, uint256 l2Block);
-
     IRegistry public registry;
-    bytes32 public l2AztecRootBridgeAdapter;
+    bytes32 public l2AztecBridgeAdapter;
     // most recent warp toad state root from the L2
     uint256 public mostRecentL2Root;
     // the L2 block that the most recent L2 root came from
@@ -53,20 +46,19 @@ contract L1AztecRootBridgeAdapter is ILocalRootProvider {
     /**
      * @notice Initialize the portal
      * @param _registry - The registry address
-     * @param _l2AztecRootBridgeAdapter - The L2 bridge address
+     * @param _l2AztecBridgeAdapter - The L2 bridge address
      */
     function initialize(
         address _registry,
-        bytes32 _l2AztecRootBridgeAdapter,
+        bytes32 _l2AztecBridgeAdapter,
         address _gigaRootBridge
     ) external onlyDeployer() {
         require(isInitialized == false, "cant initialize twice");
         isInitialized = true;
 
-        registry = IRegistry(_registry);
-        l2AztecRootBridgeAdapter = _l2AztecRootBridgeAdapter;
+        l2AztecBridgeAdapter = _l2AztecBridgeAdapter;
 
-        rollup = IRollup(registry.getCanonicalRollup());
+        rollup = IRollup(IRegistry(_registry).getCanonicalRollup());
         outbox = rollup.getOutbox();
         inbox = rollup.getInbox();
         rollupVersion = rollup.getVersion();
@@ -85,10 +77,10 @@ contract L1AztecRootBridgeAdapter is ILocalRootProvider {
     }
 
     function _bridgeGigaRootToL2(uint256 _newGigaRoot) internal {
-        // l2AztecRootBridgeAdapter is the Aztec address of the contract that will be retrieving the
+        // l2AztecBridgeAdapter is the Aztec address of the contract that will be retrieving the
         // message on the L2
         DataStructures.L2Actor memory actor = DataStructures.L2Actor(
-            l2AztecRootBridgeAdapter,
+            l2AztecBridgeAdapter,
             rollupVersion
         );
 
@@ -148,7 +140,7 @@ contract L1AztecRootBridgeAdapter is ILocalRootProvider {
         bytes32 contentHash = getContentHash(_newL2Root, _bridgedL2BlockNumber);
 
         DataStructures.L2ToL1Msg memory message = DataStructures.L2ToL1Msg({
-            sender: DataStructures.L2Actor(l2AztecRootBridgeAdapter, rollupVersion),
+            sender: DataStructures.L2Actor(l2AztecBridgeAdapter, rollupVersion),
             recipient: DataStructures.L1Actor(address(this), block.chainid),
             content: contentHash
         });

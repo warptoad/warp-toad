@@ -35,10 +35,10 @@ async function main() {
     const evmContractAddresses = await getContractAddressesEvm(chainId)
     const aztecContractAddresses = await getContractAddressesAztec(chainId)
 
-    const L1AztecRootBridgeAdapter = evmContractAddresses["L1InfraModule#L1AztecRootBridgeAdapter"]
+    const L1AztecBridgeAdapter = evmContractAddresses["L1InfraModule#L1AztecBridgeAdapter"]
 
     const AztecWarpToadAddress = aztecContractAddresses["AztecWarpToad"]
-    const L2AztecAdapterAddress =  aztecContractAddresses["L2AztecRootBridgeAdapter"]
+    const L2AztecAdapterAddress =  aztecContractAddresses["L2AztecBridgeAdapter"]
 
     
     const AztecWarpToad = await Contract.at(AztecWarpToadAddress, WarpToadCoreContractArtifact, aztecWallet) as WarpToadCoreContract
@@ -46,7 +46,7 @@ async function main() {
     const initializationStatus:any = {}
 
     try{
-        await AztecWarpToad.methods.initialize(L2AztecAdapterAddress, L1AztecRootBridgeAdapter).send().wait() // <- L1WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
+        await AztecWarpToad.methods.initialize(L2AztecAdapterAddress, L1AztecBridgeAdapter).send().wait() // <- L1WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
         initializationStatus["AztecWarpToad"] = true
     } catch {
         console.warn(`couldn't initialize: AztecWarpToad at: ${AztecWarpToad.address}. 
@@ -59,7 +59,7 @@ async function main() {
         initialized: 
             AztecWarpToad:              ${AztecWarpToad.address}
             initializationSuccess?:     ${initializationStatus["AztecWarpToad"] }
-            args:                       ${JSON.stringify({L2AztecAdapterAddress, L1AztecRootBridgeAdapter}, null, 2)}
+            args:                       ${JSON.stringify({L2AztecAdapterAddress, L1AztecBridgeAdapter}, null, 2)}
         `)
 
 }

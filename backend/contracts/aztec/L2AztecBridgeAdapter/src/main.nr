@@ -7,7 +7,7 @@ use WarpToadCore::{WarpToadCore};
 // The bridge has a corresponding Portal contract on L1 that it is attached to
 
 #[aztec]
-pub contract L2AztecRootBridgeAdapter {
+pub contract L2AztecBridgeAdapter {
     use crate::config::Config;
 
     use dep::aztec::prelude::{
