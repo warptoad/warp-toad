@@ -1,6 +1,6 @@
 
 //@ts-ignore
-import { createPXEClient, waitForPXE, Contract, ContractArtifact, loadContractArtifact, NoirCompiledContract, GrumpkinScalar, Fr, PXE, deriveMasterIncomingViewingSecretKey, AccountManager, AztecAddress, Fq } from "@aztec/aztec.js"
+import { createPXEClient, waitForPXE, Contract, ContractArtifact, loadContractArtifact, NoirCompiledContract, GrumpkinScalar, Fr, PXE, deriveMasterIncomingViewingSecretKey, AccountManager, AztecAddress, Fq, Salt } from "@aztec/aztec.js"
 import { WarpToadCoreContractArtifact, WarpToadCoreContract as AztecWarpToadCore } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
 
 //@ts-ignore
@@ -25,16 +25,46 @@ import { getSchnorrAccount } from "@aztec/accounts/schnorr";
 import { SingleKeyAccountContract } from "@aztec/accounts/single_key";
 // const hre = require("hardhat")
 
-import { getObsidionDeployerFPCWallet } from "../dev_op/getObsidionWallet/getObsidionWallet";
+import { getObsidionDeployerFPC, getObsidionDeployerFPCWallet, ObsidionDeployerFPCContractClass } from "../dev_op/getObsidionWallet/getObsidionWallet";
+//@ts-ignore
+import { createAztecNodeClient } from "@aztec/stdlib/interfaces/client";
+//@ts-ignore
+import { computePartialAddress } from "@aztec/stdlib/contract";
+import { ObsidionDeployerFPCContractArtifact } from "../dev_op/getObsidionWallet/ObsidionDeployerFPC"
 
+const obsidionDeployerFPCAddress = AztecAddress.fromField(Fr.fromHexString("0x19f8873315cad78e160bdcb686bcdc8bd3760ca215966b677b79ba2cfb68c1b5")) //0x19f8873315cad78e160bdcb686bcdc8bd3760ca215966b677b79ba2cfb68c1b5
+//lian told me it was 0>
+const OBSIDION_DEPLOYER_SECRET_KEY = "0x00"
 
-const obsidionDeployerFPCAddress = AztecAddress.fromField(Fr.fromHexString("0x0b27e30667202907fc700d50e9bc816be42f8141fae8b9f2281873dbdb9fc2e5")) //0x19f8873315cad78e160bdcb686bcdc8bd3760ca215966b677b79ba2cfb68c1b5
+const delay = async(timeInMs:number)=> await new Promise((resolve)=>setTimeout(resolve, timeInMs)) 
+export async function getAztecWallet(pxe: PXE, obsidionDeployerFPCSigningKey: Fq, nodeUrl: string) {
+    //await getObsidionDeployerFPC(pxe, nodeUrl,obsidionDeployerFPCAddress,obsidionDeployerFPCSigningKey.toField().toString(),OBSIDION_DEPLOYER_SECRET_KEY)
+    const node = createAztecNodeClient(nodeUrl)
+    const contract = await node.getContract(obsidionDeployerFPCAddress as any)
+    if (!contract) {
+        throw new Error("Contract not found")
+    }
+    await delay(30000)
+    // const obsidionDeployerFPC = await (
+    //     await AccountManager.create(
+    //         pxe,
+    //         Fr.fromString(OBSIDION_DEPLOYER_SECRET_KEY),
+    //         new ObsidionDeployerFPCContractClass(obsidionDeployerFPCSigningKey),
+    //         contract.salt as unknown as Salt,
+    //     )
+    // ).getWallet()
 
-
-export async function getAztecWallet(pxe: PXE,obsidionDeployerFPCSigningKey:Fq) {
-    console.log({obsidionDeployerFPCAddress,obsidionDeployerFPCSigningKey})
-    const wallet = await getObsidionDeployerFPCWallet(pxe,obsidionDeployerFPCAddress,obsidionDeployerFPCSigningKey)
-    console.log("got obsidion wallet:",{wallet})
+    await pxe.registerAccount(
+        Fr.fromString(OBSIDION_DEPLOYER_SECRET_KEY),
+        await computePartialAddress(contract as any) as any as Fr,
+    )
+    await delay(30000)
+    await pxe.registerContract({
+        instance: contract as any,
+        artifact: ObsidionDeployerFPCContractArtifact,
+    })
+    await delay(30000)
+    const wallet = await getObsidionDeployerFPCWallet(pxe, obsidionDeployerFPCAddress, obsidionDeployerFPCSigningKey)
     return wallet
 }
 
@@ -56,8 +86,8 @@ function getEnvArgs() {
 
     const nativeTokenAddress = ethers.getAddress(process.env.NATIVE_TOKEN_ADDRESS as string);
     const PXE_URL = process.env.PXE_URL as string
-    const obsidionDeployerFPCSigningKey =  GrumpkinScalar.fromHexString(process.env.PRIVATE_KEY as string)
-    return { nativeTokenAddress, PXE_URL,obsidionDeployerFPCSigningKey }
+    const obsidionDeployerFPCSigningKey = GrumpkinScalar.fromHexString(process.env.PRIVATE_KEY as string)
+    return { nativeTokenAddress, PXE_URL, obsidionDeployerFPCSigningKey }
 
 }
 
@@ -77,12 +107,17 @@ async function main() {
     console.log("waiting on PXE client", PXE_URL)
     await waitForPXE(PXE);
     //const wallets = await getInitialTestAccountsWallets(PXE);
-    const deployWallet = (await getAztecWallet(PXE, obsidionDeployerFPCSigningKey))//wallets[0]
+    const deployWallet = (await getAztecWallet(PXE, obsidionDeployerFPCSigningKey, "https://full-node.alpha-testnet.aztec.network"))//wallets[0]
+    // get PXE to know about fee contract
+    // https://github.com/obsidionlabs/obsidion-wallet/blob/e514a5cea462b66704fa3fd94f14e198dc14a614/packages/backend/index.ts#L320
     console.log({ deployWalletAddress: deployWallet.getAddress() })
 
     //------deploy-------------
     const { AztecWarpToad } = await deployAztecWarpToad(nativeToken, deployWallet)
+    await delay(30000)
+    console.log({AztecWarpToad: AztecWarpToad.address})
     const { L2AztecRootBridgeAdapter } = await deployL2AztecAdapter(L1AztecAdapterAddress, deployWallet)
+    console.log({L2AztecRootBridgeAdapter: L2AztecRootBridgeAdapter.address})
     const deployments = { AztecWarpToad: AztecWarpToad.address, L2AztecRootBridgeAdapter: L2AztecRootBridgeAdapter.address }
     const folderPath = `${__dirname}/aztecDeployments/`
     const deployedAddressesPath = `${folderPath}/deployed_addresses.json`
