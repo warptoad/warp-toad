@@ -1,3 +1,4 @@
+mod cors;
 mod routes;
 
 use routes::{hello, mint};
@@ -8,6 +9,7 @@ use alloy::{
     providers::{Provider, ProviderBuilder},
     signers::local::PrivateKeySigner,
 };
+use cors::Cors;
 use rocket::routes;
 use types::AppState;
 
@@ -66,7 +68,7 @@ async fn main() -> Result<()> {
     };
 
     let _ = rocket::build()
-        // .attach(Cors)
+        .attach(Cors)
         .manage(app_state)
         .mount("/", routes![hello])
         .mount("/mint", routes![mint])
