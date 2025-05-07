@@ -147,8 +147,8 @@ export async function receiveGigaRootOnAztec(
         await waitForBlocksAztec(blocksToWait, PXE);
     }
 
-    const update_gigarootTx = await L2AztecBridgeAdapter.methods.update_gigaroot(content_hash, index, AztecWarpToad.address).send().wait();
-    return {update_gigarootTx}
+    const receive_giga_rootTx = await L2AztecBridgeAdapter.methods.receive_giga_root(content_hash, index, AztecWarpToad.address).send().wait();
+    return {receive_giga_rootTx}
 }
 
 export async function waitForBlocksAztec(blocksToWait:number, PXE:PXE) {

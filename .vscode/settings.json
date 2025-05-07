@@ -20,6 +20,7 @@
         "Schnorr",
         "SLOAD",
         "SOAD",
+        "staticcall",
         "tornadocash",
         "typechain",
         "Uints",

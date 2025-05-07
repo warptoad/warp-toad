@@ -110,7 +110,7 @@ async function main() {
 
     // ------- retrieve the giga root from the adapters on L2 and send them to the toads!!! ----------
     if (args.isAztec) {
-        const {update_gigarootTx} = await receiveGigaRootOnAztec(
+        const {receive_giga_rootTx} = await receiveGigaRootOnAztec(
             L2AztecBridgeAdapter as L2AztecBridgeAdapterContract,
             L1AztecBridgeAdapter,
             AztecWarpToad as WarpToadCoreContract,
@@ -119,7 +119,7 @@ async function main() {
             true
         )
         const gigaRootOnAztec = await AztecWarpToad?.methods.get_giga_root().simulate()
-        console.log({update_gigarootTx:update_gigarootTx.txHash.hash,gigaRootOnAztec})
+        console.log({receive_giga_rootTx:receive_giga_rootTx.txHash.hash,gigaRootOnAztec})
     } else {
         //normal evm things
     }

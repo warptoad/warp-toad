@@ -46,7 +46,7 @@ pub contract L2AztecBridgeAdapter {
 
     // Consumes a L1->L2 message and calls the WarpToadCore contract to update the GigaRoot
     #[public]
-    fn update_gigaroot(new_gigaroot: Field, message_leaf_index: Field, warpToadCore:AztecAddress) {
+    fn receive_giga_root(new_gigaroot: Field, message_leaf_index: Field, warpToadCore:AztecAddress) {
         // `secret` is used to make the consumption of a message on the L2 private.
         // we don't care about keeping message consumption private at all so to
         // simplify things we hardcode the secret here and the secret_hash in the L1
