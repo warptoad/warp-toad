@@ -1,12 +1,65 @@
 import { writable, get } from 'svelte/store';
-import { AztecWalletSdk, obsidion } from "@nemi-fi/wallet-sdk";
-import type { Account } from "@nemi-fi/wallet-sdk";
+//import { AztecWalletSdk, obsidion } from "@nemi-fi/wallet-sdk";
+//import type { Account } from "@nemi-fi/wallet-sdk";
 import { ethers } from 'ethers';
 import { CHAINS } from '../lib/networks/network';
+import { getSchnorrAccount } from "@aztec/accounts/schnorr";
+import { getDeployedTestAccountsWallets, getInitialTestAccountsWallets } from "@aztec/accounts/testing";
+import { AccountWalletWithSecretKey, Fq, Fr, GrumpkinScalar, createPXEClient, waitForPXE } from "@aztec/aztec.js";
+import { deriveSigningKey } from '@aztec/stdlib/keys';
 
 //OBSIDION CONSTANTS
-export const NODE_URL = "https://registry.obsidion.xyz/node";
-export const WALLET_URL = "https://app.obsidion.xyz";
+export const PXE_URL = "http://localhost:8080";
+const pxe = createPXEClient(PXE_URL);
+
+
+//export const NODE_URL = "https://registry.obsidion.xyz/node";
+//export const WALLET_URL = "https://app.obsidion.xyz";
+
+export type AztecWalletKeys = {
+  secretKey: Fr;
+  signingPrivateKey: Fq;
+}
+
+export function createAztecKeysRandom() {
+  const secretKey = Fr.random();
+  const signingPrivateKey = GrumpkinScalar.random();
+
+  const keys: AztecWalletKeys = {
+    secretKey: secretKey,
+    signingPrivateKey: signingPrivateKey
+  }
+
+  return keys;
+}
+
+//TODO: maybe add passkey support?
+export async function createFreshTestnetWallet() {
+
+await waitForPXE(pxe);
+  // Use a pre-funded wallet to pay for the fees for the deployments.
+  const [wallet] = (await getDeployedTestAccountsWallets(pxe));
+  console.log("1")
+  console.log(wallet);
+  console.log(wallet.getAddress().toString())
+  const secretKey = Fr.random();
+  const newAccount = await getSchnorrAccount(pxe, secretKey, deriveSigningKey(secretKey));
+  console.log("2")
+  console.log(newAccount)
+  await newAccount.deploy({deployWallet:wallet}).wait();
+  console.log("3")
+  console.log(newAccount)
+  const newWallet: AccountWalletWithSecretKey = await newAccount.getWallet()
+  console.log("4")
+  console.log("wallet created!")
+  console.log(newWallet)
+  return newWallet
+}
+
+export function testAztec() {
+  console.log(createAztecKeysRandom());
+}
+
 
 export type EvmAccount = {
   address: string;
@@ -16,14 +69,15 @@ export type EvmAccount = {
 }
 
 export const evmWalletStore = writable<EvmAccount | undefined>(undefined);
-export const aztecWalletStore = writable<Account | undefined>(undefined);
+export const aztecWalletStore = writable<AccountWalletWithSecretKey | undefined>(undefined);
 
 // Aztec Wallet SDK
+/*
 export const sdk = new AztecWalletSdk({
   aztecNode: NODE_URL,
   connectors: [obsidion({ walletUrl: WALLET_URL })],
 });
-
+*/
 export function isWalletConnected(instance: any): boolean {
   return instance !== undefined;
 }
@@ -69,14 +123,16 @@ const handleChainChanged = async () => {
   }
 };
 
-export async function connectObsidionWallet(): Promise<void> {
-  aztecWalletStore.set(await sdk.connect("obsidion"));
+
+export async function connectAztecWallet(): Promise<void> {
+  aztecWalletStore.set(await createFreshTestnetWallet());
 }
 
-export async function disconnectObsidionWallet(): Promise<void> {
-  await sdk.disconnect();
+
+export async function disconnectAztecWallet(): Promise<void> {
   aztecWalletStore.set(undefined)
 }
+
 
 export const disconnectMetamaskWallet = async (): Promise<void> => {
   evmWalletStore.set(undefined);

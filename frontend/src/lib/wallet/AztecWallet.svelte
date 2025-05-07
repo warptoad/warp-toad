@@ -1,11 +1,13 @@
 <script lang="ts">
     import type { Account } from "@nemi-fi/wallet-sdk";
     import {
-        connectObsidionWallet,
-        disconnectObsidionWallet,
+        //connectObsidionWallet,
+        //disconnectObsidionWallet,
         isWalletConnected,
         aztecWalletStore,
         truncateAddress,
+        testAztec,
+        connectAztecWallet
     } from "../../stores/walletStore";
 
     let aztecWallet: Account | undefined;
@@ -76,7 +78,7 @@
         {:else}
             <button
                 class="btn btn-ghost btn-outline border-[rgba(255,255,255,.25)] w-full flex items-center gap-2 justify-start px-2 py-6"
-                on:click={connectObsidionWallet}
+                on:click={connectAztecWallet}
             >
                 <div class="bg-white p-1 rounded-md">
                     <img

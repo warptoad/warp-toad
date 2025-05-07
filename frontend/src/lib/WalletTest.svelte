@@ -4,7 +4,7 @@
   import {
     evmWalletStore,
     aztecWalletStore,
-    sdk,
+    //sdk,
     isWalletConnected,
   } from "../stores/walletStore";
   import type { EvmAccount } from "../stores/walletStore";

@@ -4,10 +4,10 @@
   import type { Account } from "@nemi-fi/wallet-sdk";
   import {
     evmWalletStore,
-    aztecWalletStore,
+    //aztecWalletStore,
     isWalletConnected,
     disconnectMetamaskWallet,
-    disconnectObsidionWallet,
+    //disconnectObsidionWallet,
   } from "../../stores/walletStore";
   import type { EvmAccount } from "../../stores/walletStore";
 
@@ -22,7 +22,7 @@
 
   // Subscribe to account store reactively
   $: $evmWalletStore, (evmWallet = $evmWalletStore);
-  $: $aztecWalletStore, (aztecWallet = $aztecWalletStore);
+  //$: $aztecWalletStore, (aztecWallet = $aztecWalletStore);
 
   /**
    * TODO: Progress visual for how many wallets have been added e.g.: 1evm+1aztec=100% 
@@ -45,7 +45,7 @@
 
   async function disconnectAll() {
     await disconnectMetamaskWallet();
-    await disconnectObsidionWallet();
+    //await disconnectObsidionWallet();
     //closeModal()
   }
 </script>
