@@ -11,6 +11,8 @@ pub struct AppState {
     pub provider: DynProvider,
     pub contract_address: Address,
     pub min_profit_usd: Option<f64>,
+    // pub key of this relayer
+    pub public_key: Address,
 }
 
 #[derive(Debug, Serialize)]
@@ -29,7 +31,7 @@ pub struct MintTransactionRequest {
     fee_factor: String,
     priority_fee: String,
     max_fee: String,
-    relayer: String,
+    pub relayer: String,
     recipient: String,
     proof: String,
 }

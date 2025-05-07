@@ -35,6 +35,10 @@ async fn main() -> Result<()> {
     let private_key = env::var("PRIVATE_KEY")
         .context("set PRIVATE_KEY in a .env file")
         .unwrap();
+    let public_key = env::var("PUBLIC_KEY")
+        .context("set PUBLIC_KEY in a .env file")
+        .unwrap();
+    println!("public key: {public_key}");
 
     // leave unset for altruistic relayer
     let min_profit_usd: Option<f64> = env::var("MIN_PROFIT_USD").map_or_else(
@@ -58,6 +62,7 @@ async fn main() -> Result<()> {
         provider,
         contract_address: contract_address.parse().context("parse address").unwrap(),
         min_profit_usd,
+        public_key: public_key.parse().context("parse address").unwrap(),
     };
 
     let _ = rocket::build()
