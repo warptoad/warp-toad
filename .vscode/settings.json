@@ -19,6 +19,7 @@
         "rollup",
         "Schnorr",
         "SLOAD",
+        "SOAD",
         "tornadocash",
         "typechain",
         "Uints",

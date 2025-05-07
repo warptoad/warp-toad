@@ -7,7 +7,7 @@ import {LazyIMT, LazyIMTData} from "@zk-kit/lazy-imt.sol/LazyIMT.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IWarpToadCore} from "../interfaces/IWarpToadCore.sol";
-import {ILocalRootProvider} from "../interfaces/ILocalRootProvider.sol";
+import {ILocalRootProvider, IGigaRootRecipient} from "../interfaces/IRootMessengers.sol";
 
 // tutorial https://github.com/privacy-scaling-explorations/zk-kit.solidity/blob/main/packages/lean-imt/contracts/test/LazyIMTTest.sol
 // noir equivalent (normal merkle tree): https://github.com/privacy-scaling-explorations/zk-kit.noir/tree/main/packages/merkle-trees
@@ -20,7 +20,7 @@ interface IVerifier {
     ) external view returns (bool);
 }
 
-abstract contract WarpToadCore is ERC20, IWarpToadCore {
+abstract contract WarpToadCore is ERC20, IWarpToadCore,ILocalRootProvider, IGigaRootRecipient {
     modifier onlyGigaRootProvider() {
         require(msg.sender == gigaRootProvider, "Not gigaRootProvider");
         _; // what is that?

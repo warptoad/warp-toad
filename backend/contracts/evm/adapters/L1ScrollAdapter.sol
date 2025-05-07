@@ -2,11 +2,12 @@
 
 pragma solidity 0.8.29;
 
-import {ILocalRootProvider} from "../interfaces/ILocalRootProvider.sol";
-import {IL1BridgeAdapterL1SLOAD} from "../interfaces/IL1BridgeAdapterL1SLOAD.sol";
+import {ILocalRootProvider, IGigaRootRecipient} from  "../interfaces/IRootMessengers.sol";
+import {IL1BridgeAdapter} from "../interfaces/IL1BridgeAdapter.sol";
 import {IScrollMessenger} from "@scroll-tech/contracts/libraries/IScrollMessenger.sol";
 
-contract L1ScrollBridgeAdapter is IL1BridgeAdapterL1SLOAD {
+// no IGigaRootRecipient because we have L1SLOAD!
+contract L1ScrollBridgeAdapter is IL1BridgeAdapter, ILocalRootProvider {
     modifier onlyGigaBridge() {
         require(msg.sender == gigaBridge, "Not gigaBridge");
         _; // what is that?

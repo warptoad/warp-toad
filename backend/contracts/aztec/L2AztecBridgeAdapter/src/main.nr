@@ -1,7 +1,6 @@
 mod config;
 
 use dep::aztec::macros::aztec;
-use WarpToadCore::{WarpToadCore};
 
 // Minimal implementation of the message bridge that can move messages between L1 <> L2.
 // The bridge has a corresponding Portal contract on L1 that it is attached to
@@ -35,9 +34,9 @@ pub contract L2AztecBridgeAdapter {
     // Constructs the contract.
     #[public]
     #[initializer]
-    fn constructor(portal: EthAddress) {
-        storage.config.initialize(Config { portal });
-    }
+    fn constructor(l1BridgeAdapter: EthAddress) {
+        storage.config.initialize(Config { portal:l1BridgeAdapter }); 
+    } 
 
     #[public]
     #[view]
@@ -82,14 +81,16 @@ pub contract L2AztecBridgeAdapter {
 
 		// Returns the header of a block whose state is used during private execution (not the block the transaction is included in).
 		let block_header = context.get_block_header_at(block_number);
-		let state_root = block_header.state.partial.note_hash_tree.root;
+
+        // TODO rename this
+		let root = block_header.state.partial.note_hash_tree.root;
 
         let mut hash_bytes = [0; 64];
-        let state_root_bytes: [u8; 32] = state_root.to_be_bytes();
+        let root_bytes: [u8; 32] = root.to_be_bytes();
         let block_number_bytes: [u8; 32] = (block_number as Field).to_be_bytes();
 
         for i in 0..32 {
-            hash_bytes[i] = state_root_bytes[i];
+            hash_bytes[i] = root_bytes[i];
             hash_bytes[i + 32] = block_number_bytes[i];
         }
 

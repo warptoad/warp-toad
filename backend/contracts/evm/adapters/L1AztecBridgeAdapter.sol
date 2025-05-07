@@ -8,12 +8,12 @@ import {IInbox} from "../aztec-interfaces/messagebridge/IInbox.sol";
 import {IOutbox} from "../aztec-interfaces/messagebridge/IOutbox.sol";
 import {IRollup} from "../aztec-interfaces/IRollup.sol";
 import {DataStructures} from "../aztec-interfaces/CoreDataStructures.sol";
-import {ILocalRootProvider} from "../interfaces/ILocalRootProvider.sol";
+import {ILocalRootProvider, IGigaRootRecipient} from  "../interfaces/IRootMessengers.sol";
 // hash for message passing to L2
 import {Hash} from "../aztec-interfaces/crypto/Hash.sol";
 import {IL1BridgeAdapter} from "../interfaces/IL1BridgeAdapter.sol";
 
-contract L1AztecBridgeAdapter is IL1BridgeAdapter {
+contract L1AztecBridgeAdapter is IL1BridgeAdapter, ILocalRootProvider, IGigaRootRecipient {
     event NewGigaRootSentToAztec(bytes32 indexed newGigaRoot, bytes32 key, uint256 index); //newGigaRoot is also the content hash! wow!'
     
     modifier onlyGigaBridge() {

@@ -2,28 +2,21 @@
 
 pragma solidity 0.8.29;
 
-import {ILocalRootProvider} from "./interfaces/ILocalRootProvider.sol";
-import {IGigaRootRecipient} from "./interfaces/IGigaRootRecipient.sol";
+import {IGigaBridge} from "./interfaces/IGigaBridge.sol";
+import {IGigaRootProvider, ILocalRootRecipient, ILocalRootProvider, IGigaRootRecipient} from "./interfaces/IRootMessengers.sol";
 import {PoseidonT3} from "poseidon-solidity/PoseidonT3.sol";
 import {LazyIMT, LazyIMTData} from "@zk-kit/lazy-imt.sol/LazyIMT.sol";
 
-contract GigaBridge {
+contract GigaBridge is IGigaBridge, ILocalRootRecipient, IGigaRootProvider  {
     // get gigaRootFrom destination chain. look up at which block that got created at with: ConstructedNewGigaRoot(gigaRoot)
     // get all leaves of giga tree by scanning for all indexes with ReceivedNewLocalRoot. Start at the block number found above ^
     // get allIndexes you need by looking at amountOfLocalRoots
     // work ur way down until you found all indexes.
 
-    event ConstructedNewGigaRoot(uint256 indexed newGigaRoot); 
-
-    event ReceivedNewLocalRoot(
-        uint256 indexed newLocalRoot,
-        uint40 indexed localRootIndex, 
-        uint256  localRootBlockNumber
-    );
+    uint256 public gigaRoot; // keep this here pls so it's alway at slot 0 for L1SLOAD on scroll
 
     LazyIMTData public rootTreeData; // does this need to be public? yes? maybe we can sync clients faster somehow?
     uint8 public maxTreeDepth;
-    uint256 public gigaRoot;
 
     mapping(address => uint40) private localRootProvidersIndexes; // getters are public btw
     mapping(address => uint256) public localRootBlockNumbers; // current blocknumber per root. History is in events. We need this to check that incoming roots are not older than current
@@ -65,7 +58,7 @@ contract GigaBridge {
      * @notice updates the current gigaRoot by querying for updates from the supplied
      * list of local root providers.  You can pull updates from a subset of local root providers for gas saving (don't have to update to all local root providers).
      */
-    function updateRoot(address[] memory _localRootProvider) external {
+    function updateGigaRoot(address[] memory _localRootProvider) external {
         // for each localRootProviders
         for (uint40 i = 0; i < _localRootProvider.length; i++) {
             address localRootProvider = _localRootProvider[i];
@@ -105,7 +98,7 @@ contract GigaBridge {
     // might be different from the addresses that are updating their localRoot.
     // since most of the time everyone wants the latest gigaRoot but not everyone has a localRoot that is new
     // Sends the most recent gigaRoot to an array of localRootProviders
-    function sendRoot(address[] memory _gigaRootRecipients) external {
+    function sendGigaRoot(address[] memory _gigaRootRecipients) external {
         for (uint256 i = 0; i < _gigaRootRecipients.length; i++) {
             address gigaRootRecipient = _gigaRootRecipients[i];
 

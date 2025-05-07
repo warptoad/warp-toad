@@ -69,7 +69,7 @@ export async function bridgeNoteHashTreeRoot(
  * continues in sendGigaRoot()
  * 
  * calls the gigaBridge contract to collect all bridged localRoot from the L1Adapters (and L1warpToad) and use it to create a new gigaRoot 
- * after this function gigaBridge.sendRoot can be called to send the gigaRoot to all L2s (and L1warpToad)
+ * after this function gigaBridge.sendGigaRoot can be called to send the gigaRoot to all L2s (and L1warpToad)
  * @param gigaBridge 
  * @param localRootProviders everyone who has a localRoot: L1warpToad + all L1<L2Name>Adapters
  * @returns 
@@ -78,7 +78,7 @@ export async function updateGigaRoot(
     gigaBridge: GigaBridge,
     localRootProviders: ethers.AddressLike[]
 ) {
-    const gigaRootUpdateTx = await (await gigaBridge.updateRoot(
+    const gigaRootUpdateTx = await (await gigaBridge.updateGigaRoot(
         localRootProviders
     )).wait(1) as ethers.ContractTransactionReceipt;
     // todo check id tree reproduces by syncing events
@@ -103,7 +103,7 @@ export async function sendGigaRoot(
     gigaRootRecipients: ethers.AddressLike[],
 ) {
     // sends the root to the L2AztecBridgeAdapter through the L1AztecBridgeAdapter
-    const sendGigaRootTx = await (await gigaBridge.sendRoot(
+    const sendGigaRootTx = await (await gigaBridge.sendGigaRoot(
         gigaRootRecipients
     )
     ).wait(1) as ethers.ContractTransactionReceipt;

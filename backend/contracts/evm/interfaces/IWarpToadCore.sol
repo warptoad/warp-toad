@@ -2,11 +2,8 @@
 
 pragma solidity 0.8.29;
 
-import {ILocalRootProvider} from "./ILocalRootProvider.sol";
-import {IGigaRootRecipient} from "./IGigaRootRecipient.sol";
 
-
-interface IWarpToadCore is ILocalRootProvider, IGigaRootRecipient {
+interface IWarpToadCore {
     event Burn(uint256 indexed commitment, uint256 amount, uint256 index);
     function initialize(address _gigaRootProvider, address _l1BridgeAdapter) external;
     function isValidGigaRoot(uint256 _gigaRoot) external view returns (bool);
@@ -48,6 +45,6 @@ interface IWarpToadCore is ILocalRootProvider, IGigaRootRecipient {
 
     // gigaRootProvider can call directly since are on the L1 already and don't need adapter
     // IGigaRootRecipient and ILocalRootProvider
-    function receiveGigaRoot(uint256 _gigaRoot) external;
-    function getLocalRootAndBlock() external returns (uint256, uint256);
+//     function receiveGigaRoot(uint256 _gigaRoot) external;
+//     function getLocalRootAndBlock() external returns (uint256, uint256);
 }
