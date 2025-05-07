@@ -7,6 +7,7 @@ import { ethers } from "ethers";
 import { IgnitionModuleBuilder } from "@nomicfoundation/ignition-core";
 
 export default buildModule("L1InfraModule", (m: any) => {
+    const L1ScrollMessengerAddress = m.getParameter("L1ScrollMessengerAddress")
     const LazyIMTLibAddress = m.getParameter("LazyIMTLibAddress");
     const L1WarpToadAddress = m.getParameter("L1WarpToadAddress");
     const LazyIMTLib = m.contractAt("LazyIMT",LazyIMTLibAddress)
@@ -18,7 +19,14 @@ export default buildModule("L1InfraModule", (m: any) => {
         },
     });
 
-    const L1Adapters = [L1AztecBridgeAdapter]
+    const L1ScrollBridgeAdapter = m.contract("L1ScrollBridgeAdapter", [L1ScrollMessengerAddress], {
+        value: 0n,
+        libraries: {
+        },
+    });
+    // TODO l1ScrollAdapter
+
+    const L1Adapters = [L1AztecBridgeAdapter, L1ScrollBridgeAdapter]  // TODO add l1ScrollAdapter
     const gigaRootRecipients = [L1WarpToad, ...L1Adapters]
     const gigaBridgeConstructorArg =  [gigaRootRecipients, GIGA_TREE_DEPTH]
     const gigaBridge = m.contract("GigaBridge",gigaBridgeConstructorArg, {
@@ -28,5 +36,5 @@ export default buildModule("L1InfraModule", (m: any) => {
         }
     });
 
-    return {gigaBridge, L1AztecBridgeAdapter};
+    return {gigaBridge, L1AztecBridgeAdapter, L1ScrollBridgeAdapter};
 });

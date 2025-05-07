@@ -70,14 +70,14 @@ export class L2AztecBridgeAdapterContract extends ContractBase {
   /**
    * Creates a tx to deploy a new instance of this contract.
    */
-  public static deploy(wallet: Wallet, portal: EthAddressLike) {
+  public static deploy(wallet: Wallet, l1BridgeAdapter: EthAddressLike) {
     return new DeployMethod<L2AztecBridgeAdapterContract>(PublicKeys.default(), wallet, L2AztecBridgeAdapterContractArtifact, L2AztecBridgeAdapterContract.at, Array.from(arguments).slice(1));
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified public keys hash to derive the address.
    */
-  public static deployWithPublicKeys(publicKeys: PublicKeys, wallet: Wallet, portal: EthAddressLike) {
+  public static deployWithPublicKeys(publicKeys: PublicKeys, wallet: Wallet, l1BridgeAdapter: EthAddressLike) {
     return new DeployMethod<L2AztecBridgeAdapterContract>(publicKeys, wallet, L2AztecBridgeAdapterContractArtifact, L2AztecBridgeAdapterContract.at, Array.from(arguments).slice(2));
   }
 
@@ -145,8 +145,8 @@ WarpToadNote: {
   /** Type-safe wrappers for the public methods exposed by the contract. */
   public declare methods: {
     
-    /** constructor(portal: struct) */
-    constructor: ((portal: EthAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** constructor(l1BridgeAdapter: struct) */
+    constructor: ((l1BridgeAdapter: EthAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** count(new_count: field) */
     count: ((new_count: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -157,14 +157,14 @@ WarpToadNote: {
     /** public_dispatch(selector: field) */
     public_dispatch: ((selector: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** receive_giga_root(new_gigaroot: field, message_leaf_index: field, warpToadCore: struct) */
+    receive_giga_root: ((new_gigaroot: FieldLike, message_leaf_index: FieldLike, warpToadCore: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** send_root_to_l1(block_number: integer) */
     send_root_to_l1: ((block_number: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** sync_notes() */
     sync_notes: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
-    /** update_gigaroot(new_gigaroot: field, message_leaf_index: field, warpToadCore: struct) */
-    update_gigaroot: ((new_gigaroot: FieldLike, message_leaf_index: FieldLike, warpToadCore: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
   };
 
   

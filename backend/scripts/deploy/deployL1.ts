@@ -40,13 +40,16 @@ async function main() {
             }
         },
     });
-
+    const chainId = (await provider.getNetwork()).chainId
+    const IS_MAINNET = chainId === 1n
+    const L1ScrollMessengerAddress = IS_MAINNET ? "0x6774Bcbd5ceCeF1336b5300fb5186a12DDD8b367" : "0x50c7d3e7f7c656493D1D76aaa1a836CedfCBB16A"
     //--------------------infra------------------------
-    const  {gigaBridge, L1AztecBridgeAdapter} = await hre.ignition.deploy(L1InfraModule, {
+    const  {gigaBridge, L1AztecBridgeAdapter, L1ScrollBridgeAdapter} = await hre.ignition.deploy(L1InfraModule, {
         parameters: {
             L1InfraModule: {
                 LazyIMTLibAddress:LazyIMTLib.target,
-                L1WarpToadAddress:L1WarpToad.target
+                L1WarpToadAddress:L1WarpToad.target,
+                L1ScrollMessengerAddress: L1ScrollMessengerAddress
             }
         },
     });    
@@ -60,7 +63,8 @@ async function main() {
         L1WarpToad:                 ${L1WarpToad.target}
         withdrawVerifier:           ${withdrawVerifier.target}
         
-        L1AztecBridgeAdapter:   ${L1AztecBridgeAdapter.target}
+        L1AztecBridgeAdapter:       ${L1AztecBridgeAdapter.target}
+        L1ScrollBridgeAdapter:      ${L1ScrollBridgeAdapter.target}
     `)
 
 }
