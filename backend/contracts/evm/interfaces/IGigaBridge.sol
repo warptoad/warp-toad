@@ -19,4 +19,10 @@ interface IGigaBridge {
     function isLocalRootProviders(address _localRootProvider) external view returns(bool);
 
     function updateGigaRoot(address[] memory _localRootProvider) external;
+
+    // Made this a second function because the addresses that want the gigaRoot
+    // might be different from the addresses that are updating their localRoot.
+    // since most of the time everyone wants the latest gigaRoot but not everyone has a localRoot that is new
+    // Sends the most recent gigaRoot to an array of localRootProviders
+    function sendGigaRoot(address[] memory _gigaRootRecipients) external;
 }

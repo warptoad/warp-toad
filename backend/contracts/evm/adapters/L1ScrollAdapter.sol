@@ -2,12 +2,12 @@
 
 pragma solidity 0.8.29;
 
-import {ILocalRootProvider, IGigaRootRecipient} from  "../interfaces/IRootMessengers.sol";
+import {ILocalRootProvider, IGigaRootRecipient, IGigaRootProvider} from  "../interfaces/IRootMessengers.sol";
 import {IL1BridgeAdapter} from "../interfaces/IL1BridgeAdapter.sol";
 import {IScrollMessenger} from "@scroll-tech/contracts/libraries/IScrollMessenger.sol";
 
 // no IGigaRootRecipient because we have L1SLOAD!
-contract L1ScrollBridgeAdapter is IL1BridgeAdapter, ILocalRootProvider {
+contract L1ScrollBridgeAdapter is IL1BridgeAdapter, ILocalRootProvider, IGigaRootRecipient {
     modifier onlyGigaBridge() {
         require(msg.sender == gigaBridge, "Not gigaBridge");
         _; // what is that?
@@ -56,15 +56,36 @@ contract L1ScrollBridgeAdapter is IL1BridgeAdapter, ILocalRootProvider {
         mostRecentL2RootBlockNumber = _l2BlockNumber;
     }
 
-    // not needed. we use L1SLOAD! 
-    // function receiveGigaRoot(
-    //     uint256 _newGigaRoot
-    // ) external onlyGigaBridge {
-    //     _bridgeGigaRootToL2(_newGigaRoot);
-    // }
+    function receiveGigaRoot(
+        uint256 _newGigaRoot
+    ) external onlyGigaBridge {
+        _bridgeGigaRootToL2(_newGigaRoot, 1000000);
+    }
 
-    // function _bridgeGigaRootToL2(uint256 _newGigaRoot) internal {
-    // } 
+    // just incase the hardcoded gaslimit fails
+    function bridgeGigaRootWithGasLimit(
+        uint256 _gasLimit
+    ) external {
+        uint256 _newGigaRoot = IGigaRootProvider(gigaBridge).gigaRoot();
+        _bridgeGigaRootToL2(_newGigaRoot, _gasLimit);
+    }
+
+    function _bridgeGigaRootToL2(uint256 _newGigaRoot, uint256 _gasLimit) internal {
+        // uint256 _newGigaRoot = IGigaRootProvider(gigaBridge).gigaRoot();
+        // sendMessage is able to execute any function by encoding the abi using the encodeWithSignature function
+        //IScrollMessenger(l1ScrollMessenger).sendMessage{value: msg.value}(
+        IScrollMessenger(l1ScrollMessenger).sendMessage{value: 0}( // can this be 0?? or can we pay for some relayer?? check docs!
+            l2ScrollBridgeAdapter,
+            0,
+            abi.encodeWithSignature(
+                "receiveGigaRoot(uint256 _gigaRoot)",
+                _newGigaRoot
+            ),
+            _gasLimit,
+            msg.sender
+        );
+        
+    } 
 
     function getLocalRootAndBlock() view external returns (uint256, uint256) {
         require(

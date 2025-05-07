@@ -92,13 +92,17 @@ contract GigaBridge is IGigaBridge, ILocalRootRecipient, IGigaRootProvider  {
 
         // set new gigaRoot in contract
         gigaRoot = newGigaRoot;
-    }
+    }   
+
+    // TODO this is very convenient to initiated all bridging txs at once but the problem is that every bridge is different
+    // so the might require different parameter handed to them by a eoa like scrolls bridge needs a extra gaslimit
+    // so we should pull from the gigaRoot from the L1Adapter instead
 
     // Made this a second function because the addresses that want the gigaRoot
     // might be different from the addresses that are updating their localRoot.
     // since most of the time everyone wants the latest gigaRoot but not everyone has a localRoot that is new
     // Sends the most recent gigaRoot to an array of localRootProviders
-    function sendGigaRoot(address[] memory _gigaRootRecipients) external {
+    function sendGigaRoot(address[] memory _gigaRootRecipients) public {
         for (uint256 i = 0; i < _gigaRootRecipients.length; i++) {
             address gigaRootRecipient = _gigaRootRecipients[i];
 
@@ -106,5 +110,12 @@ contract GigaBridge is IGigaBridge, ILocalRootRecipient, IGigaRootProvider  {
             // They provide local roots but also like something back. A gigaRoot :0!!!
             IGigaRootRecipient(gigaRootRecipient).receiveGigaRoot(gigaRoot);
         }
+    }
+
+
+    // above function is more efficient most of the time. This is here to support the IGigaRootProvider 
+    // and IGigaRootProvider doesn't do the for loop becuase L2 adapters only have one recipient (L2Warptoad).
+    function sendGigaRoot(address _gigaRootRecipient) public {
+        IGigaRootRecipient(_gigaRootRecipient).receiveGigaRoot(gigaRoot);
     }
 }
