@@ -8,7 +8,7 @@
         isWalletConnected,
     } from "../../stores/walletStore";
     import type { EvmAccount } from "../../stores/walletStore";
-    import { CHAINS } from "../networks/network";
+    import { EVM_CHAINS } from "../networks/network";
 
     let evmWallet: EvmAccount | undefined;
     $: $evmWalletStore, (evmWallet = $evmWalletStore);
@@ -21,10 +21,6 @@
             console.error("Network switch failed", err);
         }
     }
-
-    onMount(async () => {
-        console.log(getNetworkLogoFromName("baseSepolia"));
-    });
 </script>
 
 {#if isWalletConnected(evmWallet)}
@@ -56,7 +52,7 @@
             tabindex="-1"
             class="menu dropdown-content bg-base-100 rounded-box z-1 p-2 shadow-sm w-full gap-2"
         >
-            {#each CHAINS as chain}
+            {#each EVM_CHAINS as chain}
                 {#if chain.chainId !== `0x${Number(evmWallet?.currentNetwork.chainId).toString(16)}`}
                     <li>
                         <button

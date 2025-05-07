@@ -7,12 +7,13 @@
   import DepositApplication from "./lib/applications/DepositApplication.svelte";
   import WalletTest from "./lib/WalletTest.svelte"
 
-  let isDepositOpen = false;
+  let isDepositOpen = true;
   let isWithdrawOpen = false;
   let isFaqOpen = false;
 </script>
 
 <main class="flex flex-col h-screen p-4">
+  <Navbar />
   <Draggable
     title={"FAQ"}
     x={window.innerWidth / 2}
@@ -49,7 +50,6 @@
       <img src={placeHolderLogo} alt="warptoad" draggable="false" />
     </div>
   </Draggable>
-  <Navbar />
   <div class="flex-grow flex justify-center items-center">
     <ApplicationContainer
       bind:depositOpen={isDepositOpen}

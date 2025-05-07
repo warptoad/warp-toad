@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Account } from "@nemi-fi/wallet-sdk";
-  import {Contract} from "@nemi-fi/wallet-sdk/eip1193"
+  import { Contract } from "@nemi-fi/wallet-sdk/eip1193";
   import {
     evmWalletStore,
     aztecWalletStore,
@@ -9,9 +9,13 @@
   } from "../stores/walletStore";
   import type { EvmAccount } from "../stores/walletStore";
   import { L2AztecRootBridgeAdapterContractArtifact } from "../artifacts/L2AztecRootBridgeAdapter";
-  import { WarpToadCoreContract } from "../artifacts/WarpToadCore";
+  import {
+    WarpToadCoreContract,
+    WarpToadCoreContractArtifact,
+  } from "../artifacts/WarpToadCore";
 
-  import { AztecAddress } from "@aztec/aztec.js";
+  import { AztecAddress, Fr } from "@aztec/aztec.js";
+    import { ethers } from "ethers";
 
   let evmWallet: EvmAccount | undefined;
   let aztecWallet: Account | undefined;
@@ -19,24 +23,42 @@
   // Subscribe to the account store
   $: $evmWalletStore, (evmWallet = $evmWalletStore);
   $: $aztecWalletStore, (aztecWallet = $aztecWalletStore);
+  
 
   async function getAztecContracts(aztecWallet: Account) {
     const contracts = {
       AztecWarpToad:
-        "0x28c36de9c6655d56f0e7a6b1df527057f66c242ddde985348007603a8989ada5",
+        "0x25307e2f565eada87ba684657fb42cae5d96b118d8b61f4df21b0c4b2a3f4b54",
       L2AztecRootBridgeAdapter:
-        "0x1ebf9241b758a4b7611f1d0fa15ce50c25a0a50f6a4a0fc8eb098193b5fdec44",
+        "0x1df67ccc38b072b4bcb853de7f1036632a2ef7ee7a3bbd6fd11773e17e39664f",
     };
-
-    const L2AztecRootBridgeAdapter = await Contract.at(AztecAddress.fromString(contracts.L2AztecRootBridgeAdapter), L2AztecRootBridgeAdapterContractArtifact, aztecWallet)
-    const AztecWarpToad = await WarpToadCoreContract.at(
-      AztecAddress.fromString(contracts.AztecWarpToad),
-      aztecWallet.getAddress(),
+      
+    const L2AztecRootBridgeAdapter = await Contract.at(
+      AztecAddress.fromString(contracts.L2AztecRootBridgeAdapter),
+      L2AztecRootBridgeAdapterContractArtifact,
+      aztecWallet,
     );
-    return { L2AztecRootBridgeAdapter, AztecWarpToad };
+    const AztecWarpToad = await Contract.at(
+      AztecAddress.fromString(contracts.AztecWarpToad),
+      WarpToadCoreContractArtifact,
+      aztecWallet,
+    );
+    console.log(await AztecWarpToad.methods.get_decimals().simulate());
+    const publicName = new Fr((await AztecWarpToad.methods.public_get_name().simulate()).value).toString()
+    const publicSymbol = new Fr((await AztecWarpToad.methods.public_get_symbol().simulate()).value).toString()
+    console.log("public_get_name:"+ethers.toUtf8String(publicName).replace(/\0/g, ''));
+    console.log("public_get_symbol:"+ethers.toUtf8String(publicSymbol).replace(/\0/g, ''));
+
+    //return { L2AztecRootBridgeAdapter, AztecWarpToad };
   }
 </script>
 
+<button
+  class="btn btn-accent"
+  on:click={() => {
+    getAztecContracts(aztecWallet!);
+  }}>WalletTest</button
+>
 <!--
 <div>
   {#if isWalletConnected(aztecWallet) || isWalletConnected(evmWallet)}

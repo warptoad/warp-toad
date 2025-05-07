@@ -2,10 +2,10 @@ import { writable, get } from 'svelte/store';
 import { AztecWalletSdk, obsidion } from "@nemi-fi/wallet-sdk";
 import type { Account } from "@nemi-fi/wallet-sdk";
 import { ethers } from 'ethers';
-import { CHAINS } from '../lib/networks/network';
+import { EVM_CHAINS } from '../lib/networks/network';
 
 //OBSIDION CONSTANTS
-export const NODE_URL = "https://registry.obsidion.xyz/node";
+export const NODE_URL = "http://localhost:8080";
 export const WALLET_URL = "https://app.obsidion.xyz";
 
 export type EvmAccount = {
@@ -98,7 +98,7 @@ export async function switchNetwork(chainId: string): Promise<void> {
     throw new Error('MetaMask is not available');
   }
 
-  const chain = CHAINS.find(c => c.id.toLowerCase() === chainId.toLowerCase());
+  const chain = EVM_CHAINS.find(c => c.id.toLowerCase() === chainId.toLowerCase());
 
   if (!chain) {
     throw new Error(`Unknown chainId: ${chainId}`);
@@ -148,7 +148,7 @@ export async function getCurrentNetwork(): Promise<ethers.Network> {
 
 export function getNetworkLogoFromName(chainId: string): string | undefined {
 
-  const chain = CHAINS.find(c => c.id.toLowerCase() === chainId.toLowerCase());
+  const chain = EVM_CHAINS.find(c => c.id.toLowerCase() === chainId.toLowerCase());
   return chain?.svg;
 }
 
@@ -157,7 +157,16 @@ export function getNetworkLogoFromId(chainId: number | string): string | undefin
     ? `0x${chainId.toString(16)}`
     : chainId.toLowerCase();
 
-  const chain = CHAINS.find(c => c.chainId.toLowerCase() === normalizedId);
+  const chain = EVM_CHAINS.find(c => c.chainId.toLowerCase() === normalizedId);
   return chain?.svg;
+}
+
+export function getNetworkNameFromId(chainId: number | string): string | undefined {
+  const normalizedId = typeof chainId === 'number'
+    ? `0x${chainId.toString(16)}`
+    : chainId.toLowerCase();
+
+  const chain = EVM_CHAINS.find(c => c.chainId.toLowerCase() === normalizedId);
+  return chain?.id;
 }
 

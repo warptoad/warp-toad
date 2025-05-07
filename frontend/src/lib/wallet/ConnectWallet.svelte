@@ -74,7 +74,7 @@
       >
         <div>Wallet Manager</div>
         <button
-          class="closeButton hover:text-warning transition-colors duration-200"
+          class="hover:text-warning transition-colors duration-200"
           on:click={closeModal}>X</button
         >
       </div>

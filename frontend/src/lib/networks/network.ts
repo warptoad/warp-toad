@@ -1,5 +1,5 @@
 
-export type ChainConfig = {
+export type EvmChainConfig = {
   id: string;
   chainId: string;
   chainName: string;
@@ -13,7 +13,7 @@ export type ChainConfig = {
   svg?: string;
 };
 
-export const CHAINS: ChainConfig[] = [
+export const EVM_CHAINS: EvmChainConfig[] = [
   {
       id: "sepolia",
       chainId: "0xaa36a7",
