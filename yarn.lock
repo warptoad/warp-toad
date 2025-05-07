@@ -1479,6 +1479,11 @@
   resolved "https://registry.yarnpkg.com/@pkgjs/parseargs/-/parseargs-0.11.0.tgz#a77ea742fab25775145434eb1d2328cf5013ac33"
   integrity sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==
 
+"@scroll-tech/contracts@^2.0.1":
+  version "2.0.1"
+  resolved "https://registry.yarnpkg.com/@scroll-tech/contracts/-/contracts-2.0.1.tgz#e01d3a294074741a963d7367a30435642acd46f9"
+  integrity sha512-d0jC6/8TkkreEoNiJyV/HPTVWMeSWnJkXkGFLTGMCpM18ZiPgfirKla/84llUEVWB02G/kLb55zB7y9yJINVxg==
+
 "@scure/base@~1.1.0", "@scure/base@~1.1.6":
   version "1.1.9"
   resolved "https://registry.yarnpkg.com/@scure/base/-/base-1.1.9.tgz#e5e142fbbfe251091f9c5f1dd4c834ac04c3dbd1"

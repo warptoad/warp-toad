@@ -1,3 +1,4 @@
 @zk-kit/=../node_modules/@zk-kit
 poseidon-solidity/=../node_modules/poseidon-solidity
 @openzeppelin=../node_modules/@openzeppelin
+@scroll-tech=../node_modules/@scroll-tech

@@ -3,17 +3,19 @@
 pragma solidity 0.8.29;
 
 // Messaging
-import {IRegistry} from "./aztec-interfaces/IRegistry.sol";
-import {IInbox} from "./aztec-interfaces/messagebridge/IInbox.sol";
-import {IOutbox} from "./aztec-interfaces/messagebridge/IOutbox.sol";
-import {IRollup} from "./aztec-interfaces/IRollup.sol";
-import {DataStructures} from "./aztec-interfaces/CoreDataStructures.sol";
-import {ILocalRootProvider} from "./interfaces/ILocalRootProvider.sol";
+import {IRegistry} from "../aztec-interfaces/IRegistry.sol";
+import {IInbox} from "../aztec-interfaces/messagebridge/IInbox.sol";
+import {IOutbox} from "../aztec-interfaces/messagebridge/IOutbox.sol";
+import {IRollup} from "../aztec-interfaces/IRollup.sol";
+import {DataStructures} from "../aztec-interfaces/CoreDataStructures.sol";
+import {ILocalRootProvider} from "../interfaces/ILocalRootProvider.sol";
 // hash for message passing to L2
-import {Hash} from "./aztec-interfaces/crypto/Hash.sol";
-import {IL1BridgeAdapter} from "./interfaces/IL1BridgeAdapter.sol";
+import {Hash} from "../aztec-interfaces/crypto/Hash.sol";
+import {IL1BridgeAdapter} from "../interfaces/IL1BridgeAdapter.sol";
 
 contract L1AztecBridgeAdapter is IL1BridgeAdapter {
+    event NewGigaRootSentToAztec(bytes32 indexed newGigaRoot, bytes32 key, uint256 index); //newGigaRoot is also the content hash! wow!'
+    
     modifier onlyGigaBridge() {
         require(msg.sender == gigaBridge, "Not gigaBridge");
         _; // what is that?
@@ -104,7 +106,7 @@ contract L1AztecBridgeAdapter is IL1BridgeAdapter {
         );
 
         // Emit event
-        emit NewGigaRootSentToL2(contentHash, key, index);
+        emit NewGigaRootSentToAztec(contentHash, key, index);
     } 
 
     function getLocalRootAndBlock() view external returns (uint256, uint256) {
