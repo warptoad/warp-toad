@@ -82,7 +82,8 @@ async function main() {
                 L1AztecBridgeAdapter,
                 l1Provider
             )
-            console.log({sendRootToL1Tx:sendRootToL1Tx.txHash,refreshRootTx:refreshRootTx.hash, PXE_L2Root:PXE_L2Root.toBigInt()})
+            const gigaRootPreBridge = await gigaBridge.gigaRoot()
+            console.log({sendRootToL1Tx:sendRootToL1Tx.txHash.hash,refreshRootTx:refreshRootTx.hash, PXE_L2Root:PXE_L2Root.toBigInt(),gigaRootPreBridge})
 
         } catch (error) {
             console.error(error)
@@ -103,7 +104,8 @@ async function main() {
             gigaBridge,
             gigaRootRecipients,
         )
-        console.log({gigaRootUpdateTx:gigaRootUpdateTx.hash,sendGigaRootTx:sendGigaRootTx.hash})
+        const updatedGigaRoot = await gigaBridge.gigaRoot()
+        console.log({gigaRootUpdateTx:gigaRootUpdateTx.hash,sendGigaRootTx:sendGigaRootTx.hash,updatedGigaRoot})
 
 
     // ------- retrieve the giga root from the adapters on L2 and send them to the toads!!! ----------
@@ -116,7 +118,8 @@ async function main() {
             PXE as PXE,
             true
         )
-        console.log({update_gigarootTx:update_gigarootTx.txHash})
+        const gigaRootOnAztec = await AztecWarpToad?.methods.get_giga_root().simulate()
+        console.log({update_gigarootTx:update_gigarootTx.txHash.hash,gigaRootOnAztec})
     } else {
         //normal evm things
     }

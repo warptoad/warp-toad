@@ -93,7 +93,7 @@ NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend ha
 <!--  
 if you just restarted sandbox then the test token address will be the same as below and you can just copy paste this
 
-NATIVE_TOKEN_ADDRESS=0x29225caE63c528b84E596FE945dE23c8C688DD24 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network sepolia;
+NATIVE_TOKEN_ADDRESS=0x735410c25B15B87f7F2A3617963407ece6c1226b yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network sepolia;
 NATIVE_TOKEN_ADDRESS=0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network aztecSandbox;
 -->
 
@@ -104,8 +104,8 @@ PRIVATE_KEY=0xUprivateKey NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress PXE_URL=ht
 
 <!--
 if you just restarted sandbox then the test token address will be the same as below and you can just copy paste this
+PRIVATE_KEY=ASuperSecretPrivateKeyIGotFromEngineerAtObsidion NATIVE_TOKEN_ADDRESS=0x735410c25B15B87f7F2A3617963407ece6c1226b PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network sepolia;
 PRIVATE_KEY=0xUprivateKey NATIVE_TOKEN_ADDRESS=0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network aztecSandbox;
-PRIVATE_KEY=ASuperSecretPrivateKeyIGotFromEngineerAtObsidion NATIVE_TOKEN_ADDRESS=0x29225caE63c528b84E596FE945dE23c8C688DD24 PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network sepolia;
 -->
 #### initialize contracts
 ```shell
@@ -117,9 +117,9 @@ PXE_URL=http://localhost:8080 yarn workspace @warp-toad/backend hardhat run scri
 
 <!-- ```shell
 #L1
-PXE_URL=http:/localhost:8081yarn workspace @warp-toad/backend hardhat run scripts/deploy/initializeL1.ts --network sepolia;
+PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/initializeL1.ts --network sepolia;
 #aztec
-PXE_URL=http:/localhost:8081 yarn workspace @warp-toad/backend hardhat run scripts/deploy/initializeAztec.ts --network sepolia;
+PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/initializeAztec.ts --network sepolia;
 ``` -->
 
 ## bridge

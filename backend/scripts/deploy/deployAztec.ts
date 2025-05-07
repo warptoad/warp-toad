@@ -51,7 +51,7 @@ export async function getAztecWallet(pxe: PXE, privateKey: string, nodeUrl: stri
         if (!contract) {
             throw new Error("Contract not found")
         }
-        //await delay(30000)
+        await delay(180000)
         // const obsidionDeployerFPC = await (
         //     await AccountManager.create(
         //         pxe,
@@ -65,12 +65,12 @@ export async function getAztecWallet(pxe: PXE, privateKey: string, nodeUrl: stri
             Fr.fromString(OBSIDION_DEPLOYER_SECRET_KEY),
             await computePartialAddress(contract as any) as any as Fr,
         )
-        //await delay(30000)
+        await delay(180000)
         await pxe.registerContract({
             instance: contract as any,
             artifact: ObsidionDeployerFPCContractArtifact,
         })
-        //await delay(30000)
+        await delay(180000)
         const wallet = await getObsidionDeployerFPCWallet(pxe, obsidionDeployerFPCAddress, obsidionDeployerFPCSigningKey)
         return wallet
 
@@ -123,7 +123,7 @@ async function main() {
 
     //------deploy-------------
     const { AztecWarpToad } = await deployAztecWarpToad(nativeToken, deployWallet)
-    //await delay(30000)
+    await delay(180000)
     console.log({ AztecWarpToad: AztecWarpToad.address })
     const { L2AztecBridgeAdapter } = await deployL2AztecBridgeAdapter(L1AztecAdapterAddress, deployWallet)
     console.log({ L2AztecBridgeAdapter: L2AztecBridgeAdapter.address })
