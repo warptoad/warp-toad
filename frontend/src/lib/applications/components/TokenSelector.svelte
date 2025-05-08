@@ -1,17 +1,24 @@
 <script lang="ts">
-    import { onMount } from "svelte";
+    import {
+        depositApplicationStore,
+        type DepositData,
+        pickToken,
+    } from "../../../stores/depositStore";
     import {
         getTokenIconBySymbol,
         getTokensFromChainId,
-        type Token
+        type Token,
     } from "../../tokens/tokens";
 
-    export let isAztec = false;
-    export let currentChain = ""
+    let depositData: DepositData | undefined;
+    $: $depositApplicationStore, (depositData = $depositApplicationStore);
 
     let currentTokenSelection: Token[];
 
-    $: currentTokenSelection = getTokensFromChainId(isAztec, currentChain);
+    $: if(depositData){
+
+        currentTokenSelection = getTokensFromChainId(depositData.fromChain.type==="aztec", depositData.fromChain.chainId);
+    } 
 
     let tokenSelectModal: HTMLDialogElement | null = null;
 
@@ -23,10 +30,8 @@
         tokenSelectModal?.close();
     }
 
-    export let currentTokenSelected = "";
-
     function selectToken(token: string) {
-        currentTokenSelected = token;
+        pickToken(token);
         closeModal();
     }
 </script>
@@ -100,7 +105,7 @@
                             <p class="label text-xs">{token.tokenSymbol}</p>
                         </div>
                     </div>
-                    {#if token.tokenName === currentTokenSelected}
+                    {#if token.tokenName === depositData?.tokenName}
                         <div
                             class="bg-info text-info-content aspect-square h-full rounded-md p-2 flex items-center justify-center"
                         >
@@ -126,14 +131,16 @@
 
 <button
     on:click={openModal}
+    disabled={!depositData}
     class="btn btn-primary p-1 rounded-full text-center flex items-center gap-2"
 >
+    {#if depositData}
     <img
-        src={getTokenIconBySymbol(currentTokenSelected)}
+        src={getTokenIconBySymbol(depositData.tokenName)}
         alt="current token logo"
     />
     <p>
-        {currentTokenSelected}
+        {depositData.tokenName}
     </p>
     <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -147,4 +154,23 @@
         class="lucide lucide-chevron-down-icon lucide-chevron-down"
         ><path d="m6 9 6 6 6-6" /></svg
     >
+        
+    {:else}
+    <p class="text-warning pl-2">
+        not connected
+    </p>
+    <svg
+        xmlns="http://www.w3.org/2000/svg"
+        width="24"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        stroke-width="2"
+        stroke-linecap="round"
+        stroke-linejoin="round"
+        class="lucide lucide-chevron-down-icon lucide-chevron-down"
+        ><path d="m6 9 6 6 6-6" /></svg
+    >
+    
+    {/if}
 </button>

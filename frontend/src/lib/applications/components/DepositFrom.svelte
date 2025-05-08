@@ -2,13 +2,15 @@
     import ChainSelector from "./ChainSelector.svelte";
     import TokenSelector from "./TokenSelector.svelte";
 
+    import { setDepositTokenAmount } from "../../../stores/depositStore";
+
     //TODO FETCHING OF TOKEN BALANCE AND USD PRICE PER TOKEN
 
     let depositChainSelection = "";
 
-    export let currentTokenSelected = "";
     let tokenBalance = 123;
-    export let tokenDepositInput = "";
+    let tokenDepositInput = "";
+    $: setDepositTokenAmount(Number(tokenDepositInput));
     /*$: if (Number(tokenDepositInput) > tokenBalance) {
         tokenDepositInput = tokenBalance.toString();
     }*/
@@ -22,14 +24,11 @@
 <div class="bg-base-300 p-4 rounded-md w-full flex flex-col gap-2">
     <div class="flex items-center gap-2 justify-between">
         <p>from</p>
-        <ChainSelector bind:currentSelectedChain={depositChainSelection} />
+        <ChainSelector />
     </div>
     <div class="divider m-0"></div>
     <div class="flex gap-4">
-        <TokenSelector
-            bind:currentChain={depositChainSelection}
-            bind:currentTokenSelected
-        />
+        <TokenSelector />
         <input
             type="text"
             class="input input-lg input-ghost w-full text-2xl text-right px-0"

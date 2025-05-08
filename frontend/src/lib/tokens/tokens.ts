@@ -65,28 +65,21 @@ export const TOKEN_LIST: TokenConfig = {
     ],
     aztec: [
         {
-            chainId: "0xaa36a7",
+            chainId: "0x0",
             tokenName: "USDC",
             tokenSymbol: "USDC",
             tokenAddress: "feeToken",
             decimals: 18,
         },
         {
-            chainId: "0x14a34",
-            tokenName: "USDC",
-            tokenSymbol: "USDC",
-            tokenAddress: "feeToken",
-            decimals: 18,
-        },
-        {
-            chainId: "0xaa36a7",
+            chainId: "0x0",
             tokenName: "DAI",
             tokenSymbol: "DAI",
             tokenAddress: "feeToken",
             decimals: 18,
         },
         {
-            chainId: "0xaa36a7",
+            chainId: "0x0",
             tokenName: "WETH",
             tokenSymbol: "WETH",
             tokenAddress: "feeToken",

@@ -1,56 +1,54 @@
 <script lang="ts">
     import { EVM_CHAINS } from "../../networks/network";
     import {
-        type EvmAccount,
-        evmWalletStore,
-        switchNetwork,
         getNetworkLogoFromId,
-        getNetworkNameFromId
+        getNetworkNameFromId,
     } from "../../../stores/walletStore";
+    import {
+        depositApplicationStore,
+        type DepositData,
+        setChain,
+    } from "../../../stores/depositStore";
 
-    export let forceChain: boolean = false; 
+    export let isFromChain: boolean = true;
 
-    let evmWallet: EvmAccount | undefined;
-    $: $evmWalletStore, (evmWallet = $evmWalletStore);
-
-    export let currentSelectedChain = "";
-
-    $: if (forceChain === false && evmWallet?.currentNetwork?.chainId) {
-    currentSelectedChain = `0x${Number(evmWallet.currentNetwork.chainId).toString(16)}`
-}
+    let depositData: DepositData | undefined;
+    $: $depositApplicationStore, (depositData = $depositApplicationStore);
 
     //`0x${chainId.toString(16)}`
-
-    async function handleSwitch(network: string) {
-        try {
-            await switchNetwork(network);
-            //alert("Switched to" + network + "!");
-        } catch (err) {
-            console.error("Network switch failed", err);
-        }
-    }
 </script>
+
 <div class="dropdown">
-    <div
+    <button
+        disabled={!depositData}
         tabindex="0"
-        role="button"
-        class="bg-accent-content text-neutral hover:bg-base-200 hover:text-accent-content p-1 rounded-full text-center flex items-center gap-2 cursor-pointer transition-colors duration-300"
-    >
+        class="btn bg-accent-content text-neutral hover:bg-base-200 hover:text-accent-content p-1 h-auto rounded-full text-center flex items-center gap-2 cursor-pointer transition-colors duration-300"
+        
+        >
         <div class="avatar avatar-placeholder">
             <div class="bg-neutral text-neutral-content w-6 rounded-full">
-                {#if getNetworkLogoFromId(Number(evmWallet?.currentNetwork.chainId))}
+                {#if depositData}
                     <img
-                        src={(forceChain === false)?getNetworkLogoFromId(
-                            Number(evmWallet?.currentNetwork.chainId),
-                        ):getNetworkLogoFromId(currentSelectedChain)}
+                        src={isFromChain
+                            ? getNetworkLogoFromId(
+                                  depositData.fromChain.chainId,
+                              )
+                            : getNetworkLogoFromId(
+                                  depositData.toChain.chainId,
+                              )}
                         alt="current network logo"
                     />{:else}
-                    <span class="text-md">{evmWallet?.currentNetwork.name}</span
-                    >
+                    <span class="text-md">{"?"}</span>
                 {/if}
             </div>
         </div>
-        {(forceChain===false)?evmWallet?.currentNetwork.name: getNetworkNameFromId(currentSelectedChain)}
+        {depositData
+            ? getNetworkNameFromId(
+                  isFromChain
+                      ? depositData.fromChain.chainId
+                      : depositData.toChain.chainId,
+              )
+            : "-"}
         <svg
             xmlns="http://www.w3.org/2000/svg"
             width="24"
@@ -64,38 +62,43 @@
             class="lucide lucide-chevron-down-icon lucide-chevron-down"
             ><path d="m6 9 6 6 6-6" /></svg
         >
-    </div>
+    </button>
 
     <ul
         tabindex="-1"
         class="menu dropdown-content bg-base-100 rounded-box z-1 p-2 shadow-sm w-full gap-2 flex"
     >
-        {#each EVM_CHAINS as chain}
-            {#if chain.chainId !== `0x${Number(evmWallet?.currentNetwork.chainId).toString(16)}`}
-                <li class="flex flex-grow justify-center">
-                    <button
-                        class="outline hover:bg-accent-content hover:text-neutral p-1 rounded-md flex items-center gap-2 cursor-pointer transition-colors duration-300"
-                        on:click={() => {
-                            handleSwitch(chain.id);
-                        }}
-                    >
-                        <div class="avatar avatar-placeholder">
-                            <div
-                                class="bg-neutral text-neutral-content w-6 rounded-full"
-                            >
-                                {#if chain.svg}
-                                    <img
-                                        src={chain.svg}
-                                        alt={chain.id + " logo"}
-                                    />{:else}
-                                    <span class="text-md">{chain.id}</span>
-                                {/if}
+        {#if depositData}
+            {#each EVM_CHAINS as chain}
+                {#if (chain.chainId !== depositData.fromChain.chainId) && (chain.chainId !== depositData.toChain.chainId) }
+                    <li class="flex flex-grow justify-center">
+                        <button
+                            class="outline-2 outline-[#4b484e] hover:bg-accent-content hover:text-neutral p-1 rounded-md flex items-center gap-2 cursor-pointer transition-colors duration-300"
+                            on:click={() => {
+                                setChain(
+                                    { chainId: chain.chainId, type: "evm" },
+                                    isFromChain,
+                                ); //TODO REWORK WHOLE CHAIN ADAPTER
+                            }}
+                        >
+                            <div class="avatar avatar-placeholder">
+                                <div
+                                    class="bg-neutral text-neutral-content w-6 rounded-full"
+                                >
+                                    {#if chain.svg}
+                                        <img
+                                            src={chain.svg}
+                                            alt={chain.id + " logo"}
+                                        />{:else}
+                                        <span class="text-md">{chain.id}</span>
+                                    {/if}
+                                </div>
                             </div>
-                        </div>
-                        {chain.id}
-                    </button>
-                </li>
-            {/if}
-        {/each}
+                            {chain.id}
+                        </button>
+                    </li>
+                {/if}
+            {/each}
+        {/if}
     </ul>
 </div>
