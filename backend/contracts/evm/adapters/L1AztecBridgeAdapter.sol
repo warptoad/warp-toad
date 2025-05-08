@@ -25,7 +25,7 @@ contract L1AztecBridgeAdapter is IL1BridgeAdapter, ILocalRootProvider, IGigaRoot
         require(msg.sender == deployer, "Not the deployer");
         _; // what is that?
     }
-    IRegistry public registry;
+    // IRegistry public registry; not used
     bytes32 public l2AztecBridgeAdapter;
     // most recent warp toad state root from the L2
     uint256 public mostRecentL2Root;
