@@ -9,6 +9,7 @@ import { getContractAddressesAztec, getContractAddressesEvm } from "../dev_op/ge
 import { computePartialAddress } from "@aztec/stdlib/contract";
 import { ObsidionDeployerFPCContractArtifact } from "../dev_op/getObsidionWallet/ObsidionDeployerFPC";
 import { getObsidionDeployerFPCWallet } from "../dev_op/getObsidionWallet/getObsidionWallet";
+import { L2AztecBridgeAdapterContractArtifact } from "../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter";
 
 
 const hre = require("hardhat")
@@ -98,17 +99,30 @@ async function main() {
     const AztecWarpToadAddress = aztecContractAddresses["AztecWarpToad"]
     const L2AztecAdapterAddress =  aztecContractAddresses["L2AztecBridgeAdapter"]
 
-    const node = createAztecNodeClient(AZTEC_NODE_URL)
-    await node.getContract(AztecWarpToadAddress as any)
-    await delay(10000)
-    await node.getContract(L2AztecAdapterAddress as any)
-    await delay(10000)
+    if (chainId !== 31337n) {
+        console.log("assuming ur not on sand box so registering the contracts with aztec testnet node")
+        const node = createAztecNodeClient(AZTEC_NODE_URL)
+        const AztecWarpToadContract = await node.getContract(AztecWarpToadAddress as any)
+        await PXE.registerContract({
+            instance: AztecWarpToadContract as any,
+            artifact: WarpToadCoreContractArtifact,
+        })
+        await delay(10000)
+        const L2AztecAdapterContract = await node.getContract(L2AztecAdapterAddress as any)
+        await PXE.registerContract({
+            instance: L2AztecAdapterContract as any,
+            artifact: L2AztecBridgeAdapterContractArtifact,
+        })
+        await delay(10000)
+
+    }
+
     const AztecWarpToad = await Contract.at(AztecWarpToadAddress, WarpToadCoreContractArtifact, aztecWallet) as WarpToadCoreContract
     
     const initializationStatus:any = {}
 
     try{
-        await AztecWarpToad.methods.initialize(L2AztecAdapterAddress, L1AztecBridgeAdapter).send().wait() // <- L1WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
+        await AztecWarpToad.methods.initialize(L2AztecAdapterAddress, L1AztecBridgeAdapter).send().wait({timeout:60*60*12}) // <- L1WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
         initializationStatus["AztecWarpToad"] = true
     } catch (error) {
         console.warn(`couldn't initialize: AztecWarpToad at: ${AztecWarpToad.address}. 

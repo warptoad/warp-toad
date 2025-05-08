@@ -150,6 +150,11 @@ yarn workspace @warp-toad/backend hardhat ignition verify chain-534351 --include
 ```shell
 yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --isAztec
 ```
+#### sepolia
+aztec
+```shell
+yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --L1Rpc UrUrl --L2Rpc http://localhost:8080/ --privatekey 0xUrPrivateKey --isAztec
+```
 
 ## test contracts
 test L1->Aztec

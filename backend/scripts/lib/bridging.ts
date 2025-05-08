@@ -27,7 +27,8 @@ export async function bridgeNoteHashTreeRoot(
 ) {
     const blockNumberOfRoot = await PXE.getBlockNumber();
     const PXE_L2Root = (await PXE.getBlock(blockNumberOfRoot))?.header.state.partial.noteHashTree.root as Fr
-    const sendRootToL1Tx = await L2AztecBridgeAdapter.methods.send_root_to_l1(blockNumberOfRoot).send().wait();
+    const sendRootToL1Tx = await L2AztecBridgeAdapter.methods.send_root_to_l1(blockNumberOfRoot).send().wait({timeout:60*60*12});
+    console.log({sendRootToL1Tx:sendRootToL1Tx.txHash.hash})
 
     const aztecChainVersion = await L1AztecBridgeAdapter.rollupVersion();
     const l1PortalAddress = L1AztecBridgeAdapter.target;
@@ -38,15 +39,26 @@ export async function bridgeNoteHashTreeRoot(
         new Fr(blockNumberOfRoot).toBuffer(),
     ]);
     const l2Bridge = L2AztecBridgeAdapter.address;
-    const messageLeaf = sha256ToField([
-        l2Bridge.toBuffer(),
-        new Fr(aztecChainVersion).toBuffer(),
-        EthAddress.fromString(l1PortalAddress.toString()).toBuffer32() ?? Buffer.alloc(32, 0),
-        new Fr(l1ChainId).toBuffer(),
-        messageContent.toBuffer(),
-    ]);
+    const isSandBox = l1ChainId === 31337n
+    if (!isSandBox) {
+        await waitForBlocksAztec(3,PXE)
+    } 
+    
+    const sendRootEffect = await PXE.getTxEffect(sendRootToL1Tx.txHash)
+    const l2ToL1Msgs = sendRootEffect?.data.l2ToL1Msgs[0] as Fr ///sha256ToField([
 
-    const witnessBlocknumber =  await PXE.getBlockNumber() // any block number after send_root_to_l1 happened
+    const messageLeaf = l2ToL1Msgs //sha256ToField([
+    //     l2Bridge.toBuffer(),
+    //     new Fr(aztecChainVersion).toBuffer(),
+    //     EthAddress.fromString(l1PortalAddress.toString()).toBuffer32() ?? Buffer.alloc(32, 0),
+    //     new Fr(l1ChainId).toBuffer(),
+    //     messageContent.toBuffer(),
+    // ]);
+    console.log({l2ToL1Msgs, messageContent,messageLeaf})
+    //await waitForBlocksAztec(21,PXE)
+    // await L2AztecBridgeAdapter.methods.count(0n).send().wait();
+    // await L2AztecBridgeAdapter.methods.count(4n).send().wait();
+    const witnessBlocknumber = sendRootEffect?.l2BlockNumber as number//await PXE.getBlockNumber(); // the blockNumber of when send_root_to_l1 settled onchain
     const [l2ToL1MessageIndex, siblingPath] = await PXE.getL2ToL1MembershipWitness(
         witnessBlocknumber, 
         //@ts-ignore some bs where the Fr type that getL2ToL1MembershipWitness wants is different messageLeaf has
@@ -54,6 +66,21 @@ export async function bridgeNoteHashTreeRoot(
     );
     const siblingPathArray = siblingPath.toFields().map((f) => f.toString())
 
+    console.log("got witness")
+    console.log("getNewRootFromL2",{
+        PXE_L2Root:PXE_L2Root.toString(),
+        blockNumberOfRoot:BigInt(blockNumberOfRoot), // has to be the same block as when as the root bridged. since this function uses it to create the content_hash
+        witnessBlocknumber: BigInt(witnessBlocknumber), // hash to be the same block as the witness was retrieved since that is what the witness will be proved against
+        l2ToL1MessageIndex,
+        siblingPathArray
+    })
+    if (!isSandBox) {
+        console.log("idk how long it takes for blocks to settle to ethereum but my guess is 101 L2 blocks. So yeah might take half a hour so just scroll through brain rot on insta reals or something")
+        // @TODO
+        console.log("@joss i am pretty sure we can just read the note hash tree root from the contract that settles the rollup. Or maybe proof against what ever hash it posted")
+        await waitForBlocksAztec(101,PXE)
+    } 
+    
     const refreshRootTx = await (await L1AztecBridgeAdapter.getNewRootFromL2(
         PXE_L2Root.toString(),
         BigInt(blockNumberOfRoot), // has to be the same block as when as the root bridged. since this function uses it to create the content_hash
@@ -103,8 +130,9 @@ export async function sendGigaRoot(
     gigaRootRecipients: ethers.AddressLike[],
 ) {
     // sends the root to the L2AztecBridgeAdapter through the L1AztecBridgeAdapter
-    const sendGigaRootTx = await (await gigaBridge.sendGigaRoot(
-        gigaRootRecipients
+    console.log("now pls dont break")
+    const sendGigaRootTx = await (await gigaBridge["sendGigaRoot(address[])"](
+        [...gigaRootRecipients]
     )
     ).wait(1) as ethers.ContractTransactionReceipt;
 
@@ -137,7 +165,7 @@ export async function receiveGigaRootOnAztec(
     const index = parsedL1AdapterEvent!.args[2];
 
 
-    const blocksToWait = 2 //should be NewGigaRootSentToAztecEvent.tx.blocknumber + 2
+    const blocksToWait = 5 //should be NewGigaRootSentToAztecEvent.tx.blocknumber + 2
     if (isSandBox) {
         // this is to make the sandbox progress n blocks
         await L2AztecBridgeAdapter.methods.count(0n).send().wait();
@@ -147,7 +175,17 @@ export async function receiveGigaRootOnAztec(
         await waitForBlocksAztec(blocksToWait, PXE);
     }
 
-    const receive_giga_rootTx = await L2AztecBridgeAdapter.methods.receive_giga_root(content_hash, index, AztecWarpToad.address).send().wait();
+    console.log("receive_giga_root", {content_hash, index, AztecWarpToad:AztecWarpToad.address})
+
+    if (!isSandBox) {
+        console.log("idk how long it takes for blocks to settle to ethereum but my guess is 101 L2 blocks. So yeah might take half a hour so just scroll through brain rot on insta reals or something")
+        // @TODO
+        console.log("@TODO ask how long this actually takes")
+        await waitForBlocksAztec(101,PXE as PXE)
+    } 
+
+    
+    const receive_giga_rootTx = await L2AztecBridgeAdapter.methods.receive_giga_root(content_hash, index, AztecWarpToad.address).send().wait({timeout:60*60*12});
     return {receive_giga_rootTx}
 }
 
