@@ -35,12 +35,13 @@ aztec-nargo compile;
 aztec codegen -o src/artifacts target;
 cd ../../../..
 
-# L2AztecRootBridgeAdapter
-cd backend/contracts/aztec/L2AztecRootBridgeAdapter;
+# L2AztecBridgeAdapter
+cd backend/contracts/aztec/L2AztecBridgeAdapter;
 aztec-nargo compile;
 aztec codegen -o src/artifacts target;
 cd ../../../..
 ```
+TODO hardhat (and after verifier)
 
 ### generate EVM verifier contracts
 <!-- //this should be a bash script lmao -->
@@ -71,16 +72,25 @@ aztec start --port 8080 --pxe --pxe.nodeUrl=https://full-node.alpha-testnet.azte
 ```
 
 ## aztec testnet deploy environment
+TODO is this needed??
 ```shell
 export NODE_URL=https://full-node.alpha-testnet.aztec.network
 export SPONSORED_FPC_ADDRESS=0x0b27e30667202907fc700d50e9bc816be42f8141fae8b9f2281873dbdb9fc2e5
 ```
 
 ## deploy
+### setup secrets
+```shell
+yarn workspace @warp-toad/backend hardhat vars set PRIVATE_KEY;
+yarn workspace @warp-toad/backend hardhat vars set SEPOLIA_URL;
+yarn workspace @warp-toad/backend hardhat vars set ETHERSCAN_KEY;
+yarn workspace @warp-toad/backend hardhat vars set ETHERSCAN_KEY_SCROLL;
+```
+
 ### deploy L1 aztec-sandbox
 #### deploy test token
 ```shell
-yarn workspace @warp-toad/backend hardhat ignition deploy ignition/modules/TestToken.ts --network aztecSandbox
+yarn workspace @warp-toad/backend hardhat ignition deploy ignition/modules/TestToken.ts --network aztecSandbox;
 ```
 
 <!-- ```shell
@@ -91,42 +101,67 @@ yarn workspace @warp-toad/backend hardhat ignition deploy ignition/modules/TestT
 NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network aztecSandbox;
 ```
 <!--  
-if you just restarted sandbox then the test token address will be the same as below and you can just copy paste this
-```shell
-NATIVE_TOKEN_ADDRESS=0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network sepolia;
 NATIVE_TOKEN_ADDRESS=0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network aztecSandbox;
-``` -->
+
+NATIVE_TOKEN_ADDRESS=0xAFD45Bf16D431BFbdF637261b749D256fEC02390 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network sepolia;
+
+-->
 
 #### deploy on aztec
 ```shell
-PRIVATE_KEY=0xUprivateKey NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network aztecSandbox;
+PRIVATE_KEY=0xYourPrivateKey NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network aztecSandbox;
 ```
 
 <!--
-if you just restarted sandbox then the test token address will be the same as below and you can just copy paste this
+PRIVATE_KEY=0xYourPrivateKey NATIVE_TOKEN_ADDRESS=0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network aztecSandbox;
+
+PRIVATE_KEY=ASuperSecretPrivateKeyIGotFromEngineerAtObsidion NATIVE_TOKEN_ADDRESS=0xAFD45Bf16D431BFbdF637261b749D256fEC02390 PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network sepolia;
+-->
+
+#### deploy on scroll
 ```shell
-PRIVATE_KEY=ASuperSecretPrivateKeyIGotFromEngineerAtObsidion NATIVE_TOKEN_ADDRESS=0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network sepolia;
-PRIVATE_KEY=0xUprivateKey NATIVE_TOKEN_ADDRESS=0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network aztecSandbox;
-``` -->
+NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL2Scroll.ts --network scrollSepolia;
+```
+<!-- 
+NATIVE_TOKEN_ADDRESS=0xAFD45Bf16D431BFbdF637261b749D256fEC02390 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL2Scroll.ts --network scrollSepolia;
+ -->
+
 #### initialize contracts
+sandbox  
 ```shell
 #L1
 PXE_URL=http://localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/initializeL1.ts --network aztecSandbox;
 #aztec
-PXE_URL=http://localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/initializeAztec.ts --network aztecSandbox;
+PRIVATE_KEY=0xYourPrivateKey PXE_URL=http://localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/initializeAztec.ts --network aztecSandbox;
+```
+  
+sepolia  
+```shell
+PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/initializeL1.ts --network sepolia;
+#aztec
+PRIVATE_KEY=0xYourPrivateKey PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/initializeAztec.ts --network sepolia;
+#scroll
+yarn workspace @warp-toad/backend hardhat run scripts/deploy/initializeL2Scroll.ts --network scrollSepolia;
 ```
 
-<!-- ```shell
-#L1
-PXE_URL=http:/localhost:8081yarn workspace @warp-toad/backend hardhat run scripts/deploy/initializeL1.ts --network sepolia;
-#aztec
-PXE_URL=http:/localhost:8081 yarn workspace @warp-toad/backend hardhat run scripts/deploy/initializeAztec.ts --network sepolia;
-``` -->
+## verify contracts
+```shell
+#sepolia  
+yarn workspace @warp-toad/backend hardhat ignition verify chain-11155111 --include-unrelated-contracts;
+#scroll sepolia  
+yarn workspace @warp-toad/backend hardhat ignition verify chain-534351 --include-unrelated-contracts;
+
+```
 
 ## bridge
 #### sandbox 
 ```shell
 yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --isAztec
+```
+#### sepolia
+aztec
+```shell
+yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --L1Rpc UrUrl --L2Rpc http://localhost:8080/ --privatekey 0xUrPrivateKey --isAztec
 ```
 
 ## test contracts

@@ -23,10 +23,15 @@ ignition/deployments/chain-31337
 backend/ignition/deployments/chain-31337
 
 # aztec contracts
-backend/contracts/aztec/L2AztecRootBridgeAdapter/target
+backend/contracts/aztec/L2AztecBridgeAdapter/target
+backend/contracts/aztec/L2AztecBridgeAdapter/src/artifacts
+backend/contracts/aztec/L2AztecBridgeAdapter/codegenCache.json
+
 backend/contracts/aztec/WarpToadCore/target
-backend/contracts/aztec/L2AztecRootBridgeAdapter/codegenCache.json
+backend/contracts/aztec/WarpToadCore/src/artifacts
 backend/contracts/aztec/WarpToadCore/codegenCache.json
+
+backend/scripts/deploy/aztecDeployments/31337
 
 # circuit
 backend/circuits/withdraw/target

@@ -10,6 +10,9 @@ import { ERC20__factory, USDcoin__factory } from "../../typechain-types";
 
 import er20Abi from "../dev_op/erc20ABI.json"
 
+// const L1_SCROLL_MESSENGER = IS_MAINNET ? "0x6774Bcbd5ceCeF1336b5300fb5186a12DDD8b367" : "0x50c7d3e7f7c656493D1D76aaa1a836CedfCBB16A"
+// const L2_SCROLL_MESSENGER =  IS_MAINNET ? "0x781e90f1c8Fc4611c9b7497C3B47F99Ef6969CbC" : "0xBa50f5340FB9F3Bd074bD638c9BE13eCB36E603d"
+
 async function main() {
     //--------arguments-------------------
     // cant pass arguments like flags with hardhat. so it like `NATIVE_TOKEN_ADDRESS=0xurTokenAddress hardhat run` instead
@@ -37,13 +40,16 @@ async function main() {
             }
         },
     });
-
+    const chainId = (await provider.getNetwork()).chainId
+    const IS_MAINNET = chainId === 1n
+    const L1ScrollMessengerAddress = IS_MAINNET ? "0x6774Bcbd5ceCeF1336b5300fb5186a12DDD8b367" : "0x50c7d3e7f7c656493D1D76aaa1a836CedfCBB16A"
     //--------------------infra------------------------
-    const  {gigaBridge, L1AztecRootBridgeAdapter} = await hre.ignition.deploy(L1InfraModule, {
+    const  {gigaBridge, L1AztecBridgeAdapter, L1ScrollBridgeAdapter} = await hre.ignition.deploy(L1InfraModule, {
         parameters: {
             L1InfraModule: {
                 LazyIMTLibAddress:LazyIMTLib.target,
-                L1WarpToadAddress:L1WarpToad.target
+                L1WarpToadAddress:L1WarpToad.target,
+                L1ScrollMessengerAddress: L1ScrollMessengerAddress
             }
         },
     });    
@@ -57,7 +63,8 @@ async function main() {
         L1WarpToad:                 ${L1WarpToad.target}
         withdrawVerifier:           ${withdrawVerifier.target}
         
-        L1AztecRootBridgeAdapter:   ${L1AztecRootBridgeAdapter.target}
+        L1AztecBridgeAdapter:       ${L1AztecBridgeAdapter.target}
+        L1ScrollBridgeAdapter:      ${L1ScrollBridgeAdapter.target}
     `)
 
 }

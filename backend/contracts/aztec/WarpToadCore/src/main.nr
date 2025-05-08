@@ -86,6 +86,8 @@ pub contract WarpToadCore {
         storage.decimals.initialize(_decimals); // cant be set too high since we use u64 which cant support large numbers
         storage.deployer.initialize(context.msg_sender());
     }
+
+    // @TODO can also be done in constructor 
     #[public]
     fn initialize(_giga_root_provider: AztecAddress, _l1_bridge_adapter: EthAddress) {
         assert(context.msg_sender() == storage.deployer.read(), "you're not the deployer.");

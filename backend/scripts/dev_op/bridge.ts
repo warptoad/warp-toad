@@ -2,45 +2,102 @@ import { ArgumentParser } from 'argparse';
 import fs from "fs/promises";
 import { getContractAddressesAztec, getContractAddressesEvm } from './getDeployedAddresses';
 import { ethers, NonceManager } from 'ethers';
-import { bridgeNoteHashTreeRoot, receiveGigaRootOnAztec, sendGigaRoot, updateGigaRoot } from '../lib/bridging';
+import { bridgeNoteHashTreeRoot, receiveGigaRootOnAztec, sendGigaRoot, updateGigaRoot, waitForBlocksAztec } from '../lib/bridging';
 //@ts-ignore
-import { createPXEClient, PXE, waitForPXE, Wallet as aztecWallet, AztecAddressLike } from '@aztec/aztec.js';
+import { createPXEClient, PXE, waitForPXE, Wallet as aztecWallet, AztecAddressLike, GrumpkinScalar, createAztecNodeClient, AztecAddress, Fr } from '@aztec/aztec.js';
 //@ts-ignore
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
-import { GigaRootBridge__factory, L1AztecRootBridgeAdapter__factory } from '../../typechain-types';
-import { L2AztecRootBridgeAdapterContract } from '../../contracts/aztec/L2AztecRootBridgeAdapter/src/artifacts/L2AztecRootBridgeAdapter';
-import { WarpToadCoreContract } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore';
+import { GigaBridge__factory, L1AztecBridgeAdapter__factory } from '../../typechain-types';
+import { L2AztecBridgeAdapterContract, L2AztecBridgeAdapterContractArtifact } from '../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter';
+import { WarpToadCoreContract, WarpToadCoreContractArtifact } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore';
+//@ts-ignore
+import { computePartialAddress } from '@aztec/stdlib/contract';
+import { getObsidionDeployerFPCWallet } from './getObsidionWallet/getObsidionWallet';
 
 
 async function getLocalRootProviders(chainId: bigint) {
     const contracts = await getContractAddressesEvm(chainId)
-    return [contracts["L1WarpToadModule#L1WarpToad"], contracts["L1InfraModule#L1AztecRootBridgeAdapter"]]
+    return [contracts["L1WarpToadModule#L1WarpToad"], contracts["L1InfraModule#L1AztecBridgeAdapter"]]
 }
+const OBSIDION_DEPLOYER_FPC_ADDRESS = AztecAddress.fromField(Fr.fromHexString("0x19f8873315cad78e160bdcb686bcdc8bd3760ca215966b677b79ba2cfb68c1b5"))
+const OBSIDION_DEPLOYER_SECRET_KEY = "0x00"
+const AZTEC_NODE_URL = "https://full-node.alpha-testnet.aztec.network"
+import { ObsidionDeployerFPCContractArtifact } from "./getObsidionWallet/ObsidionDeployerFPC"
+const delay = async (timeInMs: number) => await new Promise((resolve) => setTimeout(resolve, timeInMs))
 
-async function connectPXE(PXE_URL:string) {
+
+async function connectPXE(PXE_URL: string, aztecPrivatekey: string) {
     console.log("creating PXE client")
     const PXE = createPXEClient(PXE_URL);
     console.log("waiting on PXE client", PXE_URL)
     await waitForPXE(PXE);
+    if (aztecPrivatekey === "sandbox") {
+        console.log(`--aztecPrivatekey is either not set or was set to "${aztecPrivatekey}". using getInitialTestAccountsWallets, this ONLY works on sandbox!!`)
+        const aztecWallet = (await getInitialTestAccountsWallets(PXE))[0];
+        return { aztecWallet, PXE }
+    } else {
+        const obsidionDeployerFPCSigningKey = GrumpkinScalar.fromHexString(aztecPrivatekey as string)
+        console.warn("assuming ur on testnet/mainnet since chainId is NOT 31337")
+        //await getObsidionDeployerFPC(pxe, nodeUrl,obsidionDeployerFPCAddress,obsidionDeployerFPCSigningKey.toField().toString(),OBSIDION_DEPLOYER_SECRET_KEY)
+        const node = createAztecNodeClient(AZTEC_NODE_URL)
+        const contract = await node.getContract(OBSIDION_DEPLOYER_FPC_ADDRESS as any)
+        if (!contract) {
+            throw new Error("Contract not found")
+        }
+        await delay(10000)
 
-    console.log("getting test accounts this will break outside of sanbox")
-    const aztecWallet = (await getInitialTestAccountsWallets(PXE))[0];
-    return { aztecWallet, PXE }
+        await PXE.registerAccount(
+            Fr.fromString(OBSIDION_DEPLOYER_SECRET_KEY),
+            await computePartialAddress(contract as any) as any as Fr,
+        )
+        await delay(10000)
+        await PXE.registerContract({
+            instance: contract as any,
+            artifact: ObsidionDeployerFPCContractArtifact,
+        })
+        await delay(10000)
+        const aztecWallet = await getObsidionDeployerFPCWallet(PXE, OBSIDION_DEPLOYER_FPC_ADDRESS, obsidionDeployerFPCSigningKey)
+        return { aztecWallet, PXE }
+    }
+
+
+
 }
 
-async function getL1Contracts(l1ChainId:bigint, signer:ethers.Signer) {
+async function getL1Contracts(l1ChainId: bigint, signer: ethers.Signer) {
     const contracts = await getContractAddressesEvm(l1ChainId)
-    const gigaBridge = GigaRootBridge__factory.connect(contracts["L1InfraModule#GigaRootBridge"], signer)
-    const L1AztecRootBridgeAdapter = L1AztecRootBridgeAdapter__factory.connect(contracts["L1InfraModule#L1AztecRootBridgeAdapter"], signer)
-    return {L1AztecRootBridgeAdapter, gigaBridge}
+    const gigaBridge = GigaBridge__factory.connect(contracts["L1InfraModule#GigaBridge"], signer)
+    const L1AztecBridgeAdapter = L1AztecBridgeAdapter__factory.connect(contracts["L1InfraModule#L1AztecBridgeAdapter"], signer)
+    return { L1AztecBridgeAdapter, gigaBridge }
 
 }
 
-async function getAztecContracts(aztecWallet: aztecWallet|any, chainId:number) {
+async function getAztecContracts(aztecWallet: aztecWallet | any, chainId: number, PXE:PXE) {
+    const isSandBox = BigInt(chainId) === 31337n
     const contracts = await getContractAddressesAztec(chainId)
-    const L2AztecRootBridgeAdapter =await L2AztecRootBridgeAdapterContract.at(contracts["L2AztecRootBridgeAdapter"], aztecWallet)
-    const AztecWarpToad =await WarpToadCoreContract.at(contracts["AztecWarpToad"], aztecWallet)
-    return {L2AztecRootBridgeAdapter, AztecWarpToad}   
+
+    const L2AztecAdapterAddress = contracts["L2AztecBridgeAdapter"]
+    const AztecWarpToadAddress = contracts["AztecWarpToad"]
+
+    if (!isSandBox) {
+        const node = createAztecNodeClient(AZTEC_NODE_URL)
+        const AztecWarpToadContract = await node.getContract(AztecWarpToadAddress as any)
+        await PXE.registerContract({
+            instance: AztecWarpToadContract as any,
+            artifact: WarpToadCoreContractArtifact,
+        })
+        await delay(10000)
+        const L2AztecAdapterContract = await node.getContract(L2AztecAdapterAddress as any)
+        await PXE.registerContract({
+            instance: L2AztecAdapterContract as any,
+            artifact: L2AztecBridgeAdapterContractArtifact,
+        })
+        await delay(10000)
+    }
+
+    const L2AztecBridgeAdapter = await L2AztecBridgeAdapterContract.at(L2AztecAdapterAddress, aztecWallet)
+    const AztecWarpToad = await WarpToadCoreContract.at(AztecWarpToadAddress, aztecWallet)
+    return { L2AztecBridgeAdapter, AztecWarpToad }
 }
 
 async function main() {
@@ -51,8 +108,8 @@ async function main() {
 
 
     parser.add_argument('-a', '--isAztec', { help: 'is it aztec L2 or EVM L2?', required: true, default: true, action: 'store_true' });
-    parser.add_argument('-p', '--privatekey', { help: 'give me ur privatekey you can trust me! Defaults to standard anvil key', required: false, default: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" });
-
+    parser.add_argument('-ep', '--evmPrivatekey', { help: 'give me ur evmPrivatekey you can trust me! Defaults to standard anvil key', required: false, default: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" });
+    parser.add_argument('-ap', '--aztecPrivatekey', { help: 'give me ur aztecPrivatekey you can trust me! Defaults to getInitialTestAccountsWallets() but that only works on sandbox', required: false, default: "sandbox" });
     parser.add_argument('-l', '--localRootProviders', { help: 'a list of contracts to get the localroots from on L1 (can be L1Warptoad or/and any L1<l2name>adapter)', required: false, type: 'str' });
     parser.add_argument('-g', '--gigaRootRecipients', { help: 'a list of contracts to send the gigaRoot to on L1 (can be L1Warptoad or/and any L1<l2name>adapter)', required: false, type: 'str' });
     parser.add_argument('-1', '--L1Rpc', { help: 'url for the ethereum L1 rpc', required: false, type: 'str', default: "http://localhost:8545" });
@@ -60,63 +117,71 @@ async function main() {
 
     const args = parser.parse_args()
     const l1Provider = new ethers.JsonRpcProvider(args.L1Rpc);
-    const l1Wallet = new ethers.Wallet(args.privatekey, l1Provider);
+    const l1Wallet = new ethers.Wallet(args.evmPrivatekey, l1Provider);
     const l1ChainId = (await l1Provider.getNetwork()).chainId
 
-    const {PXE, aztecWallet} = args.isAztec ? await connectPXE(args.L2Rpc): {PXE:undefined, aztecWallet:undefined}
+    const { PXE, aztecWallet } = args.isAztec ? await connectPXE(args.L2Rpc, args.aztecPrivatekey) : { PXE: undefined, aztecWallet: undefined }
 
     const localRootProviders = args.localRootProviders ? args.localRootProviders : await getLocalRootProviders(l1ChainId)
     const gigaRootRecipients = args.gigaRootRecipients ? args.gigaRootRecipients : await getLocalRootProviders(l1ChainId)
-
-    const {L1AztecRootBridgeAdapter, gigaBridge} = await getL1Contracts(l1ChainId, l1Wallet)
-    const {L2AztecRootBridgeAdapter, AztecWarpToad} =  args.isAztec ?  await getAztecContracts(aztecWallet, Number(l1ChainId)) : {L2AztecRootBridgeAdapter:undefined, AztecWarpToad:undefined}
-    
-    //The L2ToL1Message you are trying to prove inclusion of does not exist
-    //await AztecWarpToad?.methods.mint_for_testing(1n, aztecWallet?.getAddress() as AztecAddressLike).send().wait();
+    const { L1AztecBridgeAdapter, gigaBridge } = await getL1Contracts(l1ChainId, l1Wallet)
+    const { L2AztecBridgeAdapter, AztecWarpToad } = args.isAztec ? await getAztecContracts(aztecWallet, Number(l1ChainId), PXE as PXE) : { L2AztecBridgeAdapter: undefined, AztecWarpToad: undefined }
+    const isSandBox = l1ChainId === 31337n 
     //------- bridge localRoot L1->l2---------
     if (args.isAztec) {
-        try {
-            const { sendRootToL1Tx, refreshRootTx, PXE_L2Root } = await bridgeNoteHashTreeRoot(
-                PXE as PXE,
-                L2AztecRootBridgeAdapter as L2AztecRootBridgeAdapterContract,
-                L1AztecRootBridgeAdapter,
-                l1Provider
-            )
-            console.log({sendRootToL1Tx:sendRootToL1Tx.txHash,refreshRootTx:refreshRootTx.hash, PXE_L2Root:PXE_L2Root.toBigInt()})
+        const { sendRootToL1Tx, refreshRootTx, PXE_L2Root } = await bridgeNoteHashTreeRoot(
+            PXE as PXE,
+            L2AztecBridgeAdapter as L2AztecBridgeAdapterContract,
+            L1AztecBridgeAdapter,
+            l1Provider
+        )
+        const gigaRootPreBridge = await gigaBridge.gigaRoot()
+        console.log({ sendRootToL1Tx: sendRootToL1Tx.txHash.hash, refreshRootTx: refreshRootTx.hash, PXE_L2Root: PXE_L2Root.toBigInt(), gigaRootPreBridge })
+        // try {
+        //     const { sendRootToL1Tx, refreshRootTx, PXE_L2Root } = await bridgeNoteHashTreeRoot(
+        //         PXE as PXE,
+        //         L2AztecBridgeAdapter as L2AztecBridgeAdapterContract,
+        //         L1AztecBridgeAdapter,
+        //         l1Provider
+        //     )
+        //     const gigaRootPreBridge = await gigaBridge.gigaRoot()
+        //     console.log({ sendRootToL1Tx: sendRootToL1Tx.txHash.hash, refreshRootTx: refreshRootTx.hash, PXE_L2Root: PXE_L2Root.toBigInt(), gigaRootPreBridge })
 
-        } catch (error) {
-            console.error(error)
-            throw new Error("DEBUG HINT!!!!: THIS LIKELY HAPPENED BECAUSE YOU FORGOT TO INITIALIZE THE CONTRACTS YOU DUMMY!!!")
-            
-        }
+        // } catch (error) {
+        //     console.error(error)
+        //     throw new Error("DEBUG HINT!!!!: THIS LIKELY HAPPENED BECAUSE YOU FORGOT TO INITIALIZE THE CONTRACTS YOU DUMMY!!!")
+
+        // }
     } else {
         //normal evm things
     }
 
 
     //--- collect localRoots from adapters and send a giga root back--------------
-        const {gigaRootUpdateTx} = await updateGigaRoot(
-            gigaBridge,
-            localRootProviders,
-        )
-        const {sendGigaRootTx} = await sendGigaRoot(
-            gigaBridge,
-            gigaRootRecipients,
-        )
-        console.log({gigaRootUpdateTx:gigaRootUpdateTx.hash,sendGigaRootTx:sendGigaRootTx.hash})
+    const { gigaRootUpdateTx } = await updateGigaRoot(
+        gigaBridge,
+        localRootProviders,
+    )
+    const { sendGigaRootTx } = await sendGigaRoot(
+        gigaBridge,
+        gigaRootRecipients,
+    )
+    const updatedGigaRoot = await gigaBridge.gigaRoot()
+    console.log({ gigaRootUpdateTx: gigaRootUpdateTx.hash, sendGigaRootTx: sendGigaRootTx.hash, updatedGigaRoot })
 
 
     // ------- retrieve the giga root from the adapters on L2 and send them to the toads!!! ----------
     if (args.isAztec) {
-        const {update_gigarootTx} = await receiveGigaRootOnAztec(
-            L2AztecRootBridgeAdapter as L2AztecRootBridgeAdapterContract,
-            L1AztecRootBridgeAdapter,
+        const { receive_giga_rootTx } = await receiveGigaRootOnAztec(
+            L2AztecBridgeAdapter as L2AztecBridgeAdapterContract,
+            L1AztecBridgeAdapter,
             AztecWarpToad as WarpToadCoreContract,
             sendGigaRootTx,
             PXE as PXE,
             true
         )
-        console.log({update_gigarootTx:update_gigarootTx.txHash})
+        const gigaRootOnAztec = await AztecWarpToad?.methods.get_giga_root().simulate()
+        console.log({ receive_giga_rootTx: receive_giga_rootTx.txHash.hash, gigaRootOnAztec })
     } else {
         //normal evm things
     }
