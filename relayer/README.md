@@ -4,7 +4,7 @@ This is a small webserver for executing warp toad contract calls for others. Thi
 
 # Running
 
-By default it will run locally at port 8000. Requires env vars `PROVIDER_URL`, `CONTRACT_ADDRESS` (of warptoad on L1), `MIN_PROFIT_USD` (min profit to execute a transaction. Leave empty to relay every transaction, even at a loss) and `PRIVATE_KEY`.
+By default it will run locally at port 8000. Requires env vars `PROVIDER_URL`, `MIN_PROFIT_USD` (min profit to execute a transaction. Leave empty to relay every transaction, even at a loss) `PRIVATE_KEY`, and `PUBLIC_KEY`.
 
 After setting your `.env`, source it with `source .env`.
 Run with `cargo run` (dev) or `cargo run --release` (prod).
@@ -15,10 +15,11 @@ If you run into issues after getting it to work once or twice it's likely your r
 
 # Relaying `mint` transactions
 
-Simply make a post request to this application with a json body of the form:
+Simply make a post request to this application with a json body. `contract_address` is the address of the warp-toad contract that you're calling mint on and the rest are `mint` function arguments.
 
 ```
 {
+ contract_address: String,
     nullifier: String,
     amount: String,
     giga_root: String,

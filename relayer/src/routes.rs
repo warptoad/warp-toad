@@ -1,13 +1,7 @@
 use crate::types::{
     AppState, CONTRACT_ABI_PATH, MINT_FUNCTION_NAME, MintTransactionRequest, TransactionResponse,
 };
-use alloy::{
-    contract::{CallBuilder, ContractInstance, Interface},
-    eips::BlockId,
-    json_abi::Function,
-    network::Ethereum,
-    providers::{DynProvider, Provider},
-};
+use alloy::contract::{ContractInstance, Interface};
 use rocket::{State, post, serde::json::Json};
 
 #[get("/")]
@@ -39,7 +33,8 @@ pub async fn mint(
     let abi_value = json.get("abi").expect("Failed to get ABI from artifact");
     let abi = serde_json::from_str(&abi_value.to_string()).unwrap();
 
-    let contract_address = state.contract_address;
+    let (contract_address, function_args) = request.to_args();
+
     let contract = ContractInstance::new(
         contract_address,
         state.provider.clone(),
@@ -47,7 +42,6 @@ pub async fn mint(
     );
 
     let function_name = MINT_FUNCTION_NAME;
-    let function_args = request.to_args();
     let call_builder = match contract.function(function_name, &function_args) {
         Ok(c) => c,
         Err(e) => {
