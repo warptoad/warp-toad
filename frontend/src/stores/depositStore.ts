@@ -437,41 +437,35 @@ export async function evmStartBridge() {
 }
 
 
-export async function mintOnL2(preImg: CommitmentPreImg) {
-
-    //set test wallet:
-    const { PXE_URL = 'http://localhost:8080' } = process.env;
-    const PXE = createPXEClient(PXE_URL);
-    await waitForPXE(PXE);
-    const wallets = await getInitialTestAccountsWallets(PXE);
-    const userWallet = wallets[0]
-
-
+export async function mintOnL2() {
     const evmWallet = get(evmWalletStore);
+    const aztecWallet = get(aztecWalletStore);
+    const warptoadNote = get(warptoadNoteStore);
+    if(!aztecWallet||!evmWallet){
+        console.log("ERROR ONE OR MORE WALLETS SEEM TO BE NOT CONNECTED")
+        return;
+    }
+    if(!warptoadNote){
+        console.log("ERROR WARPTOADNOTE HAS NOT BEEN SUPPLIED")
+        return;
+    }
 
     const AztecWarpToad = await Contract.at(
         AztecAddress.fromString("0x1aaf11fba8aacaf6ae91931551aabcd48ef852ae18ef01c972c86e83bae3c888"),
         WarpToadCoreContractArtifact,
-        userWallet,
+        aztecWallet,
     );
 
-
-    const balanceRecipientPreMint = await AztecWarpToad.methods.balance_of(userWallet.getAddress()).simulate()
-    console.log("aztec balance before claim: " + balanceRecipientPreMint)
-
-    const preCommitment = hashPreCommitment(preImg)
+    16235081288127640923703046654400363230650483884366251302986749729950242176066
 
 
     const gigaBridge = GigaRootBridge__factory.connect(deployedEvmAddresses["L1InfraModule#GigaRootBridge"], evmWallet?.signer)
     const l1WarptoadContract = new ethers.Contract("0xc5a5C42992dECbae36851359345FE25997F5C42d", warptoadAbi, evmWallet?.signer);
 
+    console.log(warptoadNote);
 
 
-    const commitment = hashCommitment(preCommitment, 5000000000000000000n);
-
-
-
-    const aztecMerkleData = await getMerkleData(gigaBridge, l1WarptoadContract as unknown as WarpToadEvm, AztecWarpToad as unknown as WarpToadAztec, commitment)
+    const aztecMerkleData = await getMerkleData(gigaBridge, l1WarptoadContract as unknown as WarpToadEvm, AztecWarpToad as unknown as WarpToadAztec, warptoadNote.commitment)
     console.log(aztecMerkleData);
     if (!aztecMerkleData) {
         console.log("did not manage to get aztec Merkle Data");
@@ -479,10 +473,10 @@ export async function mintOnL2(preImg: CommitmentPreImg) {
     }
 
     const mintTx = await AztecWarpToad.methods.mint_giga_root_evm(
-        5000000000000000000n,
-        preImg.secret,
-        preImg.nullifier_preimg,
-        userWallet.getAddress(),
+        warptoadNote.preImg.amount,
+        warptoadNote.preImg.secret,
+        warptoadNote.preImg.nullifier_preimg,
+        aztecWallet.getAddress(),
         aztecMerkleData.blockNumber,
         aztecMerkleData.originLocalRoot,
         aztecMerkleData.gigaMerkleData, // no way i am gonna spend time getting this type right >:(
@@ -493,7 +487,7 @@ export async function mintOnL2(preImg: CommitmentPreImg) {
 
 
     console.log(mintTx);
-    const balanceRecipientPostMint = await AztecWarpToad.methods.balance_of(userWallet.getAddress()).simulate()
+    const balanceRecipientPostMint = await AztecWarpToad.methods.balance_of(aztecWallet.getAddress()).simulate()
     console.log("aztec balance after claim: " + balanceRecipientPostMint)
 }
 

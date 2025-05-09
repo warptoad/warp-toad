@@ -6,6 +6,7 @@
   import Draggable from "./lib/Draggable.svelte";
   import DepositApplication from "./lib/applications/DepositApplication.svelte";
   import WalletTest from "./lib/WalletTest.svelte";
+    import WithdrawAppliaction from "./lib/applications/WithdrawApplication.svelte";
 
   let isDepositOpen = false;
   let isWithdrawOpen = true;
@@ -48,10 +49,7 @@
     width={50}
     bind:isVisible={isWithdrawOpen}
   >
-    <div class="w-full h-full grid text-center justify-center">
-      <p>*qwark*</p>
-      <img src={placeHolderLogo} alt="warptoad" draggable="false" />
-    </div>
+  <WithdrawAppliaction />
   </Draggable>
   <div class="flex-grow flex justify-center items-center">
     <ApplicationContainer

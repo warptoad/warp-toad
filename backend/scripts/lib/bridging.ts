@@ -25,6 +25,12 @@ export async function bridgeNoteHashTreeRoot(
     L1AztecRootBridgeAdapter: L1AztecRootBridgeAdapter,
     provider: ethers.Provider,
 ) {
+
+    await L2AztecRootBridgeAdapter.methods.count(4n).send().wait();
+
+    await L2AztecRootBridgeAdapter.methods.count(4n).send().wait();
+
+    await L2AztecRootBridgeAdapter.methods.count(4n).send().wait();
     const blockNumberOfRoot = await PXE.getBlockNumber();
     const PXE_L2Root = (await PXE.getBlock(blockNumberOfRoot))?.header.state.partial.noteHashTree.root as Fr
     const sendRootToL1Tx = await L2AztecRootBridgeAdapter.methods.send_root_to_l1(blockNumberOfRoot).send().wait();

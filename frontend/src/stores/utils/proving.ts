@@ -78,6 +78,8 @@ export async function getGigaMerkleData(gigaBridge: GigaRootBridge, localRoot: b
     const filter = gigaBridge.filters.ReceivedNewLocalRoot(undefined, allRootIndexes, undefined)
     const events = await gigaBridge.queryFilter(filter, 0, gigaRootBlockNumber)
 
+    console.log("we in here?")
+
     const eventsPerIndex = events.reduce((newObj: any, event) => {
         const index = ethers.toBeHex(event.args[1])
         if (index in newObj) {
@@ -87,6 +89,8 @@ export async function getGigaMerkleData(gigaBridge: GigaRootBridge, localRoot: b
         }
         return newObj
     }, {})
+
+    console.log("we in here?2")
 
     let sortedLeafs = [];
     for (const index of allRootIndexes) {
@@ -98,10 +102,15 @@ export async function getGigaMerkleData(gigaBridge: GigaRootBridge, localRoot: b
         }
     }
 
+
+    console.log("we in here?3")
     //@ts-ignore
     const hashFunc = (left, right) => poseidon2([left, right])
     //@ts-ignore
     const tree = new MerkleTree(treeDepth, sortedLeafs, { hashFunction: hashFunc })
+
+    console.log("we in here?4")
+    console.log(ethers.toBeHex(localRootIndex))
     const merkleData = {
         leaf_index: ethers.toBeHex(localRootIndex),
         hash_path: tree.proof(localRoot as any as Element).pathElements.map((e) => ethers.toBeHex(e)) // TODO actually take typescript seriously at some point
@@ -207,16 +216,22 @@ export async function getMerkleData(gigaBridge: GigaRootBridge, warpToadOrigin: 
     let gigaMerkleData;
     let destinationLocalRootL2Block;
     if (isOnlyLocal) {
+        console.log("we good?")
         // get local root directly from the contract instead of extracting it from the gigaRoot (we wont use gigaRoot anyway)
         const { blockNumber, localRoot } = isFromAztec ? await getAztecLocalData() : await getEvmLocalData(warpToadOrigin)
         destinationLocalRootL2Block = blockNumber
         originLocalRoot = localRoot
         gigaMerkleData = emptyGigaMerkleData
     } else {
+        console.log("we not good")
         // you need to get the local root from the event that created the gigaRoot. Other wise you might end up using a local root that hasn't been bridged into a gigaRoot yet ☝🤓
         const gigaRootBlockNumber = await getGigaRootBlockNumber(gigaBridge, gigaRoot)
+        console.log("we not good1")
         const { localRoot, localRootL2BlockNumber, localRootIndex: originLocalRootIndex } = await getLocalRootInGigaRoot(gigaBridge, gigaRoot, gigaRootBlockNumber, warpToadOrigin)
-        originLocalRoot = localRoot
+       
+        console.log("we not good2")
+         originLocalRoot = localRoot
+         console.log("we not good3")
         destinationLocalRootL2Block = localRootL2BlockNumber;
 
         gigaMerkleData = await getGigaMerkleData(gigaBridge, originLocalRoot, originLocalRootIndex, GIGA_TREE_DEPTH, gigaRootBlockNumber)

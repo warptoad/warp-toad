@@ -99,12 +99,14 @@ async function main() {
             gigaBridge,
             localRootProviders,
         )
+        
         const {sendGigaRootTx} = await sendGigaRoot(
             gigaBridge,
             gigaRootRecipients,
         )
         console.log({gigaRootUpdateTx:gigaRootUpdateTx.hash,sendGigaRootTx:sendGigaRootTx.hash})
-
+        console.log({localRootProviders})
+        console.log({gigaRootRecipients})
 
     // ------- retrieve the giga root from the adapters on L2 and send them to the toads!!! ----------
     if (args.isAztec) {
