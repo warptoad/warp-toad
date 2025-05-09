@@ -1,12 +1,9 @@
 import { get, writable } from 'svelte/store';
-import { AztecWalletSdk, obsidion } from "@nemi-fi/wallet-sdk";
-import type { Account } from "@nemi-fi/wallet-sdk";
 import { ethers } from 'ethers';
 import { EVM_CHAINS } from '../lib/networks/network';
 import { evmWalletStore, aztecWalletStore, getTokenAddress, getTokenBalance } from './walletStore';
 import { usdcAbi } from '../lib/tokens/usdcAbi';
 import { abi as warptoadAbi } from '../artifacts/l1WarpToad';
-import { Contract } from "@nemi-fi/wallet-sdk/eip1193";
 import { AztecAddress, createAztecNodeClient, createPXEClient, Fr, waitForPXE } from '@aztec/aztec.js';
 import { WarpToadCoreContractArtifact } from '../artifacts/WarpToadCore';
 import { poseidon2, poseidon3 } from 'poseidon-lite';
@@ -15,11 +12,9 @@ import { GigaRootBridge__factory, type L1WarpToad, } from '../../../backend/type
 import deployedEvmAddresses from "../../../backend/ignition/deployments/chain-31337/deployed_addresses.json"
 import type { GigaRootBridge, WarpToadCore as WarpToadEvm } from "../../../backend/typechain-types";
 import { WarpToadCoreContract as WarpToadAztec } from '../../../backend/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
-import { deriveSigningKey } from '@aztec/stdlib/keys'
-import { getSchnorrAccount } from '@aztec/accounts/schnorr/lazy';
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
 //obsidion remover:
-import { Contract as OgContract } from "@aztec/aztec.js";
+import { Contract  } from "@aztec/aztec.js";
 
 //OBSIDION CONSTANTS
 
@@ -292,7 +287,7 @@ export async function wrapToken() {
 
 export async function getChainIdAztecFromContract() {
     const aztecWallet = get(aztecWalletStore);
-    if (!aztecWallet || !aztecWallet.aztecNode) {
+    if (!aztecWallet ) {
         console.warn('EVM wallet not connected');
         return;
     }
@@ -305,7 +300,7 @@ export async function getChainIdAztecFromContract() {
 
 
 
-    const aztecVersion = (await aztecWallet.aztecNode.getNodeInfo()).rollupVersion;
+    const aztecVersion = (await aztecWallet.getNodeInfo()).rollupVersion;
     const chainIdAztecFromContract = await AztecWarpToad.methods.get_chain_id_unconstrained(aztecVersion).simulate() as bigint
     return chainIdAztecFromContract
 }
@@ -371,6 +366,21 @@ export async function burnToken(preCommitment1: bigint, amount: number) {
 }
 
 
+export async function showUSDCBalance(){
+    const aztecWallet = get(aztecWalletStore);
+    if(!aztecWallet){
+        return 0
+    } 
+    const AztecWarpToad = await Contract.at(
+        AztecAddress.fromString("0x1aaf11fba8aacaf6ae91931551aabcd48ef852ae18ef01c972c86e83bae3c888"),
+        WarpToadCoreContractArtifact,
+        aztecWallet,
+    );
+
+    
+    return await AztecWarpToad.methods.balance_of(aztecWallet.getAddress()).simulate()
+}
+
 
 export async function mintOnL2(preImg: CommitmentPreImg) {
 
@@ -384,7 +394,7 @@ export async function mintOnL2(preImg: CommitmentPreImg) {
 
     const evmWallet = get(evmWalletStore);
 
-    const AztecWarpToad = await OgContract.at(
+    const AztecWarpToad = await Contract.at(
         AztecAddress.fromString("0x1aaf11fba8aacaf6ae91931551aabcd48ef852ae18ef01c972c86e83bae3c888"),
         WarpToadCoreContractArtifact,
         userWallet,
@@ -444,7 +454,7 @@ export async function schnorrTest() {
     //got a wallet, now interact with contract:
     console.log("init contract");
 
-    const AztecWarpToad = await OgContract.at(
+    const AztecWarpToad = await Contract.at(
         AztecAddress.fromString("0x1aaf11fba8aacaf6ae91931551aabcd48ef852ae18ef01c972c86e83bae3c888"),
         WarpToadCoreContractArtifact,
         userWallet,

@@ -1,15 +1,25 @@
 <script lang="ts">
-    import type { Account } from "@nemi-fi/wallet-sdk";
     import {
-        connectObsidionWallet,
-        disconnectObsidionWallet,
+        connectAztecWallet,
+        disconnectAztecWallet,
         isWalletConnected,
         aztecWalletStore,
         truncateAddress,
     } from "../../stores/walletStore";
 
-    let aztecWallet: Account | undefined;
+    import { showUSDCBalance } from "../../stores/depositStore";
+
+    import { type Wallet } from "@aztec/aztec.js";
+    import { ethers } from "ethers";
+
+    let aztecWallet: Wallet | undefined;
     $: $aztecWalletStore, (aztecWallet = $aztecWalletStore);
+
+    let currentBalance = 0n;
+
+    async function handleBalanceDisplay(){
+        currentBalance= await showUSDCBalance();
+    }
 </script>
 
 <div class="h-full flex flex-col gap-2">
@@ -60,14 +70,22 @@
                 <p>Aztec Address</p>
                 <p>{truncateAddress(aztecWallet?.getAddress().toString()!)}</p>
             </div>
+            <div>
+                <button
+                    class="btn btn-ghost btn-outline border-[rgba(255,255,255,.25)] w-full flex items-center gap-2 px-2 py-6"
+                    on:click={handleBalanceDisplay}
+                >
+                    USDC balance: {Number(ethers.formatUnits(currentBalance, 18)).toFixed(2)}
+                </button>
+            </div>
             <button
                 class="btn btn-error w-full flex items-center gap-2 justify-start px-2 py-6"
-                on:click={disconnectObsidionWallet}
+                on:click={disconnectAztecWallet}
             >
                 <div class="bg-white p-1 rounded-md">
                     <img
-                        src="./logos/wallets/obsidion.svg"
-                        alt="obsidion wallet logo"
+                        src="./logos/wallets/aztec.svg"
+                        alt="aztec wallet logo"
                         class="size-[28px]"
                     />
                 </div>
@@ -76,16 +94,16 @@
         {:else}
             <button
                 class="btn btn-ghost btn-outline border-[rgba(255,255,255,.25)] w-full flex items-center gap-2 justify-start px-2 py-6"
-                on:click={connectObsidionWallet}
+                on:click={connectAztecWallet}
             >
                 <div class="bg-white p-1 rounded-md">
                     <img
-                        src="./logos/wallets/obsidion.svg"
-                        alt="obsidion wallet logo"
+                        src="./logos/wallets/aztec.svg"
+                        alt="aztec wallet logo"
                         class="size-[28px]"
                     />
                 </div>
-                Obsidion
+                Aztec Test Wallet
             </button>
         {/if}
     </div>

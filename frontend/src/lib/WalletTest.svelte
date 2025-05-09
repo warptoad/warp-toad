@@ -1,27 +1,24 @@
 <script lang="ts">
-  import type { Account } from "@nemi-fi/wallet-sdk";
-  import { Contract } from "@nemi-fi/wallet-sdk/eip1193";
   import {
     evmWalletStore,
     aztecWalletStore,
-    sdk,
     isWalletConnected,
   } from "../stores/walletStore";
   import type { EvmAccount } from "../stores/walletStore";
   import { L2AztecRootBridgeAdapterContractArtifact } from "../artifacts/L2AztecRootBridgeAdapter";
   import { WarpToadCoreContractArtifact } from "../artifacts/WarpToadCore";
 
-  import { AztecAddress, Fr } from "@aztec/aztec.js";
+  import { AztecAddress, Fr, type Wallet, Contract } from "@aztec/aztec.js";
   import { ethers } from "ethers";
 
   let evmWallet: EvmAccount | undefined;
-  let aztecWallet: Account | undefined;
+  let aztecWallet: Wallet | undefined;
 
   // Subscribe to the account store
   $: $evmWalletStore, (evmWallet = $evmWalletStore);
   $: $aztecWalletStore, (aztecWallet = $aztecWalletStore);
 
-  async function getAztecContracts(aztecWallet: Account) {
+  async function getAztecContracts(aztecWallet: Wallet) {
     const contracts = {
       AztecWarpToad:
         "0x1aaf11fba8aacaf6ae91931551aabcd48ef852ae18ef01c972c86e83bae3c888",
@@ -54,12 +51,11 @@
         ethers.toUtf8String(publicSymbol).replace(/\0/g, ""),
     );
 
-    const publicConfig = (await L2AztecRootBridgeAdapter.methods.get_config_public().simulate()).portal.inner
+    const publicConfig = (
+      await L2AztecRootBridgeAdapter.methods.get_config_public().simulate()
+    ).portal.inner;
 
     console.log("CONFIG:", new Fr(publicConfig).toString());
-
-
-    
 
     //return { L2AztecRootBridgeAdapter, AztecWarpToad };
   }

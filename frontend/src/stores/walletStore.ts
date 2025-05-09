@@ -1,10 +1,10 @@
 import { writable, get } from 'svelte/store';
-import { AztecWalletSdk, obsidion } from "@nemi-fi/wallet-sdk";
-import type { Account } from "@nemi-fi/wallet-sdk";
 import { ethers } from 'ethers';
 import { EVM_CHAINS } from '../lib/networks/network';
 import { usdcAbi } from '../lib/tokens/usdcAbi';
 import { TOKEN_LIST } from '../lib/tokens/tokens';
+import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
+import { createPXEClient, waitForPXE, type PXE, type Wallet } from '@aztec/aztec.js';
 
 //OBSIDION CONSTANTS
 export const NODE_URL = "http://localhost:8080";
@@ -17,14 +17,25 @@ export type EvmAccount = {
   currentNetwork: ethers.Network;
 }
 
-export const evmWalletStore = writable<EvmAccount | undefined>(undefined);
-export const aztecWalletStore = writable<Account | undefined>(undefined);
+/**
+ * //set test wallet:
+     const { PXE_URL = 'http://localhost:8080' } = process.env;
+     const PXE = createPXEClient(PXE_URL);
+     await waitForPXE(PXE);
+     const wallets = await getInitialTestAccountsWallets(PXE);
+     const userWallet = wallets[0]
+ */
 
-// Aztec Wallet SDK
-export const sdk = new AztecWalletSdk({
-  aztecNode: NODE_URL,
-  connectors: [obsidion({ walletUrl: WALLET_URL })],
-});
+export const evmWalletStore = writable<EvmAccount | undefined>(undefined);
+export const aztecWalletStore = writable<Wallet | undefined>(undefined);
+export const PXEStore = writable<PXE | undefined>(undefined);
+
+export async function instantiatePXE() {
+  const { PXE_URL = 'http://localhost:8080' } = process.env;
+  const PXE = createPXEClient(PXE_URL);
+  await waitForPXE(PXE);
+  PXEStore.set(PXE);
+}
 
 export function isWalletConnected(instance: any): boolean {
   return instance !== undefined;
@@ -52,6 +63,7 @@ export async function connectMetamaskWallet(): Promise<void> {
   window.ethereum.on('chainChanged', handleChainChanged);
 }
 
+//TODO???
 const handleChainChanged = async () => {
   try {
     const newProvider = new ethers.BrowserProvider(window.ethereum);
@@ -71,12 +83,20 @@ const handleChainChanged = async () => {
   }
 };
 
-export async function connectObsidionWallet(): Promise<void> {
-  aztecWalletStore.set(await sdk.connect("obsidion"));
+export async function connectAztecWallet(): Promise<void> {
+  await instantiatePXE();
+  const currentPXE = get(PXEStore);
+  if(!currentPXE){
+    console.log("error no PXE");
+    return;
+  }
+  const wallets = await getInitialTestAccountsWallets(currentPXE);
+  const userWallet = wallets[0] //TODO COME UP WITH SOMETHING FOR PRODUCTION WARNING only works on sandbox rn
+
+  aztecWalletStore.set(userWallet);
 }
 
-export async function disconnectObsidionWallet(): Promise<void> {
-  await sdk.disconnect();
+export async function disconnectAztecWallet(): Promise<void> {
   aztecWalletStore.set(undefined)
 }
 
