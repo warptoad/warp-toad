@@ -54,6 +54,13 @@
         ethers.toUtf8String(publicSymbol).replace(/\0/g, ""),
     );
 
+    const publicConfig = (await L2AztecRootBridgeAdapter.methods.get_config_public().simulate()).portal.inner
+
+    console.log("CONFIG:", new Fr(publicConfig).toString());
+
+
+    
+
     //return { L2AztecRootBridgeAdapter, AztecWarpToad };
   }
 </script>

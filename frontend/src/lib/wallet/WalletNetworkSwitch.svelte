@@ -6,6 +6,7 @@
         getNetworkLogoFromName,
         getNetworkLogoFromId,
         isWalletConnected,
+        getNetworkNameFromId,
     } from "../../stores/walletStore";
     import type { EvmAccount } from "../../stores/walletStore";
     import { EVM_CHAINS } from "../networks/network";
@@ -28,12 +29,12 @@
         <div tabindex="0" role="button" class="btn btn-soft p-2">
             <img
                 src={getNetworkLogoFromId(
-                    Number(evmWallet?.currentNetwork.chainId),
+                    Number(evmWallet?.currentNetwork.chainId)
                 )}
                 alt="current network logo"
                 class="h-full pr-1"
             />
-            {evmWallet?.currentNetwork.name}
+            {getNetworkNameFromId(Number(evmWallet?.currentNetwork.chainId))}
             <svg
                 xmlns="http://www.w3.org/2000/svg"
                 width="24"

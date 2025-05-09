@@ -3,6 +3,8 @@ import { AztecWalletSdk, obsidion } from "@nemi-fi/wallet-sdk";
 import type { Account } from "@nemi-fi/wallet-sdk";
 import { ethers } from 'ethers';
 import { EVM_CHAINS } from '../lib/networks/network';
+import { usdcAbi } from '../lib/tokens/usdcAbi';
+import { TOKEN_LIST } from '../lib/tokens/tokens';
 
 //OBSIDION CONSTANTS
 export const NODE_URL = "http://localhost:8080";
@@ -169,4 +171,52 @@ export function getNetworkNameFromId(chainId: number | string): string | undefin
   const chain = EVM_CHAINS.find(c => c.chainId.toLowerCase() === normalizedId);
   return chain?.id;
 }
+
+
+export async function mintTestTokens(amount: string = "10000000") {
+  const evmWallet = get(evmWalletStore);
+  if (!evmWallet) throw new Error("EVM wallet not connected");
+
+  const contractAddress = "0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f";
+  const contract = new ethers.Contract(contractAddress, usdcAbi, evmWallet.signer);
+
+  console.log(`Balance before: ${await contract.balanceOf(evmWallet.address)}`);
+
+  const decimals = await contract.decimals(); // optional, defaults to 18 if unknown
+  const amountInUnits = ethers.parseUnits(amount, decimals);
+
+  const tx = await contract.getFreeShit(amountInUnits);
+  await tx.wait(); // wait for confirmation
+
+  console.log(`Balance after: ${await contract.balanceOf(evmWallet.address)}`);
+}
+
+export function getTokenAddress(
+  chainType: "evm" | "aztec",
+  chainId: number | string,
+  tokenSymbol: string
+): string | undefined {
+  const normalizedId = typeof chainId === 'number'
+    ? `0x${chainId.toString(16)}`
+    : chainId.toLowerCase();
+
+  const tokenList = chainType === "evm" ? TOKEN_LIST.evm : TOKEN_LIST.aztec;
+
+  const token = tokenList.find(
+    t => t.chainId.toLowerCase() === normalizedId && t.tokenSymbol.toUpperCase() === tokenSymbol.toUpperCase()
+  );
+
+  return token?.tokenAddress;
+}
+
+export async function getTokenBalance(
+  tokenAddress: string
+) {
+  const evmWallet = get(evmWalletStore);
+  if (!evmWallet) throw new Error("EVM wallet not connected");
+  const contract = new ethers.Contract(tokenAddress, usdcAbi, evmWallet.signer);
+  const balance = await contract.balanceOf(evmWallet.address)
+  return balance
+}
+
 

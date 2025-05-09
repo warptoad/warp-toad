@@ -15,16 +15,16 @@ export type EvmChainConfig = {
 
 export const EVM_CHAINS: EvmChainConfig[] = [
   {
-      id: "sepolia",
-      chainId: "0xaa36a7",
-      chainName: "Sepolia Testnet",
+      id: "mainnet",
+      chainId: "0x7A69", 
+      chainName: "GoChain Testnet",
       nativeCurrency: {
-        name: "Sepolia Ether",
-        symbol: "ETH",
+        name: "GO",
+        symbol: "GO",
         decimals: 18
       },
-      rpcUrls: ["https://rpc.sepolia.org"],
-      blockExplorerUrls: ["https://sepolia.etherscan.io"],
+      rpcUrls: ["https://localhost:8545"],
+      blockExplorerUrls: [""],
       svg: "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTIiIGhlaWdodD0iNTIiIHZpZXdCb3g9IjAgMCA1MiA1MiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KICA8Y2lyY2xlIGN4PSIyNiIgY3k9IjI2IiByPSIyNiIgZmlsbD0iIzAwNTJGRiIvPgogIDxnIHRyYW5zZm9ybT0idHJhbnNsYXRlKDI2LDI2KSBzY2FsZSgwLjc1KSB0cmFuc2xhdGUoLTI2LC0yNikiPgogICAgPHBhdGggZD0iTTI1LjYyMzggMEwyNS4yNjA3IDEuMTg0OTJWMzUuNTY4NUwyNS42MjM4IDM1LjkxNjVMNDIuMjQ3NyAyNi40ODIzTDI1LjYyMzggMFoiIGZpbGw9IiNlM2UzZTMiLz4KICAgIDxwYXRoIGQ9Ik0yNS42MjM5IDBMOSAyNi40ODIzTDI1LjYyMzkgMzUuOTE2NlYxOS4yMjc4VjBaIiBmaWxsPSIjZjNmM2YzIi8+CiAgICA8cGF0aCBkPSJNMjUuNjIzOCAzOC45Mzg1TDI1LjQxOTIgMzkuMTc3OVY1MS40MjYxTDI1LjYyMzggNTJMNDIuMjU3NiAyOS41MDlMMjUuNjIzOCAzOC45Mzg1WiIgZmlsbD0iI2UzZTNlMyIvPgogICAgPHBhdGggZD0iTTI1LjYyMzkgNTEuOTk5OFYzOC45MzgzTDkgMjkuNTA4OEwyNS42MjM5IDUxLjk5OThaIiBmaWxsPSIjZjNmM2YzIi8+CiAgICA8cGF0aCBkPSJNMjUuNjIzOCAzNS45MTY0TDQyLjI0NzQgMjYuNDgyNEwyNS42MjM4IDE5LjIyNzlWMzUuOTE2NFoiIGZpbGw9IiNkM2QzZDMiLz4KICAgIDxwYXRoIGQ9Ik05LjAwMDEyIDI2LjQ4MjRMMjUuNjIzOCAzNS45MTY1VjE5LjIyOEw5LjAwMDEyIDI2LjQ4MjRaIiBmaWxsPSIjZTNlM2UzIi8+ICAKICA8L2c+CiAgPC9zdmc+Cg=="
   },
   {

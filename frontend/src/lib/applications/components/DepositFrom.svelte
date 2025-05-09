@@ -2,22 +2,56 @@
     import ChainSelector from "./ChainSelector.svelte";
     import TokenSelector from "./TokenSelector.svelte";
 
-    import { setDepositTokenAmount } from "../../../stores/depositStore";
+    import {
+        setDepositTokenAmount,
+        depositApplicationStore,
+        type DepositData,
+        getSelectedTokenBalance,
+    } from "../../../stores/depositStore";
+    import {
+        getTokenAddress,
+        getTokenBalance,
+    } from "../../../stores/walletStore";
 
     //TODO FETCHING OF TOKEN BALANCE AND USD PRICE PER TOKEN
 
-    let depositChainSelection = "";
+    let depositData: DepositData | undefined;
+    $: $depositApplicationStore, (depositData = $depositApplicationStore);
 
-    let tokenBalance = 123;
+    let tokenBalance: number | undefined;
+
+    $: (async () => {
+        const currentDeposit = $depositApplicationStore;
+        if (!currentDeposit) {
+            tokenBalance = undefined;
+            return;
+        }
+
+        tokenBalance = await getSelectedTokenBalance();
+    })();
+
+    let previousTokenName:string|undefined;
+
+    $: if (
+        depositData?.tokenName &&
+        depositData.tokenName !== previousTokenName
+    ) {
+        previousTokenName = depositData.tokenName;
+        tokenDepositInput = "";
+    }
     let tokenDepositInput = "";
+
     $: setDepositTokenAmount(Number(tokenDepositInput));
-    /*$: if (Number(tokenDepositInput) > tokenBalance) {
-        tokenDepositInput = tokenBalance.toString();
-    }*/
-    $: tokenDepositInputToDollar = (Number(tokenDepositInput) * 1.1).toFixed(2);
+    $: tokenDepositInputToDollar = new Intl.NumberFormat("en-US", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+    }).format(Number(tokenDepositInput) * 1);
 
     function handleTokenSplit(amount: number) {
-        tokenDepositInput = ((tokenBalance / 100) * amount).toFixed(2);
+        tokenDepositInput = (
+            ((tokenBalance ? tokenBalance : 0) / 100) *
+            amount
+        ).toFixed(2);
     }
 </script>
 
@@ -36,14 +70,21 @@
             bind:value={tokenDepositInput}
             on:input={() => {
                 const val = Number(tokenDepositInput);
-                if (val > tokenBalance)
-                    tokenDepositInput = tokenBalance.toString();
+                if (val > (tokenBalance ? tokenBalance : 0))
+                    tokenDepositInput = (
+                        tokenBalance ? tokenBalance : 0
+                    ).toString();
             }}
         />
     </div>
     <div class="w-full flex items-center gap-2 justify-between">
         <div class="flex gap-2 items-center">
-            <p class="text-sm">balance: {tokenBalance}</p>
+            <p class="text-sm">
+                balance: {new Intl.NumberFormat("en-US", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                }).format(Number(tokenBalance?tokenBalance:0))}
+            </p>
             <button
                 on:click={() => {
                     handleTokenSplit(100);

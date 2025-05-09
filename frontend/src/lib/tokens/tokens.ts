@@ -35,10 +35,10 @@ const TOKEN_ICONS: TokenIcon[] = [
 export const TOKEN_LIST: TokenConfig = {
     evm: [
         {
-            chainId: "0xaa36a7",
+            chainId: "0x7A69",
             tokenName: "USDC",
             tokenSymbol: "USDC",
-            tokenAddress: "feeToken",
+            tokenAddress: "0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f",
             decimals: 18,
         },
         {
@@ -49,14 +49,14 @@ export const TOKEN_LIST: TokenConfig = {
             decimals: 18,
         },
         {
-            chainId: "0xaa36a7",
+            chainId: "0x7A69",
             tokenName: "DAI",
             tokenSymbol: "DAI",
             tokenAddress: "feeToken",
             decimals: 18,
         },
         {
-            chainId: "0xaa36a7",
+            chainId: "0x7A69",
             tokenName: "WETH",
             tokenSymbol: "WETH",
             tokenAddress: "feeToken",

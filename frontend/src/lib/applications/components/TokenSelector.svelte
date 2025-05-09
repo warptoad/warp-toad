@@ -16,7 +16,6 @@
     let currentTokenSelection: Token[];
 
     $: if(depositData){
-
         currentTokenSelection = getTokensFromChainId(depositData.fromChain.type==="aztec", depositData.fromChain.chainId);
     } 
 
