@@ -10,4 +10,8 @@ contract USDcoin is ERC20 {
     function getFreeShit(uint256 _amount) public {
         _mint( msg.sender, _amount);
     }
+
+    function decimals() public view virtual override returns (uint8) {
+        return 6;
+    }
 }

@@ -70,6 +70,10 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore,ILocalRootProvider, IGiga
         l1BridgeAdapter = _l1BridgeAdapter;
     }
 
+    function decimals() public view virtual override returns (uint8) {
+        return 6;
+    }
+
     function isValidGigaRoot(uint256 _gigaRoot) public view returns (bool) {
         return gigaRootHistory[_gigaRoot];
     }
