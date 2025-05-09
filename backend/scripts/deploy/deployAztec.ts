@@ -15,7 +15,7 @@ import { USDcoin } from '../../typechain-types';
 import { ethers } from "ethers";
 import { deployAztecWarpToad } from "./aztecToadWarp";
 import er20Abi from "../dev_op/erc20ABI.json"
-import { deployL2AztecAdapter } from "./L2AztecAdapter";
+import { deployL2AztecBridgeAdapter } from "./L2AztecBridgeAdapter";
 
 import hre, { network } from "hardhat"
 import { getContractAddressesEvm } from "../dev_op/getDeployedAddresses";
@@ -51,7 +51,7 @@ export async function getAztecWallet(pxe: PXE, privateKey: string, nodeUrl: stri
         if (!contract) {
             throw new Error("Contract not found")
         }
-        //await delay(30000)
+        await delay(20000)
         // const obsidionDeployerFPC = await (
         //     await AccountManager.create(
         //         pxe,
@@ -65,12 +65,12 @@ export async function getAztecWallet(pxe: PXE, privateKey: string, nodeUrl: stri
             Fr.fromString(OBSIDION_DEPLOYER_SECRET_KEY),
             await computePartialAddress(contract as any) as any as Fr,
         )
-        //await delay(30000)
+        await delay(20000)
         await pxe.registerContract({
             instance: contract as any,
             artifact: ObsidionDeployerFPCContractArtifact,
         })
-        //await delay(30000)
+        await delay(20000)
         const wallet = await getObsidionDeployerFPCWallet(pxe, obsidionDeployerFPCAddress, obsidionDeployerFPCSigningKey)
         return wallet
 
@@ -107,7 +107,7 @@ async function main() {
     const chainId = (await provider.getNetwork()).chainId
 
     const deployedAddresses = await getContractAddressesEvm(chainId)
-    const L1AztecAdapterAddress = deployedAddresses["L1InfraModule#L1AztecRootBridgeAdapter"]
+    const L1AztecAdapterAddress = deployedAddresses["L1InfraModule#L1AztecBridgeAdapter"]
 
     //----PXE and wallet-----
     console.log("creating PXE client")
@@ -123,11 +123,11 @@ async function main() {
 
     //------deploy-------------
     const { AztecWarpToad } = await deployAztecWarpToad(nativeToken, deployWallet)
-    //await delay(30000)
+    await delay(20000)
     console.log({ AztecWarpToad: AztecWarpToad.address })
-    const { L2AztecRootBridgeAdapter } = await deployL2AztecAdapter(L1AztecAdapterAddress, deployWallet)
-    console.log({ L2AztecRootBridgeAdapter: L2AztecRootBridgeAdapter.address })
-    const deployments = { AztecWarpToad: AztecWarpToad.address, L2AztecRootBridgeAdapter: L2AztecRootBridgeAdapter.address }
+    const { L2AztecBridgeAdapter } = await deployL2AztecBridgeAdapter(L1AztecAdapterAddress, deployWallet)
+    console.log({ L2AztecBridgeAdapter: L2AztecBridgeAdapter.address })
+    const deployments = { AztecWarpToad: AztecWarpToad.address, L2AztecBridgeAdapter: L2AztecBridgeAdapter.address }
     const folderPath = `${__dirname}/aztecDeployments/${Number(chainId)}/`
 
     try{await fs.mkdir(folderPath)} catch{console.warn(`praying the folder already exist ${folderPath}`)}
@@ -140,7 +140,7 @@ async function main() {
     console.log(`
     deployed: 
         AztecWarpToad:              ${AztecWarpToad.address}
-        L2AztecRootBridgeAdapter:   ${L2AztecRootBridgeAdapter.address}
+        L2AztecBridgeAdapter:   ${L2AztecBridgeAdapter.address}
     `)
 }
 

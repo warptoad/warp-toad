@@ -7,7 +7,7 @@ import { deployPoseidon } from "./poseidon";
 import L1WarpToadModule from "../../ignition/modules/L1WarpToad"
 import L1InfraModule from "../../ignition/modules/L1Infra"
 
-import { ERC20__factory, L1AztecRootBridgeAdapter__factory, L1WarpToad__factory, USDcoin__factory } from "../../typechain-types";
+import { ERC20__factory, L1AztecBridgeAdapter__factory, L1ScrollBridgeAdapter__factory, L1WarpToad__factory, USDcoin__factory } from "../../typechain-types";
 
 import er20Abi from "../dev_op/erc20ABI.json"
 //@ts-ignore
@@ -42,7 +42,6 @@ async function main() {
     const PXE = createPXEClient(PXE_URL);
     console.log("waiting on PXE client", PXE_URL)
     await waitForPXE(PXE);
-    console.warn("using getInitialTestAccountsWallets. This will break on testnet!!")
     // const wallets = await getInitialTestAccountsWallets(PXE);
     // const deployWallet = wallets[0]
     const provider = hre.ethers.provider
@@ -53,33 +52,52 @@ async function main() {
     const aztecNativeBridgeRegistryAddress = (await PXE.getNodeInfo()).l1ContractAddresses.registryAddress.toString();
 
     const chainId = (await provider.getNetwork()).chainId
-    const evmDeployedAddresses = await getContractAddressesEvm(chainId)
+    const IS_MAINNET = chainId === 1n
+    const scrollChainId = IS_MAINNET ? 534352n : 534351n
+    const L1DeployedAddresses = await getContractAddressesEvm(chainId)
+    const L2ScrollDeployedAddresses = await getContractAddressesEvm(scrollChainId)
     const aztecDeployedAddresses =await getContractAddressesAztec(chainId)
-    const L1WarpToadAddress = evmDeployedAddresses["L1WarpToadModule#L1WarpToad"]
-    const gigaBridgeAddress = evmDeployedAddresses["L1InfraModule#GigaRootBridge"]
-    const L1AztecRootBridgeAdapterAddress = evmDeployedAddresses["L1InfraModule#L1AztecRootBridgeAdapter"]
+    const L1WarpToadAddress = L1DeployedAddresses["L1WarpToadModule#L1WarpToad"]
+    const gigaBridgeAddress = L1DeployedAddresses["L1InfraModule#GigaBridge"]
+    const L1AztecBridgeAdapterAddress = L1DeployedAddresses["L1InfraModule#L1AztecBridgeAdapter"]
+    const L1ScrollBridgeAdapterAddress = L1DeployedAddresses["L1InfraModule#L1ScrollBridgeAdapter"]
 
-    const L2AztecAdapterAddress = aztecDeployedAddresses["L2AztecRootBridgeAdapter"]
+    const L2AztecAdapterAddress = aztecDeployedAddresses["L2AztecBridgeAdapter"]
+    const L2ScrollBridgeAdapterAddress = L2ScrollDeployedAddresses["L2ScrollModule#L2ScrollBridgeAdapter"]
 
-    const L1AztecRootBridgeAdapter = L1AztecRootBridgeAdapter__factory.connect(L1AztecRootBridgeAdapterAddress, signer)
+    const L1AztecBridgeAdapter = L1AztecBridgeAdapter__factory.connect(L1AztecBridgeAdapterAddress, signer)
+    const L1ScrollBridgeAdapter = L1ScrollBridgeAdapter__factory.connect(L1ScrollBridgeAdapterAddress, signer)
     const L1WarpToad = L1WarpToad__factory.connect(L1WarpToadAddress, signer)
     const initializationStatus:any = {}
 
+    //aztec
     try{
-        await L1AztecRootBridgeAdapter.initialize(aztecNativeBridgeRegistryAddress, L2AztecAdapterAddress, gigaBridgeAddress);
-        initializationStatus["L1AztecRootBridgeAdapter"] = true
+        await L1AztecBridgeAdapter.initialize(aztecNativeBridgeRegistryAddress, L2AztecAdapterAddress, gigaBridgeAddress);
+        initializationStatus["L1AztecBridgeAdapter"] = true
     } catch {
-        console.warn(`couldn't initialize: L1AztecRootBridgeAdapter at: ${L1AztecRootBridgeAdapter.target}. 
+        console.warn(`couldn't initialize: L1AztecBridgeAdapter at: ${L1AztecBridgeAdapter.target}. 
         Was it already initialized?     
         `)
-        initializationStatus["L1AztecRootBridgeAdapter"] = false
+        initializationStatus["L1AztecBridgeAdapter"] = false
+    }
+
+    // scroll
+    try{
+        await L1ScrollBridgeAdapter.initialize(L2ScrollBridgeAdapterAddress ,gigaBridgeAddress);
+        initializationStatus["L1ScrollBridgeAdapter"] = true
+    } catch {
+        console.warn(`couldn't initialize: L1ScrollBridgeAdapter at: ${L1ScrollBridgeAdapter.target}. 
+        Was it already initialized?     
+        `)
+        initializationStatus["L1ScrollBridgeAdapter"] = false
     }
     
+    //warptoad
     try{
         await L1WarpToad.initialize(gigaBridgeAddress, L1WarpToad.target) // <- L1WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
         initializationStatus["L1WarpToad"] = true
     } catch {
-        console.warn(`couldn't initialize: L1WarpToad at: ${L1AztecRootBridgeAdapter.target}. 
+        console.warn(`couldn't initialize: L1WarpToad at: ${L1AztecBridgeAdapter.target}. 
         Was it already initialized?     
         `)
         initializationStatus["L1WarpToad"] = false
@@ -89,9 +107,13 @@ async function main() {
 
     console.log(`
     initialized: 
-        L1AztecRootBridgeAdapter:   ${L1AztecRootBridgeAdapter.target}
-        initializationSuccess?:     ${initializationStatus["L1AztecRootBridgeAdapter"] }
+        L1AztecBridgeAdapter:       ${L1AztecBridgeAdapter.target}
+        initializationSuccess?:     ${initializationStatus["L1AztecBridgeAdapter"] }
         args:                       ${JSON.stringify({aztecNativeBridgeRegistryAddress, L2AztecAdapterAddress, gigaBridgeAddress},null,2)}
+
+        L1ScrollBridgeAdapter:      ${L1ScrollBridgeAdapter.target}
+        initializationSuccess?:     ${initializationStatus["L1ScrollBridgeAdapter"]}
+        args:                       ${JSON.stringify({L2ScrollBridgeAdapterAddress ,gigaBridgeAddress},null,2)}
 
         L1WarpToad:                 ${L1WarpToad.target}
         initializationSuccess?:     ${initializationStatus["L1WarpToad"] }

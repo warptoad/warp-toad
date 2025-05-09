@@ -39,6 +39,7 @@
     "@noir-lang/noir_js": "1.0.0-beta.3",
     "@noir-lang/noir_wasm": "1.0.0-beta.3",
     "@openzeppelin/contracts": "^5.2.0",
+    "@scroll-tech/contracts": "^2.0.1",
     "@types/argparse": "^2.0.17",
     "@zk-kit/imt": "^2.0.0-beta.8",
     "@zk-kit/lazy-imt.sol": "^2.0.0-beta.12",

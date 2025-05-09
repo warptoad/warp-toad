@@ -1,0 +1,3 @@
+[default]
+port = 8000
+log_level = "debug"
