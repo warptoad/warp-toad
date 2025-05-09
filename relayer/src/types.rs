@@ -1,10 +1,8 @@
-use alloy::{dyn_abi::DynSolValue, primitives::Address, providers::DynProvider};
+use alloy::{
+    primitives::{Address, Bytes, Uint},
+    providers::DynProvider,
+};
 use serde::{Deserialize, Serialize};
-
-pub const CONTRACT_ABI_PATH: &str =
-    "../backend/artifacts/contracts/evm/L1WarpToad.sol/L1WarpToad.json";
-
-pub const MINT_FUNCTION_NAME: &str = "mint";
 
 pub struct AppState {
     pub provider: DynProvider,
@@ -22,40 +20,20 @@ pub struct TransactionResponse {
 
 #[derive(Debug, Deserialize)]
 pub struct MintTransactionRequest {
-    pub contract_address: String,
-    nullifier: String,
-    amount: String,
-    giga_root: String,
-    local_root: String,
-    fee_factor: String,
-    priority_fee: String,
-    max_fee: String,
-    pub relayer: String,
-    recipient: String,
-    proof: String,
+    pub contract_address: Address,
+    pub args: MintArgs,
 }
 
-impl MintTransactionRequest {
-    pub fn to_args(&self) -> (Address, Vec<DynSolValue>) {
-        (
-            self.contract_address
-                .parse()
-                .expect("parse contract address"),
-            vec![
-                // Convert numeric strings to DynSolValue::Uint
-                DynSolValue::Uint(self.nullifier.parse().expect("Invalid value"), 256),
-                DynSolValue::Uint(self.amount.parse().expect("Invalid value"), 256),
-                DynSolValue::Uint(self.giga_root.parse().expect("Invalid value"), 256),
-                DynSolValue::Uint(self.local_root.parse().expect("Invalid value"), 256),
-                DynSolValue::Uint(self.fee_factor.parse().expect("Invalid value"), 256),
-                DynSolValue::Uint(self.priority_fee.parse().expect("Invalid value"), 256),
-                DynSolValue::Uint(self.max_fee.parse().expect("Invalid value"), 256),
-                // convert to solidity addresses
-                DynSolValue::Address(self.relayer.parse().expect("Invalid address")),
-                DynSolValue::Address(self.recipient.parse().expect("Invalid address")),
-                // Convert proof string (likely hex) to DynSolValue::Bytes
-                DynSolValue::Bytes(hex::decode(&self.proof).expect("Invalid proof hex")),
-            ],
-        )
-    }
+#[derive(Debug, Deserialize)]
+pub struct MintArgs {
+    pub nullifier: Uint<256, 4>,
+    pub amount: Uint<256, 4>,
+    pub giga_root: Uint<256, 4>,
+    pub local_root: Uint<256, 4>,
+    pub fee_factor: Uint<256, 4>,
+    pub priority_fee: Uint<256, 4>,
+    pub max_fee: Uint<256, 4>,
+    pub relayer: Address,
+    pub recipient: Address,
+    pub proof: Bytes,
 }

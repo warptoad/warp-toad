@@ -1,7 +1,6 @@
-use crate::types::{
-    AppState, CONTRACT_ABI_PATH, MINT_FUNCTION_NAME, MintTransactionRequest, TransactionResponse,
-};
-use alloy::contract::{ContractInstance, Interface};
+use crate::types::{AppState, MintTransactionRequest, TransactionResponse};
+use WarpToadCore::WarpToadCoreInstance;
+use alloy::sol;
 use rocket::{State, post, serde::json::Json};
 
 #[get("/")]
@@ -9,15 +8,35 @@ pub fn hello() -> String {
     "Hello!".to_string()
 }
 
+// function we'll be calling
+sol!(
+    #[sol(rpc)]
+    // solc v0.8.26; solc WarpToadCore.sol --bin
+    contract WarpToadCore {
+        function mint(
+            uint256 _nullifier,
+            uint256 _amount,
+            uint256 _gigaRoot,
+            uint256 _localRoot,
+            uint256 _feeFactor,
+            uint256 _priorityFee,
+            uint256 _maxFee,
+            address _relayer,
+            address _recipient,
+            bytes memory _poof
+        ) public;
+    }
+);
+
 #[post("/", format = "json", data = "<request>")]
 pub async fn mint(
     request: Json<MintTransactionRequest>,
     state: &State<AppState>,
 ) -> Json<TransactionResponse> {
-    if request.relayer != state.public_key.to_string() {
+    if request.args.relayer != state.public_key {
         let err = format!(
             "The relayer you sent the transaction to doesn't have this public key.  Public key sent: {} relayer's public key {}",
-            request.relayer, state.public_key
+            request.args.relayer, state.public_key
         );
         println!("Pub key error.  Responding with: {err}");
         return Json(TransactionResponse {
@@ -27,32 +46,21 @@ pub async fn mint(
         });
     }
 
-    let artifact = std::fs::read(CONTRACT_ABI_PATH).expect("Failed to read artifact");
-    let json: serde_json::Value = serde_json::from_slice(&artifact).unwrap();
+    let contract = WarpToadCoreInstance::new(request.contract_address, state.provider.clone());
 
-    let abi_value = json.get("abi").expect("Failed to get ABI from artifact");
-    let abi = serde_json::from_str(&abi_value.to_string()).unwrap();
-
-    let (contract_address, function_args) = request.to_args();
-
-    let contract = ContractInstance::new(
-        contract_address,
-        state.provider.clone(),
-        Interface::new(abi),
+    let args = &request.args;
+    let call_builder = contract.mint(
+        args.nullifier,
+        args.amount,
+        args.giga_root,
+        args.local_root,
+        args.fee_factor,
+        args.priority_fee,
+        args.max_fee,
+        args.relayer,
+        args.recipient,
+        args.proof.clone(),
     );
-
-    let function_name = MINT_FUNCTION_NAME;
-    let call_builder = match contract.function(function_name, &function_args) {
-        Ok(c) => c,
-        Err(e) => {
-            let err = format!("call builder error: {}", e);
-            return Json(TransactionResponse {
-                success: false,
-                txn_hash: None,
-                error: Some(err),
-            });
-        }
-    };
 
     // TODO: make sure transaction is profitable for relayer based on parameters
     if let Some(min_profit_usd) = state.min_profit_usd {

@@ -17,28 +17,30 @@ If you run into issues after getting it to work once or twice it's likely your r
 
 Simply make a post request to this application with a json body. `contract_address` is the address of the warp-toad contract that you're calling mint on and the rest are `mint` function arguments.
 
-```
+```json
 {
- contract_address: String,
-    nullifier: String,
-    amount: String,
-    giga_root: String,
-    local_root: String,
-    fee_factor: String,
-    priority_fee: String,
-    max_fee: String,
-    relayer: String,
-    recipient: String,
-    proof: String,
+  "contract_address": "String",
+  "args": {
+    "nullifier": "String",
+    "amount": "String",
+    "giga_root": "String",
+    "local_root": "String",
+    "fee_factor": "String",
+    "priority_fee": "String",
+    "max_fee": "String",
+    "relayer": "String",
+    "recipient": "String",
+    "proof": "String"
+  }
 }
 ```
 
 And the response will be in json with the form:
 
-```
+```json
 {
-    success: bool,
-    txn_hash: Option<String>,
-    error: Option<String>,
+    "success": bool,
+    "txn_hash": Option<String>,
+    "error": Option<String>
 }
 ```
