@@ -217,3 +217,19 @@ export function parseEventFromTx(tx: ethers.TransactionReceipt, contract: ethers
     return parsedEvent
 
 }
+
+
+export function parseMultipleEventsFromTx(tx: ethers.TransactionReceipt, contract: ethers.Contract | any, eventName: string) {
+    console.log({tx, logs: tx.logs})
+    const events = tx.logs.filter(
+        (log) => log.topics[0] === contract.interface.getEvent(eventName)?.topicHash
+    );
+
+    // Parse the event data
+    const parsedEvents = events.map((e)=>contract.interface.parseLog({
+        topics: e!.topics,
+        data: e!.data
+    })) 
+    return parsedEvents
+
+}
