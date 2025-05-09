@@ -25,6 +25,7 @@ const { PXE_URL = 'http://localhost:8080' } = process.env;
 import { poseidon2 } from "poseidon-lite";
 
 import fs from "fs/promises";
+import { parseEventFromTx, parseMultipleEventsFromTx } from "./bridging";
 const abiCoder = new ethers.AbiCoder()
 
 
@@ -148,15 +149,24 @@ export async function getGigaRootBlockNumber(gigaBridge:GigaBridge, gigaRoot:big
 }
 
 
-
+//TODO clean this up. can prob be simpler
 export async function getLocalRootInGigaRoot(gigaBridge:GigaBridge, gigaRoot:bigint, gigaRootBlockNumber: number, warpToadOrigin:WarpToadEvm|WarpToadAztec) {
     const isFromAztec = !("target" in warpToadOrigin);
 
     const l1BridgeAdapter = isFromAztec ? await getL1BridgeAdapterAztec(warpToadOrigin) : await warpToadOrigin.l1BridgeAdapter()
     const localRootIndex = await gigaBridge.getLocalRootProvidersIndex(l1BridgeAdapter)
-    const filter = gigaBridge.filters.ReceivedNewLocalRoot(undefined,localRootIndex)
-    const events = await gigaBridge.queryFilter(filter, 0) // TODO scan in chunks. start at latest go to deployment block
-    const [localRoot,,localRootL2BlockNumber] = events[0].args
+    const newGigaRootFilter = gigaBridge.filters.ConstructedNewGigaRoot(gigaRoot)
+    // const localRootFilter = gigaBridge.filters.ReceivedNewLocalRoot(undefined,localRootIndex)
+    const newGigaRootEvents =  await gigaBridge.queryFilter(newGigaRootFilter, 0)
+    const latestNewGigaRootEvent = getLatestEvent(newGigaRootEvents) // you can assume newGigaRootEvents[0] is fine but lets be safe this time!
+    const newGigaRootTx = await latestNewGigaRootEvent.getTransactionReceipt() //await newGigaRootEvents[0].getTransactionReceipt()
+    const parsedEvents = parseMultipleEventsFromTx(newGigaRootTx, gigaBridge, "ReceivedNewLocalRoot")
+
+    // i hate events
+    const eventsOfThisWarpToadLocalRoot = parsedEvents.filter((e:any)=>e.args[1] === localRootIndex )
+    const latestEventLocalRoot = getLatestEvent(eventsOfThisWarpToadLocalRoot)
+    const localRoot = latestEventLocalRoot.args[0]
+    const localRootL2BlockNumber = latestEventLocalRoot.args[2]
     return  {localRoot, localRootL2BlockNumber, gigaRootBlockNumber,localRootIndex}
 }
 
