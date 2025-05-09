@@ -1,9 +1,7 @@
 use alloy::{dyn_abi::DynSolValue, primitives::Address, providers::DynProvider};
 use serde::{Deserialize, Serialize};
 
-// TODO:
-pub const CONTRACT_ABI_PATH: &str =
-    "../ignition/deployments/chain-11155111/artifacts/UltraAnonModule#UltraAnon.json";
+pub const CONTRACT_ABI_PATH: &str = "../artifacts/contracts/evm/L1WarpToad.sol/L1WarpToad.json";
 
 pub const MINT_FUNCTION_NAME: &str = "mint";
 
