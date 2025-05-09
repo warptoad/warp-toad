@@ -258,7 +258,7 @@ describe("AztecWarpToad", function () {
 
 
             // change the note hash tree root
-            const burnTx2 = await (await L1WarpToadWithSender.burn(preCommitment2, commitmentPreImg2.amount)).wait(1)
+        
             // bridge it again! but exclude aztecWarptoad as recipient of the gigaRoot (so i can see what happens if aztec is one gigaRoot behind)
             // await doFullBridgeAztec(        
             //     PXE,
@@ -287,8 +287,8 @@ describe("AztecWarpToad", function () {
             //     commitmentPreImg1.nullifier_preimg,
             //     commitmentPreImg1.secret,
             // )
-            const commitment = hashCommitment(preCommitment1,commitmentPreImg1.amount)
-            const aztecMerkleData = await getMerkleData(gigaBridge,L1WarpToad,AztecWarpToad,commitment)
+            const commitment1 = hashCommitment(preCommitment1,commitmentPreImg1.amount)
+            const aztecMerkleData1 = await getMerkleData(gigaBridge,L1WarpToad,AztecWarpToad,commitment1)
             //await generateNoirTest(proofInputs);
             // const proof = await createProof(proofInputs, os.cpus().length)
 
@@ -298,15 +298,50 @@ describe("AztecWarpToad", function () {
                 commitmentPreImg1.secret,
                 commitmentPreImg1.nullifier_preimg,
                 aztecRecipient.getAddress(),
-                aztecMerkleData.blockNumber,
-                aztecMerkleData.originLocalRoot,
-                aztecMerkleData.gigaMerkleData as any, // no way i am gonna spend time getting this type right >:(
-                aztecMerkleData.evmMerkleData as any,
+                aztecMerkleData1.blockNumber,
+                aztecMerkleData1.originLocalRoot,
+                aztecMerkleData1.gigaMerkleData as any, // no way i am gonna spend time getting this type right >:(
+                aztecMerkleData1.evmMerkleData as any,
             ).send().wait()
             // check mint tx
             const balanceRecipientPostMint = await AztecWarpToad.methods.balance_of(aztecRecipient.getAddress()).simulate()
         
             expect(balanceRecipientPostMint).to.equal(balanceRecipientPreMint + ethers.toBigInt(commitmentPreImg1.amount))
+
+
+            const burnTx2 = await (await L1WarpToadWithSender.burn(preCommitment2, commitmentPreImg2.amount)).wait(1)
+            const commitment2 = hashCommitment(preCommitment2,commitmentPreImg2.amount)
+            console.log({gigaBridge,L1WarpToad,AztecWarpToad,commitment2})
+           
+            await doFullBridgeAztec(        
+                PXE,
+                L2AztecBridgeAdapter,
+                L1AztecBridgeAdapter,
+                provider,
+                gigaBridge,
+                AztecWarpToad,
+                localRootProviders,
+                gigaRootRecipients
+            )
+
+            const aztecMerkleData2 = await getMerkleData(gigaBridge,L1WarpToad,AztecWarpToad,commitment2)
+            // possible bugs. aztecMerkleData2 needs to be called after bridging. 
+            // not waiting on tx to settle
+            // the localRoot block number extracted from the gigaRoot event is wrong
+
+            await AztecWarpToad.methods.mint_giga_root_evm(
+                commitmentPreImg2.amount,
+                commitmentPreImg2.secret,
+                commitmentPreImg2.nullifier_preimg,
+                aztecRecipient.getAddress(),
+                aztecMerkleData2.blockNumber,
+                aztecMerkleData2.originLocalRoot,
+                aztecMerkleData2.gigaMerkleData as any, // no way i am gonna spend time getting this type right >:(
+                aztecMerkleData2.evmMerkleData as any,
+            ).send().wait()
+
+            const balanceRecipientPostPostMint = await AztecWarpToad.methods.balance_of(aztecRecipient.getAddress()).simulate()
+            console.log(balanceRecipientPostPostMint, balanceRecipientPostMint)
         });
     });
 });
