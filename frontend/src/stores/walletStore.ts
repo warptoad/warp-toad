@@ -194,7 +194,7 @@ export function getNetworkNameFromId(chainId: number | string): string | undefin
 }
 
 
-export async function mintTestTokens(amount: string = "10") {
+export async function mintTestTokens(amount: string = "1000000") {
   const evmWallet = get(evmWalletStore);
   if (!evmWallet) throw new Error("EVM wallet not connected");
   

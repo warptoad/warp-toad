@@ -13,6 +13,5 @@
 
     <div class="flex gap-4 justify-end w-full">
     </div>
-
   </div>
 </footer>

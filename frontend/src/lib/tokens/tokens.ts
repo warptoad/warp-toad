@@ -1,3 +1,5 @@
+import deployedEvmAddresses from "../../../../backend/ignition/deployments/chain-31337/deployed_addresses.json"
+
 export type Token = {
     chainId: string; //TODO Make it similar to ethers
     tokenName: string;
@@ -38,7 +40,7 @@ export const TOKEN_LIST: TokenConfig = {
             chainId: "0x7A69",
             tokenName: "USDC",
             tokenSymbol: "USDC",
-            tokenAddress: "0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1",
+            tokenAddress: deployedEvmAddresses["L1WarpToadWithTestTokenModule#USDcoin"],
             decimals: 6,
         },
         {
