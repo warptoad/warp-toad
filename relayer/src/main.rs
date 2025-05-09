@@ -30,10 +30,6 @@ async fn main() -> Result<()> {
         .context("set PROVIDER_URL in a .env file")
         .unwrap();
     println!("provider url: {provider_url}");
-    let contract_address = env::var("CONTRACT_ADDRESS")
-        .context("set CONTRACT_ADDRESS in a .env file")
-        .unwrap();
-    println!("contract address: {contract_address}");
     let private_key = env::var("PRIVATE_KEY")
         .context("set PRIVATE_KEY in a .env file")
         .unwrap();
@@ -62,7 +58,6 @@ async fn main() -> Result<()> {
 
     let app_state = AppState {
         provider,
-        contract_address: contract_address.parse().context("parse address").unwrap(),
         min_profit_usd,
         public_key: public_key.parse().context("parse address").unwrap(),
     };
