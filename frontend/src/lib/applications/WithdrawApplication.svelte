@@ -1,11 +1,12 @@
 <script lang="ts">
+    import Confetti from "svelte-confetti";
     import {
         mintOnL2,
         warptoadNoteStore,
         type WarptoadNote,
     } from "../../stores/depositStore";
 
-    let currentStep = 1;
+    let currentStep = 0;
     let draggedOver = false;
     let fileName: string | null = null;
 
@@ -132,6 +133,13 @@
     </div>
 {:else}
     <div class="flex flex-col gap-4 justify-center items-center h-full">
-        <p>FUNDS WITHDRAWN!</p>
+        <div class="flex">
+            <Confetti x={[-1, -0.25]} y={[0, 0.5]} />
+            <p class="text-center">Withdraw Successfull</p>
+            <Confetti x={[0.25, 1]} y={[0, 0.5]} />
+        </div>
+        <button class="btn btn-warning" on:click={handleWithDrawClear}
+            >another withdraw</button
+        >
     </div>
 {/if}

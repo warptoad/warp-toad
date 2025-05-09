@@ -75,7 +75,12 @@
                     class="btn btn-ghost btn-outline border-[rgba(255,255,255,.25)] w-full flex items-center gap-2 px-2 py-6"
                     on:click={handleBalanceDisplay}
                 >
-                    USDC balance: {Number(ethers.formatUnits(currentBalance, 18)).toFixed(2)}
+                    USDC balance: {new Intl.NumberFormat("en-US", {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                    }).format(
+                        Number(ethers.formatUnits(currentBalance, 6))
+                    )} 
                 </button>
             </div>
             <button

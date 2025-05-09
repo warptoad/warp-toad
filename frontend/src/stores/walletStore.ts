@@ -5,6 +5,7 @@ import { usdcAbi } from '../lib/tokens/usdcAbi';
 import { TOKEN_LIST } from '../lib/tokens/tokens';
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
 import { createPXEClient, waitForPXE, type PXE, type Wallet } from '@aztec/aztec.js';
+import deployedEvmAddresses from "../../../backend/ignition/deployments/chain-31337/deployed_addresses.json"
 
 //OBSIDION CONSTANTS
 export const NODE_URL = "http://localhost:8080";
@@ -193,17 +194,15 @@ export function getNetworkNameFromId(chainId: number | string): string | undefin
 }
 
 
-export async function mintTestTokens(amount: string = "10000000") {
+export async function mintTestTokens(amount: string = "10") {
   const evmWallet = get(evmWalletStore);
   if (!evmWallet) throw new Error("EVM wallet not connected");
-
-  const contractAddress = "0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f";
   
-  const contract = new ethers.Contract(contractAddress, usdcAbi, evmWallet.signer);
+  const contract = new ethers.Contract(deployedEvmAddresses["L1WarpToadWithTestTokenModule#USDcoin"], usdcAbi, evmWallet.signer);
 
   //console.log(`Balance before: ${await contract.balanceOf(evmWallet.address)}`);
 
-  const amountInUnits = ethers.parseUnits(amount, 18);
+  const amountInUnits = ethers.parseUnits(amount, await contract.decimals());
 
   const tx = await contract.getFreeShit(amountInUnits);
   await tx.wait(); // wait for confirmation

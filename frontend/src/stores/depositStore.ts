@@ -231,7 +231,7 @@ export async function approveToken() {
         }
 
         const usdcContract = new ethers.Contract(tokenAddress, usdcAbi, evmWallet.signer);
-        const amount = ethers.parseUnits(depositData.tokenAmount.toString(), 18);
+        const amount = ethers.parseUnits(depositData.tokenAmount.toString(), await usdcContract.decimals());
         //TODO TYPECHAIN FOR ABIS
 
 
@@ -271,7 +271,7 @@ export async function wrapToken() {
             return;
         }
 
-        const amount = ethers.parseUnits(depositData.tokenAmount.toString(), 18);
+        const amount = ethers.parseUnits(depositData.tokenAmount.toString(), 6);
         const l1WarptoadContract = new ethers.Contract(deployedEvmAddresses["L1WarpToadModule#L1WarpToad"], warptoadAbi, evmWallet.signer);
 
         try {
@@ -347,8 +347,8 @@ export async function createPreCommitment(chainIdAztecFromContract: bigint) {
         console.log("ERROR DEPOSIT AMOUNT NOT SET")
         return
     }
-
-    createRandomPreImg(BigInt(currentAmount * 10 ** 18), chainIdAztecFromContract);
+    //TODO FIX DECIMAL HARDCODING
+    createRandomPreImg(BigInt(currentAmount * 10 ** 6), chainIdAztecFromContract);
     const commitmentPreImg = get(commitmentPreImgStore);
     if (!commitmentPreImg) {
         return;
@@ -378,7 +378,10 @@ export async function burnToken(preCommitment: bigint, amount: bigint) {
     const l1WarptoadContract = L1WarpToad__factory.connect(deployedEvmAddresses["L1WarpToadModule#L1WarpToad"], evmWallet.signer) as L1WarpToad;
 
 
+
+    
     const tx = await l1WarptoadContract.burn(preCommitment, amount);
+    
     const receipt = await tx.wait();
 
 }

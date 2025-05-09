@@ -9,7 +9,7 @@
     import WithdrawAppliaction from "./lib/applications/WithdrawApplication.svelte";
 
   let isDepositOpen = false;
-  let isWithdrawOpen = true;
+  let isWithdrawOpen = false;
   let isFaqOpen = false;
 
 
@@ -58,7 +58,6 @@
       bind:faqOpen={isFaqOpen}
     />
   </div>
-  <WalletTest/>
   <Footer />
 </main>
 
