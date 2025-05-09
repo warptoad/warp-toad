@@ -4,13 +4,13 @@ import { getContractAddressesAztec, getContractAddressesEvm } from './getDeploye
 import { ethers, NonceManager } from 'ethers';
 import { bridgeNoteHashTreeRoot, receiveGigaRootOnAztec, sendGigaRoot, updateGigaRoot } from '../lib/bridging';
 //@ts-ignore
-import { createPXEClient, PXE, waitForPXE, Wallet as aztecWallet, AztecAddressLike } from '@aztec/aztec.js';
+import { createPXEClient, PXE, waitForPXE, Wallet as aztecWallet, AztecAddressLike, Fr } from '@aztec/aztec.js';
 //@ts-ignore
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
-import { GigaRootBridge__factory, L1AztecRootBridgeAdapter__factory } from '../../typechain-types';
+import { GigaBridge, GigaRootBridge__factory, L1AztecBridgeAdapter, L1AztecRootBridgeAdapter__factory, L1WarpToad__factory } from '../../typechain-types';
 import { L2AztecRootBridgeAdapterContract } from '../../contracts/aztec/L2AztecRootBridgeAdapter/src/artifacts/L2AztecRootBridgeAdapter';
 import { WarpToadCoreContract } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore';
-
+const delay = async (timeInMs: number) => await new Promise((resolve) => setTimeout(resolve, timeInMs))
 
 async function getLocalRootProviders(chainId: bigint) {
     const contracts = await getContractAddressesEvm(chainId)
@@ -32,7 +32,8 @@ async function getL1Contracts(l1ChainId:bigint, signer:ethers.Signer) {
     const contracts = await getContractAddressesEvm(l1ChainId)
     const gigaBridge = GigaRootBridge__factory.connect(contracts["L1InfraModule#GigaRootBridge"], signer)
     const L1AztecRootBridgeAdapter = L1AztecRootBridgeAdapter__factory.connect(contracts["L1InfraModule#L1AztecRootBridgeAdapter"], signer)
-    return {L1AztecRootBridgeAdapter, gigaBridge}
+    const L1Warptoad = L1WarpToad__factory.connect(contracts["L1InfraModule#L1WarpToad"], signer)
+    return {L1AztecRootBridgeAdapter, gigaBridge, L1Warptoad}
 
 }
 
@@ -68,13 +69,74 @@ async function main() {
     const localRootProviders = args.localRootProviders ? args.localRootProviders : await getLocalRootProviders(l1ChainId)
     const gigaRootRecipients = args.gigaRootRecipients ? args.gigaRootRecipients : await getLocalRootProviders(l1ChainId)
 
-    const {L1AztecRootBridgeAdapter, gigaBridge} = await getL1Contracts(l1ChainId, l1Wallet)
+    const {L1AztecRootBridgeAdapter, gigaBridge, L1Warptoad} = await getL1Contracts(l1ChainId, l1Wallet)
     const {L2AztecRootBridgeAdapter, AztecWarpToad} =  args.isAztec ?  await getAztecContracts(aztecWallet, Number(l1ChainId)) : {L2AztecRootBridgeAdapter:undefined, AztecWarpToad:undefined}
     
-    //The L2ToL1Message you are trying to prove inclusion of does not exist
-    //await AztecWarpToad?.methods.mint_for_testing(1n, aztecWallet?.getAddress() as AztecAddressLike).send().wait();
-    //------- bridge localRoot L1->l2---------
-    if (args.isAztec) {
+
+    await doFullBridge(
+        args,
+        PXE as PXE,
+        L2AztecRootBridgeAdapter as L2AztecRootBridgeAdapterContract,
+        L1AztecRootBridgeAdapter,
+        l1Provider,
+        gigaBridge,
+        localRootProviders,
+        gigaRootRecipients,
+        AztecWarpToad as WarpToadCoreContract,
+    )
+
+    let pastL2Roots = await getLocalRoots(L1Warptoad, PXE)
+
+    while(true) {
+        const currentRoots =  await getLocalRoots(L1Warptoad, PXE)
+        const rootsChanged = ! (currentRoots.reduce((a, v, i) => a && v === pastL2Roots[i], true))
+        pastL2Roots = currentRoots;
+        if (rootsChanged) {
+            console.log("something happened! time to bridge!")
+            await doFullBridge(
+                args,
+                PXE as PXE,
+                L2AztecRootBridgeAdapter as L2AztecRootBridgeAdapterContract,
+                L1AztecRootBridgeAdapter,
+                l1Provider,
+                gigaBridge,
+                localRootProviders,
+                gigaRootRecipients,
+                AztecWarpToad as WarpToadCoreContract,
+            )
+        } else {
+            console.log("well look at the time... nothing happened. will check in 10s")
+            await delay(10000)
+        }
+
+
+    } 
+
+    
+
+ 
+}
+
+async function getLocalRoots(L1Warptoad:any, PXE:any) {
+    const L1LocalRoot = await L1Warptoad.localRoot()
+    const currentBlockAztec = await (PXE as PXE).getBlockNumber()
+    const L2AztecLocalRoot = ((await (PXE as PXE).getBlock(currentBlockAztec))?.header.state.partial.noteHashTree.root as Fr).toBigInt()
+    return [L1LocalRoot, L2AztecLocalRoot]
+}
+
+async function doFullBridge(
+    args:any, 
+    PXE:PXE, 
+    L2AztecRootBridgeAdapter:L2AztecRootBridgeAdapterContract, 
+    L1AztecRootBridgeAdapter:any,//TODO 
+    l1Provider: ethers.Provider, 
+    gigaBridge: any, 
+    localRootProviders:ethers.AddressLike[],
+    gigaRootRecipients:ethers.AddressLike[],
+    AztecWarpToad:WarpToadCoreContract
+) {
+       //------- bridge localRoot L1->l2---------
+       if (args.isAztec) {
         try {
             const { sendRootToL1Tx, refreshRootTx, PXE_L2Root } = await bridgeNoteHashTreeRoot(
                 PXE as PXE,
@@ -122,6 +184,7 @@ async function main() {
     } else {
         //normal evm things
     }
+    
 }
 
 if (require.main === module) {
