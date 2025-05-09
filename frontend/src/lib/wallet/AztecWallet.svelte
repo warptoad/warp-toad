@@ -18,7 +18,7 @@
     let currentBalance = 0n;
 
     async function handleBalanceDisplay(){
-        currentBalance= await showUSDCBalance();
+        currentBalance = await showUSDCBalance();
     }
 </script>
 

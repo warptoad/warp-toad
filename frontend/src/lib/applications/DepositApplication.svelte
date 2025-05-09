@@ -95,7 +95,7 @@
         //wraping
 
         await burnToken(
-            warptoadNoteData.commitment,
+            warptoadNoteData.preCommitment,
             warptoadNoteData.preImg.amount,
         );
 

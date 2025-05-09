@@ -58,6 +58,7 @@
       bind:faqOpen={isFaqOpen}
     />
   </div>
+  <WalletTest/>
   <Footer />
 </main>
 

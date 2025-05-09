@@ -10,6 +10,7 @@
 
   import { AztecAddress, Fr, type Wallet, Contract } from "@aztec/aztec.js";
   import { ethers } from "ethers";
+    import { deployedAztecContracts } from "../stores/utils/deployedAztecContracts";
 
   let evmWallet: EvmAccount | undefined;
   let aztecWallet: Wallet | undefined;
@@ -19,20 +20,14 @@
   $: $aztecWalletStore, (aztecWallet = $aztecWalletStore);
 
   async function getAztecContracts(aztecWallet: Wallet) {
-    const contracts = {
-      AztecWarpToad:
-        "0x1aaf11fba8aacaf6ae91931551aabcd48ef852ae18ef01c972c86e83bae3c888",
-      L2AztecRootBridgeAdapter:
-        "0x08befd20bba7764473da67dcf10794ec5f59fb265ff2beae75591fc57d463922",
-    };
 
     const L2AztecRootBridgeAdapter = await Contract.at(
-      AztecAddress.fromString(contracts.L2AztecRootBridgeAdapter),
+      AztecAddress.fromString(deployedAztecContracts.L2AztecRootBridgeAdapter),
       L2AztecRootBridgeAdapterContractArtifact,
       aztecWallet,
     );
     const AztecWarpToad = await Contract.at(
-      AztecAddress.fromString(contracts.AztecWarpToad),
+      AztecAddress.fromString(deployedAztecContracts.AztecWarpToad),
       WarpToadCoreContractArtifact,
       aztecWallet,
     );
@@ -56,6 +51,13 @@
     ).portal.inner;
 
     console.log("CONFIG:", new Fr(publicConfig).toString());
+
+
+    const getFreeToken = await AztecWarpToad.methods.mint_for_testing(6*10**18, aztecWallet.getAddress()).send().wait()
+    
+    const balanceOfMe = await AztecWarpToad.methods.balance_of(aztecWallet.getAddress()).simulate()
+
+    console.log(balanceOfMe)
 
     //return { L2AztecRootBridgeAdapter, AztecWarpToad };
   }

@@ -63,6 +63,8 @@ async function getEvmMerkleData(warpToadOrigin: WarpToadEvm, commitment: bigint,
     const hashFunc = (left, right) => poseidon2([left, right])
     //@ts-ignore
     const tree = new MerkleTree(treeDepth, leafs, { hashFunction: hashFunc })
+
+    console.log("arghh this one again")
     const merkleData = {
         leaf_index: ethers.toBeHex(leafIndex),
         hash_path: tree.proof(commitment as any as Element).pathElements.map((e) => ethers.toBeHex(e)) // TODO actually take typescript seriously at some point
@@ -157,7 +159,8 @@ export async function getLocalRootInGigaRoot(gigaBridge: GigaRootBridge, gigaRoo
     const localRootIndex = await gigaBridge.getLocalRootProvidersIndex(l1BridgeAdapter)
     const filter = gigaBridge.filters.ReceivedNewLocalRoot(undefined, localRootIndex)
     const events = await gigaBridge.queryFilter(filter, 0) // TODO scan in chunks. start at latest go to deployment block
-    const [localRoot, , localRootL2BlockNumber] = events[0].args
+    const latestEvent = getLatestEvent(events)
+    const [localRoot, , localRootL2BlockNumber] = latestEvent.args
     return { localRoot, localRootL2BlockNumber, gigaRootBlockNumber, localRootIndex }
 }
 
@@ -228,10 +231,10 @@ export async function getMerkleData(gigaBridge: GigaRootBridge, warpToadOrigin: 
         const gigaRootBlockNumber = await getGigaRootBlockNumber(gigaBridge, gigaRoot)
         console.log("we not good1")
         const { localRoot, localRootL2BlockNumber, localRootIndex: originLocalRootIndex } = await getLocalRootInGigaRoot(gigaBridge, gigaRoot, gigaRootBlockNumber, warpToadOrigin)
-       
+
         console.log("we not good2")
-         originLocalRoot = localRoot
-         console.log("we not good3")
+        originLocalRoot = localRoot
+        console.log("we not good3")
         destinationLocalRootL2Block = localRootL2BlockNumber;
 
         gigaMerkleData = await getGigaMerkleData(gigaBridge, originLocalRoot, originLocalRootIndex, GIGA_TREE_DEPTH, gigaRootBlockNumber)
@@ -244,14 +247,17 @@ export async function getMerkleData(gigaBridge: GigaRootBridge, warpToadOrigin: 
         aztecMerkleData = await getAztecMerkleData(warpToadOrigin, commitment, Number(destinationLocalRootL2Block))
         evmMerkleData = emptyEvmMerkleData
     } else {
+        console.log("something brokey")
         aztecMerkleData = emptyAztecMerkleData
         //ok this should work:
+        console.log("something workey?")
         try {
-            evmMerkleData = await getEvmMerkleData(warpToadOrigin, commitment, EVM_TREE_DEPTH, Number(destinationLocalRootL2Block));    
+            evmMerkleData = await getEvmMerkleData(warpToadOrigin, commitment, EVM_TREE_DEPTH, Number(destinationLocalRootL2Block));
         } catch (error) {
             console.log(error)
             return
-        }}
+        }
+    }
 
     return { isFromAztec, gigaMerkleData, evmMerkleData, aztecMerkleData, originLocalRoot, blockNumber: BigInt(destinationLocalRootL2Block) }
 }

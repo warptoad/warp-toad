@@ -8,13 +8,15 @@ import { AztecAddress, createAztecNodeClient, createPXEClient, Fr, waitForPXE } 
 import { WarpToadCoreContractArtifact } from '../artifacts/WarpToadCore';
 import { poseidon2, poseidon3 } from 'poseidon-lite';
 import { getMerkleData } from "./utils/proving";
-import { GigaRootBridge__factory, type L1WarpToad, } from '../../../backend/typechain-types'; //TODO remove hardcode and add cleaner logic after hackathon
+import { GigaRootBridge__factory, L1WarpToad__factory, type L1WarpToad, } from '../../../backend/typechain-types'; //TODO remove hardcode and add cleaner logic after hackathon
 import deployedEvmAddresses from "../../../backend/ignition/deployments/chain-31337/deployed_addresses.json"
 import type { GigaRootBridge, WarpToadCore as WarpToadEvm } from "../../../backend/typechain-types";
 import { WarpToadCoreContract as WarpToadAztec } from '../../../backend/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
+import { deployedAztecContracts } from "./utils/deployedAztecContracts"
 //obsidion remover:
 import { Contract } from "@aztec/aztec.js";
+import { hashCommitmentFromNoteItems } from '../../../backend/scripts/lib/hashing';
 
 //OBSIDION CONSTANTS
 
@@ -45,7 +47,7 @@ export type CommitmentPreImg = {
 
 export type WarptoadNote = {
     preImg: CommitmentPreImg;
-    commitment: bigint;
+    preCommitment: bigint;
 }
 
 export const depositApplicationStore = writable<DepositData | undefined>(undefined);
@@ -128,9 +130,9 @@ export function swapChains() {
 }
 
 
-export function clearDepositState(){
+export function clearDepositState() {
 
-    commitmentPreImgStore.set(undefined) 
+    commitmentPreImgStore.set(undefined)
     warptoadNoteStore.set(undefined)
 
 }
@@ -234,7 +236,7 @@ export async function approveToken() {
 
 
         try {
-            const approveTx = await usdcContract.approve("0xc5a5C42992dECbae36851359345FE25997F5C42d", amount);
+            const approveTx = await usdcContract.approve(deployedEvmAddresses["L1WarpToadModule#L1WarpToad"], amount);
             const receipt = await approveTx.wait();
 
             if (receipt.status === 1) {
@@ -270,7 +272,7 @@ export async function wrapToken() {
         }
 
         const amount = ethers.parseUnits(depositData.tokenAmount.toString(), 18);
-        const l1WarptoadContract = new ethers.Contract("0xc5a5C42992dECbae36851359345FE25997F5C42d", warptoadAbi, evmWallet.signer);
+        const l1WarptoadContract = new ethers.Contract(deployedEvmAddresses["L1WarpToadModule#L1WarpToad"], warptoadAbi, evmWallet.signer);
 
         try {
             const wrapTx = await l1WarptoadContract.wrap(amount);
@@ -307,7 +309,7 @@ export async function getChainIdAztecFromContract() {
     }
 
     const AztecWarpToad = await Contract.at(
-        AztecAddress.fromString("0x1aaf11fba8aacaf6ae91931551aabcd48ef852ae18ef01c972c86e83bae3c888"),
+        AztecAddress.fromString(deployedAztecContracts.AztecWarpToad),
         WarpToadCoreContractArtifact,
         aztecWallet,
     );
@@ -358,9 +360,11 @@ export async function createPreCommitment(chainIdAztecFromContract: bigint) {
     warptoadNoteStore.set(
         {
             preImg: commitmentPreImg,
-            commitment: preCommitment
+            preCommitment: preCommitment
         }
     )
+    console.log("NOTE CREATED")
+    console.log(get(warptoadNoteStore))
 
 }
 
@@ -371,29 +375,11 @@ export async function burnToken(preCommitment: bigint, amount: bigint) {
         return;
     }
 
-    const l1WarptoadContract = new ethers.Contract("0xc5a5C42992dECbae36851359345FE25997F5C42d", warptoadAbi, evmWallet.signer);
+    const l1WarptoadContract = L1WarpToad__factory.connect(deployedEvmAddresses["L1WarpToadModule#L1WarpToad"], evmWallet.signer) as L1WarpToad;
 
-    try {
-        const burnTx = await l1WarptoadContract.burn(preCommitment, amount);
-        const receipt = await burnTx.wait();
 
-        if (receipt.status === 1) {
-            console.log('Transaction successful:', burnTx);
-        } else {
-            console.warn('Transaction failed');
-        }
-        const commitment = hashCommitment(preCommitment, amount);
-        warptoadNoteStore.update(current => (
-            {
-                ...current!,
-                commitment
-            }
-        ))
-
-    } catch (error) {
-        console.log(error)
-        return;
-    }
+    const tx = await l1WarptoadContract.burn(preCommitment, amount);
+    const receipt = await tx.wait();
 
 }
 
@@ -401,16 +387,16 @@ export async function burnToken(preCommitment: bigint, amount: bigint) {
 export async function showUSDCBalance() {
     const aztecWallet = get(aztecWalletStore);
     if (!aztecWallet) {
-        return 0
+        return 0n
     }
     const AztecWarpToad = await Contract.at(
-        AztecAddress.fromString("0x1aaf11fba8aacaf6ae91931551aabcd48ef852ae18ef01c972c86e83bae3c888"),
+        AztecAddress.fromString(deployedAztecContracts.AztecWarpToad),
         WarpToadCoreContractArtifact,
         aztecWallet,
     );
 
-
-    return await AztecWarpToad.methods.balance_of(aztecWallet.getAddress()).simulate()
+    const result: bigint = await AztecWarpToad.methods.balance_of(aztecWallet.getAddress()).simulate()
+    return result
 }
 
 
@@ -423,10 +409,12 @@ export async function evmStartBridge() {
         return
     }
 
+    console.log("THIS IS SOMETHING: ",warptoadNote.preCommitment)
+
     try {
         await wrapToken();
         try {
-            await burnToken(warptoadNote.commitment, warptoadNote.preImg.amount);
+            await burnToken(warptoadNote.preCommitment, warptoadNote.preImg.amount);
         } catch (error) {
             console.log("BURN FAILED " + error)
         }
@@ -441,31 +429,30 @@ export async function mintOnL2() {
     const evmWallet = get(evmWalletStore);
     const aztecWallet = get(aztecWalletStore);
     const warptoadNote = get(warptoadNoteStore);
-    if(!aztecWallet||!evmWallet){
+    if (!aztecWallet || !evmWallet) {
         console.log("ERROR ONE OR MORE WALLETS SEEM TO BE NOT CONNECTED")
         return;
     }
-    if(!warptoadNote){
+    if (!warptoadNote) {
         console.log("ERROR WARPTOADNOTE HAS NOT BEEN SUPPLIED")
         return;
     }
 
     const AztecWarpToad = await Contract.at(
-        AztecAddress.fromString("0x1aaf11fba8aacaf6ae91931551aabcd48ef852ae18ef01c972c86e83bae3c888"),
+        AztecAddress.fromString(deployedAztecContracts.AztecWarpToad),
         WarpToadCoreContractArtifact,
         aztecWallet,
     );
 
-    16235081288127640923703046654400363230650483884366251302986749729950242176066
-
-
     const gigaBridge = GigaRootBridge__factory.connect(deployedEvmAddresses["L1InfraModule#GigaRootBridge"], evmWallet?.signer)
-    const l1WarptoadContract = new ethers.Contract("0xc5a5C42992dECbae36851359345FE25997F5C42d", warptoadAbi, evmWallet?.signer);
+    const l1WarptoadContract = new ethers.Contract(deployedEvmAddresses["L1WarpToadModule#L1WarpToad"], warptoadAbi, evmWallet?.signer);
 
     console.log(warptoadNote);
 
+    const commitment = hashCommitment(warptoadNote.preCommitment, warptoadNote.preImg.amount);
 
-    const aztecMerkleData = await getMerkleData(gigaBridge, l1WarptoadContract as unknown as WarpToadEvm, AztecWarpToad as unknown as WarpToadAztec, warptoadNote.commitment)
+    console.log("\n\n\n WAIT WAIT WAIT \n\n\n")
+    const aztecMerkleData = await getMerkleData(gigaBridge, l1WarptoadContract as unknown as WarpToadEvm, AztecWarpToad as unknown as WarpToadAztec, commitment)
     console.log(aztecMerkleData);
     if (!aztecMerkleData) {
         console.log("did not manage to get aztec Merkle Data");
@@ -504,7 +491,7 @@ export async function schnorrTest() {
     console.log("init contract");
 
     const AztecWarpToad = await Contract.at(
-        AztecAddress.fromString("0x1aaf11fba8aacaf6ae91931551aabcd48ef852ae18ef01c972c86e83bae3c888"),
+        AztecAddress.fromString(deployedAztecContracts.AztecWarpToad),
         WarpToadCoreContractArtifact,
         userWallet,
     );

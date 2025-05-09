@@ -88,7 +88,7 @@ yarn workspace @warp-toad/backend hardhat ignition deploy ignition/modules/TestT
 ``` -->
 #### deploy on L1
 ```shell
-NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network aztecSandbox;
+NATIVE_TOKEN_ADDRESS=0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network aztecSandbox;
 ```
 <!--  
 if you just restarted sandbox then the test token address will be the same as below and you can just copy paste this
@@ -99,7 +99,7 @@ NATIVE_TOKEN_ADDRESS=0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f yarn workspace @
 
 #### deploy on aztec
 ```shell
-PRIVATE_KEY=0xUprivateKey NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network aztecSandbox;
+PRIVATE_KEY=0xUprivateKey NATIVE_TOKEN_ADDRESS=0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network aztecSandbox;
 ```
 
 <!--

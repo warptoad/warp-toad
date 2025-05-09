@@ -156,7 +156,8 @@ export async function getLocalRootInGigaRoot(gigaBridge:GigaRootBridge, gigaRoot
     const localRootIndex = await gigaBridge.getLocalRootProvidersIndex(l1BridgeAdapter)
     const filter = gigaBridge.filters.ReceivedNewLocalRoot(undefined,localRootIndex)
     const events = await gigaBridge.queryFilter(filter, 0) // TODO scan in chunks. start at latest go to deployment block
-    const [localRoot,,localRootL2BlockNumber] = events[0].args
+    const latestEvent = getLatestEvent(events)
+    const [localRoot,,localRootL2BlockNumber] = latestEvent.args
     return  {localRoot, localRootL2BlockNumber, gigaRootBlockNumber,localRootIndex}
 }
 

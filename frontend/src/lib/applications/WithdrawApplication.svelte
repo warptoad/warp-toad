@@ -32,9 +32,9 @@
             if (
                 typeof parsed === "object" &&
                 parsed !== null &&
-                "commitment" in parsed &&
+                "preCommitment" in parsed &&
                 "preImg" in parsed &&
-                typeof parsed.commitment === "string" &&
+                typeof parsed.preCommitment === "string" &&
                 typeof parsed.preImg === "object" &&
                 parsed.preImg !== null &&
                 "amount" in parsed.preImg &&

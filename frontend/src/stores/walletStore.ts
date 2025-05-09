@@ -198,12 +198,12 @@ export async function mintTestTokens(amount: string = "10000000") {
   if (!evmWallet) throw new Error("EVM wallet not connected");
 
   const contractAddress = "0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f";
+  
   const contract = new ethers.Contract(contractAddress, usdcAbi, evmWallet.signer);
 
-  console.log(`Balance before: ${await contract.balanceOf(evmWallet.address)}`);
+  //console.log(`Balance before: ${await contract.balanceOf(evmWallet.address)}`);
 
-  const decimals = await contract.decimals(); // optional, defaults to 18 if unknown
-  const amountInUnits = ethers.parseUnits(amount, decimals);
+  const amountInUnits = ethers.parseUnits(amount, 18);
 
   const tx = await contract.getFreeShit(amountInUnits);
   await tx.wait(); // wait for confirmation
