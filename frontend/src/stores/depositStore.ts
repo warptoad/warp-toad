@@ -14,7 +14,7 @@ import type { GigaRootBridge, WarpToadCore as WarpToadEvm } from "../../../backe
 import { WarpToadCoreContract as WarpToadAztec } from '../../../backend/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
 //obsidion remover:
-import { Contract  } from "@aztec/aztec.js";
+import { Contract } from "@aztec/aztec.js";
 
 //OBSIDION CONSTANTS
 
@@ -36,15 +36,21 @@ export type DepositData = {
     wrapped?: boolean;
 }
 
-type CommitmentPreImg = {
-    amount: number;
+export type CommitmentPreImg = {
+    amount: bigint;
     destination_chain_id: bigint;
     secret: bigint;
     nullifier_preimg: bigint;
 }
 
+export type WarptoadNote = {
+    preImg: CommitmentPreImg;
+    commitment: bigint;
+}
+
 export const depositApplicationStore = writable<DepositData | undefined>(undefined);
 export const commitmentPreImgStore = writable<CommitmentPreImg | undefined>(undefined);
+export const warptoadNoteStore = writable<WarptoadNote | undefined>(undefined)
 
 export const isEvmOrigin = writable(true);
 
@@ -119,6 +125,14 @@ export function swapChains() {
             toChain: current.fromChain,
         };
     });
+}
+
+
+export function clearDepositState(){
+
+    commitmentPreImgStore.set(undefined) 
+    warptoadNoteStore.set(undefined)
+
 }
 
 export function pickToken(tokenName: string) {
@@ -287,7 +301,7 @@ export async function wrapToken() {
 
 export async function getChainIdAztecFromContract() {
     const aztecWallet = get(aztecWalletStore);
-    if (!aztecWallet ) {
+    if (!aztecWallet) {
         console.warn('EVM wallet not connected');
         return;
     }
@@ -305,9 +319,7 @@ export async function getChainIdAztecFromContract() {
     return chainIdAztecFromContract
 }
 
-function createRandomPreImg(amount: number, chainIdAztecFromContract: bigint) {
-
-
+export function createRandomPreImg(amount: bigint, chainIdAztecFromContract: bigint) {
     commitmentPreImgStore.set({
         amount,
         destination_chain_id: chainIdAztecFromContract,
@@ -327,58 +339,101 @@ export function hashCommitment(preCommitment: bigint, amount: bigint): bigint {
 
 //create commitment and store?
 export async function createPreCommitment(chainIdAztecFromContract: bigint) {
-    createRandomPreImg(5 * 10 ** 18, chainIdAztecFromContract);
+    const currentAmount = get(depositApplicationStore)?.tokenAmount;
+
+    if (!currentAmount) {
+        console.log("ERROR DEPOSIT AMOUNT NOT SET")
+        return
+    }
+
+    createRandomPreImg(BigInt(currentAmount * 10 ** 18), chainIdAztecFromContract);
     const commitmentPreImg = get(commitmentPreImgStore);
     if (!commitmentPreImg) {
         return;
     }
+
     console.log(commitmentPreImg)
-    const preCommitment1 = hashPreCommitment(commitmentPreImg)
-    return preCommitment1
+    const preCommitment = hashPreCommitment(commitmentPreImg)
+
+    warptoadNoteStore.set(
+        {
+            preImg: commitmentPreImg,
+            commitment: preCommitment
+        }
+    )
+
 }
 
-export async function burnToken(preCommitment1: bigint, amount: number) {
+export async function burnToken(preCommitment: bigint, amount: bigint) {
     const evmWallet = get(evmWalletStore);
     if (!evmWallet || !evmWallet.signer) {
         console.warn('EVM wallet not connected');
         return;
     }
 
-    const currentAmount = ethers.parseUnits(amount.toString(), 18);
-    console.log(amount);
-    console.log(currentAmount);
     const l1WarptoadContract = new ethers.Contract("0xc5a5C42992dECbae36851359345FE25997F5C42d", warptoadAbi, evmWallet.signer);
 
     try {
-        const burnTx = await l1WarptoadContract.burn(preCommitment1, currentAmount);
+        const burnTx = await l1WarptoadContract.burn(preCommitment, amount);
         const receipt = await burnTx.wait();
 
         if (receipt.status === 1) {
             console.log('Transaction successful:', burnTx);
-            console.log("WRAPPED TOKENS: " + await l1WarptoadContract.balanceOf(evmWallet.signer))
         } else {
             console.warn('Transaction failed');
         }
+        const commitment = hashCommitment(preCommitment, amount);
+        warptoadNoteStore.update(current => (
+            {
+                ...current!,
+                commitment
+            }
+        ))
+
     } catch (error) {
         console.log(error)
         return;
     }
+
 }
 
 
-export async function showUSDCBalance(){
+export async function showUSDCBalance() {
     const aztecWallet = get(aztecWalletStore);
-    if(!aztecWallet){
+    if (!aztecWallet) {
         return 0
-    } 
+    }
     const AztecWarpToad = await Contract.at(
         AztecAddress.fromString("0x1aaf11fba8aacaf6ae91931551aabcd48ef852ae18ef01c972c86e83bae3c888"),
         WarpToadCoreContractArtifact,
         aztecWallet,
     );
 
-    
+
     return await AztecWarpToad.methods.balance_of(aztecWallet.getAddress()).simulate()
+}
+
+
+export async function evmStartBridge() {
+    //is evm connected?
+    //is preimg set?
+    const warptoadNote = get(warptoadNoteStore);
+    if (!warptoadNote) {
+        console.log("ERROR: NO PRECOMMITMENT DETECTED");
+        return
+    }
+
+    try {
+        await wrapToken();
+        try {
+            await burnToken(warptoadNote.commitment, warptoadNote.preImg.amount);
+        } catch (error) {
+            console.log("BURN FAILED " + error)
+        }
+    } catch (error) {
+        console.log("WRAP FAILED " + error)
+    }
+    //const gigaBridge = GigaRootBridge__factory.connect(deployedEvmAddresses["L1InfraModule#GigaRootBridge"], evmWallet?.signer)
 }
 
 
@@ -400,10 +455,10 @@ export async function mintOnL2(preImg: CommitmentPreImg) {
         userWallet,
     );
 
-    
+
     const balanceRecipientPreMint = await AztecWarpToad.methods.balance_of(userWallet.getAddress()).simulate()
     console.log("aztec balance before claim: " + balanceRecipientPreMint)
-    
+
     const preCommitment = hashPreCommitment(preImg)
 
 

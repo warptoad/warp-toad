@@ -1,6 +1,7 @@
 <script lang="ts">
     import {
         depositApplicationStore,
+        commitmentPreImgStore,
         type DepositData,
         toggleOrigin,
         swapChains,
@@ -11,14 +12,22 @@
         burnToken,
         mintOnL2,
         schnorrTest,
+        createRandomPreImg,
+        warptoadNoteStore,
+        type WarptoadNote,
+        evmStartBridge,
+        clearDepositState,
     } from "../../stores/depositStore";
     import DepositFrom from "./components/DepositFrom.svelte";
     import DepositTo from "./components/DepositTo.svelte";
-
+    import { Confetti } from "svelte-confetti";
     let currentStep = 0;
 
     let depositData: DepositData | undefined;
     $: $depositApplicationStore, (depositData = $depositApplicationStore);
+
+    let warptoadNoteData: WarptoadNote | undefined;
+    $: $warptoadNoteStore, (warptoadNoteData = $warptoadNoteStore);
 
     $: isDepositDataValid =
         !!depositData &&
@@ -27,57 +36,80 @@
         !!depositData.tokenName &&
         depositData.tokenAmount > 0;
 
-    $: isApproved = depositData?.approved
+    $: isApproved = depositData?.approved;
 
-    async function testing(){
-        /*
-        const aztecChainId=await getChainIdAztecFromContract();
-        if(!aztecChainId){
-            console.log("ERROR, COULD NOT FETCH AZTECCHAINID")
+    function handleNewDeposit() {
+        clearDepositState();
+        currentStep = 0;
+    }
+
+    function downloadFile(data: WarptoadNote) {
+        const timestamp = Date.now();
+        const filename = `warptopad${timestamp}.txt`;
+
+        // Convert BigInt to string for JSON
+        const jsonString = JSON.stringify(
+            data,
+            (_, value) =>
+                typeof value === "bigint" ? value.toString() : value,
+            2,
+        );
+
+        const blob = new Blob([jsonString], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        a.click();
+
+        URL.revokeObjectURL(url);
+    }
+
+    async function handleBridge() {
+        currentStep++;
+
+        //user shall not see this window anymore
+
+        const aztecChainID = await getChainIdAztecFromContract();
+
+        if (!aztecChainID) {
+            console.log("ERROR GETTING AZTEC CHAIN ID");
             return;
         }
-        console.log(aztecChainId);
-        const preCommitment = await createPreCommitment(aztecChainId)
-        if(!preCommitment){
-            console.log("failed to define preCommitment")
+        await createPreCommitment(aztecChainID);
+
+        //creating secrets
+
+        if (!warptoadNoteData) {
+            console.log("ERROR PREIMAGE NOT SET");
             return;
         }
-        */
-        const preImg = {
-            amount: 5,
-            destination_chain_id: 14266059373119162146721148758825988891396810944760983798453626204657962433224n,
-            nullifier_preimg: 180916128317787095431314509724722126630260260622496260687630801844790019140n,
-            secret: 5182287669277471989491523685751199241627595278062447707376026688007588349928n
-        }
 
-        await mintOnL2(preImg);
-        //await schnorrTest();
-        /**
-         * Object { amount: 5000000000000000000, destination_chain_id: 14266059373119162146721148758825988891396810944760983798453626204657962433224n, secret: 5182287669277471989491523685751199241627595278062447707376026688007588349928n, nullifier_preimg: 180916128317787095431314509724722126630260260622496260687630801844790019140n }
-​
-            amount: 5000000000000000000
-            ​
-            destination_chain_id: 14266059373119162146721148758825988891396810944760983798453626204657962433224n
-            ​
-            nullifier_preimg: 180916128317787095431314509724722126630260260622496260687630801844790019140n
-            ​
-            secret: 5182287669277471989491523685751199241627595278062447707376026688007588349928n
-            ​
-            <prototype>: Object { … }
-            depositStore.ts:326:12
+        currentStep++;
 
-        */
+        await wrapToken();
 
+        currentStep++;
 
-        //await burnToken(preCommitment, 5)
+        //wraping
+
+        await burnToken(
+            warptoadNoteData.commitment,
+            warptoadNoteData.preImg.amount,
+        );
+
+        currentStep++;
+
+        //bridging is all that is left
+        downloadFile(warptoadNoteData);
+
+        //RESET DEPOSIT STATE
+        currentStep++;
     }
 
     async function handleApprove() {
         await approveToken();
-    }
-
-    async function handleWrap(){
-        await wrapToken();
     }
 </script>
 
@@ -112,12 +144,6 @@
                 <DepositTo />
             </div>
             <div class="bg-base-300 p-2 rounded-md w-full">estimation</div>
-            <button
-                on:click={async () => {
-                    await testing();
-                }}
-                class="btn btn-accent w-full">test</button
-            >
             {#if !isApproved}
                 <button
                     disabled={!isDepositDataValid}
@@ -130,40 +156,35 @@
                 <button
                     disabled={!isDepositDataValid}
                     on:click={async () => {
-                        await handleWrap();
+                        await handleBridge();
                     }}
-                    class="btn btn-accent w-full">Prepare Token</button
+                    class="btn btn-accent w-full">Start Bridging</button
                 >
             {/if}
-        {:else if currentStep === 1}
-            <p class="text-center">This is me on step 1</p>
-            <div class="w-full flex gap-2">
-                <button
-                    on:click={() => {
-                        currentStep--;
-                    }}
-                    class="btn btn-error w-1/2">back</button
-                >
-                <button
-                    on:click={() => {
-                        currentStep++;
-                    }}
-                    class="btn btn-accent w-1/2">continue</button
-                >
+        {:else if currentStep === 5}
+            <div class="flex flex-col gap-4 justify-center items-center h-full">
+                
+                <div class="flex">
+                    <Confetti x={[-1, -0.25]} y={[0, 0.5]}/>
+                    <p class="text-center">You successfully Bridged!</p>
+                    <Confetti x={[0.25, 1]} y={[0, 0.5]} />
+                </div>
+                <div class="flex flex-col gap-4 w-1/2">
+                    <button
+                        class="btn btn-primary"
+                        on:click={() =>
+                            warptoadNoteData && downloadFile(warptoadNoteData)}
+                        >Redownload Note</button
+                    >
+                    <button class="btn btn-warning" on:click={handleNewDeposit}
+                        >new deposit</button
+                    >
+                </div>
             </div>
-        {:else if currentStep === 2}
-            <p class="text-center">This is me on step 2</p>
-            <div class="w-full flex gap-2">
-                <button
-                    on:click={() => {
-                        currentStep--;
-                    }}
-                    class="btn btn-error w-1/2">back</button
-                >
-                <button on:click={() => {}} class="btn btn-accent w-1/2"
-                    >continue</button
-                >
-            </div>
+        {:else}
+            <p class="text-center">loading</p>
+            <progress class="progress w-full" value={currentStep} max="4"
+            ></progress>
         {/if}
     </div>
 </div>
