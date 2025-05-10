@@ -206,7 +206,6 @@ aztec-nargo compile;
 aztec codegen -o src/artifacts target;
 cd ../../../..
 ```
-TODO hardhat (and after verifier)
 
 ### generate EVM verifier contracts
 <!-- //this should be a bash script lmao -->
