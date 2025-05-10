@@ -1,15 +1,18 @@
 <script lang="ts">
-    import type { EvmAccount } from "../../stores/walletStore";
     import {
+        type EvmAccount,
         connectMetamaskWallet,
         disconnectMetamaskWallet,
         isWalletConnected,
         evmWalletStore,
         truncateAddress,
+        mintTestTokens,
     } from "../../stores/walletStore";
 
     let evmWallet: EvmAccount | undefined;
     $: $evmWalletStore, (evmWallet = $evmWalletStore);
+
+    
 </script>
 
 <div class="h-full flex flex-col gap-2">
@@ -60,6 +63,10 @@
                 <p>Evm Address</p>
                 <p>{truncateAddress(evmWallet?.address!)}</p>
             </div>
+            <button
+                class="btn btn-ghost btn-outline border-[rgba(255,255,255,.25)] w-full flex items-center gap-2 justify-start px-2 py-6"
+                on:click={async()=>{await mintTestTokens()}}>getTestnetToken</button
+            >
             <button
                 class="btn btn-error w-full flex items-center gap-2 justify-start px-2 py-6"
                 on:click={disconnectMetamaskWallet}

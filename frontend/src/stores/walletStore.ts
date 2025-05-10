@@ -1,11 +1,14 @@
 import { writable, get } from 'svelte/store';
-import { AztecWalletSdk, obsidion } from "@nemi-fi/wallet-sdk";
-import type { Account } from "@nemi-fi/wallet-sdk";
 import { ethers } from 'ethers';
-import { CHAINS } from '../lib/networks/network';
+import { EVM_CHAINS } from '../lib/networks/network';
+import { usdcAbi } from '../lib/tokens/usdcAbi';
+import { TOKEN_LIST } from '../lib/tokens/tokens';
+import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
+import { createPXEClient, waitForPXE, type PXE, type Wallet } from '@aztec/aztec.js';
+import deployedEvmAddresses from "../../../backend/ignition/deployments/chain-31337/deployed_addresses.json"
 
 //OBSIDION CONSTANTS
-export const NODE_URL = "https://registry.obsidion.xyz/node";
+export const NODE_URL = "http://localhost:8080";
 export const WALLET_URL = "https://app.obsidion.xyz";
 
 export type EvmAccount = {
@@ -15,14 +18,25 @@ export type EvmAccount = {
   currentNetwork: ethers.Network;
 }
 
-export const evmWalletStore = writable<EvmAccount | undefined>(undefined);
-export const aztecWalletStore = writable<Account | undefined>(undefined);
+/**
+ * //set test wallet:
+     const { PXE_URL = 'http://localhost:8080' } = process.env;
+     const PXE = createPXEClient(PXE_URL);
+     await waitForPXE(PXE);
+     const wallets = await getInitialTestAccountsWallets(PXE);
+     const userWallet = wallets[0]
+ */
 
-// Aztec Wallet SDK
-export const sdk = new AztecWalletSdk({
-  aztecNode: NODE_URL,
-  connectors: [obsidion({ walletUrl: WALLET_URL })],
-});
+export const evmWalletStore = writable<EvmAccount | undefined>(undefined);
+export const aztecWalletStore = writable<Wallet | undefined>(undefined);
+export const PXEStore = writable<PXE | undefined>(undefined);
+
+export async function instantiatePXE() {
+  const { PXE_URL = 'http://localhost:8080' } = process.env;
+  const PXE = createPXEClient(PXE_URL);
+  await waitForPXE(PXE);
+  PXEStore.set(PXE);
+}
 
 export function isWalletConnected(instance: any): boolean {
   return instance !== undefined;
@@ -50,6 +64,7 @@ export async function connectMetamaskWallet(): Promise<void> {
   window.ethereum.on('chainChanged', handleChainChanged);
 }
 
+//TODO???
 const handleChainChanged = async () => {
   try {
     const newProvider = new ethers.BrowserProvider(window.ethereum);
@@ -69,12 +84,20 @@ const handleChainChanged = async () => {
   }
 };
 
-export async function connectObsidionWallet(): Promise<void> {
-  aztecWalletStore.set(await sdk.connect("obsidion"));
+export async function connectAztecWallet(): Promise<void> {
+  await instantiatePXE();
+  const currentPXE = get(PXEStore);
+  if(!currentPXE){
+    console.log("error no PXE");
+    return;
+  }
+  const wallets = await getInitialTestAccountsWallets(currentPXE);
+  const userWallet = wallets[0] //TODO COME UP WITH SOMETHING FOR PRODUCTION WARNING only works on sandbox rn
+
+  aztecWalletStore.set(userWallet);
 }
 
-export async function disconnectObsidionWallet(): Promise<void> {
-  await sdk.disconnect();
+export async function disconnectAztecWallet(): Promise<void> {
   aztecWalletStore.set(undefined)
 }
 
@@ -98,7 +121,7 @@ export async function switchNetwork(chainId: string): Promise<void> {
     throw new Error('MetaMask is not available');
   }
 
-  const chain = CHAINS.find(c => c.id.toLowerCase() === chainId.toLowerCase());
+  const chain = EVM_CHAINS.find(c => c.id.toLowerCase() === chainId.toLowerCase());
 
   if (!chain) {
     throw new Error(`Unknown chainId: ${chainId}`);
@@ -148,7 +171,7 @@ export async function getCurrentNetwork(): Promise<ethers.Network> {
 
 export function getNetworkLogoFromName(chainId: string): string | undefined {
 
-  const chain = CHAINS.find(c => c.id.toLowerCase() === chainId.toLowerCase());
+  const chain = EVM_CHAINS.find(c => c.id.toLowerCase() === chainId.toLowerCase());
   return chain?.svg;
 }
 
@@ -157,7 +180,62 @@ export function getNetworkLogoFromId(chainId: number | string): string | undefin
     ? `0x${chainId.toString(16)}`
     : chainId.toLowerCase();
 
-  const chain = CHAINS.find(c => c.chainId.toLowerCase() === normalizedId);
+  const chain = EVM_CHAINS.find(c => c.chainId.toLowerCase() === normalizedId);
   return chain?.svg;
 }
+
+export function getNetworkNameFromId(chainId: number | string): string | undefined {
+  const normalizedId = typeof chainId === 'number'
+    ? `0x${chainId.toString(16)}`
+    : chainId.toLowerCase();
+
+  const chain = EVM_CHAINS.find(c => c.chainId.toLowerCase() === normalizedId);
+  return chain?.id;
+}
+
+
+export async function mintTestTokens(amount: string = "1000000") {
+  const evmWallet = get(evmWalletStore);
+  if (!evmWallet) throw new Error("EVM wallet not connected");
+  
+  const contract = new ethers.Contract(deployedEvmAddresses["TestToken#USDcoin"], usdcAbi, evmWallet.signer);
+
+  //console.log(`Balance before: ${await contract.balanceOf(evmWallet.address)}`);
+
+  const amountInUnits = ethers.parseUnits(amount, await contract.decimals());
+
+  const tx = await contract.getFreeShit(amountInUnits);
+  await tx.wait(); // wait for confirmation
+
+  console.log(`Balance after: ${await contract.balanceOf(evmWallet.address)}`);
+}
+
+export function getTokenAddress(
+  chainType: "evm" | "aztec",
+  chainId: number | string,
+  tokenSymbol: string
+): string | undefined {
+  const normalizedId = typeof chainId === 'number'
+    ? `0x${chainId.toString(16)}`
+    : chainId.toLowerCase();
+
+  const tokenList = chainType === "evm" ? TOKEN_LIST.evm : TOKEN_LIST.aztec;
+
+  const token = tokenList.find(
+    t => t.chainId.toLowerCase() === normalizedId && t.tokenSymbol.toUpperCase() === tokenSymbol.toUpperCase()
+  );
+
+  return token?.tokenAddress;
+}
+
+export async function getTokenBalance(
+  tokenAddress: string
+) {
+  const evmWallet = get(evmWalletStore);
+  if (!evmWallet) throw new Error("EVM wallet not connected");
+  const contract = new ethers.Contract(tokenAddress, usdcAbi, evmWallet.signer);
+  const balance = await contract.balanceOf(evmWallet.address)
+  return balance
+}
+
 
