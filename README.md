@@ -165,8 +165,7 @@ WithdrawVerfifier: [0xb88e8c9af5069b42b4cea9a9f0218ae0c412f827](https://sepolia.
 # ⚠️ WARNING: KNOWN ISSUES
 
 1. event scanning will scan from block 0 to latest. This will break outside of tests and anvil  
- 
-
+2. Currently doesn't work on Aztec testnet, only the sandbox. This is due to a issue with the testnet message bridge [https://github.com/AztecProtocol/aztec-packages/issues/14174](https://github.com/AztecProtocol/aztec-packages/issues/14174).  We include the code below for deploying & running on testnet for when this issue is resolved.
 ---
 
 ## Installation and Execution Guide
@@ -236,7 +235,6 @@ aztec start --port 8080 --pxe --pxe.nodeUrl=https://full-node.alpha-testnet.azte
 ```
 
 ## aztec testnet deploy environment
-TODO is this needed??
 ```shell
 export NODE_URL=https://full-node.alpha-testnet.aztec.network
 export SPONSORED_FPC_ADDRESS=0x0b27e30667202907fc700d50e9bc816be42f8141fae8b9f2281873dbdb9fc2e5
