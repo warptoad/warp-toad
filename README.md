@@ -137,18 +137,25 @@ It does work fully in the Aztec sandbox environment.
 
 ### L1 sepolia
 L1WarpToad:[0x024da6a4e4d43197c77f9ae708333f5548a74912](https://sepolia.etherscan.io/address/0x024da6a4e4d43197c77f9ae708333f5548a74912)
+
 L1AztecBridgeAdapter: [0x9a61e6915af5371018c17d2c82f68815b45d2a88](https://sepolia.etherscan.io/address/0x9a61e6915af5371018c17d2c82f68815b45d2a88#code)
+
 L1ScrollBridgeAdapter: [0x0a33cd7a2a5c522af0f5f54036d9051006c77568](https://sepolia.etherscan.io/address/0x0a33cd7a2a5c522af0f5f54036d9051006c77568#code)
+
 GigaBridge: [0x556ae8a0010103d265ae360d7872d237c7a10f72](https://sepolia.etherscan.io/address/0x556ae8a0010103d265ae360d7872d237c7a10f72#code)
+
 WithdrawVerifier: [0x69B569033adF2CA3b1ce3BbF32252458bB1de60f](https://sepolia.etherscan.io/address/0x69B569033adF2CA3b1ce3BbF32252458bB1de60f)
 
 ### L2 aztec
-Aztec WarpToad: [](https://aztecscan.xyz/contracts/instances/0x2e92956d0b74f134793a4bd40eeef0ba2b5d35e63e36db2521377530f0c123d5)
-L2AztecBridgeAdapter: [](https://aztecscan.xyz/contracts/instances/0x063f175bf621a39655da5eb2b6ae7aa3e862d5aed2dc3b8704e157155332c6a1)
+Aztec WarpToad: [0x2e92956d0b74f134793a4bd40eeef0ba2b5d35e63e36db2521377530f0c123d5](https://aztecscan.xyz/contracts/instances/0x2e92956d0b74f134793a4bd40eeef0ba2b5d35e63e36db2521377530f0c123d5)
+
+L2AztecBridgeAdapter: [0x063f175bf621a39655da5eb2b6ae7aa3e862d5aed2dc3b8704e157155332c6a1](https://aztecscan.xyz/contracts/instances/0x063f175bf621a39655da5eb2b6ae7aa3e862d5aed2dc3b8704e157155332c6a1)
 
 ### L2 scroll
 L2WarpToad: [0x83f981ebb58d6540b0661b38aad0a12163b29ef5](https://sepolia.scrollscan.com/address/0x83f981ebb58d6540b0661b38aad0a12163b29ef5)
+
 L2ScrollAdapter: [0x2f94c4e2fd362c62983745adcb90e8492587f026](https://sepolia.scrollscan.com/address/0x2f94c4e2fd362c62983745adcb90e8492587f026)
+
 WithdrawVerfifier: [0xb88e8c9af5069b42b4cea9a9f0218ae0c412f827](https://sepolia.scrollscan.com/address/0xb88e8c9af5069b42b4cea9a9f0218ae0c412f827)
 
 
