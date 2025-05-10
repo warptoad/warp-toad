@@ -8,9 +8,9 @@ import { AztecAddress, createAztecNodeClient, createPXEClient, Fr, waitForPXE } 
 import { WarpToadCoreContractArtifact } from '../artifacts/WarpToadCore';
 import { poseidon2, poseidon3 } from 'poseidon-lite';
 import { getMerkleData } from "./utils/proving";
-import { GigaRootBridge__factory, L1WarpToad__factory, type L1WarpToad, } from '../../../backend/typechain-types'; //TODO remove hardcode and add cleaner logic after hackathon
+import { GigaBridge__factory, L1WarpToad__factory, type L1WarpToad, } from '../../../backend/typechain-types'; //TODO remove hardcode and add cleaner logic after hackathon
 import deployedEvmAddresses from "../../../backend/ignition/deployments/chain-31337/deployed_addresses.json"
-import type { GigaRootBridge, WarpToadCore as WarpToadEvm } from "../../../backend/typechain-types";
+import type { WarpToadCore as WarpToadEvm } from "../../../backend/typechain-types";
 import { WarpToadCoreContract as WarpToadAztec } from '../../../backend/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
 import { deployedAztecContracts } from "./utils/deployedAztecContracts"
@@ -447,7 +447,7 @@ export async function mintOnL2() {
         aztecWallet,
     );
 
-    const gigaBridge = GigaRootBridge__factory.connect(deployedEvmAddresses["L1InfraModule#GigaRootBridge"], evmWallet?.signer)
+    const gigaBridge = GigaBridge__factory.connect(deployedEvmAddresses["L1InfraModule#GigaBridge"], evmWallet?.signer)
     const l1WarptoadContract = new ethers.Contract(deployedEvmAddresses["L1WarpToadModule#L1WarpToad"], warptoadAbi, evmWallet?.signer);
 
     console.log(warptoadNote);

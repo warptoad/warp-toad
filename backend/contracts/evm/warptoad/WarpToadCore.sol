@@ -30,10 +30,6 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore,ILocalRootProvider, IGiga
         require(msg.sender == deployer, "Not the deployer");
         _; // what is that?
     }
-
-    function decimals() public view virtual override returns (uint8) {
-        return 6;
-    }
     
     address deployer;
 

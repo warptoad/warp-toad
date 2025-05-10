@@ -1,4 +1,4 @@
-import type { GigaRootBridge, WarpToadCore as WarpToadEvm } from "../../../../backend/typechain-types";
+import type { GigaBridge, WarpToadCore as WarpToadEvm } from "../../../../backend/typechain-types";
 import { WarpToadCoreContract as WarpToadAztec } from '../../../../backend/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
 import { type BytesLike, ethers } from "ethers";
 import { MerkleTree, type Element } from "fixed-merkle-tree";
@@ -73,7 +73,7 @@ async function getEvmMerkleData(warpToadOrigin: WarpToadEvm, commitment: bigint,
     return merkleData
 }
 //NEED
-export async function getGigaMerkleData(gigaBridge: GigaRootBridge, localRoot: bigint, localRootIndex: bigint, treeDepth: number, gigaRootBlockNumber: number) {
+export async function getGigaMerkleData(gigaBridge: GigaBridge, localRoot: bigint, localRootIndex: bigint, treeDepth: number, gigaRootBlockNumber: number) {
     const amountOfLocalRoots = await gigaBridge.amountOfLocalRoots()
     const allRootIndexes = new Array(Number(amountOfLocalRoots)).fill(0).map((v, i) => ethers.toBeHex(i)) as ethers.BigNumberish[]
     //@ts-ignore i hate typescript
@@ -127,7 +127,7 @@ export async function getAztecNoteHashTreeRoot(blockNumber: number, PXE?: PXE): 
     return block?.header.state.partial.noteHashTree.root.toBigInt() as bigint
 }
 
-export async function getBlockNumberOfGigaRoot(gigaBridge: GigaRootBridge, gigaRoot: bigint) {
+export async function getBlockNumberOfGigaRoot(gigaBridge: GigaBridge, gigaRoot: bigint) {
 
 }
 
@@ -142,7 +142,7 @@ export function getLatestEvent(events: ethers.EventLog[] | any[]) {
 
 }
 //NEED
-export async function getGigaRootBlockNumber(gigaBridge: GigaRootBridge, gigaRoot: bigint) {
+export async function getGigaRootBlockNumber(gigaBridge: GigaBridge, gigaRoot: bigint) {
     const filter = gigaBridge.filters.ConstructedNewGigaRoot(gigaRoot)
     const events = await gigaBridge.queryFilter(filter, 0) // TODO scan in chunks. start at latest go to deployment block.stop when you found 1
     const gigaRootEvent = getLatestEvent(events) // someone can create the same gigaroot twice if they really try. Idk might not matter is this context
@@ -152,7 +152,7 @@ export async function getGigaRootBlockNumber(gigaBridge: GigaRootBridge, gigaRoo
 
 
 //NEED
-export async function getLocalRootInGigaRoot(gigaBridge: GigaRootBridge, gigaRoot: bigint, gigaRootBlockNumber: number, warpToadOrigin: WarpToadEvm | WarpToadAztec) {
+export async function getLocalRootInGigaRoot(gigaBridge: GigaBridge, gigaRoot: bigint, gigaRootBlockNumber: number, warpToadOrigin: WarpToadEvm | WarpToadAztec) {
     const isFromAztec = !("target" in warpToadOrigin);
 
     const l1BridgeAdapter = isFromAztec ? await getL1BridgeAdapterAztec(warpToadOrigin) : await warpToadOrigin.l1BridgeAdapter()
@@ -208,7 +208,7 @@ async function getEvmLocalData(warpToadOrigin: WarpToadEvm) {
 }
 
 // if you ever run into a bug with this. I am so sorry
-export async function getMerkleData(gigaBridge: GigaRootBridge, warpToadOrigin: WarpToadEvm | WarpToadAztec, warpToadDestination: WarpToadEvm | WarpToadAztec, commitment: bigint) {
+export async function getMerkleData(gigaBridge: GigaBridge, warpToadOrigin: WarpToadEvm | WarpToadAztec, warpToadDestination: WarpToadEvm | WarpToadAztec, commitment: bigint) {
     const isToAztec = !("target" in warpToadDestination);
     const isFromAztec = !("target" in warpToadOrigin);
     const isOnlyLocal = warpToadDestination === warpToadOrigin;

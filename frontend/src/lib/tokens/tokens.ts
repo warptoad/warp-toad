@@ -40,7 +40,7 @@ export const TOKEN_LIST: TokenConfig = {
             chainId: "0x7A69",
             tokenName: "USDC",
             tokenSymbol: "USDC",
-            tokenAddress: deployedEvmAddresses["L1WarpToadWithTestTokenModule#USDcoin"],
+            tokenAddress: deployedEvmAddresses["TestToken#USDcoin"],
             decimals: 6,
         },
         {

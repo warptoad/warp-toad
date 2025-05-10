@@ -198,7 +198,7 @@ export async function mintTestTokens(amount: string = "1000000") {
   const evmWallet = get(evmWalletStore);
   if (!evmWallet) throw new Error("EVM wallet not connected");
   
-  const contract = new ethers.Contract(deployedEvmAddresses["L1WarpToadWithTestTokenModule#USDcoin"], usdcAbi, evmWallet.signer);
+  const contract = new ethers.Contract(deployedEvmAddresses["TestToken#USDcoin"], usdcAbi, evmWallet.signer);
 
   //console.log(`Balance before: ${await contract.balanceOf(evmWallet.address)}`);
 
