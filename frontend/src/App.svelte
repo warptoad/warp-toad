@@ -5,14 +5,19 @@
   import Footer from "./lib/Footer.svelte";
   import Draggable from "./lib/Draggable.svelte";
   import DepositApplication from "./lib/applications/DepositApplication.svelte";
-  import WalletTest from "./lib/WalletTest.svelte"
+  import WalletTest from "./lib/WalletTest.svelte";
+    import WithdrawAppliaction from "./lib/applications/WithdrawApplication.svelte";
 
   let isDepositOpen = false;
   let isWithdrawOpen = false;
   let isFaqOpen = false;
+
+
+  //<input type="file" class="file-input file-input-ghost" />
 </script>
 
 <main class="flex flex-col h-screen p-4">
+  <Navbar />
   <Draggable
     title={"FAQ"}
     x={window.innerWidth / 2}
@@ -44,12 +49,8 @@
     width={50}
     bind:isVisible={isWithdrawOpen}
   >
-    <div class="w-full h-full grid text-center justify-center">
-      <p>*qwark*</p>
-      <img src={placeHolderLogo} alt="warptoad" draggable="false" />
-    </div>
+  <WithdrawAppliaction />
   </Draggable>
-  <Navbar />
   <div class="flex-grow flex justify-center items-center">
     <ApplicationContainer
       bind:depositOpen={isDepositOpen}
@@ -57,7 +58,6 @@
       bind:faqOpen={isFaqOpen}
     />
   </div>
-  <WalletTest/>
   <Footer />
 </main>
 

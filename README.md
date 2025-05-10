@@ -70,14 +70,14 @@ VERSION=0.85.0-alpha-testnet.9 aztec start --sandbox
 aztec start --port 8080 --pxe --pxe.nodeUrl=https://full-node.alpha-testnet.aztec.network --l1-chain-id 11155111 --l1-rpc-urls https://sepolia.infura.io/v3/urkey
 
 ```
-
+<!--
 ## aztec testnet deploy environment
 TODO is this needed??
 ```shell
 export NODE_URL=https://full-node.alpha-testnet.aztec.network
 export SPONSORED_FPC_ADDRESS=0x0b27e30667202907fc700d50e9bc816be42f8141fae8b9f2281873dbdb9fc2e5
 ```
-
+-->
 ## deploy
 ### setup secrets
 ```shell
@@ -98,7 +98,7 @@ yarn workspace @warp-toad/backend hardhat ignition deploy ignition/modules/TestT
 ``` -->
 #### deploy on L1
 ```shell
-NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network aztecSandbox;
+NATIVE_TOKEN_ADDRESS=0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network aztecSandbox;
 ```
 <!--  
 NATIVE_TOKEN_ADDRESS=0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network aztecSandbox;
@@ -109,7 +109,7 @@ NATIVE_TOKEN_ADDRESS=0xAFD45Bf16D431BFbdF637261b749D256fEC02390 yarn workspace @
 
 #### deploy on aztec
 ```shell
-PRIVATE_KEY=0xYourPrivateKey NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network aztecSandbox;
+PRIVATE_KEY=0xYourPrivateKey NATIVE_TOKEN_ADDRESS=0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network aztecSandbox;
 ```
 
 <!--

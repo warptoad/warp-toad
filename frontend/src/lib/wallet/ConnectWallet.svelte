@@ -1,15 +1,15 @@
 <script lang="ts">
   import { onMount } from "svelte"; //IMPORT FOR MODAL TEST DEV
-  import { ethers } from "ethers";
-  import type { Account } from "@nemi-fi/wallet-sdk";
   import {
     evmWalletStore,
     aztecWalletStore,
     isWalletConnected,
     disconnectMetamaskWallet,
-    disconnectObsidionWallet,
+    disconnectAztecWallet,
   } from "../../stores/walletStore";
-  import type { EvmAccount } from "../../stores/walletStore";
+  import type { EvmAccount } from "../../stores/walletStore";import { type Wallet } from "@aztec/aztec.js";
+
+
 
   import EvmWallet from "./EvmWallet.svelte";
   import AztecWallet from "./AztecWallet.svelte";
@@ -18,7 +18,7 @@
   let walletModal: HTMLDialogElement | null = null;
 
   let evmWallet: EvmAccount | undefined;
-  let aztecWallet: Account | undefined;
+  let aztecWallet: Wallet | undefined;
 
   // Subscribe to account store reactively
   $: $evmWalletStore, (evmWallet = $evmWalletStore);
@@ -45,7 +45,7 @@
 
   async function disconnectAll() {
     await disconnectMetamaskWallet();
-    await disconnectObsidionWallet();
+    await disconnectAztecWallet();
     //closeModal()
   }
 </script>
@@ -74,7 +74,7 @@
       >
         <div>Wallet Manager</div>
         <button
-          class="closeButton hover:text-warning transition-colors duration-200"
+          class="hover:text-warning transition-colors duration-200"
           on:click={closeModal}>X</button
         >
       </div>

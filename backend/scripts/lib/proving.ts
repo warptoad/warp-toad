@@ -170,6 +170,7 @@ export async function getLocalRootInGigaRoot(gigaBridge:GigaBridge, gigaRoot:big
     return  {localRoot, localRootL2BlockNumber, gigaRootBlockNumber,localRootIndex}
 }
 
+
 export async function getL1BridgeAdapterAztec(WarpToad:WarpToadAztec) {
     const response = await WarpToad.methods.get_l1_bridge_adapter().simulate()
     const address = ethers.getAddress(ethers.toBeHex(response.inner)) // EthAddress type in aztec is a lil silly thats why

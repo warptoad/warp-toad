@@ -30,6 +30,7 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore,ILocalRootProvider, IGiga
         require(msg.sender == deployer, "Not the deployer");
         _; // what is that?
     }
+    
     address deployer;
 
     LazyIMTData public commitTreeData; // does this need to be public?
