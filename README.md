@@ -191,3 +191,18 @@ rm -fr backend/ignition/deployments/chain-31337/;
 yarn workspace @warp-toad/backend hardhat ignition deploy ./ignition/modules/L1WarpToadWithTestToken.ts --parameters ignition/WarpToadCoreParametersTesting.json --network aztecSandbox;
 yarn workspace @warp-toad/backend ts-node scripts/dev_op/estimateGas.ts -d ignition/deployments/chain-31337/deployed_addresses.json;
 ```
+
+
+
+# frontend 
+## preReq
+```shell
+    cd frontend/;
+    cp template.env .env;
+    yarn install;
+```
+
+## run dev
+```shell
+    yarn dev in /frontend or yarn f:dev
+```
