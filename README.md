@@ -229,7 +229,7 @@ yarn workspace @warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file
 VERSION=0.85.0-alpha-testnet.9 aztec start --sandbox
 ```
 
-## run PXE on alpha testnet (@danish skip this)
+## run PXE on alpha testnet
 ```shell
 aztec start --port 8080 --pxe --pxe.nodeUrl=https://full-node.alpha-testnet.aztec.network --l1-chain-id 11155111 --l1-rpc-urls https://sepolia.infura.io/v3/urkey
 
