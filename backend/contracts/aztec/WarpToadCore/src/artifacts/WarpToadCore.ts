@@ -34,7 +34,7 @@ import {
   type U128Like,
   type WrappedFieldLike,
 } from '@aztec/aztec.js';
-import WarpToadCoreContractArtifactJson from '../../target/WarpToadCore-WarpToadCore.json' assert { type: 'json' };
+import WarpToadCoreContractArtifactJson from '../../target/WarpToadCore-WarpToadCore.json' with { type: 'json' };
 export const WarpToadCoreContractArtifact = loadContractArtifact(WarpToadCoreContractArtifactJson as NoirCompiledContract);
 
 
@@ -229,8 +229,8 @@ WarpToadNote: {
     /** receive_giga_root(giga_root: field) */
     receive_giga_root: ((giga_root: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** sync_notes() */
-    sync_notes: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** sync_private_state() */
+    sync_private_state: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** transfer(to: struct, amount: integer) */
     transfer: ((to: AztecAddressLike, amount: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;

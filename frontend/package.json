@@ -20,8 +20,8 @@
     "yarn": "^1.22.22"
   },
   "dependencies": {
-    "@aztec/aztec.js": "0.85.0-alpha-testnet.2",
-    "@aztec/noir-contracts.js": "0.85.0-alpha-testnet.2",
+    "@aztec/aztec.js": "0.87.2",
+    "@aztec/noir-contracts.js": "0.87.2",
     "@tailwindcss/vite": "^4.1.4",
     "daisyui": "^5.0.28",
     "dedupe": "^4.0.3",

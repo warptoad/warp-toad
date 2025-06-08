@@ -34,7 +34,7 @@ import {
   type U128Like,
   type WrappedFieldLike,
 } from '@aztec/aztec.js';
-import L2AztecBridgeAdapterContractArtifactJson from '../../target/L2AztecBridgeAdapter-L2AztecBridgeAdapter.json' assert { type: 'json' };
+import L2AztecBridgeAdapterContractArtifactJson from '../../target/L2AztecBridgeAdapter-L2AztecBridgeAdapter.json' with { type: 'json' };
 export const L2AztecBridgeAdapterContractArtifact = loadContractArtifact(L2AztecBridgeAdapterContractArtifactJson as NoirCompiledContract);
 
 
@@ -127,18 +127,18 @@ counter: {
     }
     
 
-  public static get notes(): ContractNotes<'ValueNote' | 'UintNote' | 'WarpToadNote'> {
+  public static get notes(): ContractNotes<'UintNote' | 'ValueNote' | 'WarpToadNote'> {
     return {
-      ValueNote: {
-          id: new NoteSelector(0),
-        },
-UintNote: {
+      UintNote: {
           id: new NoteSelector(1),
+        },
+ValueNote: {
+          id: new NoteSelector(0),
         },
 WarpToadNote: {
           id: new NoteSelector(2),
         }
-    } as ContractNotes<'ValueNote' | 'UintNote' | 'WarpToadNote'>;
+    } as ContractNotes<'UintNote' | 'ValueNote' | 'WarpToadNote'>;
   }
   
 
@@ -163,8 +163,8 @@ WarpToadNote: {
     /** send_root_to_l1(block_number: integer) */
     send_root_to_l1: ((block_number: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** sync_notes() */
-    sync_notes: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** sync_private_state() */
+    sync_private_state: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
   };
 
   

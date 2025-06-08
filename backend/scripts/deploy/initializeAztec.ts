@@ -25,36 +25,37 @@ export async function getAztecWallet(pxe: PXE, privateKey: string, nodeUrl: stri
         return (await getInitialTestAccountsWallets(pxe))[0]
 
     }else {
-        const obsidionDeployerFPCSigningKey = GrumpkinScalar.fromHexString(privateKey as string)
-        console.warn("assuming ur on testnet/mainnet since chainId is NOT 31337")
-        //await getObsidionDeployerFPC(pxe, nodeUrl,obsidionDeployerFPCAddress,obsidionDeployerFPCSigningKey.toField().toString(),OBSIDION_DEPLOYER_SECRET_KEY)
-        const node = createAztecNodeClient(nodeUrl)
-        const contract = await node.getContract(obsidionDeployerFPCAddress as any)
-        if (!contract) {
-            throw new Error("Contract not found")
-        }
-        await delay(10000)
-        // const obsidionDeployerFPC = await (
-        //     await AccountManager.create(
-        //         pxe,
-        //         Fr.fromString(OBSIDION_DEPLOYER_SECRET_KEY),
-        //         new ObsidionDeployerFPCContractClass(obsidionDeployerFPCSigningKey),
-        //         contract.salt as unknown as Salt,
-        //     )
-        // ).getWallet()
+        throw Error("this broke during the upgrade TODO")
+        // const obsidionDeployerFPCSigningKey = GrumpkinScalar.fromHexString(privateKey as string)
+        // console.warn("assuming ur on testnet/mainnet since chainId is NOT 31337")
+        // //await getObsidionDeployerFPC(pxe, nodeUrl,obsidionDeployerFPCAddress,obsidionDeployerFPCSigningKey.toField().toString(),OBSIDION_DEPLOYER_SECRET_KEY)
+        // const node = createAztecNodeClient(nodeUrl)
+        // const contract = await node.getContract(obsidionDeployerFPCAddress as any)
+        // if (!contract) {
+        //     throw new Error("Contract not found")
+        // }
+        // await delay(10000)
+        // // const obsidionDeployerFPC = await (
+        // //     await AccountManager.create(
+        // //         pxe,
+        // //         Fr.fromString(OBSIDION_DEPLOYER_SECRET_KEY),
+        // //         new ObsidionDeployerFPCContractClass(obsidionDeployerFPCSigningKey),
+        // //         contract.salt as unknown as Salt,
+        // //     )
+        // // ).getWallet()
 
-        await pxe.registerAccount(
-            Fr.fromString(OBSIDION_DEPLOYER_SECRET_KEY),
-            await computePartialAddress(contract as any) as any as Fr,
-        )
-        await delay(10000)
-        await pxe.registerContract({
-            instance: contract as any,
-            artifact: ObsidionDeployerFPCContractArtifact,
-        })
-        await delay(10000)
-        const wallet = await getObsidionDeployerFPCWallet(pxe, obsidionDeployerFPCAddress, obsidionDeployerFPCSigningKey)
-        return wallet
+        // await pxe.registerAccount(
+        //     Fr.fromString(OBSIDION_DEPLOYER_SECRET_KEY),
+        //     await computePartialAddress(contract as any) as any as Fr,
+        // )
+        // await delay(10000)
+        // await pxe.registerContract({
+        //     instance: contract as any,
+        //     artifact: ObsidionDeployerFPCContractArtifact,
+        // })
+        // await delay(10000)
+        // const wallet = await getObsidionDeployerFPCWallet(pxe, obsidionDeployerFPCAddress, obsidionDeployerFPCSigningKey)
+        // return wallet
 
     }
 }

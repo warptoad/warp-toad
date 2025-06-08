@@ -36,28 +36,29 @@ async function connectPXE(PXE_URL: string, aztecPrivatekey: string) {
         const aztecWallet = (await getInitialTestAccountsWallets(PXE))[0];
         return { aztecWallet, PXE }
     } else {
-        const obsidionDeployerFPCSigningKey = GrumpkinScalar.fromHexString(aztecPrivatekey as string)
-        console.warn("assuming ur on testnet/mainnet since chainId is NOT 31337")
-        //await getObsidionDeployerFPC(pxe, nodeUrl,obsidionDeployerFPCAddress,obsidionDeployerFPCSigningKey.toField().toString(),OBSIDION_DEPLOYER_SECRET_KEY)
-        const node = createAztecNodeClient(AZTEC_NODE_URL)
-        const contract = await node.getContract(OBSIDION_DEPLOYER_FPC_ADDRESS as any)
-        if (!contract) {
-            throw new Error("Contract not found")
-        }
-        await delay(10000)
+        throw Error("this broke during the upgrade TODO")
+        // const obsidionDeployerFPCSigningKey = GrumpkinScalar.fromHexString(aztecPrivatekey as string)
+        // console.warn("assuming ur on testnet/mainnet since chainId is NOT 31337")
+        // //await getObsidionDeployerFPC(pxe, nodeUrl,obsidionDeployerFPCAddress,obsidionDeployerFPCSigningKey.toField().toString(),OBSIDION_DEPLOYER_SECRET_KEY)
+        // const node = createAztecNodeClient(AZTEC_NODE_URL)
+        // const contract = await node.getContract(OBSIDION_DEPLOYER_FPC_ADDRESS as any)
+        // if (!contract) {
+        //     throw new Error("Contract not found")
+        // }
+        // await delay(10000)
 
-        await PXE.registerAccount(
-            Fr.fromString(OBSIDION_DEPLOYER_SECRET_KEY),
-            await computePartialAddress(contract as any) as any as Fr,
-        )
-        await delay(10000)
-        await PXE.registerContract({
-            instance: contract as any,
-            artifact: ObsidionDeployerFPCContractArtifact,
-        })
-        await delay(10000)
-        const aztecWallet = await getObsidionDeployerFPCWallet(PXE, OBSIDION_DEPLOYER_FPC_ADDRESS, obsidionDeployerFPCSigningKey)
-        return { aztecWallet, PXE }
+        // await PXE.registerAccount(
+        //     Fr.fromString(OBSIDION_DEPLOYER_SECRET_KEY),
+        //     await computePartialAddress(contract as any) as any as Fr,
+        // )
+        // await delay(10000)
+        // await PXE.registerContract({
+        //     instance: contract as any,
+        //     artifact: ObsidionDeployerFPCContractArtifact,
+        // })
+        // await delay(10000)
+        // const aztecWallet = await getObsidionDeployerFPCWallet(PXE, OBSIDION_DEPLOYER_FPC_ADDRESS, obsidionDeployerFPCSigningKey)
+        // return { aztecWallet, PXE }
     }
 
 
