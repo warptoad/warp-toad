@@ -36,6 +36,7 @@
     "@aztec/bb.js": "0.72.1",
     "@aztec/ethereum": "0.87.2",
     "@aztec/foundation": "0.87.2",
+    "@aztec/noir-contracts.js": "^0.87.8",
     "@noir-lang/noir_js": "1.0.0-beta.3",
     "@noir-lang/noir_wasm": "1.0.0-beta.3",
     "@openzeppelin/contracts": "^5.2.0",
