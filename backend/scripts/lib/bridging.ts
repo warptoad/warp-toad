@@ -1,5 +1,5 @@
 //@ts-ignore
-import {  Fr, PXE, EthAddress } from "@aztec/aztec.js"
+import {  Fr, PXE, EthAddress, SponsoredFeePaymentMethod } from "@aztec/aztec.js"
 import { ethers } from "ethers";
 import { WarpToadCore as WarpToadEvm, USDcoin, PoseidonT3, LazyIMT, L1AztecBridgeAdapter, GigaBridge } from "../../typechain-types";
 import {  L2AztecBridgeAdapterContract } from '../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter'
@@ -24,10 +24,11 @@ export async function bridgeNoteHashTreeRoot(
     L2AztecBridgeAdapter: L2AztecBridgeAdapterContract,
     L1AztecBridgeAdapter: L1AztecBridgeAdapter,
     provider: ethers.Provider,
+    sponsoredPaymentMethod: SponsoredFeePaymentMethod|undefined
 ) {
     const blockNumberOfRoot = await PXE.getBlockNumber();
     const PXE_L2Root = (await PXE.getBlock(blockNumberOfRoot))?.header.state.partial.noteHashTree.root as Fr
-    const sendRootToL1Tx = await L2AztecBridgeAdapter.methods.send_root_to_l1(blockNumberOfRoot).send().wait({timeout:60*60*12});
+    const sendRootToL1Tx = await L2AztecBridgeAdapter.methods.send_root_to_l1(blockNumberOfRoot).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait({timeout:60*60*12});
     console.log({sendRootToL1Tx:sendRootToL1Tx.txHash.hash})
 
     const aztecChainVersion = await L1AztecBridgeAdapter.rollupVersion();
@@ -41,7 +42,8 @@ export async function bridgeNoteHashTreeRoot(
     const l2Bridge = L2AztecBridgeAdapter.address;
     const isSandBox = l1ChainId === 31337n
     if (!isSandBox) {
-        await waitForBlocksAztec(3,PXE)
+        const blocksToWait = 21
+        await waitForBlocksAztec(blocksToWait,PXE)
     } 
     
     const sendRootEffect = await PXE.getTxEffect(sendRootToL1Tx.txHash)
@@ -75,10 +77,11 @@ export async function bridgeNoteHashTreeRoot(
         siblingPathArray
     })
     if (!isSandBox) {
-        console.log("idk how long it takes for blocks to settle to ethereum but my guess is 101 L2 blocks. So yeah might take half a hour so just scroll through brain rot on insta reals or something")
+        const blocksToWait = 21
+        console.log(`idk how long it takes for blocks to settle to ethereum but my guess is ${blocksToWait} L2 blocks. So yeah might take half a hour so just scroll through brain rot on insta reals or something`)
         // @TODO
         console.log("@joss i am pretty sure we can just read the note hash tree root from the contract that settles the rollup. Or maybe proof against what ever hash it posted")
-        await waitForBlocksAztec(101,PXE)
+        await waitForBlocksAztec(blocksToWait,PXE)
     } 
     
     const refreshRootTx = await (await L1AztecBridgeAdapter.getNewRootFromL2(
@@ -153,6 +156,7 @@ export async function receiveGigaRootOnAztec(
     sendGigaRootTx: ethers.TransactionReceipt, // either get it from sendGigaRoot. or event scan for a specific gigaRoot with "NewGigaRootSentToAztec"
     PXE: PXE,
     isSandBox?: boolean,
+    sponsoredPaymentMethod?: SponsoredFeePaymentMethod|undefined
     
 ) {
     // auto detects based on chainId (they cant stop me from making cursed one liners >:) )
@@ -165,7 +169,7 @@ export async function receiveGigaRootOnAztec(
     const index = parsedL1AdapterEvent!.args[2];
 
 
-    const blocksToWait = 5 //should be NewGigaRootSentToAztecEvent.tx.blocknumber + 2
+    const blocksToWait = 21//should be NewGigaRootSentToAztecEvent.tx.blocknumber + 2
     if (isSandBox) {
         // this is to make the sandbox progress n blocks
         await L2AztecBridgeAdapter.methods.count(0n).send().wait();
@@ -178,14 +182,13 @@ export async function receiveGigaRootOnAztec(
     console.log("receive_giga_root", {content_hash, index, AztecWarpToad:AztecWarpToad.address})
 
     if (!isSandBox) {
-        console.log("idk how long it takes for blocks to settle to ethereum but my guess is 101 L2 blocks. So yeah might take half a hour so just scroll through brain rot on insta reals or something")
+        console.log(`idk how long it takes for aztec blocks to settle to ethereum but my guess is ${blocksToWait} L2 blocks. So yeah might take half a hour so just scroll through brain rot on insta reals or something`)
         // @TODO
-        console.log("@TODO ask how long this actually takes")
-        await waitForBlocksAztec(101,PXE as PXE)
+        await waitForBlocksAztec(blocksToWait,PXE as PXE)
     } 
 
-    
-    const receive_giga_rootTx = await L2AztecBridgeAdapter.methods.receive_giga_root(content_hash, index, AztecWarpToad.address).send().wait({timeout:60*60*12});
+    console.log({sponsoredPaymentMethod})
+    const receive_giga_rootTx = await L2AztecBridgeAdapter.methods.receive_giga_root(content_hash, index, AztecWarpToad.address).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait({timeout:60*60*12});
     return {receive_giga_rootTx}
 }
 

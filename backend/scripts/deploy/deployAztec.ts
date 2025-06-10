@@ -30,6 +30,7 @@ import { SingleKeyAccountContract } from "@aztec/accounts/single_key";
 import { createAztecNodeClient } from "@aztec/stdlib/interfaces/client";
 //@ts-ignore
 import { computePartialAddress } from "@aztec/stdlib/contract";
+import { getAztecTestWallet } from "../dev_op/getTestWallet";
 //import { ObsidionDeployerFPCContractArtifact } from "../dev_op/getObsidionWallet/ObsidionDeployerFPC"
 
 const obsidionDeployerFPCAddress = AztecAddress.fromField(Fr.fromHexString("0x19f8873315cad78e160bdcb686bcdc8bd3760ca215966b677b79ba2cfb68c1b5")) //0x19f8873315cad78e160bdcb686bcdc8bd3760ca215966b677b79ba2cfb68c1b5
@@ -39,7 +40,7 @@ const OBSIDION_DEPLOYER_SECRET_KEY = "0x00"
 const delay = async (timeInMs: number) => await new Promise((resolve) => setTimeout(resolve, timeInMs))
 export async function getAztecWallet(pxe: PXE, privateKey: string, nodeUrl: string, chainId: bigint) {
     if (chainId == 31337n) { 
-        console.warn("assuming ur on sanbox since chainId is 31337")
+        console.warn("assuming ur on sandbox since chainId is 31337")
         return (await getInitialTestAccountsWallets(pxe))[0]
 
     }else {
@@ -89,9 +90,9 @@ function getEnvArgs() {
         throw new Error("PXE_URL not set. do PXE_URL=http://UR.PXE NATIVE_TOKEN_ADDRESS=0xurTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts  --network aztecSandbox")
     }
 
-    if (!Boolean(process.env.PRIVATE_KEY)) {
-        throw new Error("PRIVATE_KEY not set")
-    }
+    // if (!Boolean(process.env.PRIVATE_KEY)) {
+    //     throw new Error("PRIVATE_KEY not set")
+    // }
 
 
     const nativeTokenAddress = ethers.getAddress(process.env.NATIVE_TOKEN_ADDRESS as string);
@@ -117,16 +118,16 @@ async function main() {
     await waitForPXE(PXE);
     //const wallets = await getInitialTestAccountsWallets(PXE);
 
-    const deployWallet = (await getAztecWallet(PXE, privateKey as string, "https://full-node.alpha-testnet.aztec.network", chainId))//wallets[0]
+    const {wallet,sponsoredPaymentMethod } = await getAztecTestWallet(PXE,chainId)//(await getAztecWallet(PXE, privateKey as string, "https://full-node.alpha-testnet.aztec.network", chainId))//wallets[0]
     // get PXE to know about fee contract
     // https://github.com/obsidionlabs/obsidion-wallet/blob/e514a5cea462b66704fa3fd94f14e198dc14a614/packages/backend/index.ts#L320
-    console.log({ deployWalletAddress: deployWallet.getAddress() })
+    console.log({ deployWalletAddress: wallet.getAddress() })
 
     //------deploy-------------
-    const { AztecWarpToad } = await deployAztecWarpToad(nativeToken, deployWallet)
+    const { AztecWarpToad } = await deployAztecWarpToad(nativeToken, wallet,sponsoredPaymentMethod )
     await delay(20000)
     console.log({ AztecWarpToad: AztecWarpToad.address })
-    const { L2AztecBridgeAdapter } = await deployL2AztecBridgeAdapter(L1AztecAdapterAddress, deployWallet)
+    const { L2AztecBridgeAdapter } = await deployL2AztecBridgeAdapter(L1AztecAdapterAddress, wallet,sponsoredPaymentMethod)
     console.log({ L2AztecBridgeAdapter: L2AztecBridgeAdapter.address })
     const deployments = { AztecWarpToad: AztecWarpToad.address, L2AztecBridgeAdapter: L2AztecBridgeAdapter.address }
     const folderPath = `${__dirname}/aztecDeployments/${Number(chainId)}/`
