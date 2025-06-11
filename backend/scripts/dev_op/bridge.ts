@@ -23,46 +23,23 @@ const OBSIDION_DEPLOYER_FPC_ADDRESS = AztecAddress.fromField(Fr.fromHexString("0
 const OBSIDION_DEPLOYER_SECRET_KEY = "0x00"
 const AZTEC_NODE_URL = "https://full-node.alpha-testnet.aztec.network"
 import { ObsidionDeployerFPCContractArtifact } from "./getObsidionWallet/ObsidionDeployerFPC"
+import { getAztecTestWallet } from './getTestWallet';
 const delay = async (timeInMs: number) => await new Promise((resolve) => setTimeout(resolve, timeInMs))
 
 
-async function connectPXE(PXE_URL: string, aztecPrivatekey: string) {
+async function connectPXE(PXE_URL: string) {
     console.log("creating PXE client")
     const PXE = createPXEClient(PXE_URL);
     console.log("waiting on PXE client", PXE_URL)
     await waitForPXE(PXE);
-    if (aztecPrivatekey === "sandbox") {
-        console.log(`--aztecPrivatekey is either not set or was set to "${aztecPrivatekey}". using getInitialTestAccountsWallets, this ONLY works on sandbox!!`)
-        const aztecWallet = (await getInitialTestAccountsWallets(PXE))[0];
-        return { aztecWallet, PXE }
-    } else {
-        throw Error("this broke during the upgrade TODO")
-        // const obsidionDeployerFPCSigningKey = GrumpkinScalar.fromHexString(aztecPrivatekey as string)
-        // console.warn("assuming ur on testnet/mainnet since chainId is NOT 31337")
-        // //await getObsidionDeployerFPC(pxe, nodeUrl,obsidionDeployerFPCAddress,obsidionDeployerFPCSigningKey.toField().toString(),OBSIDION_DEPLOYER_SECRET_KEY)
-        // const node = createAztecNodeClient(AZTEC_NODE_URL)
-        // const contract = await node.getContract(OBSIDION_DEPLOYER_FPC_ADDRESS as any)
-        // if (!contract) {
-        //     throw new Error("Contract not found")
-        // }
-        // await delay(10000)
+    return PXE
+}
 
-        // await PXE.registerAccount(
-        //     Fr.fromString(OBSIDION_DEPLOYER_SECRET_KEY),
-        //     await computePartialAddress(contract as any) as any as Fr,
-        // )
-        // await delay(10000)
-        // await PXE.registerContract({
-        //     instance: contract as any,
-        //     artifact: ObsidionDeployerFPCContractArtifact,
-        // })
-        // await delay(10000)
-        // const aztecWallet = await getObsidionDeployerFPCWallet(PXE, OBSIDION_DEPLOYER_FPC_ADDRESS, obsidionDeployerFPCSigningKey)
-        // return { aztecWallet, PXE }
-    }
-
-
-
+async function connectAztec(PXE_URL: string, chainId: bigint) {
+    const PXE = await connectPXE(PXE_URL)
+    const {wallet, sponsoredPaymentMethod} = await getAztecTestWallet(PXE, chainId)
+    return { PXE, aztecWallet:wallet, sponsoredPaymentMethod } 
+    
 }
 
 async function getL1Contracts(l1ChainId: bigint, signer: ethers.Signer) {
@@ -115,13 +92,18 @@ async function main() {
     parser.add_argument('-g', '--gigaRootRecipients', { help: 'a list of contracts to send the gigaRoot to on L1 (can be L1Warptoad or/and any L1<l2name>adapter)', required: false, type: 'str' });
     parser.add_argument('-1', '--L1Rpc', { help: 'url for the ethereum L1 rpc', required: false, type: 'str', default: "http://localhost:8545" });
     parser.add_argument('-2', '--L2Rpc', { help: 'url for L2 rpc', required: false, type: 'str', default: "http://localhost:8080" });
+    
 
     const args = parser.parse_args()
+
+
     const l1Provider = new ethers.JsonRpcProvider(args.L1Rpc);
+    // TODO maybe use     const signer = (await hre.ethers.getSigners())[0] instead
     const l1Wallet = new ethers.Wallet(args.evmPrivatekey, l1Provider);
     const l1ChainId = (await l1Provider.getNetwork()).chainId
+    if(args.evmPrivatekey === "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" && l1ChainId !== 31337n  ) {console.warn("default anvil key used on a l1 network that is not chainId 31337!")}
 
-    const { PXE, aztecWallet } = args.isAztec ? await connectPXE(args.L2Rpc, args.aztecPrivatekey) : { PXE: undefined, aztecWallet: undefined }
+    const { PXE, aztecWallet, sponsoredPaymentMethod } = args.isAztec ? await connectAztec(args.L2Rpc,  l1ChainId) : { PXE: undefined, aztecWallet: undefined,  sponsoredPaymentMethod:undefined}
 
     const localRootProviders = args.localRootProviders ? args.localRootProviders : await getLocalRootProviders(l1ChainId)
     const gigaRootRecipients = args.gigaRootRecipients ? args.gigaRootRecipients : await getLocalRootProviders(l1ChainId)
@@ -134,7 +116,8 @@ async function main() {
             PXE as PXE,
             L2AztecBridgeAdapter as L2AztecBridgeAdapterContract,
             L1AztecBridgeAdapter,
-            l1Provider
+            l1Provider,
+            sponsoredPaymentMethod
         )
         const gigaRootPreBridge = await gigaBridge.gigaRoot()
         console.log({ sendRootToL1Tx: sendRootToL1Tx.txHash.hash, refreshRootTx: refreshRootTx.hash, PXE_L2Root: PXE_L2Root.toBigInt(), gigaRootPreBridge })
@@ -179,7 +162,8 @@ async function main() {
             AztecWarpToad as WarpToadCoreContract,
             sendGigaRootTx,
             PXE as PXE,
-            true
+            isSandBox,
+            sponsoredPaymentMethod
         )
         const gigaRootOnAztec = await AztecWarpToad?.methods.get_giga_root().simulate()
         console.log({ receive_giga_rootTx: receive_giga_rootTx.txHash.hash, gigaRootOnAztec })
