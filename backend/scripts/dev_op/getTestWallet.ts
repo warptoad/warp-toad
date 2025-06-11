@@ -19,11 +19,15 @@ export async function deploySchnorrAccount(pxe: PXE): Promise<AccountManager> {
     await pxe.registerContract({ instance: sponsoredFPC, artifact: SponsoredFPCContract.artifact });
     const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(sponsoredFPC.address);
 
-    let secretKey = Fr.random();
-    let salt = Fr.random();
+    let secretKey = Fr.fromHexString("0x46726565416c65787950657274736576416e64526f6d616e53746f726d2121")//Fr.random();
+    let salt = Fr.fromHexString("0x46726565416c65787950657274736576416e64526f6d616e53746f726d2121")//Fr.random();
 
     let schnorrAccount = await getSchnorrAccount(pxe, secretKey, deriveSigningKey(secretKey), salt);
-    await schnorrAccount.deploy({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait({timeout:60*60*12});
+    try {
+        await schnorrAccount.deploy({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait({timeout:60*60*12});
+    } catch {
+        console.log(`Ran into a erroer deplying account: ${schnorrAccount.getAddress()}. It likely already exists?`)
+    }
     let wallet = await schnorrAccount.getWallet();
 
     return schnorrAccount;
