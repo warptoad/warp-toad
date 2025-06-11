@@ -42,7 +42,7 @@ export async function bridgeNoteHashTreeRoot(
     const l2Bridge = L2AztecBridgeAdapter.address;
     const isSandBox = l1ChainId === 31337n
     if (!isSandBox) {
-        const blocksToWait = 21
+        const blocksToWait = 6
         await waitForBlocksAztec(blocksToWait,PXE)
     } 
     
@@ -77,7 +77,7 @@ export async function bridgeNoteHashTreeRoot(
         siblingPathArray
     })
     if (!isSandBox) {
-        const blocksToWait = 21
+        const blocksToWait = 6
         console.log(`idk how long it takes for blocks to settle to ethereum but my guess is ${blocksToWait} L2 blocks. So yeah might take half a hour so just scroll through brain rot on insta reals or something`)
         // @TODO
         console.log("@joss i am pretty sure we can just read the note hash tree root from the contract that settles the rollup. Or maybe proof against what ever hash it posted")
@@ -169,7 +169,7 @@ export async function receiveGigaRootOnAztec(
     const index = parsedL1AdapterEvent!.args[2];
 
 
-    const blocksToWait = 21//should be NewGigaRootSentToAztecEvent.tx.blocknumber + 2
+    const blocksToWait = 6//should be NewGigaRootSentToAztecEvent.tx.blocknumber + 2
     if (isSandBox) {
         // this is to make the sandbox progress n blocks
         await L2AztecBridgeAdapter.methods.count(0n).send().wait();
