@@ -22,7 +22,7 @@ import { ethers } from "ethers";
 import { hashNoteHashNonce, hashPreCommitment } from "../scripts/lib/hashing";
 import { calculateFeeFactor, createProof, generateNoirTest, getAztecNoteHashTreeRoot, getProofInputs } from "../scripts/lib/proving";
 import { EVM_TREE_DEPTH, gasCostPerChain } from "../scripts/lib/constants";
-import { WarpToadCore as WarpToadEvm, USDcoin, PoseidonT3, LazyIMT, L1AztecBridgeAdapter, GigaBridge, L1WarpToad } from "../typechain-types";
+import { WarpToadCore as WarpToadEvm, USDcoin, PoseidonT3, LazyIMT, L1AztecBridgeAdapter, GigaBridge, L1WarpToad, WithdrawVerifier__factory } from "../typechain-types";
 
 import { L2AztecBridgeAdapterContractArtifact, L2AztecBridgeAdapterContract } from '../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter'
 
@@ -247,6 +247,13 @@ describe("AztecWarpToad", function () {
             //await generateNoirTest(proofInputs);
 
             const proof = await createProof(proofInputs, os.cpus().length)
+            //@ts-ignore
+            const onchainPublicInputs = await L1WarpToad._formatPublicInputs(proofInputs.nullifier, proofInputs.chain_id, proofInputs.amount, proofInputs.giga_root, proofInputs.destination_local_root, proofInputs.fee_factor, proofInputs.priority_fee, proofInputs.max_fee, proofInputs.relayer_address, proofInputs.recipient_address);
+    
+            console.log({jsPubInputs: proof.publicInputs, onchainPublicInputs})
+            const withdrawVerifier = WithdrawVerifier__factory.connect(await L1WarpToad.withdrawVerifier(), provider)
+            const jsVerifiedOnchain = await withdrawVerifier.verify(proof.proof, proof.publicInputs )
+            console.log({jsVerifiedOnchain})
             const balanceRecipientPreMint = await L1WarpToadWithSender.balanceOf(await evmRecipient.getAddress())
 
             const mintTx = await (await L1WarpToadWithRelayer.mint(

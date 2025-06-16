@@ -179,15 +179,15 @@ npm install --global yarn;
 yarn install;
 ```
 
-make sure you're on aztec 0.87.2
+make sure you're on aztec 0.87.8
 ```shell
-aztec-up 0.87.2
+aztec-up0.87.8
 ```
 
 install noir and backend
 ```shell
 bbup -v 0.72.1;
-noirup -v 1.0.0-beta.3;
+noirup -v 1.0.0-beta.5;
 ```
 
 ## compile contracts
@@ -208,6 +208,23 @@ cd ../../../..
 
 ### generate EVM verifier contracts
 <!-- //this should be a bash script lmao -->
+<!-- 
+idk what happened to the new versions of bb but it sucks!!
+This is how to do it with the new version of bb but it doesnt work
+```shell
+cd backend/circuits/withdraw/; 
+nargo compile; 
+bb write_vk -b ./target/withdraw.json -o ./target/ --oracle_hash keccak;
+bb write_solidity_verifier -k ./target/vk --scheme ultra_honk -o ./target/contract.sol;
+
+cd ../../..;
+
+# move to contracts folder
+mv backend/circuits/withdraw/target/contract.sol backend/contracts/evm/WithdrawVerifier.sol
+
+# rename the contract
+yarn workspace @warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file ./contracts/evm/WithdrawVerifier.sol --remove "contract HonkVerifier is BaseHonkVerifier(N, LOG_N, NUMBER_OF_PUBLIC_INPUTS) {" --replace "contract WithdrawVerifier is BaseHonkVerifier(N, LOG_N, NUMBER_OF_PUBLIC_INPUTS) {"
+``` -->
 ```shell
 cd backend/circuits/withdraw/; 
 nargo compile; 
@@ -225,7 +242,7 @@ yarn workspace @warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file
 
 ## run sandbox
 ```shell
-VERSION=0.87.2 aztec start --sandbox
+VERSION=0.87.8 aztec start --sandbox
 ```
 
 ## run PXE on alpha testnet

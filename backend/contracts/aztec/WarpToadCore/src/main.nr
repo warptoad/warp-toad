@@ -24,35 +24,35 @@ pub contract WarpToadCore {
 
     // TODO remove unused imports once you are sure you dont need them
     use aztec::{
-        context::{PrivateCallInterface, PrivateContext},
+        //context::{PrivateCallInterface, PrivateContext},
         event::event_interface::EventInterface,
         history::public_storage::PublicStorageHistoricalRead,
         macros::{
             events::event,
-            functions::{initializer, internal, private, public, utility, view},
+            functions::{initializer, private, public, utility}, //internal, view},
             notes::note,
             storage::storage,
         },
         messages::logs::{
             event::encode_and_encrypt_event_unconstrained,
-            note::{encode_and_encrypt_note, encode_and_encrypt_note_unconstrained},
+            note::{encode_and_encrypt_note}//, encode_and_encrypt_note_unconstrained},
         },
         note::{
-            note_getter::{get_note_internal, get_notes},
+            note_getter::{get_note_internal},//, get_notes},
             note_interface::NoteHash::{self, compute_note_hash, compute_nullifier},
             retrieved_note::RetrievedNote,
         },
         oracle::get_membership_witness::{get_note_hash_membership_witness, MembershipWitness},
         prelude::{
-            AztecAddress, EthAddress, Map, PrivateMutable, PrivateSet, PublicImmutable,
-            PublicMutable,
+            AztecAddress, EthAddress, Map, PrivateSet, PublicImmutable,PublicMutable,
+            //PrivateMutable
         },
         protocol_types::{
-            block_header::BlockHeader,
+            //block_header::BlockHeader,
             constants::NOTE_HASH_TREE_HEIGHT,
-            hash::{compute_note_hash_nonce, compute_siloed_note_hash, compute_unique_note_hash},
+            hash::{ compute_siloed_note_hash, compute_unique_note_hash},//,compute_note_hash_nonce},
             merkle_tree::root::root_from_sibling_path,
-            transaction::tx_context::TxContext,
+            //transaction::tx_context::TxContext,
         },
     };
 
@@ -119,6 +119,7 @@ pub contract WarpToadCore {
             secret,
             chain_id: destination_chain_id,
             amount: amount as Field,
+            
         };
         storage.commitments.insert(warptoad_note).emit(encode_and_encrypt_note(
             &mut context,
