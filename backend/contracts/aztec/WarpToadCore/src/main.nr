@@ -62,6 +62,7 @@ pub contract WarpToadCore {
 
         giga_root: PublicMutable<Field, Context>,
         native_token: PublicImmutable<EthAddress, Context>,
+        // TODO upgrade to a u128
         balances: Map<AztecAddress, EasyPrivateUint<Context>, Context>,
         commitments: PrivateSet<WarpToadNote, Context>,
         symbol: PublicImmutable<FieldCompressedString, Context>,

@@ -26,7 +26,7 @@ export async function deploySchnorrAccount(pxe: PXE): Promise<AccountManager> {
     try {
         await schnorrAccount.deploy({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait({timeout:60*60*12});
     } catch {
-        console.log(`Ran into a erroer deplying account: ${schnorrAccount.getAddress()}. It likely already exists?`)
+        console.log(`Ran into a error deploying account: ${schnorrAccount.getAddress()}. It likely already exists?`)
     }
     let wallet = await schnorrAccount.getWallet();
 
