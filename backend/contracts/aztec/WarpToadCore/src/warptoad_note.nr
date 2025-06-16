@@ -1,9 +1,14 @@
 use poseidon::poseidon;
-use dep::aztec::{macros::notes::note, protocol_types::{address::AztecAddress, traits::Serialize}};
+use dep::aztec::{
+    //macros::notes::note,
+    protocol_types::{
+        //address::AztecAddress, 
+        traits::Serialize
+        }};
 use dep::aztec::macros::notes::{custom_note};
 use dep::aztec::note::note_interface::{NoteHash};
 use dep::aztec::context::{PrivateContext};
-use aztec::note::note_interface::NoteHash::{compute_nullifier, compute_note_hash};
+//use aztec::note::note_interface::NoteHash::{compute_nullifier, compute_note_hash};
 
 #[custom_note]
 #[derive(Eq, Serialize)]

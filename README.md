@@ -136,27 +136,27 @@ We have the Aztec smart contracts deployed on testnet, but the application doesn
 It does work fully in the Aztec sandbox environment.
 
 ### L1 sepolia
-L1WarpToad:[0x024da6a4e4d43197c77f9ae708333f5548a74912](https://sepolia.etherscan.io/address/0x024da6a4e4d43197c77f9ae708333f5548a74912)
+L1WarpToad:[0x199953A6a80a67B1FFFf7A541cEd4602eF662bc9](https://sepolia.etherscan.io/address/0x199953A6a80a67B1FFFf7A541cEd4602eF662bc9)
 
-L1AztecBridgeAdapter: [0x9a61e6915af5371018c17d2c82f68815b45d2a88](https://sepolia.etherscan.io/address/0x9a61e6915af5371018c17d2c82f68815b45d2a88#code)
+L1AztecBridgeAdapter: [0xCCeB96020819b9a5f194FC7176659624BD87a674](https://sepolia.etherscan.io/address/0xCCeB96020819b9a5f194FC7176659624BD87a674#code)
 
-L1ScrollBridgeAdapter: [0x0a33cd7a2a5c522af0f5f54036d9051006c77568](https://sepolia.etherscan.io/address/0x0a33cd7a2a5c522af0f5f54036d9051006c77568#code)
+<!-- L1ScrollBridgeAdapter: [0xf524005D94849D5a5935B775544ab6b6A1B4c483](https://sepolia.etherscan.io/address/0xf524005D94849D5a5935B775544ab6b6A1B4c483#code) -->
 
-GigaBridge: [0x556ae8a0010103d265ae360d7872d237c7a10f72](https://sepolia.etherscan.io/address/0x556ae8a0010103d265ae360d7872d237c7a10f72#code)
+GigaBridge: [0x7dd5bC8bc0dA28B282322143e2c8A4a1A8e916F1](https://sepolia.etherscan.io/address/0x7dd5bC8bc0dA28B282322143e2c8A4a1A8e916F1#code)
 
-WithdrawVerifier: [0x69B569033adF2CA3b1ce3BbF32252458bB1de60f](https://sepolia.etherscan.io/address/0x69B569033adF2CA3b1ce3BbF32252458bB1de60f)
+WithdrawVerifier: [0x28A6aA736A47823822355f70642d167e36dA7760](https://sepolia.etherscan.io/address/0x28A6aA736A47823822355f70642d167e36dA7760)
 
 ### L2 aztec
-Aztec WarpToad: [0x2e92956d0b74f134793a4bd40eeef0ba2b5d35e63e36db2521377530f0c123d5](https://aztecscan.xyz/contracts/instances/0x2e92956d0b74f134793a4bd40eeef0ba2b5d35e63e36db2521377530f0c123d5)
+Aztec WarpToad: [0x0e730046743e6432ae2260b82ac5060d428fdc6a22674181244928b9b14a778e](https://aztecscan.xyz/contracts/instances/0x0e730046743e6432ae2260b82ac5060d428fdc6a22674181244928b9b14a778e)
 
-L2AztecBridgeAdapter: [0x063f175bf621a39655da5eb2b6ae7aa3e862d5aed2dc3b8704e157155332c6a1](https://aztecscan.xyz/contracts/instances/0x063f175bf621a39655da5eb2b6ae7aa3e862d5aed2dc3b8704e157155332c6a1)
-
+L2AztecBridgeAdapter: [0x11992442ce2548511f7fa7e83b263b72a6c7fb7029e489b089f7fc50e5b69753](https://aztecscan.xyz/contracts/instances/0x11992442ce2548511f7fa7e83b263b72a6c7fb7029e489b089f7fc50e5b69753)
+<!-- 
 ### L2 scroll
 L2WarpToad: [0x83f981ebb58d6540b0661b38aad0a12163b29ef5](https://sepolia.scrollscan.com/address/0x83f981ebb58d6540b0661b38aad0a12163b29ef5)
 
 L2ScrollAdapter: [0x2f94c4e2fd362c62983745adcb90e8492587f026](https://sepolia.scrollscan.com/address/0x2f94c4e2fd362c62983745adcb90e8492587f026)
 
-WithdrawVerfifier: [0xb88e8c9af5069b42b4cea9a9f0218ae0c412f827](https://sepolia.scrollscan.com/address/0xb88e8c9af5069b42b4cea9a9f0218ae0c412f827)
+WithdrawVerfifier: [0xb88e8c9af5069b42b4cea9a9f0218ae0c412f827](https://sepolia.scrollscan.com/address/0xb88e8c9af5069b42b4cea9a9f0218ae0c412f827) -->
 
 
 
@@ -179,15 +179,15 @@ npm install --global yarn;
 yarn install;
 ```
 
-make sure you're on aztec 0.87.2
+make sure you're on aztec 0.87.8
 ```shell
-aztec-up 0.87.2
+aztec-up0.87.8
 ```
 
 install noir and backend
 ```shell
 bbup -v 0.72.1;
-noirup -v 1.0.0-beta.3;
+noirup -v 1.0.0-beta.5;
 ```
 
 ## compile contracts
@@ -208,6 +208,23 @@ cd ../../../..
 
 ### generate EVM verifier contracts
 <!-- //this should be a bash script lmao -->
+<!-- 
+idk what happened to the new versions of bb but it sucks!!
+This is how to do it with the new version of bb but it doesnt work
+```shell
+cd backend/circuits/withdraw/; 
+nargo compile; 
+bb write_vk -b ./target/withdraw.json -o ./target/ --oracle_hash keccak;
+bb write_solidity_verifier -k ./target/vk --scheme ultra_honk -o ./target/contract.sol;
+
+cd ../../..;
+
+# move to contracts folder
+mv backend/circuits/withdraw/target/contract.sol backend/contracts/evm/WithdrawVerifier.sol
+
+# rename the contract
+yarn workspace @warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file ./contracts/evm/WithdrawVerifier.sol --remove "contract HonkVerifier is BaseHonkVerifier(N, LOG_N, NUMBER_OF_PUBLIC_INPUTS) {" --replace "contract WithdrawVerifier is BaseHonkVerifier(N, LOG_N, NUMBER_OF_PUBLIC_INPUTS) {"
+``` -->
 ```shell
 cd backend/circuits/withdraw/; 
 nargo compile; 
@@ -225,7 +242,7 @@ yarn workspace @warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file
 
 ## run sandbox
 ```shell
-VERSION=0.87.2 aztec start --sandbox
+VERSION=0.87.8 aztec start --sandbox
 ```
 
 ## run PXE on alpha testnet
@@ -265,7 +282,7 @@ NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend ha
 <!--  
 NATIVE_TOKEN_ADDRESS=0x7a2088a1bFc9d81c55368AE168C2C02570cB814F yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network aztecSandbox;
 
-NATIVE_TOKEN_ADDRESS=0xF3640Fde8C2f19D0cC2C6BF2cb95F9f8490ab389 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network sepolia;
+NATIVE_TOKEN_ADDRESS=0x76eeB3b2616b4B4dAd7731c972FdDd3417604519 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network sepolia;
 
 -->
 
@@ -277,7 +294,7 @@ NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress PXE_URL=http:/localhost:8080 yarn wo
 <!--
 PRIVATE_KEY=0xYourPrivateKey NATIVE_TOKEN_ADDRESS=0x7a2088a1bFc9d81c55368AE168C2C02570cB814F PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network aztecSandbox;
 
-NATIVE_TOKEN_ADDRESS=0xF3640Fde8C2f19D0cC2C6BF2cb95F9f8490ab389 PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network sepolia;
+NATIVE_TOKEN_ADDRESS=0x76eeB3b2616b4B4dAd7731c972FdDd3417604519 PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network sepolia;
 -->
 
 #### deploy on scroll
@@ -285,7 +302,7 @@ NATIVE_TOKEN_ADDRESS=0xF3640Fde8C2f19D0cC2C6BF2cb95F9f8490ab389 PXE_URL=http:/lo
 NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL2Scroll.ts --network scrollSepolia;
 ```
 <!-- 
-NATIVE_TOKEN_ADDRESS=0xF3640Fde8C2f19D0cC2C6BF2cb95F9f8490ab389 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL2Scroll.ts --network scrollSepolia;
+NATIVE_TOKEN_ADDRESS=0x76eeB3b2616b4B4dAd7731c972FdDd3417604519 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL2Scroll.ts --network scrollSepolia;
  -->
 
 #### initialize contracts
