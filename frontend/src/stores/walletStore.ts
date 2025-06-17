@@ -3,8 +3,8 @@ import { ethers } from 'ethers';
 import { EVM_CHAINS } from '../lib/networks/network';
 import { usdcAbi } from '../lib/tokens/usdcAbi';
 import { TOKEN_LIST } from '../lib/tokens/tokens';
-import { getDeployedTestAccountsWallets, getInitialTestAccountsWallets } from '@aztec/accounts/testing';
-import { createPXEClient, waitForPXE, Schnorr, Grumpkin, generatePublicKey, type PXE, type Wallet, GrumpkinScalar, SponsoredFeePaymentMethod, Fr, type ContractInstanceWithAddress, AccountManager, AccountWalletWithSecretKey } from '@aztec/aztec.js';
+import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
+import { createPXEClient, waitForPXE, type PXE, type Wallet, GrumpkinScalar, SponsoredFeePaymentMethod, Fr, type ContractInstanceWithAddress } from '@aztec/aztec.js';
 import deployedEvmAddresses from "../../../backend/ignition/deployments/chain-31337/deployed_addresses.json"
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { getSchnorrAccount } from "@aztec/accounts/schnorr";
@@ -53,6 +53,35 @@ export async function connectMetamaskWallet(): Promise<void> {
 
   evmWalletStore.set(evmAccount);
 
+  // Persist only the address
+  localStorage.setItem('evmAccountAddress', address);
+
+  window.ethereum.on('chainChanged', handleChainChanged);
+}
+
+export async function restoreEvmWalletIfPossible(): Promise<void> {
+  const storedAddress = localStorage.getItem('evmAccountAddress');
+  if (!storedAddress || !window.ethereum) return;
+
+  const provider = new ethers.BrowserProvider(window.ethereum);
+  const signer = await provider.getSigner();
+  const address = await signer.getAddress();
+  const currentNetwork = await provider.getNetwork();
+
+  if (address.toLowerCase() !== storedAddress.toLowerCase()) {
+    localStorage.removeItem('evmAccountAddress');
+    return;
+  }
+
+  const evmAccount: EvmAccount = {
+    address,
+    provider,
+    signer,
+    currentNetwork,
+  };
+
+  evmWalletStore.set(evmAccount);
+
   window.ethereum.on('chainChanged', handleChainChanged);
 }
 
@@ -91,7 +120,6 @@ export async function deploySchnorrAccount(secretKey: `0x${string}`, salt: strin
     return
   }
   const sponsoredFPC = await getSponsoredFPCInstance();
-  console.log(sponsoredFPC.salt)
   //@ts-ignore
   await currentPxe.registerContract({ instance: sponsoredFPC, artifact: SponsoredFPCContract.artifact });
   const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(sponsoredFPC.address);
@@ -101,14 +129,15 @@ export async function deploySchnorrAccount(secretKey: `0x${string}`, salt: strin
 
   let schnorrAccount = await getSchnorrAccount(currentPxe, currentSecretKey, deriveSigningKey(currentSecretKey), currentSalt.toBigInt());
 
-
-  const deployWallet = (await getDeployedTestAccountsWallets(currentPxe))[0];
-
   try {
     //TODO: find out deploy wallet not funded?
-    await schnorrAccount.deploy({ fee: { paymentMethod: sponsoredPaymentMethod?sponsoredPaymentMethod:undefined }, deployWallet }).wait({ timeout: 60 * 60 * 12 });
-  } catch (error){
-    console.log(error)
+    await schnorrAccount.deploy({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait({ timeout: 60 * 60 * 12 });
+  } catch (error) {
+    const provider = new ethers.BrowserProvider(window.ethereum)
+    const chainId = (await provider.getNetwork()).chainId
+    if (chainId != 31337n) {
+      console.log(error)
+    }
   }
   let wallet = await schnorrAccount.getWallet();
 
@@ -147,16 +176,42 @@ export async function connectAztecWallet(): Promise<void> {
     return;
   }
   const wallets = await getInitialTestAccountsWallets(currentPXE);
-
-
   //const testW = schnorr
   const userWallet = wallets[0] //TODO COME UP WITH SOMETHING FOR PRODUCTION WARNING only works on sandbox rn
-
   aztecWalletStore.set(userWallet);
 }
 
+export async function connectAztecWalletWithPersistence(secretKey: `0x${string}`): Promise<void> {
+  await instantiatePXE();
+  const currentPXE = get(PXEStore);
+  if (!currentPXE) return;
+
+  const privateKey = secretKey;
+  const salt = createRandomAztecPrivateKey(); // can also randomize per user if needed
+
+  await deploySchnorrAccount(privateKey, salt);
+  //TODO: MAKE IT MORE SECURE WHEN RELEASED LOOOOL
+  // Persist keys
+  localStorage.setItem('aztecPrivateKey', privateKey);
+  localStorage.setItem('aztecSalt', salt);
+}
+
+export async function restoreAztecWalletIfPossible(): Promise<void> {
+  const privKey = localStorage.getItem('aztecPrivateKey');
+  const salt = localStorage.getItem('aztecSalt');
+  if (!privKey || !salt) return;
+
+  await instantiatePXE();
+  const currentPXE = get(PXEStore);
+  if (!currentPXE) return;
+
+  await fetchSchnorrAccount(currentPXE, privKey as `0x${string}`, salt);
+}
+
 export async function disconnectAztecWallet(): Promise<void> {
-  aztecWalletStore.set(undefined)
+  aztecWalletStore.set(undefined);
+  localStorage.removeItem('aztecPrivateKey');
+  localStorage.removeItem('aztecSalt');
 }
 
 export const disconnectMetamaskWallet = async (): Promise<void> => {

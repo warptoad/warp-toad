@@ -7,6 +7,7 @@
         truncateAddress,
         createRandomAztecPrivateKey,
         deploySchnorrAccount,
+        connectAztecWalletWithPersistence,
     } from "../../stores/walletStore";
 
     import { showUSDCBalance } from "../../stores/depositStore";
@@ -29,7 +30,7 @@
         if(!tempPrivateKey){
             return
         }
-        await deploySchnorrAccount(tempPrivateKey as `0x${string}`, tempPrivateKey);
+        await connectAztecWalletWithPersistence(tempPrivateKey as `0x${string}`);
         tempPrivateKey = "";
     }
 </script>

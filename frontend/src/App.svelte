@@ -7,6 +7,13 @@
   import DepositApplication from "./lib/applications/DepositApplication.svelte";
   import WalletTest from "./lib/WalletTest.svelte";
   import WithdrawAppliaction from "./lib/applications/WithdrawApplication.svelte";
+  import { onMount } from "svelte";
+  import { restoreAztecWalletIfPossible, restoreEvmWalletIfPossible } from "./stores/walletStore";
+
+  onMount(() => {
+    restoreEvmWalletIfPossible();
+    restoreAztecWalletIfPossible()
+  });
 
   let isDepositOpen = false;
   let isWithdrawOpen = false;
