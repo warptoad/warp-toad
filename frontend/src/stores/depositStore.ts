@@ -5,7 +5,7 @@ import { evmWalletStore, aztecWalletStore, getTokenAddress, getTokenBalance } fr
 import { usdcAbi } from '../lib/tokens/usdcAbi';
 import { abi as warptoadAbi } from '../artifacts/l1WarpToad';
 import { AztecAddress, createAztecNodeClient, createPXEClient, Fr, waitForPXE } from '@aztec/aztec.js';
-import { WarpToadCoreContractArtifact } from '../artifacts/WarpToadCore';
+import { WarpToadCoreContractArtifact } from '../../../backend/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore';
 import { poseidon2, poseidon3 } from 'poseidon-lite';
 import { getMerkleData } from "./utils/proving";
 import { GigaBridge__factory, L1WarpToad__factory, type L1WarpToad, } from '../../../backend/typechain-types'; //TODO remove hardcode and add cleaner logic after hackathon
@@ -19,7 +19,7 @@ import { deployedAztecContracts } from "./utils/deployedAztecContracts"
 import { Contract } from "@aztec/aztec.js";
 import { hashCommitmentFromNoteItems } from '../../../backend/scripts/lib/hashing';
 
-const deployedEvmAddresses = import.meta.env.VITE_SANDBOX?deployedEvmAddressesSandbox:deployedEvmAddressesTestnet;
+const deployedEvmAddresses = import.meta.env.VITE_SANDBOX=== 'true'?deployedEvmAddressesSandbox:deployedEvmAddressesTestnet;
 
 //OBSIDION CONSTANTS
 
@@ -168,7 +168,7 @@ export function toggleOrigin() {
 export async function getSelectedTokenBalance(): Promise<number | undefined> {
     const depositData = get(depositApplicationStore);
     if (!depositData) return;
-    
+
     const { fromChain, tokenName } = depositData;
     const chainType = fromChain.type;
     const chainId = fromChain.chainId;

@@ -181,7 +181,7 @@ yarn install;
 
 make sure you're on aztec 0.87.8
 ```shell
-aztec-up0.87.8
+aztec-up 0.87.8
 ```
 
 install noir and backend

@@ -3,7 +3,7 @@ import contractsJsonSandbox from "../../../../backend/scripts/deploy/aztecDeploy
 import contractsJsonTestnet from "../../../../backend/scripts/deploy/aztecDeployments/11155111//deployed_addresses.json";
 
 
-const contractsJson = import.meta.env.VITE_SANDBOX?contractsJsonSandbox:contractsJsonTestnet;
+const contractsJson = import.meta.env.VITE_SANDBOX=== 'true'?contractsJsonSandbox:contractsJsonTestnet;
 
 type DeployedAztecContracts = {
     AztecWarpToad: string;

@@ -1,7 +1,7 @@
 import deployedEvmAddressesSandbox from "../../../../backend/ignition/deployments/chain-31337/deployed_addresses.json"
 import deployedEvmAddressesTestnet from "../../../../backend/ignition/deployments/chain-11155111/deployed_addresses.json"
 
-const deployedEvmAddresses = import.meta.env.VITE_SANDBOX?deployedEvmAddressesSandbox:deployedEvmAddressesTestnet;
+const deployedEvmAddresses = import.meta.env.VITE_SANDBOX=== 'true'?deployedEvmAddressesSandbox:deployedEvmAddressesTestnet;
 
 export type Token = {
     chainId: string; //TODO Make it similar to ethers
@@ -41,6 +41,13 @@ export const TOKEN_LIST: TokenConfig = {
     evm: [
         {
             chainId: "0x7A69",
+            tokenName: "USDC",
+            tokenSymbol: "USDC",
+            tokenAddress: deployedEvmAddresses["TestToken#USDcoin"],
+            decimals: 6,
+        },
+        {
+            chainId: "0xaa36a7",
             tokenName: "USDC",
             tokenSymbol: "USDC",
             tokenAddress: deployedEvmAddresses["TestToken#USDcoin"],

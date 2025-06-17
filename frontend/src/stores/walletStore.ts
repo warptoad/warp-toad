@@ -4,7 +4,7 @@ import { EVM_CHAINS } from '../lib/networks/network';
 import { usdcAbi } from '../lib/tokens/usdcAbi';
 import { TOKEN_LIST } from '../lib/tokens/tokens';
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
-import { createPXEClient, waitForPXE, type PXE, type Wallet, GrumpkinScalar, SponsoredFeePaymentMethod, Fr, type ContractInstanceWithAddress } from '@aztec/aztec.js';
+import { createPXEClient, waitForPXE, type PXE, type Wallet, GrumpkinScalar, SponsoredFeePaymentMethod, Fr, type ContractInstanceWithAddress, createAztecNodeClient, AztecAddress } from '@aztec/aztec.js';
 import deployedEvmAddressesSandbox from "../../../backend/ignition/deployments/chain-31337/deployed_addresses.json"
 import deployedEvmAddressesTestnet from "../../../backend/ignition/deployments/chain-11155111/deployed_addresses.json"
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
@@ -12,8 +12,16 @@ import { getSchnorrAccount } from "@aztec/accounts/schnorr";
 import { deriveSigningKey } from "@aztec/stdlib/keys";
 import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
 import { getContractInstanceFromDeployParams } from '@aztec/aztec.js/contracts';
+import contractsJsonSandbox from "../../../backend/scripts/deploy/aztecDeployments/31337/deployed_addresses.json";
+import contractsJsonTestnet from "../../../backend/scripts/deploy/aztecDeployments/11155111//deployed_addresses.json";
+import { WarpToadCoreContractArtifact } from '../../../backend/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore';
+import { L2AztecRootBridgeAdapterContractArtifact } from '../artifacts/L2AztecRootBridgeAdapter';
 
-const deployedEvmAddresses = import.meta.env.VITE_SANDBOX?deployedEvmAddressesSandbox:deployedEvmAddressesTestnet;
+
+const aztecContractsJson = import.meta.env.VITE_SANDBOX === 'true' ? contractsJsonSandbox : contractsJsonTestnet;
+const deployedEvmAddresses = import.meta.env.VITE_SANDBOX === 'true' ? deployedEvmAddressesSandbox : deployedEvmAddressesTestnet;
+
+const AZTEC_NODE_URL = import.meta.env.VITE_SANDBOX === 'true' ? "http://localhost:8080" : "https://full-node.alpha-testnet.aztec.network"
 
 export type EvmAccount = {
   address: string;
@@ -27,10 +35,38 @@ export const aztecWalletStore = writable<Wallet | undefined>(undefined);
 export const PXEStore = writable<PXE | undefined>(undefined);
 
 export async function instantiatePXE() {
+
+  const delay = async (timeInMs: number) => await new Promise((resolve) => setTimeout(resolve, timeInMs))
   const { PXE_URL = 'http://localhost:8080' } = process.env;
   const PXE = createPXEClient(PXE_URL);
   await waitForPXE(PXE);
   PXEStore.set(PXE);
+
+  if (!(import.meta.env.VITE_SANDBOX === 'true')) {
+    const AztecWarpToadAddress = aztecContractsJson["AztecWarpToad"]
+    const L2AztecAdapterAddress = aztecContractsJson["L2AztecBridgeAdapter"]
+    console.log("assuming ur not on sand box so registering the contracts with aztec testnet node")
+    const node = createAztecNodeClient(AZTEC_NODE_URL)
+    console.log(AztecWarpToadAddress)
+    const AztecWarpToadContract = await node.getContract(AztecAddress.fromString(AztecWarpToadAddress))
+    console.log("2")
+    console.log(L2AztecAdapterAddress)
+    if (AztecWarpToadContract) {
+      await PXE.registerContract({
+        instance: AztecWarpToadContract,
+        artifact: WarpToadCoreContractArtifact,
+      })
+
+      console.log("3")
+      await delay(10000)
+      const L2AztecAdapterContract = await node.getContract(L2AztecAdapterAddress as any)
+      await PXE.registerContract({
+        instance: L2AztecAdapterContract as any,
+        artifact: L2AztecRootBridgeAdapterContractArtifact,
+      })
+      await delay(10000)
+    }
+  }
 }
 
 export function isWalletConnected(instance: any): boolean {
@@ -318,6 +354,7 @@ export async function mintTestTokens(amount: string = "1000000") {
   const contract = new ethers.Contract(deployedEvmAddresses["TestToken#USDcoin"], usdcAbi, evmWallet.signer);
 
   //console.log(`Balance before: ${await contract.balanceOf(evmWallet.address)}`);
+  console.log(await contract.getAddress())
 
   const amountInUnits = ethers.parseUnits(amount, await contract.decimals());
 
