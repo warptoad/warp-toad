@@ -324,6 +324,8 @@ export async function createProof(proofInputs: ProofInputs, threads: number | un
     const backend = new UltraPlonkBackend(circuit.bytecode, { threads: threads });
     const executeRes = await noir.execute(proofInputs as any as InputMap);
     const proof = await backend.generateProof(executeRes.witness);
+    const verifiedJs = await backend.verifyProof(proof)
+    console.log({verifiedJs})
 
     return proof
 }

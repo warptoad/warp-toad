@@ -24,7 +24,7 @@ export async function bridgeNoteHashTreeRoot(
     L2AztecBridgeAdapter: L2AztecBridgeAdapterContract,
     L1AztecBridgeAdapter: L1AztecBridgeAdapter,
     provider: ethers.Provider,
-    sponsoredPaymentMethod: SponsoredFeePaymentMethod|undefined
+    sponsoredPaymentMethod?: SponsoredFeePaymentMethod|undefined
 ) {
     const blockNumberOfRoot = await PXE.getBlockNumber();
     const PXE_L2Root = (await PXE.getBlock(blockNumberOfRoot))?.header.state.partial.noteHashTree.root as Fr
@@ -42,7 +42,7 @@ export async function bridgeNoteHashTreeRoot(
     const l2Bridge = L2AztecBridgeAdapter.address;
     const isSandBox = l1ChainId === 31337n
     if (!isSandBox) {
-        const blocksToWait = 6
+        const blocksToWait = 10
         await waitForBlocksAztec(blocksToWait,PXE)
     } 
     
@@ -76,21 +76,28 @@ export async function bridgeNoteHashTreeRoot(
         l2ToL1MessageIndex,
         siblingPathArray
     })
-    if (!isSandBox) {
-        const blocksToWait = 6
-        console.log(`idk how long it takes for blocks to settle to ethereum but my guess is ${blocksToWait} L2 blocks. So yeah might take half a hour so just scroll through brain rot on insta reals or something`)
-        // @TODO
-        console.log("@joss i am pretty sure we can just read the note hash tree root from the contract that settles the rollup. Or maybe proof against what ever hash it posted")
-        await waitForBlocksAztec(blocksToWait,PXE)
-    } 
-    
-    const refreshRootTx = await (await L1AztecBridgeAdapter.getNewRootFromL2(
+    // if (!isSandBox) {
+    //     const blocksToWait = 10
+    //     console.log(`idk how long it takes for blocks to settle to ethereum but my guess is ${blocksToWait} L2 blocks`)
+    //     // @TODO
+    //     console.log("TODO research if we can speed this up by directly reading the root from the rollup contract")
+    //     await waitForBlocksAztec(blocksToWait,PXE)
+    // } 
+
+    const args = [
         PXE_L2Root.toString(),
         BigInt(blockNumberOfRoot), // has to be the same block as when as the root bridged. since this function uses it to create the content_hash
         BigInt(witnessBlocknumber), // hash to be the same block as the witness was retrieved since that is what the witness will be proved against
         l2ToL1MessageIndex,
         siblingPathArray
-    )).wait(1) as ethers.ContractTransactionReceipt;
+    ]
+    const refreshRootTx = await (await tryUntilItWorks(
+        L1AztecBridgeAdapter, 
+        "getNewRootFromL2",
+        args,
+        async() =>await waitForBlocksAztec(2,PXE) 
+    )).wait(1) as ethers.ContractTransactionReceipt
+
 
     return {refreshRootTx, sendRootToL1Tx, PXE_L2Root}
 }
@@ -169,7 +176,9 @@ export async function receiveGigaRootOnAztec(
     const index = parsedL1AdapterEvent!.args[2];
 
 
-    const blocksToWait = 6//should be NewGigaRootSentToAztecEvent.tx.blocknumber + 2
+    const blocksToWait = 10//should be NewGigaRootSentToAztecEvent.tx.blocknumber + 2
+     console.log("receive_giga_root", {content_hash, index, AztecWarpToad:AztecWarpToad.address})
+
     if (isSandBox) {
         // this is to make the sandbox progress n blocks
         await L2AztecBridgeAdapter.methods.count(0n).send().wait();
@@ -179,15 +188,6 @@ export async function receiveGigaRootOnAztec(
         await waitForBlocksAztec(blocksToWait, PXE);
     }
 
-    console.log("receive_giga_root", {content_hash, index, AztecWarpToad:AztecWarpToad.address})
-
-    if (!isSandBox) {
-        console.log(`idk how long it takes for aztec blocks to settle to ethereum but my guess is ${blocksToWait} L2 blocks. So yeah might take half a hour so just scroll through brain rot on insta reals or something`)
-        // @TODO
-        await waitForBlocksAztec(blocksToWait,PXE as PXE)
-    } 
-
-    console.log({sponsoredPaymentMethod})
     const receive_giga_rootTx = await L2AztecBridgeAdapter.methods.receive_giga_root(content_hash, index, AztecWarpToad.address).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait({timeout:60*60*12});
     return {receive_giga_rootTx}
 }
@@ -205,6 +205,17 @@ export async function waitForBlocksAztec(blocksToWait:number, PXE:PXE) {
             await new Promise((resolve)=>setTimeout(resolve, L1BlockTime/2*blocksToWait)) 
         }
     }
+}
+
+export async function tryUntilItWorks(contract:ethers.Contract|any, funcName:string, funcArgs:any[], waitFunc:any) {
+    let works = false
+    while (works === false) {
+        try {
+            await contract[funcName].estimateGas(...funcArgs);
+            works = true;
+        } catch {}
+    }
+    return await contract[funcName](...funcArgs)
 }
 
 export function parseEventFromTx(tx: ethers.TransactionReceipt, contract: ethers.Contract | any, eventName: string) {
