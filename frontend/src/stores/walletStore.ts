@@ -219,6 +219,7 @@ export async function disconnectAztecWallet(): Promise<void> {
 
 export const disconnectMetamaskWallet = async (): Promise<void> => {
   evmWalletStore.set(undefined);
+  localStorage.removeItem('evmAccountAddress');
   if (window.ethereum?.removeListener) {
     window.ethereum.removeListener('chainChanged', handleChainChanged);
   }
