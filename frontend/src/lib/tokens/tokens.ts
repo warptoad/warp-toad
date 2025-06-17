@@ -1,4 +1,7 @@
-import deployedEvmAddresses from "../../../../backend/ignition/deployments/chain-31337/deployed_addresses.json"
+import deployedEvmAddressesSandbox from "../../../../backend/ignition/deployments/chain-31337/deployed_addresses.json"
+import deployedEvmAddressesTestnet from "../../../../backend/ignition/deployments/chain-11155111/deployed_addresses.json"
+
+const deployedEvmAddresses = import.meta.env.VITE_SANDBOX?deployedEvmAddressesSandbox:deployedEvmAddressesTestnet;
 
 export type Token = {
     chainId: string; //TODO Make it similar to ethers

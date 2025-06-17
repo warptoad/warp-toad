@@ -36,7 +36,7 @@
   //TEST: remove onMount on "prod"
   onMount(() => {
     //openModal();
-    disconnectAll();
+    //disconnectAll();
   });
 
   function closeModal() {

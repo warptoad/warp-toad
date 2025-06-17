@@ -1,6 +1,9 @@
 
-import contractsJson from "../../../../backend/scripts/deploy/aztecDeployments/31337/deployed_addresses.json"; // adjust path as needed
+import contractsJsonSandbox from "../../../../backend/scripts/deploy/aztecDeployments/31337/deployed_addresses.json"; // adjust path as needed
+import contractsJsonTestnet from "../../../../backend/scripts/deploy/aztecDeployments/11155111//deployed_addresses.json";
 
+
+const contractsJson = import.meta.env.VITE_SANDBOX?contractsJsonSandbox:contractsJsonTestnet;
 
 type DeployedAztecContracts = {
     AztecWarpToad: string;
@@ -9,6 +12,6 @@ type DeployedAztecContracts = {
 
 export const deployedAztecContracts: DeployedAztecContracts = {
     AztecWarpToad: contractsJson.AztecWarpToad,
-    L2AztecRootBridgeAdapter: contractsJson.L2AztecRootBridgeAdapter
+    L2AztecRootBridgeAdapter: contractsJson.L2AztecBridgeAdapter
 };
 

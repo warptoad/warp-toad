@@ -45,7 +45,7 @@
 
     function downloadFile(data: WarptoadNote) {
         const timestamp = Date.now();
-        const filename = `warptopad${timestamp}.txt`;
+        const filename = `warptoad${timestamp}.txt`;
 
         // Convert BigInt to string for JSON
         const jsonString = JSON.stringify(
