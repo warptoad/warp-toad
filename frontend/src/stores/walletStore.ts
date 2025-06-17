@@ -3,13 +3,14 @@ import { ethers } from 'ethers';
 import { EVM_CHAINS } from '../lib/networks/network';
 import { usdcAbi } from '../lib/tokens/usdcAbi';
 import { TOKEN_LIST } from '../lib/tokens/tokens';
-import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
-import { createPXEClient, waitForPXE, type PXE, type Wallet } from '@aztec/aztec.js';
+import { getDeployedTestAccountsWallets, getInitialTestAccountsWallets } from '@aztec/accounts/testing';
+import { createPXEClient, waitForPXE, Schnorr, Grumpkin, generatePublicKey, type PXE, type Wallet, GrumpkinScalar, SponsoredFeePaymentMethod, Fr, type ContractInstanceWithAddress, AccountManager, AccountWalletWithSecretKey } from '@aztec/aztec.js';
 import deployedEvmAddresses from "../../../backend/ignition/deployments/chain-31337/deployed_addresses.json"
-
-//OBSIDION CONSTANTS
-export const NODE_URL = "http://localhost:8080";
-export const WALLET_URL = "https://app.obsidion.xyz";
+import { SPONSORED_FPC_SALT } from '@aztec/constants';
+import { getSchnorrAccount } from "@aztec/accounts/schnorr";
+import { deriveSigningKey } from "@aztec/stdlib/keys";
+import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
+import { getContractInstanceFromDeployParams } from '@aztec/aztec.js/contracts';
 
 export type EvmAccount = {
   address: string;
@@ -17,15 +18,6 @@ export type EvmAccount = {
   signer: ethers.JsonRpcSigner;
   currentNetwork: ethers.Network;
 }
-
-/**
- * //set test wallet:
-     const { PXE_URL = 'http://localhost:8080' } = process.env;
-     const PXE = createPXEClient(PXE_URL);
-     await waitForPXE(PXE);
-     const wallets = await getInitialTestAccountsWallets(PXE);
-     const userWallet = wallets[0]
- */
 
 export const evmWalletStore = writable<EvmAccount | undefined>(undefined);
 export const aztecWalletStore = writable<Wallet | undefined>(undefined);
@@ -84,14 +76,80 @@ const handleChainChanged = async () => {
   }
 };
 
+
+export function createRandomAztecPrivateKey(): `0x${string}` {
+  const privKey = GrumpkinScalar.random();
+  const scalar = privKey.toBigInt(); // bigint
+  const hex = '0x' + scalar.toString(16).padStart(64, '0');
+  return hex as `0x${string}`
+}
+
+export async function deploySchnorrAccount(secretKey: `0x${string}`, salt: string) {
+  await instantiatePXE();
+  let currentPxe = get(PXEStore);
+  if (!currentPxe) {
+    return
+  }
+  const sponsoredFPC = await getSponsoredFPCInstance();
+  console.log(sponsoredFPC.salt)
+  //@ts-ignore
+  await currentPxe.registerContract({ instance: sponsoredFPC, artifact: SponsoredFPCContract.artifact });
+  const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(sponsoredFPC.address);
+
+  let currentSecretKey = Fr.fromHexString(secretKey);
+  let currentSalt = Fr.fromHexString(salt);
+
+  let schnorrAccount = await getSchnorrAccount(currentPxe, currentSecretKey, deriveSigningKey(currentSecretKey), currentSalt.toBigInt());
+
+
+  const deployWallet = (await getDeployedTestAccountsWallets(currentPxe))[0];
+
+  try {
+    //TODO: find out deploy wallet not funded?
+    await schnorrAccount.deploy({ fee: { paymentMethod: sponsoredPaymentMethod?sponsoredPaymentMethod:undefined }, deployWallet }).wait({ timeout: 60 * 60 * 12 });
+  } catch (error){
+    console.log(error)
+  }
+  let wallet = await schnorrAccount.getWallet();
+
+  aztecWalletStore.set(wallet);
+}
+
+export async function fetchSchnorrAccount(pxe: PXE, secretKey: `0x${string}`, salt: string) {
+  await instantiatePXE();
+  let currentPxe = get(PXEStore);
+  if (!currentPxe) {
+    return
+  }
+
+  let currentSecretKey = Fr.fromHexString(secretKey);
+  let currentSalt = Fr.fromHexString(salt);
+
+  let schnorrAccount = await getSchnorrAccount(currentPxe, currentSecretKey, deriveSigningKey(currentSecretKey), currentSalt.toBigInt());
+  let wallet = await schnorrAccount.getWallet();
+  aztecWalletStore.set(wallet);
+}
+
+export async function getSponsoredFPCInstance(): Promise<ContractInstanceWithAddress> {
+  //@ts-ignore
+  return await getContractInstanceFromDeployParams(SponsoredFPCContract.artifact, {
+    salt: new Fr(SPONSORED_FPC_SALT),
+  });
+}
+
+
+
 export async function connectAztecWallet(): Promise<void> {
   await instantiatePXE();
   const currentPXE = get(PXEStore);
-  if(!currentPXE){
+  if (!currentPXE) {
     console.log("error no PXE");
     return;
   }
   const wallets = await getInitialTestAccountsWallets(currentPXE);
+
+
+  //const testW = schnorr
   const userWallet = wallets[0] //TODO COME UP WITH SOMETHING FOR PRODUCTION WARNING only works on sandbox rn
 
   aztecWalletStore.set(userWallet);
@@ -197,7 +255,7 @@ export function getNetworkNameFromId(chainId: number | string): string | undefin
 export async function mintTestTokens(amount: string = "1000000") {
   const evmWallet = get(evmWalletStore);
   if (!evmWallet) throw new Error("EVM wallet not connected");
-  
+
   const contract = new ethers.Contract(deployedEvmAddresses["TestToken#USDcoin"], usdcAbi, evmWallet.signer);
 
   //console.log(`Balance before: ${await contract.balanceOf(evmWallet.address)}`);

@@ -6,12 +6,11 @@
   import Draggable from "./lib/Draggable.svelte";
   import DepositApplication from "./lib/applications/DepositApplication.svelte";
   import WalletTest from "./lib/WalletTest.svelte";
-    import WithdrawAppliaction from "./lib/applications/WithdrawApplication.svelte";
+  import WithdrawAppliaction from "./lib/applications/WithdrawApplication.svelte";
 
   let isDepositOpen = false;
   let isWithdrawOpen = false;
   let isFaqOpen = false;
-
 
   //<input type="file" class="file-input file-input-ghost" />
 </script>
@@ -49,7 +48,7 @@
     width={50}
     bind:isVisible={isWithdrawOpen}
   >
-  <WithdrawAppliaction />
+    <WithdrawAppliaction />
   </Draggable>
   <div class="flex-grow flex justify-center items-center">
     <ApplicationContainer

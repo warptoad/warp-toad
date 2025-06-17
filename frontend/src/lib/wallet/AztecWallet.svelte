@@ -5,6 +5,8 @@
         isWalletConnected,
         aztecWalletStore,
         truncateAddress,
+        createRandomAztecPrivateKey,
+        deploySchnorrAccount,
     } from "../../stores/walletStore";
 
     import { showUSDCBalance } from "../../stores/depositStore";
@@ -17,8 +19,18 @@
 
     let currentBalance = 0n;
 
-    async function handleBalanceDisplay(){
+    let tempPrivateKey = "";
+
+    async function handleBalanceDisplay() {
         currentBalance = await showUSDCBalance();
+    }
+
+    async function handleDeployWallet() {
+        if(!tempPrivateKey){
+            return
+        }
+        await deploySchnorrAccount(tempPrivateKey as `0x${string}`, tempPrivateKey);
+        tempPrivateKey = "";
     }
 </script>
 
@@ -78,9 +90,7 @@
                     USDC balance: {new Intl.NumberFormat("en-US", {
                         minimumFractionDigits: 2,
                         maximumFractionDigits: 2,
-                    }).format(
-                        Number(ethers.formatUnits(currentBalance, 6))
-                    )} 
+                    }).format(Number(ethers.formatUnits(currentBalance, 6)))}
                 </button>
             </div>
             <button
@@ -109,6 +119,19 @@
                     />
                 </div>
                 Aztec Test Wallet
+            </button>
+
+            <div class="w-full flex items-center gap-2 justify-start px-2 py-6">
+                <input class="input" type="text" bind:value={tempPrivateKey} />
+                <button class="btn btn-primary" on:click={handleDeployWallet}>createWallet</button>
+            </div>
+            <button
+                class="btn btn-primary"
+                on:click={() => {
+                    tempPrivateKey = createRandomAztecPrivateKey();
+                }}
+            >
+                Random Key Gen
             </button>
         {/if}
     </div>
