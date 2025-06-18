@@ -15,7 +15,7 @@ import { getContractInstanceFromDeployParams } from '@aztec/aztec.js/contracts';
 import contractsJsonSandbox from "../../../backend/scripts/deploy/aztecDeployments/31337/deployed_addresses.json";
 import contractsJsonTestnet from "../../../backend/scripts/deploy/aztecDeployments/11155111//deployed_addresses.json";
 import { WarpToadCoreContractArtifact } from '../../../backend/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore';
-import { L2AztecRootBridgeAdapterContractArtifact } from '../artifacts/L2AztecRootBridgeAdapter';
+import { L2AztecBridgeAdapterContractArtifact } from '../../../backend/contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter';
 
 
 const aztecContractsJson = import.meta.env.VITE_SANDBOX === 'true' ? contractsJsonSandbox : contractsJsonTestnet;
@@ -47,24 +47,25 @@ export async function instantiatePXE() {
     const L2AztecAdapterAddress = aztecContractsJson["L2AztecBridgeAdapter"]
     console.log("assuming ur not on sand box so registering the contracts with aztec testnet node")
     const node = createAztecNodeClient(AZTEC_NODE_URL)
-    console.log(AztecWarpToadAddress)
     const AztecWarpToadContract = await node.getContract(AztecAddress.fromString(AztecWarpToadAddress))
     console.log("2")
-    console.log(L2AztecAdapterAddress)
     if (AztecWarpToadContract) {
+      
       await PXE.registerContract({
         instance: AztecWarpToadContract,
         artifact: WarpToadCoreContractArtifact,
       })
-
       console.log("3")
       await delay(10000)
-      const L2AztecAdapterContract = await node.getContract(L2AztecAdapterAddress as any)
-      await PXE.registerContract({
-        instance: L2AztecAdapterContract as any,
-        artifact: L2AztecRootBridgeAdapterContractArtifact,
-      })
-      await delay(10000)
+      const L2AztecAdapterContract = await node.getContract(AztecAddress.fromString(L2AztecAdapterAddress))
+
+      if (L2AztecAdapterContract) {
+        await PXE.registerContract({
+          instance: L2AztecAdapterContract,
+          artifact: L2AztecBridgeAdapterContractArtifact,
+        })
+        await delay(10000)
+      }
     }
   }
 }

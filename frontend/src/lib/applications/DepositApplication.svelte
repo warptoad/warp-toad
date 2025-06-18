@@ -86,6 +86,10 @@
             return;
         }
 
+        console.log(warptoadNoteData.preImg);
+        console.log("PRECOMMITMENT: " + warptoadNoteData.preCommitment);
+       
+
         currentStep++;
 
         await wrapToken();
@@ -93,7 +97,7 @@
         currentStep++;
 
         //wraping
-
+        console.log;
         await burnToken(
             warptoadNoteData.preCommitment,
             warptoadNoteData.preImg.amount,
@@ -163,9 +167,8 @@
             {/if}
         {:else if currentStep === 5}
             <div class="flex flex-col gap-4 justify-center items-center h-full">
-                
                 <div class="flex">
-                    <Confetti x={[-1, -0.25]} y={[0, 0.5]}/>
+                    <Confetti x={[-1, -0.25]} y={[0, 0.5]} />
                     <p class="text-center">You successfully Bridged!</p>
                     <Confetti x={[0.25, 1]} y={[0, 0.5]} />
                 </div>
