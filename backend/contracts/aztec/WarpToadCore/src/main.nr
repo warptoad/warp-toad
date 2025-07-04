@@ -193,66 +193,69 @@ pub contract WarpToadCore {
         storage.balances.at(recipient).add(amount, recipient, context.msg_sender());
     }
 
+    // commented out since this made the contract too large at aztec 0.87.9. 
+    // Users that accidentally burned on aztec to aztec on the same chainId can still use mint_giga_root_aztec after the gigaRoot is bridged.
+    // users that want to make private transactions should just use the normal private transfer function
     // technically this function is useless. You can make full private transfers with UTXO notes on aztec through the private transfer function.
     // the only reason this exist as reference to create the EVM circuit that verifies the aztec note hash tree.
     // secret, nullifier, etc is retrieved from the PXE
-    #[private]
-    fn mint_local(recipient: AztecAddress, block_number: u32) {
-        // get note from PXE
-        let storage_slot = storage.commitments.storage_slot; // WarpToadNote doesn't care about storage slot for hashing. PXE doesn't th
-        //Safety: its fine
-        let retrieved_note: RetrievedNote<WarpToadNote> =
-            unsafe { get_note_internal::<WarpToadNote, 4>(storage_slot) }; // <- would be input in evm circuit
-        let block_header = context.get_block_header_at(block_number);
-        let note_hash_root = block_header.state.partial.note_hash_tree.root; // <- would be input in evm circuit
+    // #[private]
+    // fn mint_local(recipient: AztecAddress, block_number: u32) {
+    //     // get note from PXE
+    //     let storage_slot = storage.commitments.storage_slot; // WarpToadNote doesn't care about storage slot for hashing. PXE doesn't th
+    //     //Safety: its fine
+    //     let retrieved_note: RetrievedNote<WarpToadNote> =
+    //         unsafe { get_note_internal::<WarpToadNote, 4>(storage_slot) }; // <- would be input in evm circuit
+    //     let block_header = context.get_block_header_at(block_number);
+    //     let note_hash_root = block_header.state.partial.note_hash_tree.root; // <- would be input in evm circuit
 
-        // check chain id
-        let chain_id = get_chain_id(context.version());
-        assert(
-            retrieved_note.note.chain_id == chain_id,
-            "notes chain_id doesnt match current chain_id",
-        );
+    //     // check chain id
+    //     let chain_id = get_chain_id(context.version());
+    //     assert(
+    //         retrieved_note.note.chain_id == chain_id,
+    //         "notes chain_id doesnt match current chain_id",
+    //     );
 
-        // prove its in the chain
-        let pre_commitment_hash: Field = poseidon::bn254::hash_3([
-            retrieved_note.note.nullifier_preimage,
-            retrieved_note.note.secret,
-            retrieved_note.note.chain_id,
-        ]);
-        let note_hash = poseidon::bn254::hash_2([pre_commitment_hash, retrieved_note.note.amount]);
-        //let note_hash = retrieved_note.note.compute_note_hash(storage_slot);//compute_note_hash_for_read_request(retrieved_note, storage_slot);
+    //     // prove its in the chain
+    //     let pre_commitment_hash: Field = poseidon::bn254::hash_3([
+    //         retrieved_note.note.nullifier_preimage,
+    //         retrieved_note.note.secret,
+    //         retrieved_note.note.chain_id,
+    //     ]);
+    //     let note_hash = poseidon::bn254::hash_2([pre_commitment_hash, retrieved_note.note.amount]);
+    //     //let note_hash = retrieved_note.note.compute_note_hash(storage_slot);//compute_note_hash_for_read_request(retrieved_note, storage_slot);
 
-        let siloed_note_hash = compute_siloed_note_hash(context.this_address(), note_hash);
-        let unique_note_hash =
-            compute_unique_note_hash(retrieved_note.metadata.maybe_nonce, siloed_note_hash);
-        assert(
-            retrieved_note.metadata.maybe_nonce != 0,
-            "idk how to deal with pending notes brooooo :,(",
-        );
+    //     let siloed_note_hash = compute_siloed_note_hash(context.this_address(), note_hash);
+    //     let unique_note_hash =
+    //         compute_unique_note_hash(retrieved_note.metadata.maybe_nonce, siloed_note_hash);
+    //     assert(
+    //         retrieved_note.metadata.maybe_nonce != 0,
+    //         "idk how to deal with pending notes brooooo :,(",
+    //     );
 
-        //Safety: its fine
-        let witness: MembershipWitness<40, 41> =
-            unsafe { get_note_hash_membership_witness(block_number, unique_note_hash) }; // <- would be input in evm circuit
-        assert_eq(
-            note_hash_root,
-            root_from_sibling_path(unique_note_hash, witness.index, witness.path),
-            "Proving note inclusion failed",
-        );
-        // the above is what the private kernel does when you do context.push_note_hash_read_request(note_hash)
-        // but we do it like this instead because i wanted to know how to do it in the EVM circuit and this how we would do it! (i hope)
+    //     //Safety: its fine
+    //     let witness: MembershipWitness<40, 41> =
+    //         unsafe { get_note_hash_membership_witness(block_number, unique_note_hash) }; // <- would be input in evm circuit
+    //     assert_eq(
+    //         note_hash_root,
+    //         root_from_sibling_path(unique_note_hash, witness.index, witness.path),
+    //         "Proving note inclusion failed",
+    //     );
+    //     // the above is what the private kernel does when you do context.push_note_hash_read_request(note_hash)
+    //     // but we do it like this instead because i wanted to know how to do it in the EVM circuit and this how we would do it! (i hope)
 
-        let nullifier: Field = retrieved_note.note.compute_nullifier(&mut context, note_hash);
+    //     let nullifier: Field = retrieved_note.note.compute_nullifier(&mut context, note_hash);
 
-        // nullify it
-        context.push_nullifier(nullifier);
+    //     // nullify it
+    //     context.push_nullifier(nullifier);
 
-        // finally we can mint
-        storage.balances.at(recipient).add(
-            retrieved_note.note.amount as u64,
-            recipient,
-            context.msg_sender(),
-        );
-    }
+    //     // finally we can mint
+    //     storage.balances.at(recipient).add(
+    //         retrieved_note.note.amount as u64,
+    //         recipient,
+    //         context.msg_sender(),
+    //     );
+    // }
 
     #[utility]
     unconstrained fn get_giga_root() -> pub Field {
