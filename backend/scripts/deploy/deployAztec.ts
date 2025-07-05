@@ -99,7 +99,7 @@ async function main() {
     console.log(`
     deployed: 
         AztecWarpToad:              ${AztecWarpToad.address}
-        L2AztecBridgeAdapter:   ${L2AztecBridgeAdapter.address}
+        L2AztecBridgeAdapter:       ${L2AztecBridgeAdapter.address}
     `)
 }
 

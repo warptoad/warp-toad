@@ -1,4 +1,5 @@
 import "@nomicfoundation/hardhat-toolbox";
+//@ts-ignore
 import { vars } from "hardhat/config.js";
 //import { HardhatUserConfig } from "hardhat/config";
 

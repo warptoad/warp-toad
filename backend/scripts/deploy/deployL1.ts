@@ -72,8 +72,10 @@ async function main() {
         L1AztecBridgeAdapter:       ${L1AztecBridgeAdapter.target}
         L1ScrollBridgeAdapter:      ${L1ScrollBridgeAdapter.target}
     `)
-    const waitTimeBetweenVerify = 1000 * 3
 
+    // -------verify -----------------
+    
+    // gather data for constructor arguments and libraries
     const journalFilePath = `ignition/deployments/chain-${(await provider.getNetwork()).chainId}/journal.jsonl`
     const journal = await readFile(journalFilePath, 'utf8');
     const parsedJournal = journal.split('\n').filter(line => line.trim() !== '').map(line => JSON.parse(line));
@@ -97,6 +99,8 @@ async function main() {
         }
     } ))
 
+    // verify
+    const waitTimeBetweenVerify = 1000 * 3
     // ----------- libraries ----------------
     console.log(`verifying: LazyIMTLib: ${LazyIMTLib.target}`)
     await hre.run("verify:verify", {
