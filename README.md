@@ -284,7 +284,7 @@ NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend ha
 <!--  
 NATIVE_TOKEN_ADDRESS=0x7a2088a1bFc9d81c55368AE168C2C02570cB814F yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network aztecSandbox;
 
-NATIVE_TOKEN_ADDRESS=0x93ac96e870c02EaaB80257dad3df2408b3D662fE yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network sepolia;
+NATIVE_TOKEN_ADDRESS=0x53bAc8Df8Ee03a057DF9309f4f613E5478354E60 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts --network sepolia;
 
 -->
 
@@ -296,7 +296,7 @@ NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress PXE_URL=http:/localhost:8080 yarn wo
 <!--
 PRIVATE_KEY=0xYourPrivateKey NATIVE_TOKEN_ADDRESS=0x7a2088a1bFc9d81c55368AE168C2C02570cB814F PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network aztecSandbox;
 
-NATIVE_TOKEN_ADDRESS=0x93ac96e870c02EaaB80257dad3df2408b3D662fE PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network sepolia;
+NATIVE_TOKEN_ADDRESS=0x53bAc8Df8Ee03a057DF9309f4f613E5478354E60 PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network sepolia;
 -->
 
 #### deploy on scroll
