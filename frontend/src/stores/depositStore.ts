@@ -1,10 +1,10 @@
 import { get, writable } from 'svelte/store';
 import { ethers } from 'ethers';
 import { EVM_CHAINS } from '../lib/networks/network';
-import { evmWalletStore, aztecWalletStore, getTokenAddress, getTokenBalance } from './walletStore';
+import { evmWalletStore, aztecWalletStore, getTokenAddress, getTokenBalance, getSponsoredFPCInstance } from './walletStore';
 import { usdcAbi } from '../lib/tokens/usdcAbi';
 import { abi as warptoadAbi } from '../artifacts/l1WarpToad';
-import { AztecAddress, createAztecNodeClient, createPXEClient, Fr, waitForPXE } from '@aztec/aztec.js';
+import { AztecAddress, createAztecNodeClient, createPXEClient, Fr, SponsoredFeePaymentMethod, waitForPXE } from '@aztec/aztec.js';
 import { WarpToadCoreContractArtifact } from '../../../backend/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore';
 import { poseidon2, poseidon3 } from 'poseidon-lite';
 import { getMerkleData } from "./utils/proving";
@@ -18,7 +18,7 @@ import { deployedAztecContracts } from "./utils/deployedAztecContracts"
 //obsidion remover:
 import { Contract } from "@aztec/aztec.js";
 import { hashCommitmentFromNoteItems } from '../../../backend/scripts/lib/hashing';
-
+import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
 const deployedEvmAddresses = import.meta.env.VITE_SANDBOX=== 'true'?deployedEvmAddressesSandbox:deployedEvmAddressesTestnet;
 
 //OBSIDION CONSTANTS
@@ -464,7 +464,15 @@ export async function mintOnL2() {
         console.log("did not manage to get aztec Merkle Data");
         return
     }
+    const { PXE_URL = 'http://localhost:8080' } = process.env;
+    const PXE = createPXEClient(PXE_URL);
+    const sponsoredFPC = await getSponsoredFPCInstance();
+    //@ts-ignore
+    await PXE.registerContract({ instance: sponsoredFPC, artifact: SponsoredFPCContract.artifact });
+    const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(sponsoredFPC.address);
 
+    const balancePreMint = await AztecWarpToad.methods.balance_of(aztecWallet.getAddress()).simulate()
+    console.log({balancePreMint})
     const mintTx = await AztecWarpToad.methods.mint_giga_root_evm(
         warptoadNote.preImg.amount,
         warptoadNote.preImg.secret,
@@ -474,7 +482,7 @@ export async function mintOnL2() {
         aztecMerkleData.originLocalRoot,
         aztecMerkleData.gigaMerkleData, // no way i am gonna spend time getting this type right >:(
         aztecMerkleData.evmMerkleData,
-    ).send().wait()
+    ).send( { fee: { paymentMethod: sponsoredPaymentMethod } }).wait({timeout:60*60*12})
 
     //const mintTx = await AztecWarpToad.methods.mint_for_testing(5n, aztecWallet.getAddress()).send()
 

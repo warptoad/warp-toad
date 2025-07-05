@@ -180,6 +180,7 @@ export async function deploySchnorrAccount(secretKey: `0x${string}`, salt: strin
     }
   }
   let wallet = await schnorrAccount.getWallet();
+  console.log("wallet address is:", wallet.getAddress())
 
   aztecWalletStore.set(wallet);
 }
@@ -358,7 +359,7 @@ export async function mintTestTokens(amount: string = "1000000") {
   console.log(await contract.getAddress())
 
   const amountInUnits = ethers.parseUnits(amount, await contract.decimals());
-
+  console.log({amountInUnits})
   const tx = await contract.getFreeShit(amountInUnits);
   await tx.wait(); // wait for confirmation
 
