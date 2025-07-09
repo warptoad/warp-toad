@@ -20,12 +20,14 @@
     "yarn": "^1.22.22"
   },
   "dependencies": {
-    "@aztec/aztec.js": "0.87.8",
-    "@aztec/noir-contracts.js": "0.87.8",
+    "@aztec/accounts": "^0.87.9",
+    "@aztec/aztec.js": "0.87.9",
+    "@aztec/noir-contracts.js": "0.87.9",
     "@tailwindcss/vite": "^4.1.4",
     "daisyui": "^5.0.28",
     "dedupe": "^4.0.3",
     "ethers": "^6.13.7",
+    "fixed-merkle-tree": "^0.7.3",
     "poseidon-lite": "^0.3.0",
     "tailwindcss": "^4.1.4",
     "vite-plugin-node-polyfills": "^0.23.0"

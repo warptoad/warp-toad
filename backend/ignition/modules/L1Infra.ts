@@ -4,7 +4,6 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 import { GIGA_TREE_DEPTH } from "../../scripts/lib/constants";
 import { ethers } from "ethers";
-import { IgnitionModuleBuilder } from "@nomicfoundation/ignition-core";
 
 export default buildModule("L1InfraModule", (m: any) => {
     const L1ScrollMessengerAddress = m.getParameter("L1ScrollMessengerAddress")
@@ -28,8 +27,8 @@ export default buildModule("L1InfraModule", (m: any) => {
 
     const L1Adapters = [L1AztecBridgeAdapter, L1ScrollBridgeAdapter]  // TODO add l1ScrollAdapter
     const gigaRootRecipients = [L1WarpToad, ...L1Adapters]
-    const gigaBridgeConstructorArg =  [gigaRootRecipients, GIGA_TREE_DEPTH]
-    const gigaBridge = m.contract("GigaBridge",gigaBridgeConstructorArg, {
+    const gigaBridgeConstructorArgs = [gigaRootRecipients, GIGA_TREE_DEPTH]
+    const gigaBridge = m.contract("GigaBridge",gigaBridgeConstructorArgs, {
         value: 0n,
         libraries: {
             LazyIMT: LazyIMTLib,

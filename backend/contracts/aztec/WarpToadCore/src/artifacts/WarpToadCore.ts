@@ -214,9 +214,6 @@ WarpToadNote: {
     /** mint_giga_root_evm(amount: integer, secret: field, nullifier_preimage: field, recipient: struct, block_number: integer, origin_local_root: field, giga_merkle_data: struct, evm_merkle_data: struct) */
     mint_giga_root_evm: ((amount: (bigint | number), secret: FieldLike, nullifier_preimage: FieldLike, recipient: AztecAddressLike, block_number: (bigint | number), origin_local_root: FieldLike, giga_merkle_data: { leaf_index: FieldLike, hash_path: FieldLike[] }, evm_merkle_data: { leaf_index: FieldLike, hash_path: FieldLike[] }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** mint_local(recipient: struct, block_number: integer) */
-    mint_local: ((recipient: AztecAddressLike, block_number: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
     /** public_dispatch(selector: field) */
     public_dispatch: ((selector: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 

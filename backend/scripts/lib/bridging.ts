@@ -66,7 +66,7 @@ export async function bridgeNoteHashTreeRoot(
         //@ts-ignore some bs where the Fr type that getL2ToL1MembershipWitness wants is different messageLeaf has
         messageLeaf
     );
-    const siblingPathArray = siblingPath.toFields().map((f) => f.toString())
+    const siblingPathArray = siblingPath.toFields().map((f:any) => f.toString())
 
     console.log("got witness")
     console.log("getNewRootFromL2",{
@@ -91,11 +91,12 @@ export async function bridgeNoteHashTreeRoot(
         l2ToL1MessageIndex,
         siblingPathArray
     ]
+    const waitFunc = async () => await waitForBlocksAztec(2,PXE) 
     const refreshRootTx = await (await tryUntilItWorks(
         L1AztecBridgeAdapter, 
         "getNewRootFromL2",
         args,
-        async() =>await waitForBlocksAztec(2,PXE) 
+        waitFunc
     )).wait(1) as ethers.ContractTransactionReceipt
 
 
@@ -200,7 +201,7 @@ export async function waitForBlocksAztec(blocksToWait:number, PXE:PXE) {
     while(waiting) {
         const currentBlock = await PXE.getBlockNumber()
         waiting = currentBlock < waitTillBlock
-        console.log(`waiting ${ L1BlockTime/2*blocksToWait / 1000 } seconds until ${blocksToWait} aztec blocks has passed. blocks passed: ${currentBlock-blockBeforeWaiting}`)
+        console.log(`waiting ${ L1BlockTime/2*blocksToWait / 1000 } seconds until ${blocksToWait} aztec blocks have passed. blocks passed: ${currentBlock-blockBeforeWaiting}`)
         if (waiting) {
             await new Promise((resolve)=>setTimeout(resolve, L1BlockTime/2*blocksToWait)) 
         }
@@ -210,11 +211,15 @@ export async function waitForBlocksAztec(blocksToWait:number, PXE:PXE) {
 export async function tryUntilItWorks(contract:ethers.Contract|any, funcName:string, funcArgs:any[], waitFunc:any) {
     let works = false
     while (works === false) {
+        console.log({works})
         try {
             await contract[funcName].estimateGas(...funcArgs);
             works = true;
-        } catch {}
+        } catch (error) {
+            await waitFunc()
+        }
     }
+
     return await contract[funcName](...funcArgs)
 }
 

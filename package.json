@@ -2,11 +2,10 @@
   "name": "warp-toad",
   "version": "1.0.0",
   "private": true,
-  "workspaces": [
-    "backend",
-    "tests",
-    "scripts"
-  ],
+  "workspaces": {
+    "packages": ["backend","frontend"],
+    "nohoist": ["**/backend/**","**/frontend/**"]
+  },
   "scripts": {
     "f:dev": "cd frontend && yarn dev",
     "b:warptoad:compile": "cd backend/contracts/aztec/WarpToadCore && aztec-nargo compile && aztec codegen -o src/artifacts target",
@@ -16,7 +15,7 @@
     "b:contract:move": "mv backend/circuits/withdraw/target/contract.sol backend/contracts/evm/WithdrawVerifier.sol",
     "b:contract:rename":"yarn workspace @warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file ./contracts/evm/WithdrawVerifier.sol --remove 'contract UltraVerifier is BaseUltraVerifier {' --replace 'contract WithdrawVerifier is BaseUltraVerifier {'",
     "b:contract": "yarn b:contract:gen && yarn b:contract:rename && yarn b:contract:move",
-    "b:sandbox": "VERSION=0.87.8 aztec start --sandbox"
+    "b:sandbox": "VERSION=0.87.2 aztec start --sandbox"
   },
   "repository": "https://github.com/JossDuff/warp-toad.git",
   "author": "jossduff <jduff360@gmail.com>",

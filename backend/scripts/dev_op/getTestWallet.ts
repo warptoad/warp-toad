@@ -26,14 +26,23 @@ export async function deploySchnorrAccount(pxe: PXE, hexSecretKey?: string, salt
     await pxe.registerContract({ instance: sponsoredFPC, artifact: SponsoredFPCContract.artifact });
     const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(sponsoredFPC.address);
 
-    let secretKey = Fr.fromHexString(hexSecretKey?hexSecretKey:"0x46726565416c65787950657274736576416e64526f6d616e53746f726d2121")//0x46726565416c65787950657274736576416e64526f6d616e53746f726d2121
-    let salt = Fr.fromHexString(saltString?saltString:"0x46726565416c65787950657274736576416e64526f6d616e53746f726d2121")//Fr.random();
+    let secretKey = Fr.fromHexString(hexSecretKey?hexSecretKey:"0x46726565416c65787950657274736576416e64526f6d616e53746f726d2122")//0x46726565416c65787950657274736576416e64526f6d616e53746f726d2121
+    let salt = Fr.fromHexString(saltString?saltString:"0x46726565416c65787950657274736576416e64526f6d616e53746f726d2122")//Fr.random();
 
     let schnorrAccount = await getSchnorrAccount(pxe, secretKey, deriveSigningKey(secretKey), salt.toBigInt());
     try {
         await schnorrAccount.deploy({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait({ timeout: 60 * 60 * 12 });
-    } catch {
-        console.log(`Ran into a error deploying account: ${schnorrAccount.getAddress()}. It likely already exists?`)
+    } catch (error) {
+        const exceptedError = "Invalid tx: Existing nullifier"
+        //@ts-ignore
+        if (error.message.startsWith(exceptedError)) {
+            //@ts-ignore
+            console.log(`Ran into a error: ${error.message} deploying account: ${schnorrAccount.getAddress()}.\n Assuming that means the account already exist!`)
+        } else {
+            console.error(`Couldn't deploy schnorr account and it is also likely not already deployed since this isn't caused by the error: ${exceptedError}`, { cause: error })
+
+        }
+       
     }
     let wallet = await schnorrAccount.getWallet();
 

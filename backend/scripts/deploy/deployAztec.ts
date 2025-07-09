@@ -61,6 +61,7 @@ function getEnvArgs() {
 async function main() {
     //----arguments------
     const { nativeTokenAddress, PXE_URL, privateKey } = getEnvArgs()
+    //@ts-ignore
     const provider = hre.ethers.provider
     const nativeToken = new ethers.Contract(nativeTokenAddress, er20Abi, provider)
     const chainId = (await provider.getNetwork()).chainId
@@ -98,7 +99,7 @@ async function main() {
     console.log(`
     deployed: 
         AztecWarpToad:              ${AztecWarpToad.address}
-        L2AztecBridgeAdapter:   ${L2AztecBridgeAdapter.address}
+        L2AztecBridgeAdapter:       ${L2AztecBridgeAdapter.address}
     `)
 }
 
