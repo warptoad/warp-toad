@@ -28,6 +28,7 @@ const config = {
     },
   },
 
+
   paths: {
     sources: "./contracts",//"../",//["../node_modules/@zk-kit", "./contracts"],
     tests: "./test",
