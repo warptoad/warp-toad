@@ -1,11 +1,38 @@
 //@ts-ignore
 import {  Fr, PXE, EthAddress, SponsoredFeePaymentMethod } from "@aztec/aztec.js"
 import { ethers } from "ethers";
-import { WarpToadCore as WarpToadEvm, USDcoin, PoseidonT3, LazyIMT, L1AztecBridgeAdapter, GigaBridge } from "../../typechain-types";
+import { WarpToadCore as WarpToadEvm, USDcoin, PoseidonT3, LazyIMT, L1AztecBridgeAdapter, GigaBridge, L2ScrollBridgeAdapter } from "../../typechain-types";
 import {  L2AztecBridgeAdapterContract } from '../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter'
 import { WarpToadCoreContract as AztecWarpToadCore } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
 //@ts-ignore
 import { sha256ToField } from "@aztec/foundation/crypto";
+const chainIds = {
+    scroll: {
+        testnet: 534351n,
+        mainnet: 534352n
+    }
+}
+
+const scrollBridgeGasLimit = 100000n //TODO find better number
+
+export async function bridgeL2LocalRoot(L2Adapter:L2ScrollBridgeAdapter) {
+    // TODO
+    // const provider = L2Adapter.runner?.provider
+    // const chainId = (await provider?.getNetwork())!.chainId
+    // switch (chainId) {
+    //     case chainIds.scroll.testnet:
+    //     case chainIds.scroll.mainnet:
+    //         const L2ToL1Tx = await (await L2Adapter.sentLocalRootToL1(scrollBridgeGasLimit)).wait(1)
+    //         console.log({L2ToL1TxHash: L2ToL1Tx?.hash})
+
+    //     default:
+    //         break;
+    // }
+
+    // await L2Adapter
+    
+}
+
 
 /**
  * continues in updateGigaRoot
@@ -31,15 +58,12 @@ export async function bridgeNoteHashTreeRoot(
     const sendRootToL1Tx = await L2AztecBridgeAdapter.methods.send_root_to_l1(blockNumberOfRoot).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait({timeout:60*60*12});
     console.log({sendRootToL1Tx:sendRootToL1Tx.txHash.hash})
 
-    const aztecChainVersion = await L1AztecBridgeAdapter.rollupVersion();
-    const l1PortalAddress = L1AztecBridgeAdapter.target;
     const l1ChainId = (await provider.getNetwork()).chainId
-
     const messageContent = sha256ToField([ // does sha256(PXE_L2Root, blockNumberOfRoot) then removes the last byte and then adds byte(1) in front (to fit into a field)
         PXE_L2Root.toBuffer(),
         new Fr(blockNumberOfRoot).toBuffer(),
     ]);
-    const l2Bridge = L2AztecBridgeAdapter.address;
+
     const isSandBox = l1ChainId === 31337n
     if (!isSandBox) {
         const blocksToWait = 10
@@ -47,24 +71,14 @@ export async function bridgeNoteHashTreeRoot(
     } 
     
     const sendRootEffect = await PXE.getTxEffect(sendRootToL1Tx.txHash)
-    const l2ToL1Msgs = sendRootEffect?.data.l2ToL1Msgs[0] as Fr ///sha256ToField([
+    const messageLeaf = sendRootEffect?.data.l2ToL1Msgs[0] as Fr ///sha256ToField([
+    console.log({messageLeaf, messageContent})
 
-    const messageLeaf = l2ToL1Msgs //sha256ToField([
-    //     l2Bridge.toBuffer(),
-    //     new Fr(aztecChainVersion).toBuffer(),
-    //     EthAddress.fromString(l1PortalAddress.toString()).toBuffer32() ?? Buffer.alloc(32, 0),
-    //     new Fr(l1ChainId).toBuffer(),
-    //     messageContent.toBuffer(),
-    // ]);
-    console.log({l2ToL1Msgs, messageContent,messageLeaf})
-    //await waitForBlocksAztec(21,PXE)
-    // await L2AztecBridgeAdapter.methods.count(0n).send().wait();
-    // await L2AztecBridgeAdapter.methods.count(4n).send().wait();
     const witnessBlocknumber = sendRootEffect?.l2BlockNumber as number//await PXE.getBlockNumber(); // the blockNumber of when send_root_to_l1 settled onchain
     const [l2ToL1MessageIndex, siblingPath] = await PXE.getL2ToL1MembershipWitness(
         witnessBlocknumber, 
         //@ts-ignore some bs where the Fr type that getL2ToL1MembershipWitness wants is different messageLeaf has
-        messageLeaf
+        l2ToL1Msgs
     );
     const siblingPathArray = siblingPath.toFields().map((f:any) => f.toString())
 
@@ -76,14 +90,6 @@ export async function bridgeNoteHashTreeRoot(
         l2ToL1MessageIndex,
         siblingPathArray
     })
-    // if (!isSandBox) {
-    //     const blocksToWait = 10
-    //     console.log(`idk how long it takes for blocks to settle to ethereum but my guess is ${blocksToWait} L2 blocks`)
-    //     // @TODO
-    //     console.log("TODO research if we can speed this up by directly reading the root from the rollup contract")
-    //     await waitForBlocksAztec(blocksToWait,PXE)
-    // } 
-
     const args = [
         PXE_L2Root.toString(),
         BigInt(blockNumberOfRoot), // has to be the same block as when as the root bridged. since this function uses it to create the content_hash
@@ -98,7 +104,6 @@ export async function bridgeNoteHashTreeRoot(
         args,
         waitFunc
     )).wait(1) as ethers.ContractTransactionReceipt
-
 
     return {refreshRootTx, sendRootToL1Tx, PXE_L2Root}
 }

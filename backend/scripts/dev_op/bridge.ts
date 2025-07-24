@@ -17,7 +17,7 @@ import { getObsidionDeployerFPCWallet } from './getObsidionWallet/getObsidionWal
 
 async function getLocalRootProviders(chainId: bigint) {
     const contracts = await getContractAddressesEvm(chainId)
-    return [contracts["L1WarpToadModule#L1WarpToad"], contracts["L1InfraModule#L1AztecBridgeAdapter"]]
+    return [contracts["L1WarpToadModule#L1WarpToad"], contracts["L1InfraModule#L1AztecBridgeAdapter"], contracts["L1InfraModule#L1ScrollBridgeAdapter"]]
 }
 const OBSIDION_DEPLOYER_FPC_ADDRESS = AztecAddress.fromField(Fr.fromHexString("0x19f8873315cad78e160bdcb686bcdc8bd3760ca215966b677b79ba2cfb68c1b5"))
 const OBSIDION_DEPLOYER_SECRET_KEY = "0x00"
@@ -121,21 +121,6 @@ async function main() {
         )
         const gigaRootPreBridge = await gigaBridge.gigaRoot()
         console.log({ sendRootToL1Tx: sendRootToL1Tx.txHash.hash, refreshRootTx: refreshRootTx.hash, PXE_L2Root: PXE_L2Root.toBigInt(), gigaRootPreBridge })
-        // try {
-        //     const { sendRootToL1Tx, refreshRootTx, PXE_L2Root } = await bridgeNoteHashTreeRoot(
-        //         PXE as PXE,
-        //         L2AztecBridgeAdapter as L2AztecBridgeAdapterContract,
-        //         L1AztecBridgeAdapter,
-        //         l1Provider
-        //     )
-        //     const gigaRootPreBridge = await gigaBridge.gigaRoot()
-        //     console.log({ sendRootToL1Tx: sendRootToL1Tx.txHash.hash, refreshRootTx: refreshRootTx.hash, PXE_L2Root: PXE_L2Root.toBigInt(), gigaRootPreBridge })
-
-        // } catch (error) {
-        //     console.error(error)
-        //     throw new Error("DEBUG HINT!!!!: THIS LIKELY HAPPENED BECAUSE YOU FORGOT TO INITIALIZE THE CONTRACTS YOU DUMMY!!!")
-
-        // }
     } else {
         //normal evm things
     }

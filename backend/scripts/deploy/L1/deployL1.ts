@@ -10,6 +10,7 @@ import { readFile } from 'fs/promises';
 import { ERC20__factory, USDcoin__factory } from "../../../typechain-types";
 
 import er20Abi from "../../dev_op/erc20ABI.json"
+import { L1_SCROLL_MESSENGER_MAINNET, L1_SCROLL_MESSENGER_SEPOLIA } from "../../lib/constants";
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
@@ -46,7 +47,7 @@ async function main() {
     });
     const chainId = (await provider.getNetwork()).chainId
     const IS_MAINNET = chainId === 1n
-    const L1ScrollMessengerAddress = IS_MAINNET ? "0x6774Bcbd5ceCeF1336b5300fb5186a12DDD8b367" : "0x50c7d3e7f7c656493D1D76aaa1a836CedfCBB16A"
+    const L1ScrollMessengerAddress = IS_MAINNET ? L1_SCROLL_MESSENGER_MAINNET : L1_SCROLL_MESSENGER_SEPOLIA
     //--------------------infra------------------------
     const { gigaBridge, L1AztecBridgeAdapter, L1ScrollBridgeAdapter } = await hre.ignition.deploy(L1InfraModule, {
         parameters: {
