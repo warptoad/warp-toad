@@ -157,18 +157,18 @@ l1_bridge_adapter: {
     }
     
 
-  public static get notes(): ContractNotes<'ValueNote' | 'UintNote' | 'WarpToadNote'> {
+  public static get notes(): ContractNotes<'UintNote' | 'ValueNote' | 'WarpToadNote'> {
     return {
-      ValueNote: {
-          id: new NoteSelector(0),
-        },
-UintNote: {
+      UintNote: {
           id: new NoteSelector(1),
+        },
+ValueNote: {
+          id: new NoteSelector(0),
         },
 WarpToadNote: {
           id: new NoteSelector(2),
         }
-    } as ContractNotes<'ValueNote' | 'UintNote' | 'WarpToadNote'>;
+    } as ContractNotes<'UintNote' | 'ValueNote' | 'WarpToadNote'>;
   }
   
 

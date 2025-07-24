@@ -33,6 +33,27 @@ import { computePartialAddress } from "@aztec/stdlib/contract";
 import { getAztecTestWallet } from "../../dev_op/getTestWallet";
 //import { ObsidionDeployerFPCContractArtifact } from "../dev_op/getObsidionWallet/ObsidionDeployerFPC"
 
+async function checkFileExists(filePath: string): Promise<boolean> {
+  try {
+    await fs.access(filePath);
+    return true; 
+  } catch (error: any) {
+    if (error.code === 'ENOENT') {
+      return false; 
+    }
+    throw error; 
+  }
+}
+
+import { createInterface } from 'readline/promises';
+import { stdin, stdout } from 'process';
+
+async function promptYesNo(question: string): Promise<boolean> {
+  const rl = createInterface({ input: stdin, output: stdout });
+  const ans = (await rl.question(`${question} (yes/no): `)).trim().toLowerCase();
+  rl.close();
+  return ans === 'yes' || ans === 'y' || ans === '';
+}
 
 const delay = async (timeInMs: number) => await new Promise((resolve) => setTimeout(resolve, timeInMs))
 
@@ -68,6 +89,16 @@ async function main() {
 
     const deployedAddresses = await getContractAddressesEvm(chainId)
     const L1AztecAdapterAddress = deployedAddresses["L1InfraModule#L1AztecBridgeAdapter"]
+    const folderPath = `${__dirname}/aztecDeployments/${Number(chainId)}/`
+    const deployedAddressesPath = `${folderPath}/deployed_addresses.json`
+    if(await checkFileExists(deployedAddressesPath)) {
+        if(await promptYesNo(`A deployment already exist at ${deployedAddressesPath} \n Are you sure want to override?`)) {
+            await fs.rm(deployedAddressesPath)
+        } else {
+            console.log("canceling deployment")
+            return 0
+        }
+    }
 
     //----PXE and wallet-----
     console.log("creating PXE client")
@@ -76,7 +107,7 @@ async function main() {
     await waitForPXE(PXE);
     //const wallets = await getInitialTestAccountsWallets(PXE);
 
-    const {wallet,sponsoredPaymentMethod } = await getAztecTestWallet(PXE,chainId)//(await getAztecWallet(PXE, privateKey as string, "https://full-node.alpha-testnet.aztec.network", chainId))//wallets[0]
+    const {wallet,sponsoredPaymentMethod } = await getAztecTestWallet(PXE,chainId)//(await getAztecWallet(PXE, privateKey as string, "https://aztec-alpha-testnet-fullnode.zkv.xyz", chainId))//wallets[0]
     // get PXE to know about fee contract
     // https://github.com/obsidionlabs/obsidion-wallet/blob/e514a5cea462b66704fa3fd94f14e198dc14a614/packages/backend/index.ts#L320
     console.log({ deployWalletAddress: wallet.getAddress() })
@@ -87,14 +118,8 @@ async function main() {
     const { L2AztecBridgeAdapter } = await deployL2AztecBridgeAdapter(L1AztecAdapterAddress, wallet,sponsoredPaymentMethod)
     console.log({ L2AztecBridgeAdapter: L2AztecBridgeAdapter.address })
     const deployments = { AztecWarpToad: AztecWarpToad.address, L2AztecBridgeAdapter: L2AztecBridgeAdapter.address }
-    const folderPath = `${__dirname}/aztecDeployments/${Number(chainId)}/`
 
     try{await fs.mkdir(folderPath)} catch{console.warn(`praying the folder already exist ${folderPath}`)}
-    const deployedAddressesPath = `${folderPath}/deployed_addresses.json`
-    // try {
-    //     await fs.mkdir(folderPath)
-    // } catch {}
-    try { await fs.rm(deployedAddressesPath) } catch { }
     await fs.writeFile(deployedAddressesPath, JSON.stringify(deployments, null, 2));
     console.log(`
     deployed: 

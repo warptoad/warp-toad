@@ -21,7 +21,7 @@ import { L2AztecBridgeAdapterContractArtifact } from '../../../backend/contracts
 const aztecContractsJson = import.meta.env.VITE_SANDBOX === 'true' ? contractsJsonSandbox : contractsJsonTestnet;
 const deployedEvmAddresses = import.meta.env.VITE_SANDBOX === 'true' ? deployedEvmAddressesSandbox : deployedEvmAddressesTestnet;
 
-const AZTEC_NODE_URL = import.meta.env.VITE_SANDBOX === 'true' ? "http://localhost:8080" : "https://full-node.alpha-testnet.aztec.network"
+const AZTEC_NODE_URL = import.meta.env.VITE_SANDBOX === 'true' ? "http://localhost:8080" : "https://aztec-alpha-testnet-fullnode.zkv.xyz"
 
 export type EvmAccount = {
   address: string;

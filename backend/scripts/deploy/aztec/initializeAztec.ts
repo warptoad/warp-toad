@@ -12,9 +12,10 @@ import { getContractAddressesAztec, getContractAddressesEvm } from "../../dev_op
 import { L2AztecBridgeAdapterContractArtifact } from "../../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter";
 import { getAztecTestWallet } from "../../dev_op/getTestWallet";
 
+
 const hre = require("hardhat")
 
-const AZTEC_NODE_URL = "https://full-node.alpha-testnet.aztec.network"
+const AZTEC_NODE_URL = "https://aztec-alpha-testnet-fullnode.zkv.xyz"
 const delay = async (timeInMs: number) => await new Promise((resolve) => setTimeout(resolve, timeInMs))
 
 

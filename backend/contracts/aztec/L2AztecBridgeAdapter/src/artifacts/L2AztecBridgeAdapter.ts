@@ -127,18 +127,18 @@ counter: {
     }
     
 
-  public static get notes(): ContractNotes<'UintNote' | 'ValueNote' | 'WarpToadNote'> {
+  public static get notes(): ContractNotes<'ValueNote' | 'UintNote' | 'WarpToadNote'> {
     return {
-      UintNote: {
-          id: new NoteSelector(1),
-        },
-ValueNote: {
+      ValueNote: {
           id: new NoteSelector(0),
+        },
+UintNote: {
+          id: new NoteSelector(1),
         },
 WarpToadNote: {
           id: new NoteSelector(2),
         }
-    } as ContractNotes<'UintNote' | 'ValueNote' | 'WarpToadNote'>;
+    } as ContractNotes<'ValueNote' | 'UintNote' | 'WarpToadNote'>;
   }
   
 

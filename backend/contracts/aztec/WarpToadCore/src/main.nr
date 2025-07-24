@@ -33,8 +33,10 @@ pub contract WarpToadCore {
             notes::note,
             storage::storage,
         },
+        // TODO for v1.1.3
+        event::event_interface::{emit_event_in_private_log, PrivateLogContent},
         messages::logs::{
-            event::encode_and_encrypt_event_unconstrained,
+            //event::encode_and_encrypt_event_unconstrained,
             note::{encode_and_encrypt_note}//, encode_and_encrypt_note_unconstrained},
         },
         note::{
@@ -193,7 +195,7 @@ pub contract WarpToadCore {
         storage.balances.at(recipient).add(amount, recipient, context.msg_sender());
     }
 
-    // commented out since this made the contract too large at aztec 0.87.9. 
+    // commented out since this made the contract too large at aztec 1.1.3. 
     // Users that accidentally burned on aztec to aztec on the same chainId can still use mint_giga_root_aztec after the gigaRoot is bridged.
     // users that want to make private transactions should just use the normal private transfer function
     // technically this function is useless. You can make full private transfers with UTXO notes on aztec through the private transfer function.
@@ -319,11 +321,20 @@ pub contract WarpToadCore {
 
         balances.at(from).sub(amount, from, from);
         balances.at(to).add(amount, to, from);
-        Transfer { from, to, amount }.emit(encode_and_encrypt_event_unconstrained(
+        // TODO for 1.1.3
+        emit_event_in_private_log(
+            Transfer { from, to, amount },
             &mut context,
-            to,
             from,
-        ));
+            to,
+            PrivateLogContent.NO_CONSTRAINTS,
+        );
+
+        // Transfer { from, to, amount }.emit(encode_and_encrypt_event_unconstrained(
+        //     &mut context,
+        //     to,
+        //     from,
+        // ));
     }
 
     // utility

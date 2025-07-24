@@ -21,7 +21,7 @@ async function getLocalRootProviders(chainId: bigint) {
 }
 const OBSIDION_DEPLOYER_FPC_ADDRESS = AztecAddress.fromField(Fr.fromHexString("0x19f8873315cad78e160bdcb686bcdc8bd3760ca215966b677b79ba2cfb68c1b5"))
 const OBSIDION_DEPLOYER_SECRET_KEY = "0x00"
-const AZTEC_NODE_URL = "https://full-node.alpha-testnet.aztec.network"
+const AZTEC_NODE_URL = "https://aztec-alpha-testnet-fullnode.zkv.xyz"
 import { ObsidionDeployerFPCContractArtifact } from "./getObsidionWallet/ObsidionDeployerFPC"
 import { getAztecTestWallet } from './getTestWallet';
 const delay = async (timeInMs: number) => await new Promise((resolve) => setTimeout(resolve, timeInMs))

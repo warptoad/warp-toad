@@ -4,9 +4,6 @@ import { ethers } from "ethers";
 import { deployPoseidon } from "../poseidon";
 
 import L2Scroll from "../../../ignition/modules/L2Scroll"
-import L1InfraModule from "../../../ignition/modules/L1Infra"
-
-import { ERC20__factory, USDcoin__factory } from "../../../typechain-types";
 
 import er20Abi from "../../dev_op/erc20ABI.json"
 import { getContractAddressesEvm } from "../../dev_op/getDeployedAddresses";
@@ -14,8 +11,6 @@ import { getContractAddressesEvm } from "../../dev_op/getDeployedAddresses";
 import { readFile } from 'fs/promises';
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-// const L1_SCROLL_MESSENGER = IS_MAINNET ? "0x6774Bcbd5ceCeF1336b5300fb5186a12DDD8b367" : "0x50c7d3e7f7c656493D1D76aaa1a836CedfCBB16A"
-// const L2_SCROLL_MESSENGER =  IS_MAINNET ? "0x781e90f1c8Fc4611c9b7497C3B47F99Ef6969CbC" : "0xBa50f5340FB9F3Bd074bD638c9BE13eCB36E603d"
 import { vars } from "hardhat/config.js";
 import { L2_SCROLL_MESSENGER_MAINNET, L2_SCROLL_MESSENGER_SEPOLIA } from "../../lib/constants";
 const SEPOLIA_URL = vars.get("SEPOLIA_URL")
@@ -121,43 +116,43 @@ async function main() {
     await sleep(waitTimeBetweenVerify)
 
 
-    // console.log(`verifying: LazyIMTLib: ${LazyIMTLib.target}`)
-    // await hre.run("verify:verify", {
-    //     address: LazyIMTLib.target,
-    //     contract: "@zk-kit/lazy-imt.sol/LazyIMT.sol:LazyIMT",
-    //     constructorArguments: journalDataPerAddress[LazyIMTLib.target as string].constructorArgs,
-    //     libraries: journalDataPerAddress[LazyIMTLib.target as string].libraries,
-    // });
-    // await sleep(waitTimeBetweenVerify)
+    console.log(`verifying: LazyIMTLib: ${LazyIMTLib.target}`)
+    await hre.run("verify:verify", {
+        address: LazyIMTLib.target,
+        contract: "@zk-kit/lazy-imt.sol/LazyIMT.sol:LazyIMT",
+        constructorArguments: journalDataPerAddress[LazyIMTLib.target as string].constructorArgs,
+        libraries: journalDataPerAddress[LazyIMTLib.target as string].libraries,
+    });
+    await sleep(waitTimeBetweenVerify)
 
-    // // --------------------- warp toad----------------------
-    // console.log(`verifying: L2WarpToad: ${L2WarpToad.target}`)
-    // await hre.run("verify:verify", {
-    //     address: L2WarpToad.target,
-    //     contract: "contracts/evm/warptoad/L2WarpToad.sol:L2WarpToad",
-    //     constructorArguments: journalDataPerAddress[L2WarpToad.target as string].constructorArgs,
-    //     libraries: journalDataPerAddress[L2WarpToad.target as string].libraries,
-    // });
-    // await sleep(waitTimeBetweenVerify)
+    // --------------------- warp toad----------------------
+    console.log(`verifying: L2WarpToad: ${L2WarpToad.target}`)
+    await hre.run("verify:verify", {
+        address: L2WarpToad.target,
+        contract: "contracts/evm/warptoad/L2WarpToad.sol:L2WarpToad",
+        constructorArguments: journalDataPerAddress[L2WarpToad.target as string].constructorArgs,
+        libraries: journalDataPerAddress[L2WarpToad.target as string].libraries,
+    });
+    await sleep(waitTimeBetweenVerify)
 
-    // console.log(`verifying: withdrawVerifier: ${withdrawVerifier.target}`)
-    // await hre.run("verify:verify", {
-    //     address: withdrawVerifier.target,
-    //     contract: "contracts/evm/withdrawVerifier.sol:WithdrawVerifier",
-    //     constructorArguments: journalDataPerAddress[withdrawVerifier.target as string].constructorArgs,
-    //     libraries: journalDataPerAddress[withdrawVerifier.target as string].libraries,
-    // });
-    // await sleep(waitTimeBetweenVerify)
+    console.log(`verifying: withdrawVerifier: ${withdrawVerifier.target}`)
+    await hre.run("verify:verify", {
+        address: withdrawVerifier.target,
+        contract: "contracts/evm/withdrawVerifier.sol:WithdrawVerifier",
+        constructorArguments: journalDataPerAddress[withdrawVerifier.target as string].constructorArgs,
+        libraries: journalDataPerAddress[withdrawVerifier.target as string].libraries,
+    });
+    await sleep(waitTimeBetweenVerify)
 
 
-    // //------------ L1 adapters -------------------------
-    // console.log(`verifying: L2ScrollBridgeAdapter: ${L2ScrollBridgeAdapter.target}`)
-    // await hre.run("verify:verify", {
-    //     address: L2ScrollBridgeAdapter.target,
-    //     contract: "contracts/evm/adapters/L2ScrollBridgeAdapter.sol:L2ScrollBridgeAdapter",
-    //     constructorArguments: journalDataPerAddress[L2ScrollBridgeAdapter.target as string].constructorArgs,
-    //     libraries: journalDataPerAddress[L2ScrollBridgeAdapter.target as string].libraries,
-    // });
-    // await sleep(waitTimeBetweenVerify)
+    //------------ L1 adapters -------------------------
+    console.log(`verifying: L2ScrollBridgeAdapter: ${L2ScrollBridgeAdapter.target}`)
+    await hre.run("verify:verify", {
+        address: L2ScrollBridgeAdapter.target,
+        contract: "contracts/evm/adapters/L2ScrollBridgeAdapter.sol:L2ScrollBridgeAdapter",
+        constructorArguments: journalDataPerAddress[L2ScrollBridgeAdapter.target as string].constructorArgs,
+        libraries: journalDataPerAddress[L2ScrollBridgeAdapter.target as string].libraries,
+    });
+    await sleep(waitTimeBetweenVerify)
 }
 main()  
