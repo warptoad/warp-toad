@@ -123,16 +123,25 @@ export async function updateGigaRoot(
     localRootProviders: ethers.AddressLike[]
 ) {
     const provider = gigaBridge.runner?.provider
-    const validLocalRootProviders = localRootProviders.filter(async (localProviderAddr)=>{
+    const isValidLocalRootProviders = await Promise.all(localRootProviders.map(async (localProviderAddr)=>{
         // TODO make an interface because not every localRootProvider is L1AztecBridgeAdapter
         const localRootProvider = L1AztecBridgeAdapter__factory.connect(localProviderAddr as string, provider)
-        if (await localRootProvider.mostRecentL2Root() !== 0n && await localRootProvider.mostRecentL2RootBlockNumber() !== 0n ) {
+        try {
+            if (await localRootProvider.mostRecentL2Root() !== 0n && await localRootProvider.mostRecentL2RootBlockNumber() !== 0n ) {
+                return true
+            } else {
+                console.log(`${localProviderAddr} has not received a L2 root yet and will be skipped in updating the gigaRoot`)
+                return false
+            }
+            
+        } catch (error) {
+            // TODO L1WarpToad doesn't have mostRecentL2Root and mostRecentL2RootBlockNumber, but is a LocaRootProvider
+            // TODO standardize that interface you silly!
+            // and yes this is a cheap workaround lol
             return true
-        } else {
-            console.log(`${localProviderAddr} has not received a L2 root yet and will be skipped in updating the gigaRoot`)
-            return false
         }
-    })
+    }))
+    const validLocalRootProviders = localRootProviders.filter((v,i)=>isValidLocalRootProviders[i])
     console.log({validLocalRootProviders, localRootProviders})
     const gigaRootUpdateTx = await (await gigaBridge.updateGigaRoot(
         validLocalRootProviders

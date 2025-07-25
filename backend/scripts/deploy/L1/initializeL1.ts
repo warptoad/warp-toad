@@ -53,9 +53,9 @@ async function main() {
 
     const chainId = (await provider.getNetwork()).chainId
     const IS_MAINNET = chainId === 1n
-    // const scrollChainId = IS_MAINNET ? 534352n : 534351n
+    const scrollChainId = IS_MAINNET ? 534352n : 534351n
     const L1DeployedAddresses = await getContractAddressesEvm(chainId)
-    // const L2ScrollDeployedAddresses = await getContractAddressesEvm(scrollChainId)
+    const L2ScrollDeployedAddresses = await getContractAddressesEvm(scrollChainId)
     const aztecDeployedAddresses =await getContractAddressesAztec(chainId)
     const L1WarpToadAddress = L1DeployedAddresses["L1WarpToadModule#L1WarpToad"]
     const gigaBridgeAddress = L1DeployedAddresses["L1InfraModule#GigaBridge"]
@@ -63,10 +63,10 @@ async function main() {
     const L1ScrollBridgeAdapterAddress = L1DeployedAddresses["L1InfraModule#L1ScrollBridgeAdapter"]
 
     const L2AztecAdapterAddress = aztecDeployedAddresses["L2AztecBridgeAdapter"]
-    // const L2ScrollBridgeAdapterAddress = L2ScrollDeployedAddresses["L2ScrollModule#L2ScrollBridgeAdapter"]
+    const L2ScrollBridgeAdapterAddress = L2ScrollDeployedAddresses["L2ScrollModule#L2ScrollBridgeAdapter"]
 
     const L1AztecBridgeAdapter = L1AztecBridgeAdapter__factory.connect(L1AztecBridgeAdapterAddress, signer)
-    //const L1ScrollBridgeAdapter = L1ScrollBridgeAdapter__factory.connect(L1ScrollBridgeAdapterAddress, signer)
+    const L1ScrollBridgeAdapter = L1ScrollBridgeAdapter__factory.connect(L1ScrollBridgeAdapterAddress, signer)
     const L1WarpToad = L1WarpToad__factory.connect(L1WarpToadAddress, signer)
     const initializationStatus:any = {}
 
@@ -82,15 +82,15 @@ async function main() {
     }
 
     // scroll
-    // try{
-    //     await L1ScrollBridgeAdapter.initialize(L2ScrollBridgeAdapterAddress ,gigaBridgeAddress);
-    //     initializationStatus["L1ScrollBridgeAdapter"] = true
-    // } catch {
-    //     console.warn(`couldn't initialize: L1ScrollBridgeAdapter at: ${L1ScrollBridgeAdapter.target}. 
-    //     Was it already initialized?     
-    //     `)
-    //     initializationStatus["L1ScrollBridgeAdapter"] = false
-    // }
+    try{
+        await L1ScrollBridgeAdapter.initialize(L2ScrollBridgeAdapterAddress ,gigaBridgeAddress);
+        initializationStatus["L1ScrollBridgeAdapter"] = true
+    } catch {
+        console.warn(`couldn't initialize: L1ScrollBridgeAdapter at: ${L1ScrollBridgeAdapter.target}. 
+        Was it already initialized?     
+        `)
+        initializationStatus["L1ScrollBridgeAdapter"] = false
+    }
     
     //warptoad
     try{
@@ -115,11 +115,11 @@ async function main() {
         initializationSuccess?:     ${initializationStatus["L1WarpToad"] }
         args:                       ${JSON.stringify({gigaBridgeAddress, L1WarpToad:L1WarpToad.target},null,2)}
     `)
-    // console.log(`
-    //     L1ScrollBridgeAdapter:      ${L1ScrollBridgeAdapter.target}
-    //     initializationSuccess?:     ${initializationStatus["L1ScrollBridgeAdapter"]}
-    //     args:                       ${JSON.stringify({L2ScrollBridgeAdapterAddress ,gigaBridgeAddress},null,2)}
-    // `)
+    console.log(`
+        L1ScrollBridgeAdapter:      ${L1ScrollBridgeAdapter.target}
+        initializationSuccess?:     ${initializationStatus["L1ScrollBridgeAdapter"]}
+        args:                       ${JSON.stringify({L2ScrollBridgeAdapterAddress ,gigaBridgeAddress},null,2)}
+    `)
 
 }
 main()  
