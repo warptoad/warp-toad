@@ -1,7 +1,7 @@
 //@ts-ignore
 import {  Fr, PXE, EthAddress, SponsoredFeePaymentMethod } from "@aztec/aztec.js"
 import { ethers } from "ethers";
-import { WarpToadCore as WarpToadEvm, USDcoin, PoseidonT3, LazyIMT, L1AztecBridgeAdapter, GigaBridge, L2ScrollBridgeAdapter } from "../../typechain-types";
+import { WarpToadCore as WarpToadEvm, USDcoin, PoseidonT3, LazyIMT, L1AztecBridgeAdapter, GigaBridge, L2ScrollBridgeAdapter, ILocalRootProvider__factory, IL1BridgeAdapter__factory, L1AztecBridgeAdapter__factory } from "../../typechain-types";
 import {  L2AztecBridgeAdapterContract } from '../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter'
 import { WarpToadCoreContract as AztecWarpToadCore } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
 //@ts-ignore
@@ -22,7 +22,7 @@ export async function bridgeL2LocalRoot(L2Adapter:L2ScrollBridgeAdapter) {
     // switch (chainId) {
     //     case chainIds.scroll.testnet:
     //     case chainIds.scroll.mainnet:
-    //         const L2ToL1Tx = await (await L2Adapter.sentLocalRootToL1(scrollBridgeGasLimit)).wait(1)
+    //         const L2ToL1Tx = await (await L2Adapter.sentLocalRootToL1(scrollBridgeGasLimit)).wait(3)
     //         console.log({L2ToL1TxHash: L2ToL1Tx?.hash})
 
     //     default:
@@ -98,13 +98,13 @@ export async function bridgeNoteHashTreeRoot(
         l2ToL1MessageIndex,
         siblingPathArray
     ]
-    const waitFunc = async () => await waitForBlocksAztec(2,PXE) 
+    const waitFunc = async () => await waitForBlocksAztec(10,PXE) 
     const refreshRootTx = await (await tryUntilItWorks(
         L1AztecBridgeAdapter, 
         "getNewRootFromL2",
         args,
         waitFunc
-    )).wait(1) as ethers.ContractTransactionReceipt
+    )).wait(3) as ethers.ContractTransactionReceipt
 
     return {refreshRootTx, sendRootToL1Tx, PXE_L2Root}
 }
@@ -122,9 +122,21 @@ export async function updateGigaRoot(
     gigaBridge: GigaBridge,
     localRootProviders: ethers.AddressLike[]
 ) {
+    const provider = gigaBridge.runner?.provider
+    const validLocalRootProviders = localRootProviders.filter(async (localProviderAddr)=>{
+        // TODO make an interface because not every localRootProvider is L1AztecBridgeAdapter
+        const localRootProvider = L1AztecBridgeAdapter__factory.connect(localProviderAddr as string, provider)
+        if (await localRootProvider.mostRecentL2Root() !== 0n && await localRootProvider.mostRecentL2RootBlockNumber() !== 0n ) {
+            return true
+        } else {
+            console.log(`${localProviderAddr} has not received a L2 root yet and will be skipped in updating the gigaRoot`)
+            return false
+        }
+    })
+    console.log({validLocalRootProviders, localRootProviders})
     const gigaRootUpdateTx = await (await gigaBridge.updateGigaRoot(
-        localRootProviders
-    )).wait(1) as ethers.ContractTransactionReceipt;
+        validLocalRootProviders
+    )).wait(3) as ethers.ContractTransactionReceipt;
     // todo check id tree reproduces by syncing events
     // TODO make sure the gigaBridge contract also emits events updatedLocalRoot(indexed index, localRoot
     return {gigaRootUpdateTx}
@@ -151,7 +163,7 @@ export async function sendGigaRoot(
     const sendGigaRootTx = await (await gigaBridge["sendGigaRoot(address[])"](
         [...gigaRootRecipients]
     )
-    ).wait(1) as ethers.ContractTransactionReceipt;
+    ).wait(3) as ethers.ContractTransactionReceipt;
 
     return {sendGigaRootTx}
 }
@@ -214,7 +226,7 @@ export async function waitForBlocksAztec(blocksToWait:number, PXE:PXE) {
     }
 }
 
-export async function tryUntilItWorks(contract:ethers.Contract|any, funcName:string, funcArgs:any[], waitFunc:any) {
+export async function tryUntilItWorks(contract:ethers.Contract|any, funcName:string, funcArgs:any[], waitFunc:any): Promise<ethers.ContractTransactionResponse> {
     let works = false
     while (works === false) {
         console.log({works})

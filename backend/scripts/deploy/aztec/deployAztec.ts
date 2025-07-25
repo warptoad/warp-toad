@@ -18,7 +18,7 @@ import er20Abi from "../../dev_op/erc20ABI.json"
 import { deployL2AztecBridgeAdapter } from "./L2AztecBridgeAdapter";
 
 import hre, { network } from "hardhat"
-import { checkFileExists, getContractAddressesEvm, promptBool } from "../../dev_op/utils";
+import { checkFileExists, getAztecDeployedAddressesFilePath, getAztecDeployedAddressesFolderPath, getContractAddressesEvm, promptBool } from "../../dev_op/utils";
 //@ts-ignore
 import { getSchnorrAccount } from "@aztec/accounts/schnorr";
 //@ts-ignore
@@ -70,8 +70,8 @@ async function main() {
 
     const deployedAddresses = await getContractAddressesEvm(chainId)
     const L1AztecAdapterAddress = deployedAddresses["L1InfraModule#L1AztecBridgeAdapter"]
-    const folderPath = `${__dirname}/aztecDeployments/${Number(chainId)}/`
-    const deployedAddressesPath = `${folderPath}/deployed_addresses.json`
+    const folderPath = getAztecDeployedAddressesFolderPath(chainId)
+    const deployedAddressesPath = getAztecDeployedAddressesFilePath(chainId)
     if(await checkFileExists(deployedAddressesPath)) {
         if(await promptBool(`A deployment already exist at ${deployedAddressesPath} \n Are you sure want to override?`)) {
             await fs.rm(deployedAddressesPath)
