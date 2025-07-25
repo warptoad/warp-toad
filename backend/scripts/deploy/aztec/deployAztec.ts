@@ -18,7 +18,7 @@ import er20Abi from "../../dev_op/erc20ABI.json"
 import { deployL2AztecBridgeAdapter } from "./L2AztecBridgeAdapter";
 
 import hre, { network } from "hardhat"
-import { getContractAddressesEvm } from "../../dev_op/getDeployedAddresses";
+import { checkFileExists, getContractAddressesEvm, promptBool } from "../../dev_op/utils";
 //@ts-ignore
 import { getSchnorrAccount } from "@aztec/accounts/schnorr";
 //@ts-ignore
@@ -30,30 +30,11 @@ import { SingleKeyAccountContract } from "@aztec/accounts/single_key";
 import { createAztecNodeClient } from "@aztec/stdlib/interfaces/client";
 //@ts-ignore
 import { computePartialAddress } from "@aztec/stdlib/contract";
-import { getAztecTestWallet } from "../../dev_op/getTestWallet";
+import { getAztecTestWallet } from "../../dev_op/utils";
 //import { ObsidionDeployerFPCContractArtifact } from "../dev_op/getObsidionWallet/ObsidionDeployerFPC"
 
-async function checkFileExists(filePath: string): Promise<boolean> {
-  try {
-    await fs.access(filePath);
-    return true; 
-  } catch (error: any) {
-    if (error.code === 'ENOENT') {
-      return false; 
-    }
-    throw error; 
-  }
-}
 
-import { createInterface } from 'readline/promises';
-import { stdin, stdout } from 'process';
 
-async function promptYesNo(question: string): Promise<boolean> {
-  const rl = createInterface({ input: stdin, output: stdout });
-  const ans = (await rl.question(`${question} (yes/no): `)).trim().toLowerCase();
-  rl.close();
-  return ans === 'yes' || ans === 'y' || ans === '';
-}
 
 const delay = async (timeInMs: number) => await new Promise((resolve) => setTimeout(resolve, timeInMs))
 
@@ -92,8 +73,9 @@ async function main() {
     const folderPath = `${__dirname}/aztecDeployments/${Number(chainId)}/`
     const deployedAddressesPath = `${folderPath}/deployed_addresses.json`
     if(await checkFileExists(deployedAddressesPath)) {
-        if(await promptYesNo(`A deployment already exist at ${deployedAddressesPath} \n Are you sure want to override?`)) {
+        if(await promptBool(`A deployment already exist at ${deployedAddressesPath} \n Are you sure want to override?`)) {
             await fs.rm(deployedAddressesPath)
+            console.log("overriding old deployment")
         } else {
             console.log("canceling deployment")
             return 0

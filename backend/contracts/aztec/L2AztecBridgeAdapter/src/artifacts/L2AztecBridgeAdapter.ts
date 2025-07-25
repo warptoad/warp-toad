@@ -115,15 +115,15 @@ export class L2AztecBridgeAdapterContract extends ContractBase {
   }
   
 
-  public static get storage(): ContractStorageLayout<'config' | 'counter'> {
+  public static get storage(): ContractStorageLayout<'l1BridgeAdapter' | 'counter'> {
       return {
-        config: {
+        l1BridgeAdapter: {
       slot: new Fr(1n),
     },
 counter: {
       slot: new Fr(3n),
     }
-      } as ContractStorageLayout<'config' | 'counter'>;
+      } as ContractStorageLayout<'l1BridgeAdapter' | 'counter'>;
     }
     
 
@@ -151,8 +151,11 @@ WarpToadNote: {
     /** count(new_count: field) */
     count: ((new_count: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** get_config_public() */
-    get_config_public: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+    /** get_l1BridgeAdapter_public() */
+    get_l1BridgeAdapter_public: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** process_message(message_ciphertext: struct, message_context: struct) */
+    process_message: ((message_ciphertext: FieldLike[], message_context: { tx_hash: FieldLike, unique_note_hashes_in_tx: FieldLike[], first_nullifier_in_tx: FieldLike, recipient: AztecAddressLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** public_dispatch(selector: field) */
     public_dispatch: ((selector: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;

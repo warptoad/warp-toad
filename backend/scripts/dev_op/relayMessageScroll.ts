@@ -2,10 +2,10 @@ import { ArgumentParser } from "argparse";
 import { IL1ScrollMessenger, IL1ScrollMessenger__factory } from "../../typechain-types";
 import { L1_SCROLL_MESSENGER_MAINNET, L1_SCROLL_MESSENGER_SEPOLIA, SCROLL_CHAINID_MAINNET, SCROLL_CHAINID_SEPOLIA } from "../lib/constants";
 import { ethers } from "ethers";
-import { getContractAddressesEvm } from "../dev_op/getDeployedAddresses";
+import { getContractAddressesEvm } from "../dev_op/utils";
 import hre from "hardhat";
 
-
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 
 async function main() {
@@ -17,10 +17,19 @@ async function main() {
     const signer = (await hre.ethers.getSigners())[0]
     const scrollContracts = await getContractAddressesEvm(SCROLL_CHAINID)
     const L2ScrollBridgeAdapterAddress = scrollContracts["L2ScrollModule#L2ScrollBridgeAdapter"]
-    const scrollBridgeApiRes = await fetch(`https://sepolia-api-bridge-v2.scroll.io/api/l2/unclaimed/withdrawals?address=${L2ScrollBridgeAdapterAddress}&page=1&page_size=1`)
-    const scrollBridgeApiResJson = await scrollBridgeApiRes.json()
-    console.log({scrollBridgeApiResJson, L2ScrollBridgeAdapterAddress})
-    const claimInfo = scrollBridgeApiResJson.data.results[0].claim_info
+    
+    let claimInfo = null
+    while(claimInfo===null) {
+        const scrollBridgeApiRes = await fetch(`https://sepolia-api-bridge-v2.scroll.io/api/l2/unclaimed/withdrawals?address=${L2ScrollBridgeAdapterAddress}&page=1&page_size=1`)
+        const scrollBridgeApiResJson = await scrollBridgeApiRes.json()
+        console.log({scrollBridgeApiResJson, L2ScrollBridgeAdapterAddress})
+        claimInfo = scrollBridgeApiResJson.data.results === null? null : scrollBridgeApiResJson.data.results[0].claim_info
+        console.log({claimInfo})
+        if (claimInfo!==null){break}else{console.log("oooo i am soo eepy. I am going to sleep for 10 minutes!")}
+        await sleep(600000)
+    }
+
+
     const L1ScrollMessenger = IL1ScrollMessenger__factory.connect(L1_SCROLL_MESSENGER, signer)
     console.log({claimInfo})
     const tx =await (await L1ScrollMessenger.relayMessageWithProof(

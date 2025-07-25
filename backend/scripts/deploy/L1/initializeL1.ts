@@ -16,7 +16,7 @@ import { createPXEClient, waitForPXE } from "@aztec/aztec.js";
 import { getInitialTestAccountsWallets } from "@aztec/accounts/testing";
 
 import fs from "fs/promises";
-import { getContractAddressesAztec, getContractAddressesEvm } from "../../dev_op/getDeployedAddresses";
+import { getContractAddressesAztec, getContractAddressesEvm } from "../../dev_op/utils";
 
 
 function getArgs() {

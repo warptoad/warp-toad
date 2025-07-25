@@ -1,5 +1,3 @@
-mod config;
-
 use dep::aztec::macros::aztec;
 
 // Minimal implementation of the message bridge that can move messages between L1 <> L2.
@@ -7,10 +5,9 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract L2AztecBridgeAdapter {
-    use crate::config::Config;
-
     use dep::aztec::prelude::{
-        EthAddress,  PublicImmutable, PublicMutable, AztecAddress
+        EthAddress,  PublicImmutable, PublicMutable, AztecAddress,
+        Map, PrivateMutable, PrivateSet,
     };
 
 	use dep::aztec::protocol_types::hash::sha256_to_field;
@@ -19,14 +16,11 @@ pub contract L2AztecBridgeAdapter {
         functions::{initializer, private, public, utility, view},
         storage::storage,
     };
-    // use aztec::prelude::{
-    //     AztecAddress, EthAddress, Map, PrivateMutable, PrivateSet, PublicImmutable, PublicMutable,
-    // };
 
     // Storage structure, containing all storage, and specifying what slots they use.
     #[storage]
     struct Storage<Context> {
-        config: PublicImmutable<Config, Context>,
+        l1BridgeAdapter: PublicImmutable<EthAddress, Context>,
         // temp for testing
         counter: PublicMutable<Field, Context>,
     }
@@ -35,13 +29,13 @@ pub contract L2AztecBridgeAdapter {
     #[public]
     #[initializer]
     fn constructor(l1BridgeAdapter: EthAddress) {
-        storage.config.initialize(Config { portal:l1BridgeAdapter }); 
+        storage.l1BridgeAdapter.initialize(l1BridgeAdapter); 
     } 
 
     #[public]
     #[view]
-    fn get_config_public() -> Config {
-        storage.config.read()
+    fn get_l1BridgeAdapter_public() -> EthAddress {
+        storage.l1BridgeAdapter.read()
     }
 
     // Consumes a L1->L2 message and calls the WarpToadCore contract to update the GigaRoot
@@ -55,10 +49,10 @@ pub contract L2AztecBridgeAdapter {
 
         let content_hash = new_gigaroot;
 
-        let config = storage.config.read();
+        let l1BridgeAdapter = storage.l1BridgeAdapter.read();
 
         // Consume message and emit nullifier
-        context.consume_l1_to_l2_message(content_hash, secret, config.portal, message_leaf_index);
+        context.consume_l1_to_l2_message(content_hash, secret,l1BridgeAdapter, message_leaf_index);
         //call warptoad!
         WarpToadCore::WarpToadCore::at(warpToadCore).receive_giga_root(new_gigaroot).call(&mut context);
     }
@@ -77,7 +71,7 @@ pub contract L2AztecBridgeAdapter {
 	// can only be done from a private context
     #[private]
     fn send_root_to_l1(block_number: u32) {
-        let config = storage.config.read();
+        let l1BridgeAdapter = storage.l1BridgeAdapter.read();
 
 		// Returns the header of a block whose state is used during private execution (not the block the transaction is included in).
 		let block_header = context.get_block_header_at(block_number);
@@ -97,7 +91,7 @@ pub contract L2AztecBridgeAdapter {
         let content_hash = sha256_to_field(hash_bytes);
 
         // Send an L2 to L1 message
-        context.message_portal(config.portal, content_hash);
+        context.message_portal(l1BridgeAdapter, content_hash);
     }
 
 }

@@ -157,18 +157,18 @@ l1_bridge_adapter: {
     }
     
 
-  public static get notes(): ContractNotes<'UintNote' | 'ValueNote' | 'WarpToadNote'> {
+  public static get notes(): ContractNotes<'ValueNote' | 'UintNote' | 'WarpToadNote'> {
     return {
-      UintNote: {
-          id: new NoteSelector(1),
-        },
-ValueNote: {
+      ValueNote: {
           id: new NoteSelector(0),
+        },
+UintNote: {
+          id: new NoteSelector(1),
         },
 WarpToadNote: {
           id: new NoteSelector(2),
         }
-    } as ContractNotes<'UintNote' | 'ValueNote' | 'WarpToadNote'>;
+    } as ContractNotes<'ValueNote' | 'UintNote' | 'WarpToadNote'>;
   }
   
 
@@ -208,11 +208,11 @@ WarpToadNote: {
     /** mint_for_testing(amount: integer, recipient: struct) */
     mint_for_testing: ((amount: (bigint | number), recipient: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
-    /** mint_giga_root_aztec(amount: integer, secret: field, nullifier_preimage: field, recipient: struct, block_number: integer, origin_local_root: field, giga_merkle_data: struct, aztec_merkle_data: struct) */
-    mint_giga_root_aztec: ((amount: (bigint | number), secret: FieldLike, nullifier_preimage: FieldLike, recipient: AztecAddressLike, block_number: (bigint | number), origin_local_root: FieldLike, giga_merkle_data: { leaf_index: FieldLike, hash_path: FieldLike[] }, aztec_merkle_data: { leaf_index: FieldLike, hash_path: FieldLike[], leaf_nonce: FieldLike, contract_address: FieldLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
     /** mint_giga_root_evm(amount: integer, secret: field, nullifier_preimage: field, recipient: struct, block_number: integer, origin_local_root: field, giga_merkle_data: struct, evm_merkle_data: struct) */
     mint_giga_root_evm: ((amount: (bigint | number), secret: FieldLike, nullifier_preimage: FieldLike, recipient: AztecAddressLike, block_number: (bigint | number), origin_local_root: FieldLike, giga_merkle_data: { leaf_index: FieldLike, hash_path: FieldLike[] }, evm_merkle_data: { leaf_index: FieldLike, hash_path: FieldLike[] }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** process_message(message_ciphertext: struct, message_context: struct) */
+    process_message: ((message_ciphertext: FieldLike[], message_context: { tx_hash: FieldLike, unique_note_hashes_in_tx: FieldLike[], first_nullifier_in_tx: FieldLike, recipient: AztecAddressLike }) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** public_dispatch(selector: field) */
     public_dispatch: ((selector: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;

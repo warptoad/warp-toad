@@ -55,6 +55,7 @@ export async function bridgeNoteHashTreeRoot(
 ) {
     const blockNumberOfRoot = await PXE.getBlockNumber();
     const PXE_L2Root = (await PXE.getBlock(blockNumberOfRoot))?.header.state.partial.noteHashTree.root as Fr
+    console.log("send_root_to_l1", {PXE_L2Root, blockNumberOfRoot})
     const sendRootToL1Tx = await L2AztecBridgeAdapter.methods.send_root_to_l1(blockNumberOfRoot).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait({timeout:60*60*12});
     console.log({sendRootToL1Tx:sendRootToL1Tx.txHash.hash})
 
@@ -78,7 +79,7 @@ export async function bridgeNoteHashTreeRoot(
     const [l2ToL1MessageIndex, siblingPath] = await PXE.getL2ToL1MembershipWitness(
         witnessBlocknumber, 
         //@ts-ignore some bs where the Fr type that getL2ToL1MembershipWitness wants is different messageLeaf has
-        l2ToL1Msgs
+        messageLeaf
     );
     const siblingPathArray = siblingPath.toFields().map((f:any) => f.toString())
 

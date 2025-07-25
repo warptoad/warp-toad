@@ -1,6 +1,6 @@
 import { ArgumentParser } from 'argparse';
 import fs from "fs/promises";
-import { getContractAddressesAztec, getContractAddressesEvm } from './getDeployedAddresses';
+import { getContractAddressesAztec, getContractAddressesEvm } from './utils';
 import { ethers, NonceManager } from 'ethers';
 import { bridgeNoteHashTreeRoot, receiveGigaRootOnAztec, sendGigaRoot, updateGigaRoot, waitForBlocksAztec } from '../lib/bridging';
 //@ts-ignore
@@ -23,7 +23,7 @@ const OBSIDION_DEPLOYER_FPC_ADDRESS = AztecAddress.fromField(Fr.fromHexString("0
 const OBSIDION_DEPLOYER_SECRET_KEY = "0x00"
 const AZTEC_NODE_URL = "https://aztec-alpha-testnet-fullnode.zkv.xyz"
 import { ObsidionDeployerFPCContractArtifact } from "./getObsidionWallet/ObsidionDeployerFPC"
-import { getAztecTestWallet } from './getTestWallet';
+import { getAztecTestWallet } from './utils';
 const delay = async (timeInMs: number) => await new Promise((resolve) => setTimeout(resolve, timeInMs))
 
 
@@ -50,7 +50,7 @@ async function getL1Contracts(l1ChainId: bigint, signer: ethers.Signer) {
 
 }
 
-async function getAztecContracts(aztecWallet: aztecWallet | any, chainId: number, PXE:PXE) {
+async function getAztecContracts(aztecWallet: aztecWallet | any, chainId: bigint, PXE:PXE) {
     const isSandBox = BigInt(chainId) === 31337n
     const contracts = await getContractAddressesAztec(chainId)
 
@@ -108,10 +108,11 @@ async function main() {
     const localRootProviders = args.localRootProviders ? args.localRootProviders : await getLocalRootProviders(l1ChainId)
     const gigaRootRecipients = args.gigaRootRecipients ? args.gigaRootRecipients : await getLocalRootProviders(l1ChainId)
     const { L1AztecBridgeAdapter, gigaBridge } = await getL1Contracts(l1ChainId, l1Wallet)
-    const { L2AztecBridgeAdapter, AztecWarpToad } = args.isAztec ? await getAztecContracts(aztecWallet, Number(l1ChainId), PXE as PXE) : { L2AztecBridgeAdapter: undefined, AztecWarpToad: undefined }
+    const { L2AztecBridgeAdapter, AztecWarpToad } = args.isAztec ? await getAztecContracts(aztecWallet, l1ChainId, PXE as PXE) : { L2AztecBridgeAdapter: undefined, AztecWarpToad: undefined }
     const isSandBox = l1ChainId === 31337n 
     //------- bridge localRoot L1->l2---------
     if (args.isAztec) {
+        console.log("bridgeNoteHashTreeRoot")
         const { sendRootToL1Tx, refreshRootTx, PXE_L2Root } = await bridgeNoteHashTreeRoot(
             PXE as PXE,
             L2AztecBridgeAdapter as L2AztecBridgeAdapterContract,

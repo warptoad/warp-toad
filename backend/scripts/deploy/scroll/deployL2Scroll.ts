@@ -6,9 +6,10 @@ import { deployPoseidon } from "../poseidon";
 import L2Scroll from "../../../ignition/modules/L2Scroll"
 
 import er20Abi from "../../dev_op/erc20ABI.json"
-import { getContractAddressesEvm } from "../../dev_op/getDeployedAddresses";
+import { checkFileExists, getContractAddressesEvm, getEvmDeployedAddressesFilePath, getEvmDeployedAddressesFolderPath, promptBool } from "../../dev_op/utils";
 
 import { readFile } from 'fs/promises';
+import fs from 'fs/promises';
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 import { vars } from "hardhat/config.js";
@@ -26,6 +27,16 @@ async function main() {
 
     const provider = hre.ethers.provider
     const chainId = (await provider.getNetwork()).chainId
+
+    const deployedAddressesPath = getEvmDeployedAddressesFilePath(chainId)
+    if(await checkFileExists(deployedAddressesPath)) {
+        if(await promptBool(`A deployment already exist at ${deployedAddressesPath} \n Are you sure want to override?`)) {
+            await fs.rm(getEvmDeployedAddressesFolderPath(chainId),{force:true, recursive:true})
+            console.log("overriding old deployment")
+        } else {
+            console.log("continuing without redeploying (just verifying)")
+        }
+    }
     const IS_SCROLL_MAINNET = chainId === 534352n
     if (IS_SCROLL_MAINNET) { throw new Error("l1Provider not setup for mainnet TODO") }
 
@@ -42,6 +53,7 @@ async function main() {
 
     const L1DeployedAddresses = await getContractAddressesEvm(l1ChainId)
     const GigaBridgeAddress = L1DeployedAddresses["L1InfraModule#GigaBridge"]
+    const L1ScrollBridgeAdapterAddress = L1DeployedAddresses["L1InfraModule#L1ScrollBridgeAdapter"]
     const l2ScrollMessengerAddress = IS_SCROLL_MAINNET ? L2_SCROLL_MESSENGER_MAINNET : L2_SCROLL_MESSENGER_SEPOLIA
 
     const { L2WarpToad, withdrawVerifier, PoseidonT3Lib, LazyIMTLib, L2ScrollBridgeAdapter } = await hre.ignition.deploy(L2Scroll, {
@@ -51,7 +63,7 @@ async function main() {
                 nativeToken: nativeTokenAddress,
                 name: name,
                 symbol: symbol,
-                GigaBridgeAddress: GigaBridgeAddress,
+                L1ScrollBridgeAdapter: L1ScrollBridgeAdapterAddress,
                 l2ScrollMessengerAddress: l2ScrollMessengerAddress
             }
         },
@@ -100,20 +112,23 @@ async function main() {
 
 
     // ----------- libraries ----------------
-    console.log(`verifying: poseidon: ${PoseidonT3Address}`)
-    await hre.run("verify:verify", {
-        force: true,
-        address: PoseidonT3Address,
-        contract: "poseidon-solidity/PoseidonT3.sol:PoseidonT3",
-        constructorArguments: journalDataPerAddress[PoseidonT3Address as string].constructorArgs,
-        libraries: journalDataPerAddress[PoseidonT3Address as string].libraries,
-        compilerVersion: "v0.7.6",
-        optimizations: {
-            enabled: true, 
-            runs: 2**32-1, 
-        },
-    });
-    await sleep(waitTimeBetweenVerify)
+    // not possible with sane dev ux with hardhat, since this contract was compiled in a very old version of solidity.
+    // usually poseidon is already deployed and verified, or you can let etherscan know on which chain it already is verified.
+    // other just clone the original repo and verify it from there (copy pasting into etherscan didn't work for me either)
+    // console.log(`verifying: poseidon: ${PoseidonT3Address}`)
+    // await hre.run("verify:verify", {
+    //     force: true,
+    //     address: PoseidonT3Address,
+    //     contract: "poseidon-solidity/PoseidonT3.sol:PoseidonT3",
+    //     constructorArguments: journalDataPerAddress[PoseidonT3Address as string].constructorArgs,
+    //     libraries: journalDataPerAddress[PoseidonT3Address as string].libraries,
+    //     compilerVersion: "v0.7.6",
+    //     optimizations: {
+    //         enabled: true, 
+    //         runs: 2**32-1, 
+    //     },
+    // });
+    // await sleep(waitTimeBetweenVerify)
 
 
     console.log(`verifying: LazyIMTLib: ${LazyIMTLib.target}`)

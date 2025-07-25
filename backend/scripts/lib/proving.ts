@@ -187,12 +187,12 @@ export async function getAztecMerkleData(WarpToad:WarpToadAztec, commitment:bigi
     const notes = await PXE.getNotes(warpToadNoteFilter)
     const currentNote = notes.find((n)=> hashCommitmentFromNoteItems(n.note.items) === commitment);
     const siloedNoteHash = await hashSiloedNoteHash(WarpToad.address.toBigInt() ,commitment)
-    const uniqueNoteHash = await hashUniqueNoteHash(currentNote!.nonce.toBigInt(),siloedNoteHash)
+    const uniqueNoteHash = await hashUniqueNoteHash(currentNote!.noteNonce.toBigInt(),siloedNoteHash)
     const witness = await WarpToad.methods.get_note_proof(destinationLocalRootBlock,uniqueNoteHash ).simulate()
     const merkleData: AztecMerkleData = {
         leaf_index: ethers.toBeHex(witness.index),
         hash_path: witness.path.map((h:bigint)=>ethers.toBeHex(h)),
-        leaf_nonce: ethers.toBeHex(currentNote!.nonce.toBigInt()),
+        leaf_nonce: ethers.toBeHex(currentNote!.noteNonce.toBigInt()),
         contract_address: ethers.toBeHex(WarpToad.address.toBigInt())
     }
     return merkleData
