@@ -47,10 +47,7 @@ contract L2ScrollBridgeAdapter is
         IL2ScrollMessenger(l2ScrollMessenger).sendMessage{value: 0}( // can this be 0?? or can we pay for some relayer?? check docs!
             l1ScrollBridgeAdapter, // TODO send to a L1Adapter first
             0,
-            abi.encodeWithSignature(
-                "getNewRootFromL2(uint256 _l2Root, uint256 _l2BlockNumber)",
-                _l2Root,_l2BlockNumber 
-            ),
+            abi.encodeWithSignature("getNewRootFromL2(uint256,uint256)",_l2Root,_l2BlockNumber),
             _gasLimit,
             msg.sender
         );

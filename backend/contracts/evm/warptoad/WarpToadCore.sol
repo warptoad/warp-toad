@@ -169,7 +169,7 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore,ILocalRootProvider, IGiga
     }
 
     // gigaRootProvider can call directly since are on the L1 already and dont need adapter
-    function receiveGigaRoot(uint256 _gigaRoot) public onlyGigaRootProvider() {
+    function receiveGigaRoot(uint256 _gigaRoot) public payable onlyGigaRootProvider() {
         gigaRootHistory[_gigaRoot] = true;
         gigaRoot = _gigaRoot;
     }

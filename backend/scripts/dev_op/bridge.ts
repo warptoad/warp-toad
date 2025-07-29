@@ -2,7 +2,7 @@ import { ArgumentParser } from 'argparse';
 import fs from "fs/promises";
 import { getContractAddressesAztec, getContractAddressesEvm } from './utils';
 import { ethers, NonceManager } from 'ethers';
-import { bridgeNoteHashTreeRoot, receiveGigaRootOnAztec, sendGigaRoot, updateGigaRoot, waitForBlocksAztec } from '../lib/bridging';
+import { bridgeNoteHashTreeRoot, receiveGigaRootOnAztec, sendGigaRoot, sendGigaRootPayable, updateGigaRoot, waitForBlocksAztec } from '../lib/bridging';
 //@ts-ignore
 import { createPXEClient, PXE, waitForPXE, Wallet as aztecWallet, AztecAddressLike, GrumpkinScalar, createAztecNodeClient, AztecAddress, Fr } from '@aztec/aztec.js';
 //@ts-ignore
@@ -19,6 +19,17 @@ async function getLocalRootProviders(chainId: bigint) {
     const contracts = await getContractAddressesEvm(chainId)
     return [contracts["L1WarpToadModule#L1WarpToad"], contracts["L1InfraModule#L1AztecBridgeAdapter"], contracts["L1InfraModule#L1ScrollBridgeAdapter"]]
 }
+
+async function getPayableLocalRootProviders(chainId: bigint) {
+    const contracts = await getContractAddressesEvm(chainId)
+    return [contracts["L1InfraModule#L1ScrollBridgeAdapter"]]
+}
+
+async function getNonPayableLocalRootProviders(chainId: bigint) {
+    const contracts = await getContractAddressesEvm(chainId)
+    return [contracts["L1WarpToadModule#L1WarpToad"], contracts["L1InfraModule#L1AztecBridgeAdapter"]]
+}
+
 const OBSIDION_DEPLOYER_FPC_ADDRESS = AztecAddress.fromField(Fr.fromHexString("0x19f8873315cad78e160bdcb686bcdc8bd3760ca215966b677b79ba2cfb68c1b5"))
 const OBSIDION_DEPLOYER_SECRET_KEY = "0x00"
 const AZTEC_NODE_URL = "https://aztec-alpha-testnet-fullnode.zkv.xyz"
@@ -132,12 +143,23 @@ async function main() {
         gigaBridge,
         localRootProviders,
     )
+    const allPayableLocalRootProviders = await getPayableLocalRootProviders(l1ChainId)
+    const nonPayableLocalRootProviders  = localRootProviders.filter((v:any)=>!allPayableLocalRootProviders.includes(v))  
+    const payableLocalRootProviders = localRootProviders.filter((v:any)=>allPayableLocalRootProviders.includes(v))  
     const { sendGigaRootTx } = await sendGigaRoot(
         gigaBridge,
-        gigaRootRecipients,
+        nonPayableLocalRootProviders,
+    )
+
+    const amounts = new Array(payableLocalRootProviders.length).fill(5n*10n**16n) // 0.05 eth should be enough TODO be more intelligent about this!
+    console.log("aaaaaaaaaaaaaa")
+    const { sendGigaRootTxs } = await sendGigaRootPayable(
+        gigaBridge,
+        payableLocalRootProviders,
+        amounts
     )
     const updatedGigaRoot = await gigaBridge.gigaRoot()
-    console.log({ gigaRootUpdateTx: gigaRootUpdateTx.hash, sendGigaRootTx: sendGigaRootTx.hash, updatedGigaRoot })
+    console.log({ gigaRootUpdateTx: gigaRootUpdateTx.hash, sendGigaRootTx: sendGigaRootTx.hash, updatedGigaRoot, sendGigaRootTxs })
 
 
     // ------- retrieve the giga root from the adapters on L2 and send them to the toads!!! ----------

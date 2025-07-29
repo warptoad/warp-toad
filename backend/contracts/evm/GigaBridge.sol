@@ -114,8 +114,16 @@ contract GigaBridge is IGigaBridge, ILocalRootRecipient, IGigaRootProvider  {
 
 
     // above function is more efficient most of the time. This is here to support the IGigaRootProvider 
-    // and IGigaRootProvider doesn't do the for loop becuase L2 adapters only have one recipient (L2Warptoad).
+    // and IGigaRootProvider doesn't do the for loop because L2 adapters only have one recipient (L2Warptoad).
     function sendGigaRoot(address _gigaRootRecipient) public {
         IGigaRootRecipient(_gigaRootRecipient).receiveGigaRoot(gigaRoot);
+    }
+
+    // for scroll who needs eth to make the bridge tx
+    // this is kinda getting messy. Next version of gigaBridge should instead only receive leafValues and have a public getter for gigaRoot (history)
+    // then the adapters can handle all these whacky different bridge apis. 
+    // for loops are also bad in gigaBridge, since it forces gigaBridge to know what the bridge api is like before hand. Instead we should just do multi-call or whatever
+    function sendGigaRootPayable(address _gigaRootRecipient) public payable {
+        IGigaRootRecipient(_gigaRootRecipient).receiveGigaRoot{value: msg.value}(gigaRoot);
     }
 }

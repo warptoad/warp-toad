@@ -8,8 +8,9 @@ interface IGigaRootProvider {
 }
 
 interface IGigaRootRecipient {
-    function receiveGigaRoot(uint256 _gigaRoot) external;
+    function receiveGigaRoot(uint256 _gigaRoot) payable external;
 }
+
 
 interface ILocalRootProvider {
     function getLocalRootAndBlock() external returns (uint256, uint256);

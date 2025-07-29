@@ -58,8 +58,8 @@ contract L1ScrollBridgeAdapter is IL1BridgeAdapter, ILocalRootProvider, IGigaRoo
 
     function receiveGigaRoot(
         uint256 _newGigaRoot
-    ) external onlyGigaBridge {
-        _bridgeGigaRootToL2(_newGigaRoot, 1000000);
+    ) external payable onlyGigaBridge {
+        _bridgeGigaRootToL2(_newGigaRoot, 2000000);
     }
 
     // just incase the hardcoded gaslimit fails
@@ -74,15 +74,15 @@ contract L1ScrollBridgeAdapter is IL1BridgeAdapter, ILocalRootProvider, IGigaRoo
         // uint256 _newGigaRoot = IGigaRootProvider(gigaBridge).gigaRoot();
         // sendMessage is able to execute any function by encoding the abi using the encodeWithSignature function
         //IScrollMessenger(l1ScrollMessenger).sendMessage{value: msg.value}(
-        IL1ScrollMessenger(l1ScrollMessenger).sendMessage{value: 0}( // can this be 0?? or can we pay for some relayer?? check docs!
+        IL1ScrollMessenger(l1ScrollMessenger).sendMessage{value: msg.value}( // can this be 0?? or can we pay for some relayer?? check docs!
             l2ScrollBridgeAdapter,
             0,
             abi.encodeWithSignature(
-                "receiveGigaRoot(uint256 _gigaRoot)",
+                "receiveGigaRoot(uint256)",
                 _newGigaRoot
             ),
             _gasLimit,
-            msg.sender
+            tx.origin // refund goes to the eoa initiating the tx
         );
         
     } 

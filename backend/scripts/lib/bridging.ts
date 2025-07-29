@@ -169,6 +169,7 @@ export async function sendGigaRoot(
 ) {
     // sends the root to the L2AztecBridgeAdapter through the L1AztecBridgeAdapter
     console.log("now pls dont break")
+    console.log({gigaRootRecipients, aaaaaaaaaaaaa:"sendGigaRoot(address[])"})
     const sendGigaRootTx = await (await gigaBridge["sendGigaRoot(address[])"](
         [...gigaRootRecipients]
     )
@@ -176,6 +177,36 @@ export async function sendGigaRoot(
 
     return {sendGigaRootTx}
 }
+
+/**
+ * happens after updateGigaRoot()
+ * continues in: [receiveGigaRootOnAztec, etc]
+ * 
+ * sends the gigaRoot to all L1 adapter (and L1Warptoad) so it can be bridged.
+ * Depending on the native bridge of the L2, the message either automatically arrives or needs to be initiated by a EOA (like with receiveGigaRootOnAztec)
+ * @param gigaBridge 
+ * @param gigaRootRecipients same as localRootProviders but here they receive a gigaRoot!
+ * @param isSandBox 
+ * @returns 
+ */
+export async function sendGigaRootPayable(
+    gigaBridge: GigaBridge,
+    gigaRootRecipients: ethers.AddressLike[],
+    amounts: bigint[]
+) {
+    // sends the root to the L2AztecBridgeAdapter through the L1AztecBridgeAdapter
+    console.log("now pls dont break sendGigaRootPayable")
+    const pendingTxs = []
+    for (const [index, recipient] of gigaRootRecipients.entries()) {
+        const amount = amounts[Number(index)]
+        console.log({recipient,  override: {value:amount} });
+        pendingTxs.push(
+            (await gigaBridge.sendGigaRootPayable(recipient, {value:amount})).wait(3)
+        )
+    }
+    return {sendGigaRootTxs: await Promise.all(pendingTxs)} 
+}
+
 
 
 /**
