@@ -6,6 +6,7 @@ import {  L2AztecBridgeAdapterContract } from '../../contracts/aztec/L2AztecBrid
 import { WarpToadCoreContract as AztecWarpToadCore } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
 //@ts-ignore
 import { sha256ToField } from "@aztec/foundation/crypto";
+import { getContractAddressesEvm } from "../dev_op/utils";
 const chainIds = {
     scroll: {
         testnet: 534351n,
@@ -15,22 +16,38 @@ const chainIds = {
 
 const scrollBridgeGasLimit = 100000n //TODO find better number
 
-export async function bridgeL2LocalRoot(L2Adapter:L2ScrollBridgeAdapter) {
+export async function getLocalRootProviders(chainId: bigint) {
+    const contracts = await getContractAddressesEvm(chainId)
+    return [contracts["L1WarpToadModule#L1WarpToad"], contracts["L1InfraModule#L1AztecBridgeAdapter"], contracts["L1InfraModule#L1ScrollBridgeAdapter"]]
+}
+
+export async function getPayableGigaRootRecipients(chainId: bigint) {
+    const contracts = await getContractAddressesEvm(chainId)
+    return [contracts["L1InfraModule#L1ScrollBridgeAdapter"]].filter((v)=>v !== undefined)
+}
+
+async function getNonPayableLocalRootProviders(chainId: bigint) {
+    const contracts = await getContractAddressesEvm(chainId)
+    return [contracts["L1WarpToadModule#L1WarpToad"], contracts["L1InfraModule#L1AztecBridgeAdapter"]].filter((v)=>v !== undefined)
+}
+
+export async function bridgeLocalRootL2(L2Adapter:L2ScrollBridgeAdapter) {
     // TODO
-    // const provider = L2Adapter.runner?.provider
-    // const chainId = (await provider?.getNetwork())!.chainId
-    // switch (chainId) {
-    //     case chainIds.scroll.testnet:
-    //     case chainIds.scroll.mainnet:
-    //         const L2ToL1Tx = await (await L2Adapter.sentLocalRootToL1(scrollBridgeGasLimit)).wait(3)
-    //         console.log({L2ToL1TxHash: L2ToL1Tx?.hash})
+    const provider = L2Adapter.runner?.provider
+    const chainId = (await provider?.getNetwork())!.chainId
+    switch (chainId) {
+        case chainIds.scroll.testnet:
+        case chainIds.scroll.mainnet:
+            const L2ToL1Tx = await (await L2Adapter["sentLocalRootToL1()"]()).wait(1)
+            console.log({L2ToL1TxHash: L2ToL1Tx?.hash})
+            // extract SentLocalRootToL1 from L2ToL1Tx
+            // pick the claim data from the array from scrolls api
+            // send it
 
-    //     default:
-    //         break;
-    // }
 
-    // await L2Adapter
-    
+        default:
+            break;
+    }    
 }
 
 
@@ -166,46 +183,53 @@ export async function updateGigaRoot(
 export async function sendGigaRoot(
     gigaBridge: GigaBridge,
     gigaRootRecipients: ethers.AddressLike[],
+    allPayableGigaRootRecipients: ethers.AddressLike[]
 ) {
+    const defaultEthAmountGas = 5n*10n**16n;
+    console.log({allPayableGigaRootRecipients})
+    const amounts = gigaRootRecipients.map((v:any)=>{
+        if (allPayableGigaRootRecipients.includes(v)) {
+            return defaultEthAmountGas
+        } else {
+            return 0n
+        }
+    })
+
     // sends the root to the L2AztecBridgeAdapter through the L1AztecBridgeAdapter
-    console.log("now pls dont break")
-    console.log({gigaRootRecipients, aaaaaaaaaaaaa:"sendGigaRoot(address[])"})
-    const sendGigaRootTx = await (await gigaBridge["sendGigaRoot(address[])"](
-        [...gigaRootRecipients]
-    )
-    ).wait(3) as ethers.ContractTransactionReceipt;
+    console.log("sendGigaRoot(address[],uint256[])",{gigaRootRecipients, amounts})
+    const sendGigaRootTx = await (await gigaBridge["sendGigaRoot(address[],uint256[])"](gigaRootRecipients, amounts)).wait(3) as ethers.ContractTransactionReceipt;
 
     return {sendGigaRootTx}
 }
 
-/**
- * happens after updateGigaRoot()
- * continues in: [receiveGigaRootOnAztec, etc]
- * 
- * sends the gigaRoot to all L1 adapter (and L1Warptoad) so it can be bridged.
- * Depending on the native bridge of the L2, the message either automatically arrives or needs to be initiated by a EOA (like with receiveGigaRootOnAztec)
- * @param gigaBridge 
- * @param gigaRootRecipients same as localRootProviders but here they receive a gigaRoot!
- * @param isSandBox 
- * @returns 
- */
-export async function sendGigaRootPayable(
-    gigaBridge: GigaBridge,
-    gigaRootRecipients: ethers.AddressLike[],
-    amounts: bigint[]
-) {
-    // sends the root to the L2AztecBridgeAdapter through the L1AztecBridgeAdapter
-    console.log("now pls dont break sendGigaRootPayable")
-    const pendingTxs = []
-    for (const [index, recipient] of gigaRootRecipients.entries()) {
-        const amount = amounts[Number(index)]
-        console.log({recipient,  override: {value:amount} });
-        pendingTxs.push(
-            (await gigaBridge.sendGigaRootPayable(recipient, {value:amount})).wait(3)
-        )
-    }
-    return {sendGigaRootTxs: await Promise.all(pendingTxs)} 
-}
+// /**
+//  * happens after updateGigaRoot()
+//  * continues in: [receiveGigaRootOnAztec, etc]
+//  * 
+//  * sends the gigaRoot to all L1 adapter (and L1Warptoad) so it can be bridged.
+//  * Depending on the native bridge of the L2, the message either automatically arrives or needs to be initiated by a EOA (like with receiveGigaRootOnAztec)
+//  * @param gigaBridge 
+//  * @param gigaRootRecipients same as localRootProviders but here they receive a gigaRoot!
+//  * @param isSandBox 
+//  * @returns 
+//  */
+// export async function sendGigaRootPayable(
+//     gigaBridge: GigaBridge,
+//     gigaRootRecipients: ethers.AddressLike[],
+//     amounts: bigint[]
+// ) {
+//     // sends the root to the L2AztecBridgeAdapter through the L1AztecBridgeAdapter
+//     console.log("now pls dont break sendGigaRootPayable")
+//     const pendingTxs = []
+//     for (const [index, recipient] of gigaRootRecipients.entries()) {
+//         const amount = amounts[Number(index)]
+//         console.log({recipient,  override: {value:amount} });
+//         pendingTxs.push(
+//             (await gigaBridge.sendGigaRootPayable(recipient, {value:amount})).wait(3)
+//         )
+//     }
+//     return {sendGigaRootTxs: await Promise.all(pendingTxs)} 
+// }
 
 
 
@@ -269,7 +293,6 @@ export async function waitForBlocksAztec(blocksToWait:number, PXE:PXE) {
 export async function tryUntilItWorks(contract:ethers.Contract|any, funcName:string, funcArgs:any[], waitFunc:any): Promise<ethers.ContractTransactionResponse> {
     let works = false
     while (works === false) {
-        console.log({works})
         try {
             await contract[funcName].estimateGas(...funcArgs);
             works = true;

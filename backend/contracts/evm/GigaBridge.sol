@@ -102,28 +102,28 @@ contract GigaBridge is IGigaBridge, ILocalRootRecipient, IGigaRootProvider  {
     // might be different from the addresses that are updating their localRoot.
     // since most of the time everyone wants the latest gigaRoot but not everyone has a localRoot that is new
     // Sends the most recent gigaRoot to an array of localRootProviders
-    function sendGigaRoot(address[] memory _gigaRootRecipients) public {
+    function sendGigaRoot(address[] memory _gigaRootRecipients, uint256[] memory _amounts) public payable {
         for (uint256 i = 0; i < _gigaRootRecipients.length; i++) {
             address gigaRootRecipient = _gigaRootRecipients[i];
 
             // send the most recent gigaRoot to this LocalRootProvider address. 
             // They provide local roots but also like something back. A gigaRoot :0!!!
-            IGigaRootRecipient(gigaRootRecipient).receiveGigaRoot(gigaRoot);
+           IGigaRootRecipient(gigaRootRecipient).receiveGigaRoot{value: _amounts[i]}(gigaRoot);
         }
     }
 
 
     // above function is more efficient most of the time. This is here to support the IGigaRootProvider 
     // and IGigaRootProvider doesn't do the for loop because L2 adapters only have one recipient (L2Warptoad).
-    function sendGigaRoot(address _gigaRootRecipient) public {
-        IGigaRootRecipient(_gigaRootRecipient).receiveGigaRoot(gigaRoot);
-    }
-
-    // for scroll who needs eth to make the bridge tx
-    // this is kinda getting messy. Next version of gigaBridge should instead only receive leafValues and have a public getter for gigaRoot (history)
-    // then the adapters can handle all these whacky different bridge apis. 
-    // for loops are also bad in gigaBridge, since it forces gigaBridge to know what the bridge api is like before hand. Instead we should just do multi-call or whatever
-    function sendGigaRootPayable(address _gigaRootRecipient) public payable {
+    function sendGigaRoot(address _gigaRootRecipient) public payable{
         IGigaRootRecipient(_gigaRootRecipient).receiveGigaRoot{value: msg.value}(gigaRoot);
     }
+
+    // // for scroll who needs eth to make the bridge tx
+    // // this is kinda getting messy. Next version of gigaBridge should instead only receive leafValues and have a public getter for gigaRoot (history)
+    // // then the adapters can handle all these whacky different bridge apis. 
+    // // for loops are also bad in gigaBridge, since it forces gigaBridge to know what the bridge api is like before hand. Instead we should just do multi-call or whatever
+    // function sendGigaRootPayable(address _gigaRootRecipient) public payable {
+    //     IGigaRootRecipient(_gigaRootRecipient).receiveGigaRoot{value: msg.value}(gigaRoot);
+    // }
 }

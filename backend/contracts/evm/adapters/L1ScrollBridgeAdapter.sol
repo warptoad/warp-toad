@@ -63,10 +63,10 @@ contract L1ScrollBridgeAdapter is IL1BridgeAdapter, ILocalRootProvider, IGigaRoo
     }
 
     // just incase the hardcoded gaslimit fails
-    function bridgeGigaRootWithGasLimit(
+    function receiveGigaRoot(
+        uint256 _newGigaRoot,
         uint256 _gasLimit
-    ) external {
-        uint256 _newGigaRoot = IGigaRootProvider(gigaBridge).gigaRoot();
+    ) external payable {
         _bridgeGigaRootToL2(_newGigaRoot, _gasLimit);
     }
 

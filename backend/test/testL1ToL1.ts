@@ -216,6 +216,7 @@ describe("AztecWarpToad", function () {
             const {sendGigaRootTx} = await sendGigaRoot(
                 gigaBridge,
                 gigaRootRecipients,
+                [] // no payable gigaRootRecipients
             )
 
 

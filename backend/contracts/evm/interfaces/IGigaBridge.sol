@@ -24,8 +24,6 @@ interface IGigaBridge {
     // might be different from the addresses that are updating their localRoot.
     // since most of the time everyone wants the latest gigaRoot but not everyone has a localRoot that is new
     // Sends the most recent gigaRoot to an array of localRootProviders
-    function sendGigaRoot(address[] memory _gigaRootRecipients) external;
+    function sendGigaRoot(address[] memory _gigaRootRecipients, uint256[] memory _amounts) payable external;
 
-    // scroll needs this
-    function sendGigaRootPayable(address _gigaRootRecipients) payable external;
 }

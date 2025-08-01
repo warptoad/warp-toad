@@ -21,7 +21,7 @@ contract L2ScrollBridgeAdapter is
     address l2ScrollMessenger;
     address l2WarpToad; // L2 warptoad
 
-    //
+    event SentLocalRootToL1(uint256 localRoot);
     constructor(
         address _l2ScrollMessenger,
         address _l1ScrollBridgeAdapter,
@@ -34,8 +34,27 @@ contract L2ScrollBridgeAdapter is
 
     // extra for the contracts that want it.
     // receiveGigaRoot (called by the L2ScrollBridge) will send it to L2Warptoad already
-    function sendGigaRoot(address _gigaRootRecipient) public {
+    function sendGigaRoot(address _gigaRootRecipient) public payable {
         IGigaRootRecipient(_gigaRootRecipient).receiveGigaRoot(gigaRoot);
+    }
+
+    function sentLocalRootToL1() public {
+        (uint256 _l2Root, uint256 _l2BlockNumber) = ILocalRootProvider(
+            l2WarpToad
+        ).getLocalRootAndBlock();
+        // sendMessage is able to execute any function by encoding the abi using the encodeWithSignature function
+        //IScrollMessenger(l2ScrollMessenger).sendMessage{value: msg.value}(
+        uint256 gasLimit = 2000000;
+        IL2ScrollMessenger(l2ScrollMessenger).sendMessage{value: 0}( // can this be 0?? or can we pay for some relayer?? check docs!
+            l1ScrollBridgeAdapter, // TODO send to a L1Adapter first
+            0,
+            abi.encodeWithSignature("getNewRootFromL2(uint256,uint256)",_l2Root,_l2BlockNumber),
+            gasLimit,
+            msg.sender
+        );
+
+
+        emit SentLocalRootToL1(_l2Root);
     }
 
     function sentLocalRootToL1(uint256 _gasLimit) public {
@@ -51,9 +70,11 @@ contract L2ScrollBridgeAdapter is
             _gasLimit,
             msg.sender
         );
+
+        emit SentLocalRootToL1(_l2Root);
     }
    
-    function receiveGigaRoot(uint256 _gigaRoot) public {
+    function receiveGigaRoot(uint256 _gigaRoot) public payable {
         require(msg.sender == l2ScrollMessenger,"function not called by l1ScrollMessenger");
         require(l1ScrollBridgeAdapter == IL2ScrollMessenger(l2ScrollMessenger).xDomainMessageSender(),"contract messaging from L1 is not the L1ScrollBridgeAdapter");
         gigaRoot = _gigaRoot;

@@ -2,7 +2,7 @@ import { ArgumentParser } from 'argparse';
 import fs from "fs/promises";
 import { getContractAddressesAztec, getContractAddressesEvm } from './utils';
 import { ethers, NonceManager } from 'ethers';
-import { bridgeNoteHashTreeRoot, receiveGigaRootOnAztec, sendGigaRoot, sendGigaRootPayable, updateGigaRoot, waitForBlocksAztec } from '../lib/bridging';
+import { bridgeNoteHashTreeRoot, getLocalRootProviders, getPayableGigaRootRecipients, receiveGigaRootOnAztec, sendGigaRoot, updateGigaRoot, waitForBlocksAztec } from '../lib/bridging';
 //@ts-ignore
 import { createPXEClient, PXE, waitForPXE, Wallet as aztecWallet, AztecAddressLike, GrumpkinScalar, createAztecNodeClient, AztecAddress, Fr } from '@aztec/aztec.js';
 //@ts-ignore
@@ -13,22 +13,6 @@ import { WarpToadCoreContract, WarpToadCoreContractArtifact } from '../../contra
 //@ts-ignore
 import { computePartialAddress } from '@aztec/stdlib/contract';
 import { getObsidionDeployerFPCWallet } from './getObsidionWallet/getObsidionWallet';
-
-
-async function getLocalRootProviders(chainId: bigint) {
-    const contracts = await getContractAddressesEvm(chainId)
-    return [contracts["L1WarpToadModule#L1WarpToad"], contracts["L1InfraModule#L1AztecBridgeAdapter"], contracts["L1InfraModule#L1ScrollBridgeAdapter"]]
-}
-
-async function getPayableLocalRootProviders(chainId: bigint) {
-    const contracts = await getContractAddressesEvm(chainId)
-    return [contracts["L1InfraModule#L1ScrollBridgeAdapter"]]
-}
-
-async function getNonPayableLocalRootProviders(chainId: bigint) {
-    const contracts = await getContractAddressesEvm(chainId)
-    return [contracts["L1WarpToadModule#L1WarpToad"], contracts["L1InfraModule#L1AztecBridgeAdapter"]]
-}
 
 const OBSIDION_DEPLOYER_FPC_ADDRESS = AztecAddress.fromField(Fr.fromHexString("0x19f8873315cad78e160bdcb686bcdc8bd3760ca215966b677b79ba2cfb68c1b5"))
 const OBSIDION_DEPLOYER_SECRET_KEY = "0x00"
@@ -117,11 +101,10 @@ async function main() {
     const { PXE, aztecWallet, sponsoredPaymentMethod } = args.isAztec ? await connectAztec(args.L2Rpc,  l1ChainId) : { PXE: undefined, aztecWallet: undefined,  sponsoredPaymentMethod:undefined}
 
     const localRootProviders = args.localRootProviders ? args.localRootProviders : await getLocalRootProviders(l1ChainId)
-    const gigaRootRecipients = args.gigaRootRecipients ? args.gigaRootRecipients : await getLocalRootProviders(l1ChainId)
     const { L1AztecBridgeAdapter, gigaBridge } = await getL1Contracts(l1ChainId, l1Wallet)
     const { L2AztecBridgeAdapter, AztecWarpToad } = args.isAztec ? await getAztecContracts(aztecWallet, l1ChainId, PXE as PXE) : { L2AztecBridgeAdapter: undefined, AztecWarpToad: undefined }
     const isSandBox = l1ChainId === 31337n 
-    //------- bridge localRoot L1->l2---------
+    //------- bridge localRoot L2->L1---------
     if (args.isAztec) {
         console.log("bridgeNoteHashTreeRoot")
         const { sendRootToL1Tx, refreshRootTx, PXE_L2Root } = await bridgeNoteHashTreeRoot(
@@ -135,6 +118,7 @@ async function main() {
         console.log({ sendRootToL1Tx: sendRootToL1Tx.txHash.hash, refreshRootTx: refreshRootTx.hash, PXE_L2Root: PXE_L2Root.toBigInt(), gigaRootPreBridge })
     } else {
         //normal evm things
+        // await function relayLocalRootBridgeMessageOnL1() <- for scroll copy paste shit from relayMessageScroll
     }
 
 
@@ -143,23 +127,16 @@ async function main() {
         gigaBridge,
         localRootProviders,
     )
-    const allPayableLocalRootProviders = await getPayableLocalRootProviders(l1ChainId)
-    const nonPayableLocalRootProviders  = localRootProviders.filter((v:any)=>!allPayableLocalRootProviders.includes(v))  
-    const payableLocalRootProviders = localRootProviders.filter((v:any)=>allPayableLocalRootProviders.includes(v))  
+
+    console.log("iasdojfoipasdjoifjasopdjfoapsjdfopiaj")
     const { sendGigaRootTx } = await sendGigaRoot(
         gigaBridge,
-        nonPayableLocalRootProviders,
+        localRootProviders,
+        await getPayableGigaRootRecipients(l1ChainId)
     )
 
-    const amounts = new Array(payableLocalRootProviders.length).fill(5n*10n**16n) // 0.05 eth should be enough TODO be more intelligent about this!
-    console.log("aaaaaaaaaaaaaa")
-    const { sendGigaRootTxs } = await sendGigaRootPayable(
-        gigaBridge,
-        payableLocalRootProviders,
-        amounts
-    )
     const updatedGigaRoot = await gigaBridge.gigaRoot()
-    console.log({ gigaRootUpdateTx: gigaRootUpdateTx.hash, sendGigaRootTx: sendGigaRootTx.hash, updatedGigaRoot, sendGigaRootTxs })
+    console.log({ gigaRootUpdateTx: gigaRootUpdateTx.hash, sendGigaRootTx: sendGigaRootTx.hash, updatedGigaRoot })
 
 
     // ------- retrieve the giga root from the adapters on L2 and send them to the toads!!! ----------
@@ -177,6 +154,8 @@ async function main() {
         console.log({ receive_giga_rootTx: receive_giga_rootTx.txHash.hash, gigaRootOnAztec })
     } else {
         //normal evm things
+        // TODO wait for the tx to be relayed
+        // await relayGigaRootBridgeMessageOnL2() <- on scroll another eoa does it for you, so just wait till it shows up
     }
     
 }
