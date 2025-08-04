@@ -4,17 +4,18 @@ import { AztecAddress, Contract, createAztecNodeClient, createPXEClient, waitFor
 import { WarpToadCoreContract, WarpToadCoreContractArtifact } from "../../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore";
 //@ts-ignore
 // import { getInitialTestAccountsWallets } from "@aztec/accounts/testing";
-import { getContractAddressesAztec, getContractAddressesEvm } from "../../dev_op/getDeployedAddresses";
+import { getContractAddressesAztec, getContractAddressesEvm } from "../../dev_op/utils";
 //@ts-ignore
 // import { computePartialAddress } from "@aztec/stdlib/contract";
 // import { ObsidionDeployerFPCContractArtifact } from "../dev_op/getObsidionWallet/ObsidionDeployerFPC";
 // import { getObsidionDeployerFPCWallet } from "../dev_op/getObsidionWallet/getObsidionWallet";
 import { L2AztecBridgeAdapterContractArtifact } from "../../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter";
-import { getAztecTestWallet } from "../../dev_op/getTestWallet";
+import { getAztecTestWallet } from "../../dev_op/utils";
+
 
 const hre = require("hardhat")
 
-const AZTEC_NODE_URL = "https://full-node.alpha-testnet.aztec.network"
+const AZTEC_NODE_URL = "https://aztec-alpha-testnet-fullnode.zkv.xyz"
 const delay = async (timeInMs: number) => await new Promise((resolve) => setTimeout(resolve, timeInMs))
 
 

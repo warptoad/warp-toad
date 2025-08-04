@@ -55,12 +55,14 @@ describe("AztecWarpToad", function () {
         const decimals = 6n; // only 6 decimals what is this tether??
 
         const constructorArgs = [nativeToken.target, wrappedTokenName, wrappedTokenSymbol, decimals]
+        console.log("deploying aztec warptoad")
         const AztecWarpToad = await Contract.deploy(deployerWallet, WarpToadCoreContractArtifact, constructorArgs)
             .send()
             .deployed() as AztecWarpToadCore;
-
+        console.log("done")
         return { AztecWarpToad};
     }
+
     async function deployL1Warptoad(nativeToken: USDcoin, LazyIMTLib: LazyIMT, PoseidonT3Lib: PoseidonT3) {
         const wrappedTokenSymbol = `wrpToad-${await nativeToken.symbol()}`
         const wrappedTokenName = `wrpToad-${await nativeToken.name()}`
@@ -372,6 +374,7 @@ async function doFullBridgeAztec(
     const {sendGigaRootTx} = await sendGigaRoot(
         gigaBridge,
         gigaRootRecipients,
+        [] // there are no payable gigaRootRecipients
     )
 
     const {receive_giga_rootTx} = await receiveGigaRootOnAztec(

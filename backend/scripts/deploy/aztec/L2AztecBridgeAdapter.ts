@@ -2,7 +2,7 @@
 //@ts-ignore
 import { Contract, SponsoredFeePaymentMethod} from "@aztec/aztec.js"
 //@ts-ignore
-import { L2AztecBridgeAdapterContract, L2AztecBridgeAdapterContractArtifact} from '../../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.js'
+import { L2AztecBridgeAdapterContract, L2AztecBridgeAdapterContractArtifact} from '../../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter'
 
 //@ts-ignore
 import { Contract,Wallet as AztecWallet  } from "@aztec/aztec.js"

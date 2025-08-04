@@ -179,9 +179,9 @@ npm install --global yarn;
 yarn install;
 ```
 
-make sure you're on aztec 0.87.9
+make sure you're on aztec 1.1.3
 ```shell
-aztec-up 0.87.9
+aztec-up 1.1.3
 ```
 
 install noir and backend
@@ -242,12 +242,12 @@ yarn workspace @warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file
 
 ## run sandbox
 ```shell
-VERSION=0.87.9 aztec start --sandbox
+VERSION=1.1.3 aztec start --sandbox
 ```
 
 ## run PXE on alpha testnet
 ```shell
-VERSION=0.87.9 aztec start --port 8080 --pxe --pxe.nodeUrl=https://full-node.alpha-testnet.aztec.network --l1-chain-id 11155111 --l1-rpc-urls https://sepolia.infura.io/v3/urkey
+VERSION=1.1.3 aztec start --port 8080 --pxe --pxe.nodeUrl=https://full-node.alpha-testnet.aztec.network --l1-chain-id 11155111 --l1-rpc-urls https://sepolia.infura.io/v3/urkey
 
 ```
 <!--
@@ -282,7 +282,7 @@ yarn workspace @warp-toad/backend hardhat ignition deploy ignition/modules/TestT
 NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/deployL1.ts --network aztecSandbox;
 ```
 <!--  
-NATIVE_TOKEN_ADDRESS=0x7a2088a1bFc9d81c55368AE168C2C02570cB814F yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/deployL1.ts --network aztecSandbox;
+NATIVE_TOKEN_ADDRESS=0xc5a5C42992dECbae36851359345FE25997F5C42d yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/deployL1.ts --network aztecSandbox;
 
 NATIVE_TOKEN_ADDRESS=0x53bAc8Df8Ee03a057DF9309f4f613E5478354E60 yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/deployL1.ts --network sepolia;
 
@@ -294,7 +294,7 @@ NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress PXE_URL=http:/localhost:8080 yarn wo
 ```
 
 <!--
-PRIVATE_KEY=0xYourPrivateKey NATIVE_TOKEN_ADDRESS=0x7a2088a1bFc9d81c55368AE168C2C02570cB814F PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/deployAztec.ts --network aztecSandbox;
+NATIVE_TOKEN_ADDRESS=0xc5a5C42992dECbae36851359345FE25997F5C42d PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/deployAztec.ts --network aztecSandbox;
 
 NATIVE_TOKEN_ADDRESS=0x53bAc8Df8Ee03a057DF9309f4f613E5478354E60 PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/deployAztec.ts --network sepolia;
 -->
@@ -341,8 +341,16 @@ yarn workspace @warp-toad/backend hardhat ignition verify chain-534351 --include
 yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --isAztec
 ```
 #### aztec
+Takes about 0.5-1 hour to run
 ```shell
 yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --L1Rpc UrUrl --L2Rpc http://localhost:8080/ --privatekey 0xUrPrivateKey --isAztec
+```
+
+#### scroll
+Note: You have to use a paid rpc since free rpcs wont allow you to work with events well enough  
+Takes about 2-3 hours to run
+```shell
+yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --L1Rpc https://usSepoliaRpc --L2Rpc https://urlScrollRpc  --evmPrivatekey 0xUrPrivateKey
 ```
 
 ## test contracts

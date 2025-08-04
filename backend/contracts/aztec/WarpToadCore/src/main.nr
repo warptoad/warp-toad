@@ -25,7 +25,7 @@ pub contract WarpToadCore {
     // TODO remove unused imports once you are sure you dont need them
     use aztec::{
         //context::{PrivateCallInterface, PrivateContext},
-        event::event_interface::EventInterface,
+        // event::event_interface::EventInterface,
         history::public_storage::PublicStorageHistoricalRead,
         macros::{
             events::event,
@@ -33,8 +33,10 @@ pub contract WarpToadCore {
             notes::note,
             storage::storage,
         },
+        // TODO for v1.1.3
+        event::event_interface::{emit_event_in_private_log, PrivateLogContent},
         messages::logs::{
-            event::encode_and_encrypt_event_unconstrained,
+            //event::encode_and_encrypt_event_unconstrained,
             note::{encode_and_encrypt_note}//, encode_and_encrypt_note_unconstrained},
         },
         note::{
@@ -160,40 +162,42 @@ pub contract WarpToadCore {
         storage.balances.at(recipient).add(amount , recipient, context.msg_sender());
     }
 
+    // since 1.1.3 the size of the contract was too large and this is commented out.
+    // TODO THIS IS BAD. Someone might end up burning funds with the aztec chainId on aztec and UNABLE TO RECOVER!
     // just incase there will other instance of aztec we will bridge too :D
     // TODO untested. if someone by accident burns with the aztec chainId, then this is their only method to recover.
     // but besides accidents users should never use this in a world where there is only one aztec. just use the normal private transfers
-    #[private]
-    fn mint_giga_root_aztec(
-        amount: u64,
-        secret: Field,
-        nullifier_preimage: Field,
-        recipient: AztecAddress,
-        block_number: u32,
-        origin_local_root: Field,
-        giga_merkle_data: Evm_merkle_data<GIGA_TREE_DEPTH>,
-        aztec_merkle_data: Aztec_merkle_data<AZTEC_TREE_DEPTH>,
-    ) {
-        let chain_id: Field = get_chain_id(context.version());
-        let giga_root_slot: Field =
-            aztec::state_vars::storage::Storage::get_storage_slot(storage.giga_root);
-        let contract_address: AztecAddress = context.this_address();
-        let giga_root: Field = context.historical_header.public_storage_historical_read(
-            giga_root_slot,
-            contract_address,
-        );
-        let (commitment, nullifier) = hash_commitment(nullifier_preimage, secret, chain_id, amount as Field);
+    // #[private]
+    // fn mint_giga_root_aztec(
+    //     amount: u64,
+    //     secret: Field,
+    //     nullifier_preimage: Field,
+    //     recipient: AztecAddress,
+    //     block_number: u32,
+    //     origin_local_root: Field,
+    //     giga_merkle_data: Evm_merkle_data<GIGA_TREE_DEPTH>,
+    //     aztec_merkle_data: Aztec_merkle_data<AZTEC_TREE_DEPTH>,
+    // ) {
+    //     let chain_id: Field = get_chain_id(context.version());
+    //     let giga_root_slot: Field =
+    //         aztec::state_vars::storage::Storage::get_storage_slot(storage.giga_root);
+    //     let contract_address: AztecAddress = context.this_address();
+    //     let giga_root: Field = context.historical_header.public_storage_historical_read(
+    //         giga_root_slot,
+    //         contract_address,
+    //     );
+    //     let (commitment, nullifier) = hash_commitment(nullifier_preimage, secret, chain_id, amount as Field);
 
-        // no skip giga_root check here because you shouldn't burn + mint only on aztec. users should use private transfers. try it! its cool :D
-        // verify origin_local_root is part of giga_root
-        evm_merkle_verify(giga_root, origin_local_root, giga_merkle_data);
-        // verify commitment is part of origin_local_root
-        aztec_merkle_verify(origin_local_root, commitment, aztec_merkle_data);
-        context.push_nullifier(nullifier);
-        storage.balances.at(recipient).add(amount, recipient, context.msg_sender());
-    }
+    //     // no skip giga_root check here because you shouldn't burn + mint only on aztec. users should use private transfers. try it! its cool :D
+    //     // verify origin_local_root is part of giga_root
+    //     evm_merkle_verify(giga_root, origin_local_root, giga_merkle_data);
+    //     // verify commitment is part of origin_local_root
+    //     aztec_merkle_verify(origin_local_root, commitment, aztec_merkle_data);
+    //     context.push_nullifier(nullifier);
+    //     storage.balances.at(recipient).add(amount, recipient, context.msg_sender());
+    // }
 
-    // commented out since this made the contract too large at aztec 0.87.9. 
+    // commented out since this made the contract too large at aztec 1.1.3. 
     // Users that accidentally burned on aztec to aztec on the same chainId can still use mint_giga_root_aztec after the gigaRoot is bridged.
     // users that want to make private transactions should just use the normal private transfer function
     // technically this function is useless. You can make full private transfers with UTXO notes on aztec through the private transfer function.
@@ -285,8 +289,6 @@ pub contract WarpToadCore {
         poseidon::bn254::hash_2([salt.serialize()[0], aztec_version])
     }
 
-
-    // DEBUG remove later
     #[utility]
     unconstrained fn get_chain_id_unconstrained(aztec_version:Field) -> pub Field {
         get_chain_id(aztec_version)
@@ -319,11 +321,20 @@ pub contract WarpToadCore {
 
         balances.at(from).sub(amount, from, from);
         balances.at(to).add(amount, to, from);
-        Transfer { from, to, amount }.emit(encode_and_encrypt_event_unconstrained(
+        // TODO for 1.1.3
+        emit_event_in_private_log(
+            Transfer { from, to, amount },
             &mut context,
-            to,
             from,
-        ));
+            to,
+            PrivateLogContent.NO_CONSTRAINTS,
+        );
+
+        // Transfer { from, to, amount }.emit(encode_and_encrypt_event_unconstrained(
+        //     &mut context,
+        //     to,
+        //     from,
+        // ));
     }
 
     // utility

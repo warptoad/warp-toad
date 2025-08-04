@@ -345,6 +345,7 @@ async function doFullBridgeAztec(
     const {sendGigaRootTx} = await sendGigaRoot(
         gigaBridge,
         gigaRootRecipients,
+        [] // no payable gigaRootRecipients
     )
 
     const {receive_giga_rootTx} = await receiveGigaRootOnAztec(

@@ -1,11 +1,10 @@
 import "@nomicfoundation/hardhat-toolbox";
 //@ts-ignore
-import { vars } from "hardhat/config.js";
 //import { HardhatUserConfig } from "hardhat/config";
 
 //cjs shit
 // require( "@nomicfoundation/hardhat-toolbox")
-// const { vars } = require("hardhat/config.js");
+import { vars } from "hardhat/config.js";
 
 const SEPOLIA_URL = vars.get("SEPOLIA_URL")
 const PRIVATE_KEY = vars.get("PRIVATE_KEY");

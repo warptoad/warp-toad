@@ -74,7 +74,7 @@ contract L1AztecBridgeAdapter is IL1BridgeAdapter, ILocalRootProvider, IGigaRoot
      */
     function receiveGigaRoot(
         uint256 _newGigaRoot
-    ) external onlyGigaBridge {
+    ) external payable onlyGigaBridge {
         _bridgeGigaRootToL2(_newGigaRoot);
     }
 

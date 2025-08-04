@@ -4,7 +4,7 @@ pragma solidity 0.8.29;
 
 import {ILocalRootProvider, IGigaRootRecipient, IGigaRootProvider} from  "../interfaces/IRootMessengers.sol";
 import {IL1BridgeAdapter} from "../interfaces/IL1BridgeAdapter.sol";
-import {IScrollMessenger} from "@scroll-tech/contracts/libraries/IScrollMessenger.sol";
+import {IL1ScrollMessenger} from "@scroll-tech/contracts/L1/IL1ScrollMessenger.sol";
 
 // no IGigaRootRecipient because we have L1SLOAD!
 contract L1ScrollBridgeAdapter is IL1BridgeAdapter, ILocalRootProvider, IGigaRootRecipient {
@@ -39,7 +39,7 @@ contract L1ScrollBridgeAdapter is IL1BridgeAdapter, ILocalRootProvider, IGigaRoo
         address _l2ScrollBridgeAdapter,
         address _gigaRootBridge
     ) external onlyDeployer() {
-        require(isInitialized == false, "cant initialize twice");
+        require(isInitialized == false, "cant initialize only once");
         isInitialized = true;
         l2ScrollBridgeAdapter = _l2ScrollBridgeAdapter;
         gigaBridge = _gigaRootBridge;
@@ -48,7 +48,7 @@ contract L1ScrollBridgeAdapter is IL1BridgeAdapter, ILocalRootProvider, IGigaRoo
 
     function getNewRootFromL2(uint256 _l2Root, uint256 _l2BlockNumber) external {
         require(msg.sender == l1ScrollMessenger,"function not called by l1ScrollMessenger");
-        require(l2ScrollBridgeAdapter == IScrollMessenger(l1ScrollMessenger).xDomainMessageSender(),"contract messaging from L2 is not the L2ScrollBridgeAdapter");
+        require(l2ScrollBridgeAdapter == IL1ScrollMessenger(l1ScrollMessenger).xDomainMessageSender(),"contract messaging from L2 is not the L2ScrollBridgeAdapter");
 
         emit ReceivedNewL2Root(_l2Root, _l2BlockNumber);
 
@@ -58,15 +58,15 @@ contract L1ScrollBridgeAdapter is IL1BridgeAdapter, ILocalRootProvider, IGigaRoo
 
     function receiveGigaRoot(
         uint256 _newGigaRoot
-    ) external onlyGigaBridge {
-        _bridgeGigaRootToL2(_newGigaRoot, 1000000);
+    ) external payable onlyGigaBridge {
+        _bridgeGigaRootToL2(_newGigaRoot, 2000000);
     }
 
     // just incase the hardcoded gaslimit fails
-    function bridgeGigaRootWithGasLimit(
+    function receiveGigaRoot(
+        uint256 _newGigaRoot,
         uint256 _gasLimit
-    ) external {
-        uint256 _newGigaRoot = IGigaRootProvider(gigaBridge).gigaRoot();
+    ) external payable {
         _bridgeGigaRootToL2(_newGigaRoot, _gasLimit);
     }
 
@@ -74,15 +74,15 @@ contract L1ScrollBridgeAdapter is IL1BridgeAdapter, ILocalRootProvider, IGigaRoo
         // uint256 _newGigaRoot = IGigaRootProvider(gigaBridge).gigaRoot();
         // sendMessage is able to execute any function by encoding the abi using the encodeWithSignature function
         //IScrollMessenger(l1ScrollMessenger).sendMessage{value: msg.value}(
-        IScrollMessenger(l1ScrollMessenger).sendMessage{value: 0}( // can this be 0?? or can we pay for some relayer?? check docs!
+        IL1ScrollMessenger(l1ScrollMessenger).sendMessage{value: msg.value}( // can this be 0?? or can we pay for some relayer?? check docs!
             l2ScrollBridgeAdapter,
             0,
             abi.encodeWithSignature(
-                "receiveGigaRoot(uint256 _gigaRoot)",
+                "receiveGigaRoot(uint256)",
                 _newGigaRoot
             ),
             _gasLimit,
-            msg.sender
+            tx.origin // refund goes to the eoa initiating the tx
         );
         
     } 

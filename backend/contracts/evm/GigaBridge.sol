@@ -22,6 +22,8 @@ contract GigaBridge is IGigaBridge, ILocalRootRecipient, IGigaRootProvider  {
     mapping(address => uint256) public localRootBlockNumbers; // current blocknumber per root. History is in events. We need this to check that incoming roots are not older than current
     uint256 public amountOfLocalRoots;
 
+    event SentGigaRoot(uint256 indexed gigaRoot);
+
     /**
      * @notice Initialize the root bridge
      * @param _gigaRootRecipients - the L1 contracts that can receive roots from corresponding locals
@@ -102,20 +104,32 @@ contract GigaBridge is IGigaBridge, ILocalRootRecipient, IGigaRootProvider  {
     // might be different from the addresses that are updating their localRoot.
     // since most of the time everyone wants the latest gigaRoot but not everyone has a localRoot that is new
     // Sends the most recent gigaRoot to an array of localRootProviders
-    function sendGigaRoot(address[] memory _gigaRootRecipients) public {
+    function sendGigaRoot(address[] memory _gigaRootRecipients, uint256[] memory _amounts) public payable {
+        uint256 _gigaRoot = gigaRoot;
+        emit SentGigaRoot(_gigaRoot);
         for (uint256 i = 0; i < _gigaRootRecipients.length; i++) {
             address gigaRootRecipient = _gigaRootRecipients[i];
 
             // send the most recent gigaRoot to this LocalRootProvider address. 
             // They provide local roots but also like something back. A gigaRoot :0!!!
-            IGigaRootRecipient(gigaRootRecipient).receiveGigaRoot(gigaRoot);
+           IGigaRootRecipient(gigaRootRecipient).receiveGigaRoot{value: _amounts[i]}(_gigaRoot);
         }
     }
 
 
     // above function is more efficient most of the time. This is here to support the IGigaRootProvider 
-    // and IGigaRootProvider doesn't do the for loop becuase L2 adapters only have one recipient (L2Warptoad).
-    function sendGigaRoot(address _gigaRootRecipient) public {
-        IGigaRootRecipient(_gigaRootRecipient).receiveGigaRoot(gigaRoot);
+    // and IGigaRootProvider doesn't do the for loop because L2 adapters only have one recipient (L2Warptoad).
+    function sendGigaRoot(address _gigaRootRecipient) public payable{
+        uint256 _gigaRoot = gigaRoot;
+        emit SentGigaRoot(_gigaRoot);
+        IGigaRootRecipient(_gigaRootRecipient).receiveGigaRoot{value: msg.value}(_gigaRoot);
     }
+
+    // // for scroll who needs eth to make the bridge tx
+    // // this is kinda getting messy. Next version of gigaBridge should instead only receive leafValues and have a public getter for gigaRoot (history)
+    // // then the adapters can handle all these whacky different bridge apis. 
+    // // for loops are also bad in gigaBridge, since it forces gigaBridge to know what the bridge api is like before hand. Instead we should just do multi-call or whatever
+    // function sendGigaRootPayable(address _gigaRootRecipient) public payable {
+    //     IGigaRootRecipient(_gigaRootRecipient).receiveGigaRoot{value: msg.value}(gigaRoot);
+    // }
 }
