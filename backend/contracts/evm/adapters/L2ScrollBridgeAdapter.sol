@@ -21,7 +21,8 @@ contract L2ScrollBridgeAdapter is
     address l2ScrollMessenger;
     address l2WarpToad; // L2 warptoad
 
-    event SentLocalRootToL1(uint256 localRoot);
+    event SentLocalRootToL1(uint256 indexed localRoot);
+    event NewGigaRoot(uint256 indexed gigaRoot);
     constructor(
         address _l2ScrollMessenger,
         address _l1ScrollBridgeAdapter,
@@ -79,5 +80,6 @@ contract L2ScrollBridgeAdapter is
         require(l1ScrollBridgeAdapter == IL2ScrollMessenger(l2ScrollMessenger).xDomainMessageSender(),"contract messaging from L1 is not the L1ScrollBridgeAdapter");
         gigaRoot = _gigaRoot;
         sendGigaRoot(l2WarpToad);
+        emit NewGigaRoot(_gigaRoot);
     }
 }

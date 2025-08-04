@@ -341,8 +341,16 @@ yarn workspace @warp-toad/backend hardhat ignition verify chain-534351 --include
 yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --isAztec
 ```
 #### aztec
+Takes about 0.5-1 hour to run
 ```shell
 yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --L1Rpc UrUrl --L2Rpc http://localhost:8080/ --privatekey 0xUrPrivateKey --isAztec
+```
+
+#### scroll
+Note: You have to use a paid rpc since free rpcs wont allow you to work with events well enough  
+Takes about 2-3 hours to run
+```shell
+yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --L1Rpc https://usSepoliaRpc --L2Rpc https://urlScrollRpc  --evmPrivatekey 0xUrPrivateKey
 ```
 
 ## test contracts

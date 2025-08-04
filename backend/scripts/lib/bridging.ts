@@ -1,20 +1,21 @@
 //@ts-ignore
 import {  Fr, PXE, EthAddress, SponsoredFeePaymentMethod } from "@aztec/aztec.js"
 import { ethers } from "ethers";
-import { WarpToadCore as WarpToadEvm, USDcoin, PoseidonT3, LazyIMT, L1AztecBridgeAdapter, GigaBridge, L2ScrollBridgeAdapter, ILocalRootProvider__factory, IL1BridgeAdapter__factory, L1AztecBridgeAdapter__factory } from "../../typechain-types";
+import { WarpToadCore as WarpToadEvm, USDcoin, PoseidonT3, LazyIMT, L1AztecBridgeAdapter, GigaBridge, L2ScrollBridgeAdapter, ILocalRootProvider__factory, IL1BridgeAdapter__factory, L1AztecBridgeAdapter__factory, IL1ScrollMessenger__factory, L1ScrollBridgeAdapter } from "../../typechain-types";
 import {  L2AztecBridgeAdapterContract } from '../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter'
 import { WarpToadCoreContract as AztecWarpToadCore } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
 //@ts-ignore
 import { sha256ToField } from "@aztec/foundation/crypto";
 import { getContractAddressesEvm } from "../dev_op/utils";
+import { L1_SCROLL_MESSENGER_MAINNET, L1_SCROLL_MESSENGER_SEPOLIA } from "./constants";
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
 const chainIds = {
     scroll: {
         testnet: 534351n,
         mainnet: 534352n
     }
 }
-
-const scrollBridgeGasLimit = 100000n //TODO find better number
 
 export async function getLocalRootProviders(chainId: bigint) {
     const contracts = await getContractAddressesEvm(chainId)
@@ -30,8 +31,71 @@ async function getNonPayableLocalRootProviders(chainId: bigint) {
     const contracts = await getContractAddressesEvm(chainId)
     return [contracts["L1WarpToadModule#L1WarpToad"], contracts["L1InfraModule#L1AztecBridgeAdapter"]].filter((v)=>v !== undefined)
 }
+export async function getL1ClaimDataScrollBridgeApi(l2BridgeInitiationContract:ethers.AddressLike,txHash?:ethers.BytesLike, pageSize=10) {
+    let result = undefined
+    let page = 1
+    while (result === undefined) {
+        const apiRes = await fetch(`https://sepolia-api-bridge-v2.scroll.io/api/l2/unclaimed/withdrawals?address=${l2BridgeInitiationContract}&page=${page}&page_size=${pageSize}`)
+        const apiResJson = await apiRes.json()
+        if (apiResJson.data.results === null) {
+            result = undefined
+            //console.log(`L1ClaimData not found for address ${l2BridgeInitiationContract} at tx: ${txHash} at page: ${page} and pageSize:${pageSize}`)
+            break;
+        } else {
+            if (txHash) {
+                result = apiResJson.data.results.find((v:any)=>v.hash === txHash)
+            } else {
+                result = apiResJson.data.results !== null ?  apiResJson.data.results[0] : undefined
+            }
+            if (result !== undefined) { 
+                break
+            } else {
+                page += 1
+            }
+        }
+    }
+    return result
+}
 
-export async function bridgeLocalRootL2(L2Adapter:L2ScrollBridgeAdapter) {
+export async function getClaimDataScroll(adapterContract:ethers.AddressLike, txHash?:ethers.BytesLike) {
+    let claimData = undefined
+    while (claimData === undefined) {
+        const result = await getL1ClaimDataScrollBridgeApi(adapterContract,txHash)
+        claimData = result && result.claim_info !== null ? result.claim_info : undefined
+        if (claimData !== undefined) {
+            break;
+        } else {
+            if (result) {
+                console.log(`results where found for address: ${adapterContract} with txHash ${txHash} but no claim_info, checking again in 30 minutes.`)
+            } else {
+                console.log(`NO RESULTS FOUND for address: ${adapterContract} with txHash ${txHash}, checking again in 30 minutes.`)
+            }
+            console.log({claimData})
+            await sleep(1800000)
+        }
+    } 
+    return claimData
+}
+
+export async function claimL1WithdrawScroll(claimInfo:any, signer:ethers.Signer): Promise<ethers.ContractTransactionResponse>  {
+    const chainId = (await signer.provider?.getNetwork())?.chainId
+    const IS_MAINNET = chainId === 1n
+    const L1_SCROLL_MESSENGER = IS_MAINNET ? L1_SCROLL_MESSENGER_MAINNET : L1_SCROLL_MESSENGER_SEPOLIA
+    const L1ScrollMessenger = IL1ScrollMessenger__factory.connect(L1_SCROLL_MESSENGER, signer)
+    const tx = await L1ScrollMessenger.relayMessageWithProof(
+        ethers.getAddress(claimInfo.from),
+        ethers.getAddress(claimInfo.to),
+        BigInt(claimInfo.value),
+        BigInt(claimInfo.nonce),
+        ethers.hexlify(claimInfo.message),
+        {
+            batchIndex: BigInt(claimInfo.proof.batch_index),
+            merkleProof: ethers.hexlify(claimInfo.proof.merkle_proof)
+        }
+    )
+    return tx
+}
+export async function bridgeLocalRootToL1(L2Adapter:L2ScrollBridgeAdapter, signer:ethers.Signer) {
     // TODO
     const provider = L2Adapter.runner?.provider
     const chainId = (await provider?.getNetwork())!.chainId
@@ -40,11 +104,9 @@ export async function bridgeLocalRootL2(L2Adapter:L2ScrollBridgeAdapter) {
         case chainIds.scroll.mainnet:
             const L2ToL1Tx = await (await L2Adapter["sentLocalRootToL1()"]()).wait(1)
             console.log({L2ToL1TxHash: L2ToL1Tx?.hash})
-            // extract SentLocalRootToL1 from L2ToL1Tx
-            // pick the claim data from the array from scrolls api
-            // send it
-
-
+            const claimData = await getClaimDataScroll(L2Adapter.target, L2ToL1Tx?.hash)
+            const tx = await (await claimL1WithdrawScroll(claimData, signer)).wait(1)
+            return tx
         default:
             break;
     }    
@@ -194,10 +256,10 @@ export async function sendGigaRoot(
             return 0n
         }
     })
-
+    const totalEth = BigInt(allPayableGigaRootRecipients.length) * defaultEthAmountGas
     // sends the root to the L2AztecBridgeAdapter through the L1AztecBridgeAdapter
     console.log("sendGigaRoot(address[],uint256[])",{gigaRootRecipients, amounts})
-    const sendGigaRootTx = await (await gigaBridge["sendGigaRoot(address[],uint256[])"](gigaRootRecipients, amounts)).wait(3) as ethers.ContractTransactionReceipt;
+    const sendGigaRootTx = await (await gigaBridge["sendGigaRoot(address[],uint256[])"](gigaRootRecipients, amounts, {value:totalEth})).wait(3) as ethers.ContractTransactionReceipt;
 
     return {sendGigaRootTx}
 }
@@ -317,7 +379,39 @@ export function parseEventFromTx(tx: ethers.TransactionReceipt, contract: ethers
     return parsedEvent
 
 }
+export async function receiveGigaRootOnEvmL2(L2Adapter: L2ScrollBridgeAdapter, gigaRootSent: bigint): Promise<ethers.TransactionResponse> {
+    const provider = L2Adapter.runner?.provider
+    const chainId = (await provider?.getNetwork())!.chainId
+    switch (chainId) {
+        case chainIds.scroll.testnet:
+        case chainIds.scroll.mainnet:
+            const filter = L2Adapter.filters.NewGigaRoot(gigaRootSent);
+            let endBlock = Number(await provider?.getBlockNumber())
+            let startBlock = endBlock - 100
+            let eventFound = false
+            while(eventFound === false) {
+                const events = await L2Adapter.queryFilter(filter,startBlock, endBlock)
+                if (events.length === 0) {
+                    await sleep(1800000)
+                    console.log(`did not see an event for gigaRoot: ${ethers.toBeHex(gigaRootSent)} at L2 adapter: ${L2Adapter.target}. checking again in 30 minutes`)
+                    eventFound = false
+                    startBlock = endBlock
+                    endBlock = Number(await provider?.getBlockNumber())
+                } else {
+                    eventFound = true
+                    return await events[0].getTransaction()
+                }
+            }
+            // below dont work and just makes bun quit early without error??
+            // return new Promise((resolve) => {
+            //     L2Adapter.once(filter,  (_gigaRoot, event) => resolve( event.transactionHash));
+            // });
+        default:
+            throw new Error(`unknown chain id: ${chainId.toString(10)}`)
+            break;
+    } 
 
+}
 
 export function parseMultipleEventsFromTx(tx: ethers.TransactionReceipt, contract: ethers.Contract | any, eventName: string) {
     console.log({tx, logs: tx.logs})
