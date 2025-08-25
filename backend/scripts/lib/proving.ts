@@ -10,7 +10,8 @@ import { WarpToadCoreContract as WarpToadAztec } from '../../contracts/aztec/War
 import { BytesLike, ethers } from "ethers";
 import { MerkleTree, Element } from "fixed-merkle-tree";
 import { findNoteHashIndex, hashCommitment, hashNullifier, hashPreCommitment, hashUniqueNoteHash , hashCommitmentFromNoteItems, hashSiloedNoteHash} from "./hashing";
-import { EVM_TREE_DEPTH, AZTEC_TREE_DEPTH, emptyAztecMerkleData, emptyGigaMerkleData, emptyEvmMerkleData, GIGA_TREE_DEPTH } from "./constants";
+import { EVM_TREE_DEPTH, AZTEC_TREE_DEPTH, emptyAztecMerkleData, emptyGigaMerkleData, emptyEvmMerkleData, GIGA_TREE_DEPTH, DEPLOYMENT_BLOCK_PER_CHAINID } from "./constants";
+
 
 //@ts-ignore
 import { createPXEClient, waitForPXE,NotesFilter, AztecAddress, PXE } from "@aztec/aztec.js";
@@ -51,11 +52,54 @@ export function calculateFeeFactor(ethPriceInToken: number, gasCost: number, rel
     return BigInt(Math.round(ethPriceInToken * gasCost * relayerBonusFactor))
 }
 
-async function getEvmMerkleData(warpToadOrigin: WarpToadEvm, commitment: bigint, treeDepth: number, localRootBlockNumber:number) {
 
-    // TODO do proper event scanning. This will break in prod
+export async function queryEventInChunks(contract: ethers.Contract | ethers.BaseContract, filter: ethers.ContractEventName, firstBlock: number, lastBlock?: number, reverseOrder = false, maxEvents = Infinity, chunksize = 1000) {
+    const provider = contract!.runner!.provider
+    lastBlock = lastBlock ? lastBlock : await provider!.getBlockNumber()
+    let allEvents = [] as ethers.EventLog[]
+
+    const scanLogic = async (index: number) => {
+        const start = index * chunksize + firstBlock
+        // Math.min <= to ensure never go above lastBlock
+        const stop = Math.min(start + chunksize, lastBlock)
+        const events = await contract.queryFilter(filter, start, stop) as ethers.EventLog[]
+        console.log({start, stop, events})
+        return events
+    }
+    const numIters = Math.ceil((lastBlock - firstBlock) / chunksize)
+
+    console.log({numIters})
+    if (reverseOrder) {
+        for (let index = numIters-1; index >= 0; index--) {
+            allEvents = [...(await scanLogic(index)), ...allEvents]
+            if (allEvents.length >= maxEvents) {
+                break
+            }
+        }
+    } else {
+        for (let index = 0; index < numIters; index++) {
+            allEvents = [...allEvents, ...(await scanLogic(index))]
+            if (allEvents.length >= maxEvents) {
+                break
+            }
+        }
+    }
+
+    return allEvents
+
+}
+
+
+export async function getWarptoadBurnEvents(warpToadOrigin: WarpToadEvm, localRootBlockNumber:number) {
+    const chainId = (await  warpToadOrigin.runner?.provider?.getNetwork())?.chainId as bigint
+    const deploymentBlock = DEPLOYMENT_BLOCK_PER_CHAINID.WARPTOAD[chainId?.toString()]
     const filter = warpToadOrigin.filters.Burn()
-    const events = await warpToadOrigin.queryFilter(filter, 0,localRootBlockNumber) // this goes from 0 to latest. No rpc can do that! this will break outside tests!!
+    const events = await queryEventInChunks(warpToadOrigin, filter, deploymentBlock, localRootBlockNumber)
+    return events
+}
+
+export async function getEvmMerkleData(warpToadOrigin: WarpToadEvm, commitment: bigint, treeDepth: number, localRootBlockNumber:number) {
+    const events = await getWarptoadBurnEvents(warpToadOrigin, localRootBlockNumber)
     const abiCoder = new ethers.AbiCoder()
     const types = ["uint256", "uint256"]
 
@@ -80,14 +124,24 @@ async function getEvmMerkleData(warpToadOrigin: WarpToadEvm, commitment: bigint,
     return merkleData
 }
 
+export async function getGigaBridgeNewRootEvents(gigaBridge:GigaBridge,allRootIndexes:ethers.BigNumberish[], gigaRootBlockNumber:number) {
+    const chainId = (await  gigaBridge.runner?.provider?.getNetwork())?.chainId as bigint
+    const deploymentBlock = DEPLOYMENT_BLOCK_PER_CHAINID.WARPTOAD[chainId?.toString()]
+    //@ts-ignore i hate typescript
+    const filter = gigaBridge.filters.ReceivedNewLocalRoot(undefined,allRootIndexes,undefined)
+    return await queryEventInChunks(gigaBridge, filter, deploymentBlock) 
+    
+}
+
+
 export async function getGigaMerkleData(gigaBridge:GigaBridge,localRoot:bigint, localRootIndex:bigint, treeDepth:number, gigaRootBlockNumber:number) {
     const amountOfLocalRoots = await gigaBridge.amountOfLocalRoots()
     const allRootIndexes = new Array(Number(amountOfLocalRoots)).fill(0).map((v,i)=>ethers.toBeHex(i)) as ethers.BigNumberish[]
     //@ts-ignore i hate typescript
-    const filter = gigaBridge.filters.ReceivedNewLocalRoot(undefined,allRootIndexes,undefined)
-    const events = await gigaBridge.queryFilter(filter, 0,gigaRootBlockNumber)
+    const events = await getGigaBridgeNewRootEvents(gigaBridge,allRootIndexes,gigaRootBlockNumber)
     
     const eventsPerIndex = events.reduce((newObj: any, event)=>{
+        //@ts-ignore TODO do as typed gigaBridge event
         const index = ethers.toBeHex(event.args[1])
         if (index in newObj) {
             newObj[index].push(event)
@@ -111,6 +165,7 @@ export async function getGigaMerkleData(gigaBridge:GigaBridge,localRoot:bigint, 
     const hashFunc = (left, right) => poseidon2([left, right])
     //@ts-ignore
     const tree = new MerkleTree(treeDepth, sortedLeafs, { hashFunction: hashFunc })
+    console.log({localRoot, localRootIndex, sortedLeafs})
     const merkleData = {
         leaf_index: ethers.toBeHex(localRootIndex),
         hash_path: tree.proof(localRoot as any as Element).pathElements.map((e) => ethers.toBeHex(e)) // TODO actually take typescript seriously at some point
@@ -142,7 +197,10 @@ export function getLatestEvent(events:ethers.EventLog[]|any[]) {
 
 export async function getGigaRootBlockNumber(gigaBridge:GigaBridge, gigaRoot:bigint) {
     const filter = gigaBridge.filters.ConstructedNewGigaRoot(gigaRoot)
-    const events = await gigaBridge.queryFilter(filter, 0) // TODO scan in chunks. start at latest go to deployment block.stop when you found 1
+    const chainId = (await  gigaBridge.runner?.provider?.getNetwork())?.chainId as bigint
+    const deploymentBlock = DEPLOYMENT_BLOCK_PER_CHAINID.WARPTOAD[chainId?.toString()]
+    const events = await queryEventInChunks(gigaBridge, filter, deploymentBlock,undefined,true,1)  // reverse order because we only need the most recent event
+    console.log("gigaRootEvents: aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", {events})
     const gigaRootEvent = getLatestEvent(events) // someone can create the same gigaroot twice if they really try. Idk might not matter is this context
     const gigaRootBlockNumber = gigaRootEvent.blockNumber
     return gigaRootBlockNumber  
@@ -157,7 +215,9 @@ export async function getLocalRootInGigaRoot(gigaBridge:GigaBridge, gigaRoot:big
     const localRootIndex = await gigaBridge.getLocalRootProvidersIndex(l1BridgeAdapter)
     const newGigaRootFilter = gigaBridge.filters.ConstructedNewGigaRoot(gigaRoot)
     // const localRootFilter = gigaBridge.filters.ReceivedNewLocalRoot(undefined,localRootIndex)
-    const newGigaRootEvents =  await gigaBridge.queryFilter(newGigaRootFilter, 0)
+    const chainId = (await  gigaBridge.runner?.provider?.getNetwork())?.chainId as bigint
+    const deploymentBlock = DEPLOYMENT_BLOCK_PER_CHAINID.WARPTOAD[chainId?.toString()]
+    const newGigaRootEvents = await queryEventInChunks(gigaBridge, newGigaRootFilter, deploymentBlock,undefined,true,1) 
     const latestNewGigaRootEvent = getLatestEvent(newGigaRootEvents) // you can assume newGigaRootEvents[0] is fine but lets be safe this time!
     const newGigaRootTx = await latestNewGigaRootEvent.getTransactionReceipt() //await newGigaRootEvents[0].getTransactionReceipt()
     const parsedEvents = parseMultipleEventsFromTx(newGigaRootTx, gigaBridge, "ReceivedNewLocalRoot")
