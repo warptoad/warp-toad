@@ -51,9 +51,10 @@ contract L1ScrollBridgeAdapter is IL1BridgeAdapter, ILocalRootProvider, IGigaRoo
         require(l2ScrollBridgeAdapter == IL1ScrollMessenger(l1ScrollMessenger).xDomainMessageSender(),"contract messaging from L2 is not the L2ScrollBridgeAdapter");
 
         emit ReceivedNewL2Root(_l2Root, _l2BlockNumber);
-
-        mostRecentL2Root = _l2Root;
-        mostRecentL2RootBlockNumber = _l2BlockNumber;
+        if(mostRecentL2RootBlockNumber <= _l2BlockNumber) {
+            mostRecentL2Root = _l2Root;
+            mostRecentL2RootBlockNumber = _l2BlockNumber;
+        }
     }
 
     function receiveGigaRoot(

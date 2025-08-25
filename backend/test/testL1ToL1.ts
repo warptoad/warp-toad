@@ -32,7 +32,7 @@ import os from 'os';
 
 //@ts-ignore
 import { sha256ToField } from "@aztec/foundation/crypto";
-import { sendGigaRoot, bridgeNoteHashTreeRoot, parseEventFromTx, updateGigaRoot, receiveGigaRootOnAztec } from "../scripts/lib/bridging";
+import { sendGigaRoot, bridgeAZTECLocalRootToL1, parseEventFromTx, updateGigaRoot, receiveGigaRootOnAztec } from "../scripts/lib/bridging";
 
 async function connectPXE() {
     const { PXE_URL = 'http://localhost:8080' } = process.env;

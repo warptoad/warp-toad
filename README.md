@@ -173,8 +173,8 @@ WithdrawVerfifier: [0xb88e8c9af5069b42b4cea9a9f0218ae0c412f827](https://sepolia.
 ## install
 make sure you're on node 20 (hardhat needs it)
 ```shell
-nvm install 20.19.1;
-nvm use 20.19.1;
+nvm install 20;
+nvm use 20;
 npm install --global yarn;
 yarn install;
 ```
