@@ -112,10 +112,16 @@ export async function getEvmMerkleData(warpToadOrigin: WarpToadEvm, commitment: 
     })
     const leafIndex = decodedEvents.find((e) => e.commitment === commitment)?.index
     const leafs = decodedEvents.map((e) => e.commitment)
+
     //@ts-ignore
     const hashFunc = (left, right) => poseidon2([left, right])
     //@ts-ignore
     const tree = new MerkleTree(treeDepth, leafs, { hashFunction: hashFunc })
+    if ((await warpToadOrigin.localRootHistory(tree.root)) === false) {throw new Error(`could not recreate the localRoot with events. Root that is recreated: ${tree.root}`)}
+    if (!leafs.includes(commitment)) {
+        throw new Error(`commitment: ${commitment} is not included in localRoot: ${tree.root}, which is build from events till blockNumber ${localRootBlockNumber}. 
+        Either the commitment is in a localRoot that still has yet to be bridged, or (if deposited and withdrawn on the same chain) this commitments is not included onchain`)
+    }
     const merkleData = {
         leaf_index: ethers.toBeHex(leafIndex),
         hash_path: tree.proof(commitment as any as Element).pathElements.map((e) => ethers.toBeHex(e)) // TODO actually take typescript seriously at some point
@@ -172,6 +178,11 @@ export async function getGigaMerkleData(gigaBridge:GigaBridge,localRoot:bigint, 
         leaf_index: ethers.toBeHex(localRootIndex),
         hash_path: tree.proof(localRoot as any as Element).pathElements.map((e) => ethers.toBeHex(e)) // TODO actually take typescript seriously at some point
     } as EvmMerkleData
+
+    if (!sortedLeafs.includes(localRoot)) {
+        throw new Error(`localRoot: ${localRoot} is not included in gigaRoot: ${tree.root}, which is build from events till blockNumber ${gigaRootBlockNumber}.`)
+    }
+
     return merkleData
 }
 
