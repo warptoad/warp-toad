@@ -412,7 +412,7 @@ export async function receiveGigaRootOnEvmL2(L2Adapter: L2ScrollBridgeAdapter, g
             while (eventFound === false) {
                 const events = await L2Adapter.queryFilter(filter, startBlock, endBlock)
                 if (events.length === 0) {
-                    await sleep(1800000)
+                    await sleep(200000) // cant sleep for too long since scroll block time 1 second and alchemy rpc eth_getLog limit is 500 blocks. (this will wait ~200 blocks)
                     //console.log(`did not see an event for gigaRoot: ${ethers.toBeHex(gigaRootSent)} at L2 adapter: ${L2Adapter.target}. checking again in 30 minutes`)
                     eventFound = false
                     startBlock = endBlock
