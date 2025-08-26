@@ -6,6 +6,25 @@ export const AZTEC_TREE_DEPTH = 40;
 export const EVM_TREE_DEPTH = 32;
 export const EVM_TREE_MAX_LEAVES = 2 ** EVM_TREE_DEPTH;
 export const GIGA_TREE_DEPTH = 5;
+export const WARPTOAD_DEPLOYMENT_BLOCK_L1 = 9035512;    // https://sepolia.etherscan.io/tx/0x477bfa00a1ee1bf6fac7ed70c9c9069fef4448e377cc43b3391e509d007b817f
+export const WARPTOAD_DEPLOYMENT_BLOCK_AZTEC = 43560;   // https://aztecscan.xyz/contracts/instances/0x06216f30183f2ab424eb87b296588e0404ce13b837c09d7e5db94d7a846a260f
+export const WARPTOAD_DEPLOYMENT_BLOCK_SCROLL = 11722287;      // https://sepolia.scrollscan.com/tx/0x4a034dfa8546dedbbad281e12f53bea10c5f6efbc8ef7bcbd92ef2ecefe46c35
+
+
+
+interface DeploymentBlockData {
+    [contractName: string]: { [chainId: string]: number };
+}
+
+export const DEPLOYMENT_BLOCK_PER_CHAINID:DeploymentBlockData = {
+    WARPTOAD: {
+        11155111: 9035512,    // https://sepolia.etherscan.io/tx/0x477bfa00a1ee1bf6fac7ed70c9c9069fef4448e377cc43b3391e509d007b817f
+        AZTEC: 43560,         // https://aztecscan.xyz/contracts/instances/0x06216f30183f2ab424eb87b296588e0404ce13b837c09d7e5db94d7a846a260f
+        534351: 11722287,     // https://sepolia.scrollscan.com/tx/0x4a034dfa8546dedbbad281e12f53bea10c5f6efbc8ef7bcbd92ef2ecefe46c35,
+        undefined: 0,
+        31337: 0,
+    }
+}
 
 
 // this not a valid proof

@@ -152,9 +152,8 @@ contract L1AztecBridgeAdapter is IL1BridgeAdapter, ILocalRootProvider, IGigaRoot
         // convert from bytes32 to uint256
         uint256 newL2RootCast = uint256(_newL2Root);
 
-        emit ReceivedNewL2Root(newL2RootCast, _bridgedL2BlockNumber);
-
         if (mostRecentL2RootBlockNumber <= _bridgedL2BlockNumber ) {
+            emit ReceivedNewL2Root(newL2RootCast, _bridgedL2BlockNumber);
             mostRecentL2Root = newL2RootCast;
             mostRecentL2RootBlockNumber = _bridgedL2BlockNumber;
         }
