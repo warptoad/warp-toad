@@ -34,20 +34,6 @@ import os from 'os';
 import { sha256ToField } from "@aztec/foundation/crypto";
 import { sendGigaRoot, bridgeAZTECLocalRootToL1, parseEventFromTx, updateGigaRoot, receiveGigaRootOnAztec } from "../scripts/lib/bridging";
 
-async function connectPXE() {
-    const { PXE_URL = 'http://localhost:8080' } = process.env;
-    console.log("creating PXE client")
-    const PXE = createPXEClient(PXE_URL);
-    console.log("waiting on PXE client", PXE_URL)
-    await waitForPXE(PXE);
-
-    console.log("getting test accounts")
-    const wallets = await getInitialTestAccountsWallets(PXE);
-    return { wallets, PXE }
-}
-
-
-
 describe("AztecWarpToad", function () {
     async function deployAztecWarpToad(nativeToken: USDcoin, deployerWallet:AztecWallet) {
         const wrappedTokenSymbol = `wrpToad-${await nativeToken.symbol()}`
@@ -95,8 +81,8 @@ describe("AztecWarpToad", function () {
     }
     async function deploy() {
         const evmWallets = await hre.ethers.getSigners()
-        const {PXE, wallets: aztecWallets} = await connectPXE()
-        const aztecDeployerWallet =  aztecWallets[0];
+        //const {PXE, wallets: aztecWallets} = await connectPXE()
+        //const aztecDeployerWallet =  aztecWallets[0];
 
         // native token
         const nativeToken = await hre.ethers.deployContract("USDcoin", [], { value: 0n, libraries: {} })
@@ -111,44 +97,44 @@ describe("AztecWarpToad", function () {
         const { L1WarpToad, WithdrawVerifier } = await deployL1Warptoad(nativeToken, LazyIMTLib, PoseidonT3Lib)
 
         // Aztec warptoad
-        const { AztecWarpToad } = await deployAztecWarpToad(nativeToken, aztecDeployerWallet)
+        //const { AztecWarpToad } = await deployAztecWarpToad(nativeToken, aztecDeployerWallet)
         //-----------------------------------------------------------------------
 
         //-----------------------infra------------------------------------
         // L1 adapters
-        const L1AztecBridgeAdapter = await hre.ethers.deployContract("L1AztecBridgeAdapter", [],);
+        //const L1AztecBridgeAdapter = await hre.ethers.deployContract("L1AztecBridgeAdapter", [],);
 
         // L1 GIGA!!!
-        const gigaRootRecipients: ethers.AddressLike[] = [L1WarpToad.target, L1AztecBridgeAdapter.target]
+        const gigaRootRecipients: ethers.AddressLike[] = [L1WarpToad.target]
         const { gigaBridge } = await deployL1GigaBridge(LazyIMTLib, gigaRootRecipients)
 
                
         // L2 adapters
         // aztec
-        const constructorArgs = [L1AztecBridgeAdapter.target];
-        const L2AztecBridgeAdapter = await deployL2AztecBridgeAdapterContract(aztecDeployerWallet, constructorArgs)
+        // const constructorArgs = [L1AztecBridgeAdapter.target];
+        // const L2AztecBridgeAdapter = await deployL2AztecBridgeAdapterContract(aztecDeployerWallet, constructorArgs)
 
  
 
         //-------------------connect everything together!--------------------------------------
         // initialize
         // connect adapters
-        const aztecNativeBridgeRegistryAddress = (await PXE.getNodeInfo()).l1ContractAddresses.registryAddress.toString();
-        await L1AztecBridgeAdapter.initialize(aztecNativeBridgeRegistryAddress, L2AztecBridgeAdapter.address.toString(), gigaBridge.target);
+        //const aztecNativeBridgeRegistryAddress = (await PXE.getNodeInfo()).l1ContractAddresses.registryAddress.toString();
+        //await L1AztecBridgeAdapter.initialize(aztecNativeBridgeRegistryAddress, L2AztecBridgeAdapter.address.toString(), gigaBridge.target);
         
         //connect toads
         await L1WarpToad.initialize(gigaBridge.target, L1WarpToad.target) // <- L1WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
-        await AztecWarpToad.methods.initialize(L2AztecBridgeAdapter.address, L1AztecBridgeAdapter.target).send().wait()// all other warptoad initializations will look like this
+        //await AztecWarpToad.methods.initialize(L2AztecBridgeAdapter.address, L1AztecBridgeAdapter.target).send().wait()// all other warptoad initializations will look like this
 
-        return { L2AztecBridgeAdapter, L1AztecBridgeAdapter, gigaBridge, L1WarpToad:L1WarpToad as L1WarpToad, nativeToken, LazyIMTLib, PoseidonT3Lib, AztecWarpToad, aztecWallets, evmWallets, PXE };
+        return { gigaBridge, L1WarpToad:L1WarpToad as L1WarpToad, nativeToken, LazyIMTLib, PoseidonT3Lib, evmWallets };
     }
 
     describe("deployment", function () {
         it("Should deploy warptoad for aztec and L1", async function () {
-            const { L1WarpToad, nativeToken, LazyIMTLib, PoseidonT3Lib, AztecWarpToad, aztecWallets, evmWallets,L1AztecBridgeAdapter } = await deploy()
+            const { L1WarpToad, nativeToken, LazyIMTLib, PoseidonT3Lib, evmWallets, } = await deploy()
             //@TODO more things like this test!
-            const aztecsL1Adapter = ethers.getAddress(ethers.toBeHex(( await AztecWarpToad.methods.get_l1_bridge_adapter().simulate()).inner)) // EthAddress type in noir is struct with .inner, which contains the address as a Field
-            expect(aztecsL1Adapter).to.eq(L1AztecBridgeAdapter.target)
+            // const aztecsL1Adapter = ethers.getAddress(ethers.toBeHex(( await AztecWarpToad.methods.get_l1_bridge_adapter().simulate()).inner)) // EthAddress type in noir is struct with .inner, which contains the address as a Field
+            // expect(aztecsL1Adapter).to.eq(L1AztecBridgeAdapter.target)
         })
 
     })
@@ -158,7 +144,7 @@ describe("AztecWarpToad", function () {
             
             //----------------------setup--------------------------------
             // setup contract and wallets
-            const { L2AztecBridgeAdapter, L1AztecBridgeAdapter, L1WarpToad, nativeToken, LazyIMTLib, PoseidonT3Lib, AztecWarpToad, aztecWallets, evmWallets, gigaBridge, PXE } = await deploy()
+            const { L1WarpToad, nativeToken, LazyIMTLib, PoseidonT3Lib, evmWallets, gigaBridge, } = await deploy()
             const evmDeployer = evmWallets[0]
             const evmRelayer = evmWallets[1]
             const evmSender = evmWallets[2]

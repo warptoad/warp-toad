@@ -377,7 +377,7 @@ async function doFullBridgeAztec(
         [] // there are no payable gigaRootRecipients
     )
 
-    const {receive_giga_rootTx} = await receiveGigaRootOnAztec(
+    const {receiveGigaRootTx} = await receiveGigaRootOnAztec(
         L2AztecBridgeAdapter,
         L1AztecBridgeAdapter,
         AztecWarpToad,

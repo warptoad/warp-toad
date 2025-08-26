@@ -138,8 +138,10 @@ export async function getGigaMerkleData(gigaBridge:GigaBridge,localRoot:bigint, 
     const amountOfLocalRoots = await gigaBridge.amountOfLocalRoots()
     const allRootIndexes = new Array(Number(amountOfLocalRoots)).fill(0).map((v,i)=>ethers.toBeHex(i)) as ethers.BigNumberish[]
     //@ts-ignore i hate typescript
+    // const filter = gigaBridge.filters.ReceivedNewLocalRoot(undefined,allRootIndexes,undefined)
+    // const events = await gigaBridge.queryFilter(filter,0,"latest")
     const events = await getGigaBridgeNewRootEvents(gigaBridge,allRootIndexes,gigaRootBlockNumber)
-    
+
     const eventsPerIndex = events.reduce((newObj: any, event)=>{
         //@ts-ignore TODO do as typed gigaBridge event
         const index = ethers.toBeHex(event.args[1])
@@ -150,7 +152,7 @@ export async function getGigaMerkleData(gigaBridge:GigaBridge,localRoot:bigint, 
         }
         return newObj
     },{})
-
+    console.log({allRootIndexes,eventsPerIndex})
     let sortedLeafs = [];
     for (const index of allRootIndexes) {
         if (index.toString() in eventsPerIndex){
