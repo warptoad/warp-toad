@@ -20,9 +20,9 @@
     "yarn": "^1.22.22"
   },
   "dependencies": {
-    "@aztec/accounts": "^1.1.3",
-    "@aztec/aztec.js": "1.1.3",
-    "@aztec/noir-contracts.js": "1.1.3",
+    "@aztec/accounts": "^1.2.1",
+    "@aztec/aztec.js": "1.2.1",
+    "@aztec/noir-contracts.js": "1.2.1",
     "@tailwindcss/vite": "^4.1.4",
     "daisyui": "^5.0.28",
     "dedupe": "^4.0.3",

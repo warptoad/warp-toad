@@ -179,9 +179,9 @@ npm install --global yarn;
 yarn install;
 ```
 
-make sure you're on aztec 1.1.3
+make sure you're on aztec 1.2.1
 ```shell
-aztec-up 1.1.3
+aztec-up 1.2.1
 ```
 
 install noir and backend
@@ -242,12 +242,12 @@ yarn workspace @warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file
 
 ## run sandbox
 ```shell
-VERSION=1.1.3 aztec start --sandbox
+VERSION=1.2.1 aztec start --sandbox
 ```
 
 ## run PXE on alpha testnet
 ```shell
-VERSION=1.1.3 aztec start --port 8080 --pxe --pxe.nodeUrl=https://full-node.alpha-testnet.aztec.network --l1-chain-id 11155111 --l1-rpc-urls https://sepolia.infura.io/v3/urkey
+VERSION=1.2.1 aztec start --port 8080 --pxe --pxe.nodeUrl=https://full-node.alpha-testnet.aztec.network --l1-chain-id 11155111 --l1-rpc-urls https://sepolia.infura.io/v3/urkey
 
 ```
 <!--
