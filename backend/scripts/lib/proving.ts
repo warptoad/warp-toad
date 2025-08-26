@@ -52,8 +52,8 @@ export function calculateFeeFactor(ethPriceInToken: number, gasCost: number, rel
     return BigInt(Math.round(ethPriceInToken * gasCost * relayerBonusFactor))
 }
 
-
-export async function queryEventInChunks(contract: ethers.Contract | ethers.BaseContract, filter: ethers.ContractEventName, firstBlock: number, lastBlock?: number, reverseOrder = false, maxEvents = Infinity, chunksize = 1000) {
+// eth_getLogs limit of alchemy is 500, so  chunksize = 499
+export async function queryEventInChunks(contract: ethers.Contract | ethers.BaseContract, filter: ethers.ContractEventName, firstBlock: number, lastBlock?: number, reverseOrder = false, maxEvents = Infinity, chunksize = 499) {
     const provider = contract!.runner!.provider
     lastBlock = lastBlock ? lastBlock : await provider!.getBlockNumber()
     let allEvents = [] as ethers.EventLog[]
