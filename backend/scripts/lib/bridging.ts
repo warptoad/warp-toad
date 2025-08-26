@@ -520,7 +520,7 @@ export async function bridgeBetweenL1AndL2(
     if(aztecInputs && aztecInputs.isAztec && (aztecInputs.PXE === undefined)) {
         throw new Error(`aztecInputs.PXE needs to be set when isAztec = true`)
     }
-    if (aztecInputs && isSandBox == false && aztecInputs.sponsoredPaymentMethod === undefined) {
+    if (aztecInputs && aztecInputs.isAztec && isSandBox == false && aztecInputs.sponsoredPaymentMethod === undefined) {
         throw new Error(`you need to set a sponsoredPaymentMethod when running outside of sandbox`)
     }
     if(aztecInputs === undefined) {aztecInputs={}}
