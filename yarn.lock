@@ -8183,57 +8183,6 @@ walker@^1.0.8:
   dependencies:
     makeerror "1.0.12"
 
-warp-toad-old-backend@1.0.1:
-  version "1.0.1"
-  resolved "https://registry.yarnpkg.com/warp-toad-old-backend/-/warp-toad-old-backend-1.0.1.tgz#f25c4d390514ce3fcca06433c688b4cc51ef89f6"
-  integrity sha512-wjUTlwVs1bwFbdLiX/XhTgJOP7RjDUCw5njlFYWylBncYJAdikj+8YhN3sUEt+I7TBbjrDglYLXpkXyaPBMUTA==
-  dependencies:
-    "@aztec/accounts" "1.1.3"
-    "@aztec/aztec.js" "1.1.3"
-    "@aztec/bb.js" "0.72.1"
-    "@aztec/ethereum" "1.1.3"
-    "@aztec/foundation" "1.1.3"
-    "@aztec/noir-contracts.js" "1.1.3"
-    "@noir-lang/noir_js" "1.0.0-beta.5"
-    "@noir-lang/noir_wasm" "1.0.0-beta.5"
-    "@openzeppelin/contracts" "^5.2.0"
-    "@scroll-tech/contracts" "^2.0.1"
-    "@types/argparse" "^2.0.17"
-    "@zk-kit/imt" "^2.0.0-beta.8"
-    "@zk-kit/lazy-imt.sol" "^2.0.0-beta.12"
-    "@zkpassport/poseidon2" "^0.6.1"
-    argparse "^2.0.1"
-    bun "^1.2.12"
-    fixed-merkle-tree "^0.7.3"
-    poseidon-lite "^0.3.0"
-    ts-node "^10.9.2"
-    warp-toad-old-backend "^1.0.0"
-
-warp-toad-old-backend@^1.0.0:
-  version "1.0.0"
-  resolved "https://registry.yarnpkg.com/warp-toad-old-backend/-/warp-toad-old-backend-1.0.0.tgz#972eca4232916ae66a7508bbd94913b9621cfac9"
-  integrity sha512-8oVHomRlV+s7bt9H1aMDC5R00JH3+0/uVnRJeHwW2s6PiXNeDUrpGw0jMBmK4enSt4oEnYhl0gdRqN+dKlCk4w==
-  dependencies:
-    "@aztec/accounts" "1.1.3"
-    "@aztec/aztec.js" "1.1.3"
-    "@aztec/bb.js" "0.72.1"
-    "@aztec/ethereum" "1.1.3"
-    "@aztec/foundation" "1.1.3"
-    "@aztec/noir-contracts.js" "1.1.3"
-    "@noir-lang/noir_js" "1.0.0-beta.5"
-    "@noir-lang/noir_wasm" "1.0.0-beta.5"
-    "@openzeppelin/contracts" "^5.2.0"
-    "@scroll-tech/contracts" "^2.0.1"
-    "@types/argparse" "^2.0.17"
-    "@zk-kit/imt" "^2.0.0-beta.8"
-    "@zk-kit/lazy-imt.sol" "^2.0.0-beta.12"
-    "@zkpassport/poseidon2" "^0.6.1"
-    argparse "^2.0.1"
-    bun "^1.2.12"
-    fixed-merkle-tree "^0.7.3"
-    poseidon-lite "^0.3.0"
-    ts-node "^10.9.2"
-
 web3-utils@^1.3.6:
   version "1.10.4"
   resolved "https://registry.yarnpkg.com/web3-utils/-/web3-utils-1.10.4.tgz#0daee7d6841641655d8b3726baf33b08eda1cbec"
