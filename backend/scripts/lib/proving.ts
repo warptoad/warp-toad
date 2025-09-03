@@ -321,7 +321,7 @@ export async function getMerkleData(gigaBridge:GigaBridge, warpToadOrigin: WarpT
         evmMerkleData = emptyEvmMerkleData
     } else {
         aztecMerkleData = emptyAztecMerkleData
-        evmMerkleData = await getEvmMerkleData(warpToadOrigin, commitment, EVM_TREE_DEPTH,Number(destinationLocalRootL2Block));
+        evmMerkleData = await getEvmMerkleData(warpToadOrigin, commitment, EVM_TREE_DEPTH, Number(destinationLocalRootL2Block));
     }
 
     return {isFromAztec, gigaMerkleData,evmMerkleData,aztecMerkleData, originLocalRoot, blockNumber:BigInt(destinationLocalRootL2Block)}
@@ -341,7 +341,6 @@ export async function getProofInputs(
     //private
     nullifierPreImage: bigint,
     secret: bigint,
-
 ): Promise<ProofInputs> {
     // TODO performance: do all these awaits concurrently 
     const chainId = (await warpToadDestination.runner?.provider?.getNetwork())?.chainId as bigint

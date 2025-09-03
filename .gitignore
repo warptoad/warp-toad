@@ -8,10 +8,10 @@ backend/cache
 backend/artifacts
 
 # TypeChain files
-/typechain
-/typechain-types
-backend/typechain
-backend/typechain-types
+# /typechain
+# /typechain-types
+# backend/typechain
+# backend/typechain-types
 # solidity-coverage files
 /coverage
 /coverage.json
