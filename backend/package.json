@@ -3,15 +3,15 @@
     "target": "esnext"
   },
   "exports":{
-    "./proving": "./dist/scripts/lib/proving.js",
-    "./types": "./dist/scripts/lib/types.js",
-    "./hashing": "./dist/scripts/lib/hashing.js",
-    "./constants": "./dist/scripts/lib/constants.js",
-    "./bridging": "./dist/scripts/lib/bridging.js"
+    "./proving": "./scripts/lib/proving.ts",
+    "./types": "./scripts/lib/types.ts",
+    "./hashing": "./scripts/lib/hashing.ts",
+    "./constants": "./scripts/lib/constants.ts",
+    "./bridging": "./scripts/lib/bridging.ts"
   },
   "name": "warp-toad-old-backend",
   "private": false,
-  "version": "1.0.2",
+  "version": "1.0.4",
   "repository": "https://github.com/warptoad/warp-toad/tree/backend-npm-package/backend",
   "author": "Jim Jim Valkema",
   "license": "MIT",
