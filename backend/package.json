@@ -2,19 +2,48 @@
   "esbuildOptions": {
     "target": "esnext"
   },
-  "exports":{
-    "./proving": "./scripts/lib/proving.ts",
-    "./types": "./scripts/lib/types.ts",
-    "./hashing": "./scripts/lib/hashing.ts",
-    "./constants": "./scripts/lib/constants.ts",
-    "./bridging": "./scripts/lib/bridging.ts"
+  "exports": {
+    "./bridging": {
+      "import": {
+        "types": "./dist/lib/bridging.d.ts",
+        "default": "./dist/bridging.js"
+      }
+    },
+    "./constants": {
+      "import": {
+        "types": "./dist/lib/constants.d.ts",
+        "default": "./dist/constants.js"
+      }
+    },
+    "./hashing": {
+      "import": {
+        "types": "./dist/lib/hashing.d.ts",
+        "default": "./dist/hashing.js"
+      }
+    },
+    "./proving": {
+      "import": {
+        "types": "./dist/lib/proving.d.ts",
+        "default": "./dist/proving.js"
+      }
+    },
+    "./types": {
+      "import": {
+        "types": "./dist/lib/types.d.ts",
+        "default": "./dist/types.js"
+      }
+    }
   },
+  "type": "module",
   "name": "warp-toad-old-backend",
   "private": false,
   "version": "1.0.5",
   "repository": "https://github.com/warptoad/warp-toad/tree/backend-npm-package/backend",
   "author": "Jim Jim Valkema",
   "license": "MIT",
+  "scripts": {
+    "build": "yarn tsc --build tsconfig.json"
+  },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",
     "@nomicfoundation/hardhat-ethers": "^3.0.8",
@@ -27,7 +56,6 @@
     "@typechain/ethers-v6": "^0.5.1",
     "@typechain/hardhat": "^9.1.0",
     "@types/chai": "4.3.20",
-    "@types/minimatch": "^6.0.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "^24.0.10",
     "chai": "4.5.0",
@@ -59,6 +87,7 @@
     "argparse": "^2.0.1",
     "bun": "^1.2.12",
     "fixed-merkle-tree": "^0.7.3",
+    "minimatch": "^10.0.3",
     "poseidon-lite": "^0.3.0",
     "ts-node": "^10.9.2"
   },

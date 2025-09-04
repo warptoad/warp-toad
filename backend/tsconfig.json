@@ -1,12 +1,23 @@
 {
-    "compilerOptions": {
-      "target": "es2022",
-      "module": "Node18",
-      "esModuleInterop": true,
-      "forceConsistentCasingInFileNames": true,
-      "strict": true,
-      "skipLibCheck": true,
-      "resolveJsonModule": true
+  "compilerOptions": {
+    "outDir": "./dist",
+    "rootDir": "./",
+    "target": "esnext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "allowJs": true,
+    "allowSyntheticDefaultImports": true,
+    "baseUrl": ".",
+    "paths": {
+      "*": ["./*"]
     }
-  }
-  
+  },
+  "include": ["/**/*"],
+  "exclude": ["node_modules", "dist", "target"]
+}
