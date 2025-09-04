@@ -5,6 +5,7 @@ import "@nomicfoundation/hardhat-toolbox";
 //cjs shit
 // require( "@nomicfoundation/hardhat-toolbox")
 import { vars } from "hardhat/config.js";
+import "@typechain/hardhat"; 
 
 const SEPOLIA_URL = vars.get("SEPOLIA_URL")
 const PRIVATE_KEY = vars.get("PRIVATE_KEY");
