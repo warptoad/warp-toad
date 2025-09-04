@@ -2,10 +2,18 @@
   "esbuildOptions": {
     "target": "esnext"
   },
+  "exports":{
+    "./proving": "./scripts/lib/proving.ts",
+    "./types": "./scripts/lib/types.ts",
+    "./hashing": "./scripts/lib/hashing.ts",
+    "./constants": "./scripts/lib/constants.ts",
+    "./bridging": "./scripts/lib/bridging.ts"
+  },
   "name": "@warp-toad/backend",
-  "version": "1.0.0",
-  "repository": "https://github.com/JossDuff/warp-toad.git",
-  "author": "jossduff <jduff360@gmail.com>",
+  "private": false,
+  "version": "1.0.5",
+  "repository": "https://github.com/warptoad/warp-toad/tree/backend-npm-package/backend",
+  "author": "Jim Jim Valkema",
   "license": "MIT",
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",
