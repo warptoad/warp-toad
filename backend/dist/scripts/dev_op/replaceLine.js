@@ -1,7 +1,13 @@
-import { ArgumentParser } from 'argparse';
-import fs from "fs/promises";
-export async function lineReplacer(filePath, lineReplacements) {
-    const file = await fs.open(filePath, "r");
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.lineReplacer = lineReplacer;
+const argparse_1 = require("argparse");
+const promises_1 = __importDefault(require("fs/promises"));
+async function lineReplacer(filePath, lineReplacements) {
+    const file = await promises_1.default.open(filePath, "r");
     let newFile = "";
     for await (const line of file.readLines()) {
         const replacement = lineReplacements.find((replacement) => line.startsWith(replacement.original));
@@ -13,10 +19,10 @@ export async function lineReplacer(filePath, lineReplacements) {
         }
     }
     await file.close();
-    await fs.writeFile(filePath, newFile);
+    await promises_1.default.writeFile(filePath, newFile);
 }
 async function main() {
-    const parser = new ArgumentParser({
+    const parser = new argparse_1.ArgumentParser({
         description: 'quick lil script to replace 1 line',
         usage: `yarn ts-node scripts_dev_op/replaceLine.ts --file contracts/evm/WithdrawVerifier.sol --remove "contract UltraVerifier is BaseUltraVerifier {" --replace "contract WithdrawVerifier is BaseUltraVerifier {"`
     });

@@ -1,9 +1,11 @@
+"use strict";
 // @NOTICE will be changed to deploy the full WarpToad 
+Object.defineProperty(exports, "__esModule", { value: true });
 //@ts-ignore
-import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
-import { EVM_TREE_DEPTH } from "../../scripts/lib/constants";
+const modules_1 = require("@nomicfoundation/hardhat-ignition/modules");
+const constants_1 = require("../../scripts/lib/constants");
 // unused. L2s can usually deploy their L2Adapter and warptoad in one module
-export default buildModule("L2WarpToadModule", (m) => {
+exports.default = (0, modules_1.buildModule)("L2WarpToadModule", (m) => {
     const nativeToken = m.getParameter("nativeToken");
     const name = m.getParameter("name");
     const symbol = m.getParameter("symbol");
@@ -19,7 +21,7 @@ export default buildModule("L2WarpToadModule", (m) => {
         value: 0n,
         libraries: {},
     });
-    const L2WarpToad = m.contract("L2WarpToad", [EVM_TREE_DEPTH, withdrawVerifier, nativeToken, name, symbol], {
+    const L2WarpToad = m.contract("L2WarpToad", [constants_1.EVM_TREE_DEPTH, withdrawVerifier, nativeToken, name, symbol], {
         value: 0n,
         libraries: {
             LazyIMT: LazyIMTLib,

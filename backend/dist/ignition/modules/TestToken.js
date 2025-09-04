@@ -1,6 +1,8 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
 //@ts-ignore
-import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
-export default buildModule("TestToken", (m) => {
+const modules_1 = require("@nomicfoundation/hardhat-ignition/modules");
+exports.default = (0, modules_1.buildModule)("TestToken", (m) => {
     const USDcoin = m.contract("USDcoin", [], {});
     return { USDcoin };
 });

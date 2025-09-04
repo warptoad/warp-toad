@@ -1,5 +1,7 @@
-import { ethers } from 'ethers';
-import { USDcoin__factory, L1WarpToad__factory } from '../../typechain-types';
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const ethers_1 = require("ethers");
+const typechain_types_1 = require("../../typechain-types");
 const aztec = import('@aztec/aztec.js');
 // /**
 //  * assumes you have at least 1n wei of the wrapped token token 
@@ -52,18 +54,18 @@ const aztec = import('@aztec/aztec.js');
 //     return gas
 // }
 async function getFreeMoney(signer, USDcoinAddress, amount) {
-    const USDC = USDcoin__factory.connect(USDcoinAddress.toString(), signer);
-    console.log(`trying to mint ${ethers.formatUnits(amount, await USDC.decimals())} ${await USDC.symbol()} function of native token`);
+    const USDC = typechain_types_1.USDcoin__factory.connect(USDcoinAddress.toString(), signer);
+    console.log(`trying to mint ${ethers_1.ethers.formatUnits(amount, await USDC.decimals())} ${await USDC.symbol()} function of native token`);
     // TODO just rename to mint lmao
     await (await USDC.getFreeShit(amount)).wait(1);
 }
 async function getBalance(signer, USDcoinAddress) {
-    const USDC = USDcoin__factory.connect(USDcoinAddress.toString(), signer);
+    const USDC = typechain_types_1.USDcoin__factory.connect(USDcoinAddress.toString(), signer);
     return await USDC.balanceOf(await signer.getAddress());
 }
 async function getNativeTokenAddress(signer, warpToadAddress) {
-    const warpToad = L1WarpToad__factory.connect(warpToadAddress.toString(), signer); // why .toString() is hardhat dum?
-    return ethers.getAddress(await warpToad.nativeToken());
+    const warpToad = typechain_types_1.L1WarpToad__factory.connect(warpToadAddress.toString(), signer); // why .toString() is hardhat dum?
+    return ethers_1.ethers.getAddress(await warpToad.nativeToken());
 }
 // async function main() {
 //     const parser = new ArgumentParser({

@@ -1,29 +1,34 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
 // hardhat 
 const hre = require("hardhat");
 //@ts-ignore
-import { expect } from "chai";
+const chai_1 = require("chai");
 // aztec
 //@ts-ignore
-import { Contract } from "@aztec/aztec.js";
+const aztec_js_1 = require("@aztec/aztec.js");
 // artifacts
 //@ts-ignore
-import { WarpToadCoreContractArtifact } from '../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore';
-import { ethers } from "ethers";
-import { hashPreCommitment } from "../scripts/lib/hashing";
-import { calculateFeeFactor, createProof, getProofInputs } from "../scripts/lib/proving"; //"warp-toad-old-backend/proving"//"../scripts/lib/proving";
-import { EVM_TREE_DEPTH, gasCostPerChain } from "../scripts/lib/constants";
-import { WithdrawVerifier__factory } from "../typechain-types";
-import { L2AztecBridgeAdapterContractArtifact } from '../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter';
-import { GIGA_TREE_DEPTH } from "../scripts/lib/constants";
-import os from 'os';
-import { sendGigaRoot } from "../scripts/lib/bridging";
+const WarpToadCore_1 = require("../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore");
+const ethers_1 = require("ethers");
+const hashing_1 = require("../scripts/lib/hashing");
+const proving_1 = require("../scripts/lib/proving"); //"warp-toad-old-backend/proving"//"../scripts/lib/proving";
+const constants_1 = require("../scripts/lib/constants");
+const typechain_types_1 = require("../typechain-types");
+const L2AztecBridgeAdapter_1 = require("../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter");
+const constants_2 = require("../scripts/lib/constants");
+const os_1 = __importDefault(require("os"));
+const bridging_1 = require("../scripts/lib/bridging");
 describe("AztecWarpToad", function () {
     async function deployAztecWarpToad(nativeToken, deployerWallet) {
         const wrappedTokenSymbol = `wrpToad-${await nativeToken.symbol()}`;
         const wrappedTokenName = `wrpToad-${await nativeToken.name()}`;
         const decimals = 6n; // only 6 decimals what is this tether??
         const constructorArgs = [nativeToken.target, wrappedTokenName, wrappedTokenSymbol, decimals];
-        const AztecWarpToad = await Contract.deploy(deployerWallet, WarpToadCoreContractArtifact, constructorArgs)
+        const AztecWarpToad = await aztec_js_1.Contract.deploy(deployerWallet, WarpToadCore_1.WarpToadCoreContractArtifact, constructorArgs)
             .send()
             .deployed();
         return { AztecWarpToad };
@@ -31,7 +36,7 @@ describe("AztecWarpToad", function () {
     async function deployL1Warptoad(nativeToken, LazyIMTLib, PoseidonT3Lib) {
         const wrappedTokenSymbol = `wrpToad-${await nativeToken.symbol()}`;
         const wrappedTokenName = `wrpToad-${await nativeToken.name()}`;
-        const maxEvmTreeDepth = EVM_TREE_DEPTH;
+        const maxEvmTreeDepth = constants_1.EVM_TREE_DEPTH;
         const WithdrawVerifier = await hre.ethers.deployContract("WithdrawVerifier", [], { value: 0n, libraries: {} });
         const L1WarpToad = await hre.ethers.deployContract("L1WarpToad", [maxEvmTreeDepth, WithdrawVerifier.target, nativeToken.target, wrappedTokenSymbol, wrappedTokenName], {
             value: 0n,
@@ -43,7 +48,7 @@ describe("AztecWarpToad", function () {
         return { L1WarpToad, WithdrawVerifier };
     }
     async function deployL1GigaBridge(LazyIMTLib, gigaRootRecipients) {
-        const gigaTreeDepth = GIGA_TREE_DEPTH;
+        const gigaTreeDepth = constants_2.GIGA_TREE_DEPTH;
         const gigaBridge = await hre.ethers.deployContract("GigaBridge", [gigaRootRecipients, gigaTreeDepth], {
             value: 0n,
             libraries: {
@@ -53,7 +58,7 @@ describe("AztecWarpToad", function () {
         return { gigaBridge };
     }
     async function deployL2AztecBridgeAdapterContract(aztecDeployerWallet, constructorArgs) {
-        return await Contract.deploy(aztecDeployerWallet, L2AztecBridgeAdapterContractArtifact, constructorArgs).send().deployed();
+        return await aztec_js_1.Contract.deploy(aztecDeployerWallet, L2AztecBridgeAdapter_1.L2AztecBridgeAdapterContractArtifact, constructorArgs).send().deployed();
     }
     async function deploy() {
         const evmWallets = await hre.ethers.getSigners();
@@ -136,7 +141,7 @@ describe("AztecWarpToad", function () {
                 secret: 12341111111n,
                 nullifier_preimg: 432111111n, // Use Fr.random().toBigInt() in prod pls
             };
-            const preCommitment1 = hashPreCommitment(commitmentPreImg1.nullifier_preimg, commitmentPreImg1.secret, commitmentPreImg1.destination_chain_id);
+            const preCommitment1 = (0, hashing_1.hashPreCommitment)(commitmentPreImg1.nullifier_preimg, commitmentPreImg1.secret, commitmentPreImg1.destination_chain_id);
             await (await L1WarpToadWithSender.burn(preCommitment1, commitmentPreImg1.amount)).wait(1);
             // ------------------make a root------------------------------------
             // our merkle tree is lazy. So we need to wake him up and store a the local root manually!!
@@ -148,7 +153,7 @@ describe("AztecWarpToad", function () {
             //     localRootProviders,
             // )
             const gigaRootRecipients = [L1WarpToad.target]; // only me. effectively no altruism :P
-            const { sendGigaRootTx } = await sendGigaRoot(gigaBridge, gigaRootRecipients, [] // no payable gigaRootRecipients
+            const { sendGigaRootTx } = await (0, bridging_1.sendGigaRoot)(gigaBridge, gigaRootRecipients, [] // no payable gigaRootRecipients
             );
             // -------------mint-----------------------------------
             // relayer fee logic
@@ -156,33 +161,33 @@ describe("AztecWarpToad", function () {
             const maxFee = 5n * 10n ** 18n; // i don't want to pay no more than 5 usdc okay cool thanks
             const ethPriceInToken = 1700.34; // how much tokens you need to buy 1 eth. In this case 1700 usdc tokens to buy 1 eth. Cheap!
             // L1 evm estimate. re-estimating this on every tx will require you to make a zk proof twice so i hardcoded. You should get a up to date value for L2's with alternative gas pricing from backend/scripts/dev_op/estimateGas.ts
-            const gasCost = Number(gasCostPerChain[Number(chainIdEvmProvider)]);
+            const gasCost = Number(constants_1.gasCostPerChain[Number(chainIdEvmProvider)]);
             const relayerBonusFactor = 1.1; // 10% earnings on gas fees! 
-            const feeFactor = calculateFeeFactor(ethPriceInToken, gasCost, relayerBonusFactor);
+            const feeFactor = (0, proving_1.calculateFeeFactor)(ethPriceInToken, gasCost, relayerBonusFactor);
             console.log("mint!");
-            const proofInputs = await getProofInputs(gigaBridge, L1WarpToadWithSender, L1WarpToadWithSender, amountToBurn1, feeFactor, priorityFee, maxFee, await evmRelayer.getAddress(), await evmRecipient.getAddress(), commitmentPreImg1.nullifier_preimg, commitmentPreImg1.secret);
+            const proofInputs = await (0, proving_1.getProofInputs)(gigaBridge, L1WarpToadWithSender, L1WarpToadWithSender, amountToBurn1, feeFactor, priorityFee, maxFee, await evmRelayer.getAddress(), await evmRecipient.getAddress(), commitmentPreImg1.nullifier_preimg, commitmentPreImg1.secret);
             //await generateNoirTest(proofInputs);
-            const proof = await createProof(proofInputs, os.cpus().length);
+            const proof = await (0, proving_1.createProof)(proofInputs, os_1.default.cpus().length);
             //@ts-ignore
             const onchainPublicInputs = await L1WarpToad._formatPublicInputs(proofInputs.nullifier, proofInputs.chain_id, proofInputs.amount, proofInputs.giga_root, proofInputs.destination_local_root, proofInputs.fee_factor, proofInputs.priority_fee, proofInputs.max_fee, proofInputs.relayer_address, proofInputs.recipient_address);
             console.log({ jsPubInputs: proof.publicInputs, onchainPublicInputs });
-            const withdrawVerifier = WithdrawVerifier__factory.connect(await L1WarpToad.withdrawVerifier(), provider);
+            const withdrawVerifier = typechain_types_1.WithdrawVerifier__factory.connect(await L1WarpToad.withdrawVerifier(), provider);
             const jsVerifiedOnchain = await withdrawVerifier.verify(proof.proof, proof.publicInputs);
             console.log({ jsVerifiedOnchain });
             const balanceRecipientPreMint = await L1WarpToadWithSender.balanceOf(await evmRecipient.getAddress());
-            const mintTx = await (await L1WarpToadWithRelayer.mint(ethers.toBigInt(proofInputs.nullifier), ethers.toBigInt(proofInputs.amount), ethers.toBigInt(proofInputs.giga_root), ethers.toBigInt(proofInputs.destination_local_root), ethers.toBigInt(proofInputs.fee_factor), ethers.toBigInt(proofInputs.priority_fee), ethers.toBigInt(proofInputs.max_fee), ethers.getAddress(proofInputs.relayer_address.toString()), ethers.getAddress(proofInputs.recipient_address.toString()), ethers.hexlify(proof.proof), {
-                maxPriorityFeePerGas: ethers.toBigInt(proofInputs.priority_fee),
-                maxFeePerGas: ethers.toBigInt(proofInputs.priority_fee) * 100n //Otherwise HRE does the gas calculations wrong to make sure we don't get `max_priority_fee_per_gas` greater than `max_fee_per_gas
+            const mintTx = await (await L1WarpToadWithRelayer.mint(ethers_1.ethers.toBigInt(proofInputs.nullifier), ethers_1.ethers.toBigInt(proofInputs.amount), ethers_1.ethers.toBigInt(proofInputs.giga_root), ethers_1.ethers.toBigInt(proofInputs.destination_local_root), ethers_1.ethers.toBigInt(proofInputs.fee_factor), ethers_1.ethers.toBigInt(proofInputs.priority_fee), ethers_1.ethers.toBigInt(proofInputs.max_fee), ethers_1.ethers.getAddress(proofInputs.relayer_address.toString()), ethers_1.ethers.getAddress(proofInputs.recipient_address.toString()), ethers_1.ethers.hexlify(proof.proof), {
+                maxPriorityFeePerGas: ethers_1.ethers.toBigInt(proofInputs.priority_fee),
+                maxFeePerGas: ethers_1.ethers.toBigInt(proofInputs.priority_fee) * 100n //Otherwise HRE does the gas calculations wrong to make sure we don't get `max_priority_fee_per_gas` greater than `max_fee_per_gas
             })).wait(1);
             // check mint tx
             const balanceRecipientPostMint = await L1WarpToad.balanceOf(await evmRecipient.getAddress());
             const expectedFee = BigInt(Number(mintTx.fee) * ethPriceInToken * relayerBonusFactor);
-            const feePaid = ethers.toBigInt(proofInputs.amount) - balanceRecipientPostMint - balanceRecipientPreMint;
+            const feePaid = ethers_1.ethers.toBigInt(proofInputs.amount) - balanceRecipientPostMint - balanceRecipientPreMint;
             const overPayPercentage = (1 - Number(expectedFee) / Number(feePaid)) * 100;
             const marginOfErrorFee = 5; //no more than 5% off! note L1ToL1 is 3.2% cheaper than aztecToL1 idk why but the gasUsed can change a lott likely higher than 5%
             console.log({ overPayPercentage });
-            expect(overPayPercentage).approximately(0, marginOfErrorFee, "This likely failed because HRE does something bad in gas calculation. Run it in something like an anvil node/aztecSandbox instead. Or gas usage changed");
-            expect(balanceRecipientPostMint).to.above(balanceRecipientPreMint + ethers.toBigInt(proofInputs.amount) - maxFee);
+            (0, chai_1.expect)(overPayPercentage).approximately(0, marginOfErrorFee, "This likely failed because HRE does something bad in gas calculation. Run it in something like an anvil node/aztecSandbox instead. Or gas usage changed");
+            (0, chai_1.expect)(balanceRecipientPostMint).to.above(balanceRecipientPreMint + ethers_1.ethers.toBigInt(proofInputs.amount) - maxFee);
         });
     });
 });

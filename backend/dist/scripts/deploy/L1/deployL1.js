@@ -1,15 +1,20 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
 const hre = require("hardhat");
 // import hre from "hardhat"
-import { ethers } from "ethers";
-import { deployPoseidon } from "../poseidon";
-import L1WarpToadModule from "../../../ignition/modules/L1WarpToad";
-import L1InfraModule from "../../../ignition/modules/L1Infra";
-import { readFile } from 'fs/promises';
+const ethers_1 = require("ethers");
+const poseidon_1 = require("../poseidon");
+const L1WarpToad_1 = __importDefault(require("../../../ignition/modules/L1WarpToad"));
+const L1Infra_1 = __importDefault(require("../../../ignition/modules/L1Infra"));
+const promises_1 = require("fs/promises");
 //@ts-ignore
-import er20Abi from "../../dev_op/erc20ABI.json" with { type: 'json' };
-import { L1_SCROLL_MESSENGER_MAINNET, L1_SCROLL_MESSENGER_SEPOLIA } from "../../lib/constants";
-import fs from "fs/promises";
-import { checkFileExists, getContractAddressesEvm, getEvmDeployedAddressesFilePath, getEvmDeployedAddressesFolderPath, promptBool } from "../../dev_op/utils";
+const erc20ABI_json_1 = __importDefault(require("../../dev_op/erc20ABI.json"));
+const constants_1 = require("../../lib/constants");
+const promises_2 = __importDefault(require("fs/promises"));
+const utils_1 = require("../../dev_op/utils");
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 async function main() {
     //--------arguments-------------------
@@ -17,19 +22,19 @@ async function main() {
     if (!Boolean(process.env.NATIVE_TOKEN_ADDRESS)) {
         throw new Error("NATIVE_TOKEN_ADDRESS not set. do NATIVE_TOKEN_ADDRESS=0xurTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts  --network aztecSandbox");
     }
-    else if (!ethers.isAddress(process.env.NATIVE_TOKEN_ADDRESS)) {
+    else if (!ethers_1.ethers.isAddress(process.env.NATIVE_TOKEN_ADDRESS)) {
         throw new Error(`the value: ${process.env.NATIVE_TOKEN_ADDRESS} is not a valid address. Set NATIVE_TOKEN_ADDRESS= to a valid address`);
     }
-    const nativeTokenAddress = ethers.getAddress(process.env.NATIVE_TOKEN_ADDRESS);
+    const nativeTokenAddress = ethers_1.ethers.getAddress(process.env.NATIVE_TOKEN_ADDRESS);
     const provider = hre.ethers.provider;
     const chainId = (await provider.getNetwork()).chainId;
-    const deployedAddressesPath = getEvmDeployedAddressesFilePath(chainId);
-    if (await checkFileExists(deployedAddressesPath)) {
-        const contracts = await getContractAddressesEvm(chainId);
+    const deployedAddressesPath = (0, utils_1.getEvmDeployedAddressesFilePath)(chainId);
+    if (await (0, utils_1.checkFileExists)(deployedAddressesPath)) {
+        const contracts = await (0, utils_1.getContractAddressesEvm)(chainId);
         const WarpToadDeployId = "L1WarpToadModule#L1WarpToad";
         if (WarpToadDeployId in contracts) {
-            if (await promptBool(`A deployment of ${WarpToadDeployId} already exist at ${deployedAddressesPath} \n Are you sure want to override?`)) {
-                await fs.rm(getEvmDeployedAddressesFolderPath(chainId), { force: true, recursive: true });
+            if (await (0, utils_1.promptBool)(`A deployment of ${WarpToadDeployId} already exist at ${deployedAddressesPath} \n Are you sure want to override?`)) {
+                await promises_2.default.rm((0, utils_1.getEvmDeployedAddressesFolderPath)(chainId), { force: true, recursive: true });
                 console.log("overriding old deployment");
             }
             else {
@@ -38,11 +43,11 @@ async function main() {
         }
     }
     //-----------warptoad------------------------
-    const PoseidonT3Address = await deployPoseidon();
-    const nativeToken = new ethers.Contract(nativeTokenAddress, er20Abi, provider);
+    const PoseidonT3Address = await (0, poseidon_1.deployPoseidon)();
+    const nativeToken = new ethers_1.ethers.Contract(nativeTokenAddress, erc20ABI_json_1.default, provider);
     const name = await nativeToken.name();
     const symbol = await nativeToken.symbol();
-    const { L1WarpToad, withdrawVerifier, PoseidonT3Lib, LazyIMTLib } = await hre.ignition.deploy(L1WarpToadModule, {
+    const { L1WarpToad, withdrawVerifier, PoseidonT3Lib, LazyIMTLib } = await hre.ignition.deploy(L1WarpToad_1.default, {
         parameters: {
             L1WarpToadModule: {
                 PoseidonT3LibAddress: PoseidonT3Address,
@@ -53,9 +58,9 @@ async function main() {
         },
     });
     const IS_MAINNET = chainId === 1n;
-    const L1ScrollMessengerAddress = IS_MAINNET ? L1_SCROLL_MESSENGER_MAINNET : L1_SCROLL_MESSENGER_SEPOLIA;
+    const L1ScrollMessengerAddress = IS_MAINNET ? constants_1.L1_SCROLL_MESSENGER_MAINNET : constants_1.L1_SCROLL_MESSENGER_SEPOLIA;
     //--------------------infra------------------------
-    const { gigaBridge, L1AztecBridgeAdapter, L1ScrollBridgeAdapter } = await hre.ignition.deploy(L1InfraModule, {
+    const { gigaBridge, L1AztecBridgeAdapter, L1ScrollBridgeAdapter } = await hre.ignition.deploy(L1Infra_1.default, {
         parameters: {
             L1InfraModule: {
                 LazyIMTLibAddress: LazyIMTLib.target,
@@ -82,7 +87,7 @@ async function main() {
         // TODO make this into a more reusable script / function
         // gather data for constructor arguments and libraries
         const journalFilePath = `ignition/deployments/chain-${(await provider.getNetwork()).chainId}/journal.jsonl`;
-        const journal = await readFile(journalFilePath, 'utf8');
+        const journal = await (0, promises_1.readFile)(journalFilePath, 'utf8');
         const parsedJournal = journal.split('\n').filter(line => line.trim() !== '').map(line => JSON.parse(line));
         const journalDataPerId = parsedJournal.reduce((allData, currentLine) => {
             if ("futureId" in currentLine) {

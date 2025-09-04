@@ -1,25 +1,27 @@
-import { ethers } from 'ethers';
-import { ArgumentParser } from 'argparse';
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+const ethers_1 = require("ethers");
+const argparse_1 = require("argparse");
 //@ts-ignore
-import { createPXEClient, waitForPXE } from '@aztec/aztec.js';
+const aztec_js_1 = require("@aztec/aztec.js");
 // local
-import { getL1Contracts, getL2Contracts, getAztecTestWallet } from './utils';
-import { getLocalRootProviders, getPayableGigaRootRecipients, bridgeBetweenL1AndL2, sleep } from '../lib/bridging';
+const utils_1 = require("./utils");
+const bridging_1 = require("../lib/bridging");
 const AZTEC_NODE_URL = "https://aztec-alpha-testnet-fullnode.zkv.xyz";
 async function connectPXE(PXE_URL) {
     console.log("creating PXE client");
-    const PXE = createPXEClient(PXE_URL);
+    const PXE = (0, aztec_js_1.createPXEClient)(PXE_URL);
     console.log("waiting on PXE client", PXE_URL);
-    await waitForPXE(PXE);
+    await (0, aztec_js_1.waitForPXE)(PXE);
     return PXE;
 }
 async function connectAztec(PXE_URL, chainId) {
     const PXE = await connectPXE(PXE_URL);
-    const { wallet, sponsoredPaymentMethod } = await getAztecTestWallet(PXE, chainId);
+    const { wallet, sponsoredPaymentMethod } = await (0, utils_1.getAztecTestWallet)(PXE, chainId);
     return { PXE, aztecWallet: wallet, sponsoredPaymentMethod };
 }
 async function main() {
-    const parser = new ArgumentParser({
+    const parser = new argparse_1.ArgumentParser({
         description: 'quick lil script bridge some root',
         usage: `TODO`
     });
@@ -34,8 +36,8 @@ async function main() {
     parser.add_argument('-r', '--repeat', { help: 'if set repeatably bridges every 10 min', required: false, default: false, action: 'store_true' });
     const args = parser.parse_args();
     // ------------------- process user inputs -------------------
-    const l1Provider = new ethers.JsonRpcProvider(args.L1Rpc);
-    const l1Wallet = new ethers.Wallet(args.evmPrivatekey, l1Provider);
+    const l1Provider = new ethers_1.ethers.JsonRpcProvider(args.L1Rpc);
+    const l1Wallet = new ethers_1.ethers.Wallet(args.evmPrivatekey, l1Provider);
     const l1ChainId = (await l1Provider.getNetwork()).chainId;
     if (args.evmPrivatekey === "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" && l1ChainId !== 31337n) {
         console.warn("default anvil key used on a l1 network that is not chainId 31337!");
@@ -49,17 +51,17 @@ async function main() {
         l2Data.sponsoredPaymentMethod = sponsoredPaymentMethod;
     }
     else {
-        l2Data.l2Provider = new ethers.JsonRpcProvider(args.L2Rpc);
-        l2Data.l2Wallet = new ethers.Wallet(args.evmPrivatekey, l2Data.l2Provider);
+        l2Data.l2Provider = new ethers_1.ethers.JsonRpcProvider(args.L2Rpc);
+        l2Data.l2Wallet = new ethers_1.ethers.Wallet(args.evmPrivatekey, l2Data.l2Provider);
         l2Data.l2ChainId = (await l2Data.l2Provider.getNetwork()).chainId;
     }
     const { l2Provider, l2Wallet, l2ChainId, PXE, sponsoredPaymentMethod } = l2Data;
     //----------------------------------------------------------------
     //------------------- get contract details -------------------------------
-    const localRootProviders = args.localRootProviders ? args.localRootProviders : await getLocalRootProviders(l1ChainId);
-    const { L1Adapter, gigaBridge } = await getL1Contracts(l1ChainId, l2ChainId, l1Wallet, args.isAztec);
-    const { L2Adapter, L2WarpToad } = await getL2Contracts(l2Wallet, l1ChainId, l2ChainId, args.isAztec, PXE, AZTEC_NODE_URL);
-    const payableLocalRootProviders = await getPayableGigaRootRecipients(l1ChainId);
+    const localRootProviders = args.localRootProviders ? args.localRootProviders : await (0, bridging_1.getLocalRootProviders)(l1ChainId);
+    const { L1Adapter, gigaBridge } = await (0, utils_1.getL1Contracts)(l1ChainId, l2ChainId, l1Wallet, args.isAztec);
+    const { L2Adapter, L2WarpToad } = await (0, utils_1.getL2Contracts)(l2Wallet, l1ChainId, l2ChainId, args.isAztec, PXE, AZTEC_NODE_URL);
+    const payableLocalRootProviders = await (0, bridging_1.getPayableGigaRootRecipients)(l1ChainId);
     //--------------------------------------------------------------------------
     // ----------------------- bridge! ----------------------------------------
     console.log({ localRootProviders, payableLocalRootProviders });
@@ -77,7 +79,7 @@ async function main() {
         // quick and ugly try and catch wrapper
         const bridgeBetweenL1AndL2TryCatch = async (inputs) => {
             try {
-                return await bridgeBetweenL1AndL2(...inputs);
+                return await (0, bridging_1.bridgeBetweenL1AndL2)(...inputs);
             }
             catch (error) {
                 errors.push(error);
@@ -98,7 +100,7 @@ async function main() {
                 sponsoredPaymentMethod: sponsoredPaymentMethod
             }
         ]).then((res) => console.log(`completed ${bridgeIteration}th bridge run`, res?.txHashes));
-        await sleep(600000); // 10 min
+        await (0, bridging_1.sleep)(600000); // 10 min
     } while (args.repeat);
     // incase --repeat is not set. We wait!
     await lastBridgePromise;

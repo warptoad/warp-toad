@@ -1,8 +1,10 @@
+"use strict";
 // @NOTICE will be changed to deploy the full WarpToad 
+Object.defineProperty(exports, "__esModule", { value: true });
 //@ts-ignore
-import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
-import { EVM_TREE_DEPTH } from "../../scripts/lib/constants";
-export default buildModule("L1WarpToadModule", (m) => {
+const modules_1 = require("@nomicfoundation/hardhat-ignition/modules");
+const constants_1 = require("../../scripts/lib/constants");
+exports.default = (0, modules_1.buildModule)("L1WarpToadModule", (m) => {
     const nativeToken = m.getParameter("nativeToken");
     const name = m.getParameter("name");
     const symbol = m.getParameter("symbol");
@@ -18,7 +20,7 @@ export default buildModule("L1WarpToadModule", (m) => {
         value: 0n,
         libraries: {},
     });
-    const L1WarpToad = m.contract("L1WarpToad", [EVM_TREE_DEPTH, withdrawVerifier, nativeToken, name, symbol], {
+    const L1WarpToad = m.contract("L1WarpToad", [constants_1.EVM_TREE_DEPTH, withdrawVerifier, nativeToken, name, symbol], {
         value: 0n,
         libraries: {
             LazyIMT: LazyIMTLib,

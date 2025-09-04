@@ -1,9 +1,11 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
 // initializing more than one contract? use try and catch!
 const hre = require("hardhat");
-import { L1AztecBridgeAdapter__factory, L1ScrollBridgeAdapter__factory, L1WarpToad__factory } from "../../../typechain-types";
+const typechain_types_1 = require("../../../typechain-types");
 //@ts-ignore
-import { createPXEClient, waitForPXE } from "@aztec/aztec.js";
-import { getContractAddressesAztec, getContractAddressesEvm } from "../../dev_op/utils";
+const aztec_js_1 = require("@aztec/aztec.js");
+const utils_1 = require("../../dev_op/utils");
 function getArgs() {
     // if(!Boolean(process.env.NATIVE_TOKEN_ADDRESS) ) { 
     //     throw new Error("NATIVE_TOKEN_ADDRESS not set. do NATIVE_TOKEN_ADDRESS=0xurTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts  --network aztecSandbox")
@@ -21,9 +23,9 @@ async function main() {
     //----PXE and wallet-----
     const { PXE_URL } = getArgs();
     console.log("creating PXE client");
-    const PXE = createPXEClient(PXE_URL);
+    const PXE = (0, aztec_js_1.createPXEClient)(PXE_URL);
     console.log("waiting on PXE client", PXE_URL);
-    await waitForPXE(PXE);
+    await (0, aztec_js_1.waitForPXE)(PXE);
     // const wallets = await getInitialTestAccountsWallets(PXE);
     // const deployWallet = wallets[0]
     const provider = hre.ethers.provider;
@@ -34,18 +36,18 @@ async function main() {
     const chainId = (await provider.getNetwork()).chainId;
     const IS_MAINNET = chainId === 1n;
     const scrollChainId = IS_MAINNET ? 534352n : 534351n;
-    const L1DeployedAddresses = await getContractAddressesEvm(chainId);
-    const L2ScrollDeployedAddresses = await getContractAddressesEvm(scrollChainId);
-    const aztecDeployedAddresses = await getContractAddressesAztec(chainId);
+    const L1DeployedAddresses = await (0, utils_1.getContractAddressesEvm)(chainId);
+    const L2ScrollDeployedAddresses = await (0, utils_1.getContractAddressesEvm)(scrollChainId);
+    const aztecDeployedAddresses = await (0, utils_1.getContractAddressesAztec)(chainId);
     const L1WarpToadAddress = L1DeployedAddresses["L1WarpToadModule#L1WarpToad"];
     const gigaBridgeAddress = L1DeployedAddresses["L1InfraModule#GigaBridge"];
     const L1AztecBridgeAdapterAddress = L1DeployedAddresses["L1InfraModule#L1AztecBridgeAdapter"];
     const L1ScrollBridgeAdapterAddress = L1DeployedAddresses["L1InfraModule#L1ScrollBridgeAdapter"];
     const L2AztecAdapterAddress = aztecDeployedAddresses["L2AztecBridgeAdapter"];
     const L2ScrollBridgeAdapterAddress = L2ScrollDeployedAddresses["L2ScrollModule#L2ScrollBridgeAdapter"];
-    const L1AztecBridgeAdapter = L1AztecBridgeAdapter__factory.connect(L1AztecBridgeAdapterAddress, signer);
-    const L1ScrollBridgeAdapter = L1ScrollBridgeAdapter__factory.connect(L1ScrollBridgeAdapterAddress, signer);
-    const L1WarpToad = L1WarpToad__factory.connect(L1WarpToadAddress, signer);
+    const L1AztecBridgeAdapter = typechain_types_1.L1AztecBridgeAdapter__factory.connect(L1AztecBridgeAdapterAddress, signer);
+    const L1ScrollBridgeAdapter = typechain_types_1.L1ScrollBridgeAdapter__factory.connect(L1ScrollBridgeAdapterAddress, signer);
+    const L1WarpToad = typechain_types_1.L1WarpToad__factory.connect(L1WarpToadAddress, signer);
     const initializationStatus = {};
     //aztec
     try {

@@ -3,8 +3,8 @@
     "outDir": "./dist",
     "rootDir": "./",
     "target": "esnext",
-    "module": "esnext",
-    "moduleResolution": "Node",
+    "module": "NodeNext", 
+    "moduleResolution": "NodeNext",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": false,
@@ -16,17 +16,9 @@
     "allowSyntheticDefaultImports": true,
     "baseUrl": ".",
     "paths": {
-      "*": [
-        "./*"
-      ]
+      "*": ["./*"]
     }
   },
-  "include": [
-    "/**/*"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "target"
-  ]
+  "include": ["/**/*"],
+  "exclude": ["node_modules", "dist", "target"]
 }

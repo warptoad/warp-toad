@@ -1,10 +1,15 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.ObsidionDeployerFPCContractClass = void 0;
+exports.getObsidionDeployerFPCWallet = getObsidionDeployerFPCWallet;
+exports.getObsidionDeployerFPC = getObsidionDeployerFPC;
 //@ts-ignore
-import { AccountManager, AuthWitness, createAztecNodeClient, Fr, getWallet, GrumpkinScalar, Schnorr, } from "@aztec/aztec.js";
+const aztec_js_1 = require("@aztec/aztec.js");
 //@ts-ignore
-import { DefaultAccountContract } from "@aztec/accounts/defaults";
-import { ObsidionDeployerFPCContractArtifact } from "./ObsidionDeployerFPC";
+const defaults_1 = require("@aztec/accounts/defaults");
+const ObsidionDeployerFPC_1 = require("./ObsidionDeployerFPC");
 //@ts-ignore
-import { computePartialAddress } from "@aztec/stdlib/contract";
+const contract_1 = require("@aztec/stdlib/contract");
 /** Creates auth witnesses using Schnorr signatures. */
 class SchnorrAuthWitnessProvider {
     signingPrivateKey;
@@ -12,50 +17,51 @@ class SchnorrAuthWitnessProvider {
         this.signingPrivateKey = signingPrivateKey;
     }
     async createAuthWit(messageHash) {
-        const schnorr = new Schnorr();
+        const schnorr = new aztec_js_1.Schnorr();
         const signature = await schnorr.constructSignature(messageHash.toBuffer(), this.signingPrivateKey);
-        return new AuthWitness(messageHash, [...signature.toBuffer()]);
+        return new aztec_js_1.AuthWitness(messageHash, [...signature.toBuffer()]);
     }
 }
 /**
  * Account contract that authenticates transactions using Schnorr signatures
  * verified against a Grumpkin public key stored in an immutable encrypted note.
  */
-export class ObsidionDeployerFPCContractClass extends DefaultAccountContract {
+class ObsidionDeployerFPCContractClass extends defaults_1.DefaultAccountContract {
     signingPrivateKey;
     constructor(signingPrivateKey) {
         super();
         this.signingPrivateKey = signingPrivateKey;
     }
     async getDeploymentFunctionAndArgs() {
-        const signingPublicKey = await new Schnorr().computePublicKey(this.signingPrivateKey);
+        const signingPublicKey = await new aztec_js_1.Schnorr().computePublicKey(this.signingPrivateKey);
         return {
             constructorName: "constructor",
             constructorArgs: [signingPublicKey.x, signingPublicKey.y],
         };
     }
     getContractArtifact() {
-        return Promise.resolve(ObsidionDeployerFPCContractArtifact);
+        return Promise.resolve(ObsidionDeployerFPC_1.ObsidionDeployerFPCContractArtifact);
     }
     getAuthWitnessProvider(_address) {
         return new SchnorrAuthWitnessProvider(this.signingPrivateKey);
     }
 }
-export function getObsidionDeployerFPCWallet(pxe, address, signingPrivateKey) {
+exports.ObsidionDeployerFPCContractClass = ObsidionDeployerFPCContractClass;
+function getObsidionDeployerFPCWallet(pxe, address, signingPrivateKey) {
     //@ts-ignore
-    return getWallet(pxe, address, new ObsidionDeployerFPCContractClass(signingPrivateKey));
+    return (0, aztec_js_1.getWallet)(pxe, address, new ObsidionDeployerFPCContractClass(signingPrivateKey));
 }
-export async function getObsidionDeployerFPC(pxe, nodeUrl, obsidionDeployerFPCAddress, signingKey, //hex string
+async function getObsidionDeployerFPC(pxe, nodeUrl, obsidionDeployerFPCAddress, signingKey, //hex string
 OBSIDION_DEPLOYER_SECRET_KEY //hex string
 ) {
     let obsidionDeployerFPC;
     try {
-        obsidionDeployerFPC = await getObsidionDeployerFPCWallet(pxe, obsidionDeployerFPCAddress, GrumpkinScalar.fromString(signingKey));
+        obsidionDeployerFPC = await getObsidionDeployerFPCWallet(pxe, obsidionDeployerFPCAddress, aztec_js_1.GrumpkinScalar.fromString(signingKey));
     }
     catch (error) {
         console.log("obsidionDeployerFPCWallet not found in pxe, so fetching from node");
         // in case pxe is no longer the instance that deployed the contract
-        const node = createAztecNodeClient(nodeUrl);
+        const node = (0, aztec_js_1.createAztecNodeClient)(nodeUrl);
         const contract = await node.getContract(obsidionDeployerFPCAddress);
         if (!contract) {
             throw new Error("Contract not found");
@@ -63,13 +69,13 @@ OBSIDION_DEPLOYER_SECRET_KEY //hex string
         //@ts-ignore
         obsidionDeployerFPC = await (
         //@ts-ignore
-        await AccountManager.create(pxe, Fr.fromString(OBSIDION_DEPLOYER_SECRET_KEY), 
+        await aztec_js_1.AccountManager.create(pxe, aztec_js_1.Fr.fromString(OBSIDION_DEPLOYER_SECRET_KEY), 
         //@ts-ignore
-        new ObsidionDeployerFPCContractClass(GrumpkinScalar.fromString(signingKey)), contract.salt)).getWallet();
-        await pxe.registerAccount(Fr.fromString(OBSIDION_DEPLOYER_SECRET_KEY), await computePartialAddress(contract));
+        new ObsidionDeployerFPCContractClass(aztec_js_1.GrumpkinScalar.fromString(signingKey)), contract.salt)).getWallet();
+        await pxe.registerAccount(aztec_js_1.Fr.fromString(OBSIDION_DEPLOYER_SECRET_KEY), await (0, contract_1.computePartialAddress)(contract));
         await pxe.registerContract({
             instance: contract,
-            artifact: ObsidionDeployerFPCContractArtifact,
+            artifact: ObsidionDeployerFPC_1.ObsidionDeployerFPCContractArtifact,
         });
     }
     console.log("obsidionDeployerFPC", obsidionDeployerFPC.getAddress().toString());

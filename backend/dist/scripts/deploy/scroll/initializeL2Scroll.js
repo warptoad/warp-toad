@@ -1,11 +1,13 @@
+"use strict";
+Object.defineProperty(exports, "__esModule", { value: true });
 // initializing more than one contract? use try and catch!
 const hre = require("hardhat");
 // import hre from "hardhat"
-import { ethers } from "ethers";
-import { L2WarpToad__factory } from "../../../typechain-types";
-import { getContractAddressesEvm } from "../../dev_op/utils";
-import { vars } from "hardhat/config.js";
-const SEPOLIA_URL = vars.get("SEPOLIA_URL");
+const ethers_1 = require("ethers");
+const typechain_types_1 = require("../../../typechain-types");
+const utils_1 = require("../../dev_op/utils");
+const config_js_1 = require("hardhat/config.js");
+const SEPOLIA_URL = config_js_1.vars.get("SEPOLIA_URL");
 // function getArgs() {
 //     // if(!Boolean(process.env.NATIVE_TOKEN_ADDRESS) ) { 
 //     //     throw new Error("NATIVE_TOKEN_ADDRESS not set. do NATIVE_TOKEN_ADDRESS=0xurTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts  --network aztecSandbox")
@@ -31,15 +33,15 @@ async function main() {
     if (IS_SCROLL_MAINNET) {
         throw new Error("l1Provider not setup for mainnet TODO");
     }
-    const l1Provider = new ethers.JsonRpcProvider(SEPOLIA_URL);
+    const l1Provider = new ethers_1.ethers.JsonRpcProvider(SEPOLIA_URL);
     const l1ChainId = (await l1Provider.getNetwork()).chainId;
-    const L1DeployedAddresses = await getContractAddressesEvm(l1ChainId);
-    const L2ScrollDeployedAddresses = await getContractAddressesEvm(l2ChainId);
+    const L1DeployedAddresses = await (0, utils_1.getContractAddressesEvm)(l1ChainId);
+    const L2ScrollDeployedAddresses = await (0, utils_1.getContractAddressesEvm)(l2ChainId);
     const L1ScrollBridgeAdapterAddress = L1DeployedAddresses["L1InfraModule#L1ScrollBridgeAdapter"];
     const L2WarpToadAddress = L2ScrollDeployedAddresses["L2ScrollModule#L2WarpToad"];
     const L2ScrollBridgeAdapterAddress = L2ScrollDeployedAddresses["L2ScrollModule#L2ScrollBridgeAdapter"];
     console.log({ L2WarpToadAddress, l2ChainId, L2ScrollDeployedAddresses });
-    const L2WarpToad = L2WarpToad__factory.connect(L2WarpToadAddress, signer);
+    const L2WarpToad = typechain_types_1.L2WarpToad__factory.connect(L2WarpToadAddress, signer);
     const initializationStatus = {};
     //warptoad
     try {

@@ -1,5 +1,5 @@
 import { AztecAddress, type AztecAddressLike, type ContractArtifact, ContractBase, ContractFunctionInteraction, type ContractMethod, type ContractStorageLayout, type ContractNotes, DeployMethod, type FieldLike, type FunctionSelectorLike, PublicKeys, type Wallet } from '@aztec/aztec.js';
-export declare const ObsidionDeployerFPCContractArtifact: any;
+export declare const ObsidionDeployerFPCContractArtifact: ContractArtifact;
 /**
  * Type-safe interface for contract ObsidionDeployerFPC;
  */

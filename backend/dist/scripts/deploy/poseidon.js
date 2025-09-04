@@ -1,15 +1,21 @@
+"use strict";
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.deployPoseidon = deployPoseidon;
 const hre = require("hardhat");
-import poseidonSolidity from 'poseidon-solidity';
-import { poseidon2 } from "poseidon-lite";
-import { ethers } from 'ethers';
-import { PoseidonT3__factory } from '../../typechain-types';
-export async function deployPoseidon() {
+const poseidon_solidity_1 = __importDefault(require("poseidon-solidity"));
+const poseidon_lite_1 = require("poseidon-lite");
+const ethers_1 = require("ethers");
+const typechain_types_1 = require("../../typechain-types");
+async function deployPoseidon() {
     //https://github.com/chancehudson/poseidon-solidity/tree/main?tab=readme-ov-file#deploy
     //readme is wrong using ethers.provider instead of hre.ethers.provider
     const provider = hre.ethers.provider;
     // common js imports struggles
-    const proxy = poseidonSolidity.proxy;
-    const PoseidonT3 = poseidonSolidity.PoseidonT3;
+    const proxy = poseidon_solidity_1.default.proxy;
+    const PoseidonT3 = poseidon_solidity_1.default.PoseidonT3;
     const [sender] = await hre.ethers.getSigners();
     // First check if the proxy exists
     if (await provider.getCode(proxy.address) === '0x') {
@@ -37,12 +43,12 @@ export async function deployPoseidon() {
         console.log(`PoseidonT3 was already deployed at: ${PoseidonT3.address}`);
     }
     const preImg = [1234n, 5678n];
-    const jsHash = poseidon2(preImg);
-    const PoseidonT3Contract = PoseidonT3__factory.connect(PoseidonT3.address, provider);
+    const jsHash = (0, poseidon_lite_1.poseidon2)(preImg);
+    const PoseidonT3Contract = typechain_types_1.PoseidonT3__factory.connect(PoseidonT3.address, provider);
     //@ts-ignore
     const solHash = await PoseidonT3Contract.hash(preImg);
     //@ts-ignore
-    ethers.assert(jsHash === solHash, "whoop hash didn't match something is really wrong!!");
+    ethers_1.ethers.assert(jsHash === solHash, "whoop hash didn't match something is really wrong!!");
     console.log(`PoseidonT3 deployed to: ${PoseidonT3.address}`);
     return PoseidonT3.address;
 }

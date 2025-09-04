@@ -40,11 +40,8 @@ export declare function getSponsoredFPCInstance(): Promise<ContractInstanceWithA
  * @returns
  */
 export declare function getAztecTestWallet(PXE: PXE, chainId: bigint): Promise<{
-    wallet: import("@aztec/aztec.js").AccountWalletWithSecretKey;
+    wallet: import("@aztec/aztec.js", { with: { "resolution-mode": "import" } }).AccountWalletWithSecretKey;
     sponsoredPaymentMethod: SponsoredFeePaymentMethod;
-} | {
-    wallet: any;
-    sponsoredPaymentMethod: any;
 }>;
 export declare function checkFileExists(filePath: string): Promise<boolean>;
 export declare function promptBool(question: string): Promise<boolean>;
