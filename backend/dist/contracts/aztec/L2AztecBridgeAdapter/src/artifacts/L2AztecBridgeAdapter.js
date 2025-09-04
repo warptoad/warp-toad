@@ -7,6 +7,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.L2AztecBridgeAdapterContract = exports.L2AztecBridgeAdapterContractArtifact = void 0;
 /* eslint-disable */
 const aztec_js_1 = require("@aztec/aztec.js");
+//@ts-ignore
 const L2AztecBridgeAdapter_L2AztecBridgeAdapter_json_1 = __importDefault(require("../../target/L2AztecBridgeAdapter-L2AztecBridgeAdapter.json"));
 exports.L2AztecBridgeAdapterContractArtifact = (0, aztec_js_1.loadContractArtifact)(L2AztecBridgeAdapter_L2AztecBridgeAdapter_json_1.default);
 /**

@@ -7,6 +7,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.WarpToadCoreContract = exports.WarpToadCoreContractArtifact = void 0;
 /* eslint-disable */
 const aztec_js_1 = require("@aztec/aztec.js");
+//@ts-ignore
 const WarpToadCore_WarpToadCore_json_1 = __importDefault(require("../../target/WarpToadCore-WarpToadCore.json"));
 exports.WarpToadCoreContractArtifact = (0, aztec_js_1.loadContractArtifact)(WarpToadCore_WarpToadCore_json_1.default);
 /**

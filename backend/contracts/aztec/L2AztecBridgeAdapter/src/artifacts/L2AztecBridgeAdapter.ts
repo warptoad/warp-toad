@@ -34,7 +34,8 @@ import {
   type U128Like,
   type WrappedFieldLike,
 } from '@aztec/aztec.js';
-import L2AztecBridgeAdapterContractArtifactJson from '../../target/L2AztecBridgeAdapter-L2AztecBridgeAdapter.json' ;
+//@ts-ignore
+import L2AztecBridgeAdapterContractArtifactJson from '../../target/L2AztecBridgeAdapter-L2AztecBridgeAdapter.json' with {type:"json"};
 export const L2AztecBridgeAdapterContractArtifact = loadContractArtifact(L2AztecBridgeAdapterContractArtifactJson as NoirCompiledContract);
 
 

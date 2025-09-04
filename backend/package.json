@@ -1,9 +1,11 @@
 {
-"main": "./dist/index.js",
+  "main": "./dist/index.js",
   "esbuildOptions": {
     "target": "esnext"
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "exports": {
     ".": {
       "import": {
@@ -13,6 +15,36 @@
       "require": {
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
+      }
+    },
+    "./aztec/L2AztecBridgeAdapter": {
+      "import": {
+        "types": "./dist/contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.d.ts",
+        "default": "./dist/contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.js"
+      },
+      "require": {
+        "types": "./dist/contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.d.ts",
+        "default": "./dist/contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.js"
+      }
+    },
+    "./aztec/WarpToadCore": {
+      "import": {
+        "types": "./dist/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore.d.ts",
+        "default": "./dist/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore.js"
+      },
+      "require": {
+        "types": "./dist/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore.d.ts",
+        "default": "./dist/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore.js"
+      }
+    },
+    "./ethers/typechain-types": {
+      "import": {
+        "types": "./dist/typechain-types/index.js.d.ts",
+        "default": "./dist/typechain-types/index.js"
+      },
+      "require": {
+        "types": "./dist/typechain-types/index.js.d.ts",
+        "default": "./dist/typechain-types/index.js"
       }
     },
     "./bridging": {
@@ -68,7 +100,7 @@
   },
   "name": "warp-toad-old-backend",
   "private": false,
-  "version": "1.0.11",
+  "version": "1.0.12",
   "repository": "https://github.com/warptoad/warp-toad/tree/backend-npm-package/backend",
   "author": "Jim Jim Valkema",
   "license": "MIT",
