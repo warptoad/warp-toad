@@ -6,31 +6,31 @@
     "./bridging": {
       "import": {
         "types": "./dist/scripts/lib/bridging.d.ts",
-        "default": "./dist/scripts/bridging.js"
+        "default": "./dist/scripts/lib/bridging.js"
       }
     },
     "./constants": {
       "import": {
         "types": "./dist/scripts/lib/constants.d.ts",
-        "default": "./dist/scripts/constants.js"
+        "default": "./dist/scripts/lib/constants.js"
       }
     },
     "./hashing": {
       "import": {
         "types": "./dist/scripts/lib/hashing.d.ts",
-        "default": "./dist/scripts/hashing.js"
+        "default": "./dist/scripts/lib/hashing.js"
       }
     },
     "./proving": {
       "import": {
         "types": "./dist/scripts/lib/proving.d.ts",
-        "default": "./dist/scripts/proving.js"
+        "default": "./dist/scripts/lib/proving.js"
       }
     },
     "./types": {
       "import": {
         "types": "./dist/scripts/lib/types.d.ts",
-        "default": "./dist/scripts/types.js"
+        "default": "./dist/scripts/lib/types.js"
       }
     }
   },
