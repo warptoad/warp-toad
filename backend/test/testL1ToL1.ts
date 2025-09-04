@@ -20,7 +20,7 @@ import { WarpToadCoreContractArtifact, WarpToadCoreContract as AztecWarpToadCore
 import { AztecMerkleData } from "../scripts/lib/types";
 import { ethers } from "ethers";
 import { hashNoteHashNonce, hashPreCommitment } from "../scripts/lib/hashing";
-import { calculateFeeFactor, createProof, generateNoirTest, getAztecNoteHashTreeRoot, getProofInputs } from "../scripts/lib/proving";
+import { calculateFeeFactor, createProof, generateNoirTest, getAztecNoteHashTreeRoot, getProofInputs } from "../scripts/lib/proving"//"warp-toad-old-backend/proving"//"../scripts/lib/proving";
 import { EVM_TREE_DEPTH, gasCostPerChain } from "../scripts/lib/constants";
 import { WarpToadCore as WarpToadEvm, USDcoin, PoseidonT3, LazyIMT, L1AztecBridgeAdapter, GigaBridge, L1WarpToad, WithdrawVerifier__factory } from "../typechain-types";
 

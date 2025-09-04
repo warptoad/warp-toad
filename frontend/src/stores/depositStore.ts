@@ -9,8 +9,10 @@ import { WarpToadCoreContractArtifact } from '../../../backend/contracts/aztec/W
 import { poseidon2, poseidon3 } from 'poseidon-lite';
 import { getMerkleData } from "./utils/proving";
 import { GigaBridge__factory, L1WarpToad__factory, type L1WarpToad, } from '../../../backend/typechain-types'; //TODO remove hardcode and add cleaner logic after hackathon
-import deployedEvmAddressesSandbox from "../../../backend/ignition/deployments/chain-31337/deployed_addresses.json"
-import deployedEvmAddressesTestnet from "../../../backend/ignition/deployments/chain-11155111/deployed_addresses.json"
+//@ts-ignore
+import deployedEvmAddressesSandbox from "../../../backend/ignition/deployments/chain-31337/deployed_addresses.json"  with { type: 'json' }
+//@ts-ignore
+import deployedEvmAddressesTestnet from "../../../backend/ignition/deployments/chain-11155111/deployed_addresses.json"  with { type: 'json' }
 import type { WarpToadCore as WarpToadEvm } from "../../../backend/typechain-types";
 import { WarpToadCoreContract as WarpToadAztec } from '../../../backend/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';

@@ -5,15 +5,19 @@ import { usdcAbi } from '../lib/tokens/usdcAbi';
 import { TOKEN_LIST } from '../lib/tokens/tokens';
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
 import { createPXEClient, waitForPXE, type PXE, type Wallet, GrumpkinScalar, SponsoredFeePaymentMethod, Fr, type ContractInstanceWithAddress, createAztecNodeClient, AztecAddress } from '@aztec/aztec.js';
-import deployedEvmAddressesSandbox from "../../../backend/ignition/deployments/chain-31337/deployed_addresses.json"
-import deployedEvmAddressesTestnet from "../../../backend/ignition/deployments/chain-11155111/deployed_addresses.json"
+//@ts-ignore
+import deployedEvmAddressesSandbox from "../../../backend/ignition/deployments/chain-31337/deployed_addresses.json"  with { type: 'json' }
+//@ts-ignore
+import deployedEvmAddressesTestnet from "../../../backend/ignition/deployments/chain-11155111/deployed_addresses.json"  with { type: 'json' }
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { getSchnorrAccount } from "@aztec/accounts/schnorr";
 import { deriveSigningKey } from "@aztec/stdlib/keys";
 import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
 import { getContractInstanceFromDeployParams } from '@aztec/aztec.js/contracts';
-import contractsJsonSandbox from "../../../backend/scripts/deploy/aztecDeployments/31337/deployed_addresses.json";
-import contractsJsonTestnet from "../../../backend/scripts/deploy/aztecDeployments/11155111//deployed_addresses.json";
+//@ts-ignore
+import contractsJsonSandbox from "../../../backend/scripts/deploy/aztecDeployments/31337/deployed_addresses.json"  with { type: 'json' }
+//@ts-ignore
+import contractsJsonTestnet from "../../../backend/scripts/deploy/aztecDeployments/11155111//deployed_addresses.json"  with { type: 'json' }
 import { WarpToadCoreContractArtifact } from '../../../backend/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore';
 import { L2AztecBridgeAdapterContractArtifact } from '../../../backend/contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter';
 

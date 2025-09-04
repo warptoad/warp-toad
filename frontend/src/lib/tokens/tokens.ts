@@ -1,5 +1,7 @@
-import deployedEvmAddressesSandbox from "../../../../backend/ignition/deployments/chain-31337/deployed_addresses.json"
-import deployedEvmAddressesTestnet from "../../../../backend/ignition/deployments/chain-11155111/deployed_addresses.json"
+//@ts-ignore
+import deployedEvmAddressesSandbox from "../../../../backend/ignition/deployments/chain-31337/deployed_addresses.json"  with { type: 'json' } 
+//@ts-ignore
+import deployedEvmAddressesTestnet from "../../../../backend/ignition/deployments/chain-11155111/deployed_addresses.json"  with { type: 'json' }
 
 const deployedEvmAddresses = import.meta.env.VITE_SANDBOX=== 'true'?deployedEvmAddressesSandbox:deployedEvmAddressesTestnet;
 
