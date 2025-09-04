@@ -20,13 +20,13 @@ import { WarpToadCoreContractArtifact, WarpToadCoreContract as AztecWarpToadCore
 import { AztecMerkleData } from "../scripts/lib/types";
 import { ethers } from "ethers";
 import { hashCommitment, hashNoteHashNonce, hashPreCommitment } from "../scripts/lib/hashing";
-import { calculateFeeFactor, createProof, generateNoirTest, getAztecNoteHashTreeRoot, getMerkleData, getProofInputs } from "../scripts/lib/proving";
+import { calculateFeeFactor, createProof, generateNoirTest, getAztecNoteHashTreeRoot, getMerkleData, getProofInputs } from "warp-toad-old-backend/proving";
 import { EVM_TREE_DEPTH, gasCostPerChain } from "../scripts/lib/constants";
 import { WarpToadCore as WarpToadEvm, USDcoin, PoseidonT3, LazyIMT, L1AztecBridgeAdapter, GigaBridge, L1WarpToad } from "../typechain-types";
 
 import { L2AztecBridgeAdapterContractArtifact, L2AztecBridgeAdapterContract } from '../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter'
 
-import { GIGA_TREE_DEPTH } from "../scripts/lib/constants";
+import { GIGA_TREE_DEPTH } from "warp-toad-old-backend/constants"//"../scripts/lib/constants";
 
 import os from 'os';
 
