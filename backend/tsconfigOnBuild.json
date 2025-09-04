@@ -2,9 +2,9 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./",
-    "target": "es2022",
-    "module": "Node18",
-    "moduleResolution": "node16",
+    "target": "esnext",
+    "module": "esnext",
+    "moduleResolution": "bundler",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": true,

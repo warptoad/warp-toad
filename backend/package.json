@@ -5,36 +5,35 @@
   "exports": {
     "./bridging": {
       "import": {
-        "types": "./dist/lib/bridging.d.ts",
-        "default": "./dist/bridging.js"
+        "types": "./dist/scripts/lib/bridging.d.ts",
+        "default": "./dist/scripts/bridging.js"
       }
     },
     "./constants": {
       "import": {
-        "types": "./dist/lib/constants.d.ts",
-        "default": "./dist/constants.js"
+        "types": "./dist/scripts/lib/constants.d.ts",
+        "default": "./dist/scripts/constants.js"
       }
     },
     "./hashing": {
       "import": {
-        "types": "./dist/lib/hashing.d.ts",
-        "default": "./dist/hashing.js"
+        "types": "./dist/scripts/lib/hashing.d.ts",
+        "default": "./dist/scripts/hashing.js"
       }
     },
     "./proving": {
       "import": {
-        "types": "./dist/lib/proving.d.ts",
-        "default": "./dist/proving.js"
+        "types": "./dist/scripts/lib/proving.d.ts",
+        "default": "./dist/scripts/proving.js"
       }
     },
     "./types": {
       "import": {
-        "types": "./dist/lib/types.d.ts",
-        "default": "./dist/types.js"
+        "types": "./dist/scripts/lib/types.d.ts",
+        "default": "./dist/scripts/types.js"
       }
     }
   },
-  "type": "module",
   "name": "warp-toad-old-backend",
   "private": false,
   "version": "1.0.5",
@@ -42,7 +41,7 @@
   "author": "Jim Jim Valkema",
   "license": "MIT",
   "scripts": {
-    "build": "yarn tsc --build tsconfig.json"
+    "build": "yarn tsc --build tsconfigOnBuild.json"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",
