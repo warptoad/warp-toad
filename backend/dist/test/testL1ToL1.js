@@ -10,7 +10,7 @@ import { Contract } from "@aztec/aztec.js";
 import { WarpToadCoreContractArtifact } from '../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore';
 import { ethers } from "ethers";
 import { hashPreCommitment } from "../scripts/lib/hashing";
-import { calculateFeeFactor, createProof, getProofInputs } from "../scripts/lib/proving";
+import { calculateFeeFactor, createProof, getProofInputs } from "../scripts/lib/proving"; //"warp-toad-old-backend/proving"//"../scripts/lib/proving";
 import { EVM_TREE_DEPTH, gasCostPerChain } from "../scripts/lib/constants";
 import { WithdrawVerifier__factory } from "../typechain-types";
 import { L2AztecBridgeAdapterContractArtifact } from '../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter';

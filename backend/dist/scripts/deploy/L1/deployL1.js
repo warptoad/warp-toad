@@ -5,7 +5,8 @@ import { deployPoseidon } from "../poseidon";
 import L1WarpToadModule from "../../../ignition/modules/L1WarpToad";
 import L1InfraModule from "../../../ignition/modules/L1Infra";
 import { readFile } from 'fs/promises';
-import er20Abi from "../../dev_op/erc20ABI.json";
+//@ts-ignore
+import er20Abi from "../../dev_op/erc20ABI.json" with { type: 'json' };
 import { L1_SCROLL_MESSENGER_MAINNET, L1_SCROLL_MESSENGER_SEPOLIA } from "../../lib/constants";
 import fs from "fs/promises";
 import { checkFileExists, getContractAddressesEvm, getEvmDeployedAddressesFilePath, getEvmDeployedAddressesFolderPath, promptBool } from "../../dev_op/utils";

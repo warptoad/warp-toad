@@ -3,7 +3,8 @@ import hre from "hardhat";
 import { ethers } from "ethers";
 import { deployPoseidon } from "../poseidon";
 import L2Scroll from "../../../ignition/modules/L2Scroll";
-import er20Abi from "../../dev_op/erc20ABI.json";
+//@ts-ignore
+import er20Abi from "../../dev_op/erc20ABI.json" with { type: 'json' };
 import { checkFileExists, getContractAddressesEvm, getEvmDeployedAddressesFilePath, getEvmDeployedAddressesFolderPath, promptBool } from "../../dev_op/utils";
 import { readFile } from 'fs/promises';
 import fs from 'fs/promises';

@@ -3,7 +3,8 @@ import { UltraPlonkBackend } from "@aztec/bb.js";
 // @ts-ignore
 import { Noir } from "@noir-lang/noir_js";
 import os from 'os';
-import circuit from "../../circuits/withdraw/target/withdraw.json";
+//@ts-ignore
+import circuit from "../../circuits/withdraw/target/withdraw.json" with { type: 'json' };
 import { WarpToadCoreContract as WarpToadAztec } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore';
 import { ethers } from "ethers";
 import { MerkleTree } from "fixed-merkle-tree";

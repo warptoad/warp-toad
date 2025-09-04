@@ -3,7 +3,8 @@ import { createPXEClient, waitForPXE } from "@aztec/aztec.js";
 import fs from "fs/promises";
 import { ethers } from "ethers";
 import { deployAztecWarpToad } from "./aztecToadWarp";
-import er20Abi from "../../dev_op/erc20ABI.json";
+//@ts-ignore
+import er20Abi from "../../dev_op/erc20ABI.json" with { type: 'json' };
 import { deployL2AztecBridgeAdapter } from "./L2AztecBridgeAdapter";
 import hre from "hardhat";
 import { checkFileExists, getAztecDeployedAddressesFilePath, getAztecDeployedAddressesFolderPath, getContractAddressesEvm, promptBool } from "../../dev_op/utils";
