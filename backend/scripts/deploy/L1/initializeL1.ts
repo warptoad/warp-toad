@@ -8,8 +8,8 @@ import L1WarpToadModule from "../../../ignition/modules/L1WarpToad"
 import L1InfraModule from "../../../ignition/modules/L1Infra"
 
 import { ERC20__factory, L1AztecBridgeAdapter__factory, L1ScrollBridgeAdapter__factory, L1WarpToad__factory, USDcoin__factory } from "../../../typechain-types";
-
-import er20Abi from "../../dev_op/erc20ABI.json"
+//@ts-ignore
+import er20Abi from "../../dev_op/erc20ABI.json"  with { type: 'json' }
 //@ts-ignore
 import { createPXEClient, waitForPXE } from "@aztec/aztec.js";
 //@ts-ignore

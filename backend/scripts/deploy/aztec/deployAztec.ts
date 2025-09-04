@@ -14,7 +14,8 @@ import { fileURLToPath } from 'url';
 import { USDcoin } from '../../../typechain-types';
 import { ethers } from "ethers";
 import { deployAztecWarpToad } from "./aztecToadWarp";
-import er20Abi from "../../dev_op/erc20ABI.json"
+//@ts-ignore
+import er20Abi from "../../dev_op/erc20ABI.json"  with { type: 'json' } 
 import { deployL2AztecBridgeAdapter } from "./L2AztecBridgeAdapter";
 
 import hre, { network } from "hardhat"
