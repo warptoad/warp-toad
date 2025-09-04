@@ -13,12 +13,11 @@ import { sha256ToField } from "@aztec/foundation/crypto";
 //misc
 import os from 'os';
 
-//@jimjim TODO
-import { WarpToadCoreContractArtifact, WarpToadCoreContract as AztecWarpToadCore } from '../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
-import { L2AztecBridgeAdapterContractArtifact, L2AztecBridgeAdapterContract } from '../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter'
-import { WarpToadCore as WarpToadEvm, USDcoin, PoseidonT3, LazyIMT, L1AztecBridgeAdapter, GigaBridge, L1WarpToad, WithdrawVerifier__factory } from "../typechain-types";
 
 // @danish look npm lib yay!
+import { WarpToadCoreContractArtifact, WarpToadCoreContract as AztecWarpToadCore } from "warp-toad-old-backend/aztec/WarpToadCore" //'../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
+import { L2AztecBridgeAdapterContractArtifact, L2AztecBridgeAdapterContract } from "warp-toad-old-backend/aztec/L2AztecBridgeAdapter"//'../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter'
+import {USDcoin, PoseidonT3, LazyIMT, L1AztecBridgeAdapter, GigaBridge} from "warp-toad-old-backend/ethers/typechain-types"//"../typechain-types";
 import { GIGA_TREE_DEPTH } from "warp-toad-old-backend/constants"//"../scripts/lib/constants";
 import { EVM_TREE_DEPTH, gasCostPerChain } from "warp-toad-old-backend/constants";
 import { hashCommitment, hashPreCommitment, hashNoteHashNonce } from "warp-toad-old-backend/hashing";
