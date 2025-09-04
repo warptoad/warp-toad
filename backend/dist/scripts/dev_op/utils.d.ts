@@ -13,7 +13,7 @@ export declare function getEvmDeployedAddressesFolderPath(chainId: bigint): stri
 export declare function getEvmDeployedAddressesFilePath(chainId: bigint): string;
 export declare function getContractAddressesAztec(chainId: bigint): Promise<any>;
 export declare function getContractAddressesEvm(chainId: bigint): Promise<any>;
-export declare function getL1Adapter(l2ChainId: bigint, isAztec: boolean | undefined, signer: ethers.Signer, allL1Contracts: any): L1Adapter;
+export declare function getL1Adapter(l2ChainId: bigint, isAztec: boolean, signer: ethers.Signer, allL1Contracts: any): L1Adapter;
 export declare function getL1Contracts(l1ChainId: bigint, l2ChainId: bigint, signer: ethers.Signer, isAztec?: boolean): Promise<{
     L1Adapter: L1Adapter;
     gigaBridge: import("../../typechain-types").GigaBridge;
@@ -43,8 +43,8 @@ export declare function getAztecTestWallet(PXE: PXE, chainId: bigint): Promise<{
     wallet: import("@aztec/aztec.js").AccountWalletWithSecretKey;
     sponsoredPaymentMethod: SponsoredFeePaymentMethod;
 } | {
-    wallet: import("@aztec/aztec.js").AccountWalletWithSecretKey;
-    sponsoredPaymentMethod: undefined;
+    wallet: any;
+    sponsoredPaymentMethod: any;
 }>;
 export declare function checkFileExists(filePath: string): Promise<boolean>;
 export declare function promptBool(question: string): Promise<boolean>;

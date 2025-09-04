@@ -1,5 +1,5 @@
 import { type AbiType, AztecAddress, type AztecAddressLike, type ContractArtifact, ContractBase, ContractFunctionInteraction, type ContractMethod, type ContractStorageLayout, type ContractNotes, DeployMethod, type EthAddressLike, EventSelector, type FieldLike, PublicKeys, type Wallet } from '@aztec/aztec.js';
-export declare const WarpToadCoreContractArtifact: ContractArtifact;
+export declare const WarpToadCoreContractArtifact: any;
 export type Transfer = {
     from: AztecAddressLike;
     to: AztecAddressLike;

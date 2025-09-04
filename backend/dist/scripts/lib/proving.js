@@ -1,3 +1,4 @@
+// @ts-ignore
 import { UltraPlonkBackend } from "@aztec/bb.js";
 // @ts-ignore
 import { Noir } from "@noir-lang/noir_js";

@@ -3,7 +3,7 @@ import { UltraHonkBackend, UltraPlonkBackend } from "@aztec/bb.js";
 // @ts-ignore
 import { CompiledCircuit, Noir, InputMap } from "@noir-lang/noir_js";
 import os from 'os';
-import circuit from "../../circuits/withdraw/target/withdraw.json"
+import circuit from "../../circuits/withdraw/target/withdraw.json" 
 import { ProofData } from "@aztec/bb.js";
 
 import { GigaBridge, WarpToadCore as WarpToadEvm } from "../../typechain-types";

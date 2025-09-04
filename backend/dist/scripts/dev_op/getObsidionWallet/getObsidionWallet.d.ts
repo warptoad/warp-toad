@@ -1,4 +1,4 @@
-import { AccountWallet, AuthWitnessProvider, AztecAddress, CompleteAddress, ContractArtifact, Fr, GrumpkinScalar, PXE } from "@aztec/aztec.js";
+import { AccountWallet, AuthWitnessProvider, AztecAddress, CompleteAddress, ContractArtifact, GrumpkinScalar, PXE } from "@aztec/aztec.js";
 import { DefaultAccountContract } from "@aztec/accounts/defaults";
 /**
  * Account contract that authenticates transactions using Schnorr signatures
@@ -9,11 +9,11 @@ export declare class ObsidionDeployerFPCContractClass extends DefaultAccountCont
     constructor(signingPrivateKey: GrumpkinScalar);
     getDeploymentFunctionAndArgs(): Promise<{
         constructorName: string;
-        constructorArgs: Fr[];
+        constructorArgs: any[];
     }>;
     getContractArtifact(): Promise<ContractArtifact>;
     getAuthWitnessProvider(_address: CompleteAddress): AuthWitnessProvider;
 }
 export declare function getObsidionDeployerFPCWallet(pxe: PXE, address: AztecAddress, signingPrivateKey: GrumpkinScalar): Promise<AccountWallet>;
 export declare function getObsidionDeployerFPC(pxe: PXE, nodeUrl: string, obsidionDeployerFPCAddress: AztecAddress, signingKey: string, //hex string
-OBSIDION_DEPLOYER_SECRET_KEY: string): Promise<AccountWallet>;
+OBSIDION_DEPLOYER_SECRET_KEY: string): Promise<any>;

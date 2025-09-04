@@ -1,5 +1,5 @@
 import { AztecAddress, type AztecAddressLike, type ContractArtifact, ContractBase, ContractFunctionInteraction, type ContractMethod, type ContractStorageLayout, type ContractNotes, DeployMethod, type EthAddressLike, type FieldLike, PublicKeys, type Wallet } from '@aztec/aztec.js';
-export declare const L2AztecBridgeAdapterContractArtifact: ContractArtifact;
+export declare const L2AztecBridgeAdapterContractArtifact: any;
 /**
  * Type-safe interface for contract L2AztecBridgeAdapter;
  */

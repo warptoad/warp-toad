@@ -42,6 +42,7 @@ export class ObsidionDeployerFPCContractClass extends DefaultAccountContract {
     }
 }
 export function getObsidionDeployerFPCWallet(pxe, address, signingPrivateKey) {
+    //@ts-ignore
     return getWallet(pxe, address, new ObsidionDeployerFPCContractClass(signingPrivateKey));
 }
 export async function getObsidionDeployerFPC(pxe, nodeUrl, obsidionDeployerFPCAddress, signingKey, //hex string
@@ -59,7 +60,12 @@ OBSIDION_DEPLOYER_SECRET_KEY //hex string
         if (!contract) {
             throw new Error("Contract not found");
         }
-        obsidionDeployerFPC = await (await AccountManager.create(pxe, Fr.fromString(OBSIDION_DEPLOYER_SECRET_KEY), new ObsidionDeployerFPCContractClass(GrumpkinScalar.fromString(signingKey)), contract.salt)).getWallet();
+        //@ts-ignore
+        obsidionDeployerFPC = await (
+        //@ts-ignore
+        await AccountManager.create(pxe, Fr.fromString(OBSIDION_DEPLOYER_SECRET_KEY), 
+        //@ts-ignore
+        new ObsidionDeployerFPCContractClass(GrumpkinScalar.fromString(signingKey)), contract.salt)).getWallet();
         await pxe.registerAccount(Fr.fromString(OBSIDION_DEPLOYER_SECRET_KEY), await computePartialAddress(contract));
         await pxe.registerContract({
             instance: contract,

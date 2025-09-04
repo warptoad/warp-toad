@@ -1,4 +1,4 @@
-import { Fr, PXE, SponsoredFeePaymentMethod, FieldsOf, TxReceipt } from "@aztec/aztec.js";
+import { PXE, SponsoredFeePaymentMethod } from "@aztec/aztec.js";
 import { ethers } from "ethers";
 import { L1AztecBridgeAdapter, GigaBridge, L2ScrollBridgeAdapter, L1ScrollBridgeAdapter, L2WarpToad as L2WarpToadEVM } from "../../typechain-types";
 import { L2AztecBridgeAdapterContract } from '../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter';
@@ -32,10 +32,7 @@ export declare function bridgeAZTECLocalRootToL1(PXE: PXE, L2AztecBridgeAdapter:
 }>;
 export declare function bridgeLocalRootToL1(l1Wallet: ethers.Signer, gigaBridge: GigaBridge, L1Adapter: L1Adapter, L2Adapter: L2Adapter, isAztec?: boolean, PXE?: PXE, sponsoredPaymentMethodAZTEC?: SponsoredFeePaymentMethod): Promise<{
     sendRootToL1Tx: FieldsOf<TxReceipt>;
-    sendRootToL1TxHash: import("@aztec/aztec.js").TxHash;
-} | {
-    sendRootToL1Tx: ethers.TransactionReceipt;
-    sendRootToL1TxHash: string;
+    sendRootToL1TxHash: any;
 }>;
 /**
  * happens after bridgeNoteHashTreeRoot()
@@ -83,16 +80,8 @@ export declare function parseEventFromTx(tx: ethers.TransactionReceipt, contract
 export declare function receiveGigaRootOnEvmL2(L2Adapter: L2ScrollBridgeAdapter, gigaRootSent: bigint): Promise<ethers.TransactionResponse>;
 export declare function receiveGigaRootOnL2(L1Adapter: L1Adapter, L2Adapter: L2Adapter, L2WarpToad: L2WarpToad, sendGigaRootTx: ethers.TransactionReceipt, gigaRootSent?: bigint, isAztec?: boolean, isSandBox?: boolean, PXE?: PXE, sponsoredPaymentMethod?: SponsoredFeePaymentMethod): Promise<{
     receiveGigaRootTx: FieldsOf<TxReceipt>;
-    receiveGigaRootTxHash: Fr;
+    receiveGigaRootTxHash: any;
     gigaRootOnL2: any;
-} | {
-    receiveGigaRootTx: ethers.TransactionResponse;
-    receiveGigaRootTxHash: string;
-    gigaRootOnL2: bigint;
-} | {
-    receiveGigaRootTx: undefined;
-    receiveGigaRootTxHash: undefined;
-    gigaRootOnL2: bigint | undefined;
 }>;
 export declare function parseMultipleEventsFromTx(tx: ethers.TransactionReceipt, contract: ethers.Contract | any, eventName: string): any[];
 /**
@@ -113,16 +102,16 @@ export declare function bridgeBetweenL1AndL2(l1Wallet: ethers.Signer, L1Adapter:
     sponsoredPaymentMethod?: SponsoredFeePaymentMethod;
 }): Promise<{
     txObjects: {
-        sendRootToL1Tx: ethers.TransactionReceipt | FieldsOf<TxReceipt>;
+        sendRootToL1Tx: FieldsOf<TxReceipt>;
         gigaRootUpdateTx: ethers.ContractTransactionReceipt;
         sendGigaRootTx: ethers.ContractTransactionReceipt;
-        receiveGigaRootTx: ethers.TransactionResponse | FieldsOf<TxReceipt> | undefined;
+        receiveGigaRootTx: FieldsOf<TxReceipt>;
     };
     txHashes: {
-        sendRootToL1TxHash: string | import("@aztec/aztec.js").TxHash;
+        sendRootToL1TxHash: any;
         gigaRootUpdateTxHash: string;
         sendGigaRootTxHash: string;
-        receiveGigaRootTxHash: string | Fr | undefined;
+        receiveGigaRootTxHash: any;
     };
     roots: {
         gigaRootSent: any;

@@ -53,15 +53,15 @@ export function getObsidionDeployerFPCWallet(
   address: AztecAddress,
   signingPrivateKey: GrumpkinScalar,
 ): Promise<AccountWallet> {
-
+  //@ts-ignore
   return getWallet(pxe, address, new ObsidionDeployerFPCContractClass(signingPrivateKey))
 }
 export async function getObsidionDeployerFPC(
-  pxe: PXE, 
+  pxe: PXE,
   nodeUrl: string,
-  obsidionDeployerFPCAddress:AztecAddress,
-  signingKey:string,                  //hex string
-  OBSIDION_DEPLOYER_SECRET_KEY:string //hex string
+  obsidionDeployerFPCAddress: AztecAddress,
+  signingKey: string,                  //hex string
+  OBSIDION_DEPLOYER_SECRET_KEY: string //hex string
 ) {
 
   let obsidionDeployerFPC
@@ -80,10 +80,13 @@ export async function getObsidionDeployerFPC(
     if (!contract) {
       throw new Error("Contract not found")
     }
+    //@ts-ignore
     obsidionDeployerFPC = await (
+      //@ts-ignore
       await AccountManager.create(
         pxe,
         Fr.fromString(OBSIDION_DEPLOYER_SECRET_KEY),
+        //@ts-ignore
         new ObsidionDeployerFPCContractClass(GrumpkinScalar.fromString(signingKey)),
         contract.salt,
       )

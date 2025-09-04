@@ -5,7 +5,7 @@ import { ethers } from "ethers";
 import { PXE } from "@aztec/aztec.js";
 import { ProofInputs, EvmMerkleData, AztecMerkleData } from "./types";
 export declare function connectPXE(): Promise<{
-    wallets: import("@aztec/aztec.js").AccountWalletWithSecretKey[];
+    wallets: any;
     PXE: PXE;
 }>;
 /**
@@ -35,7 +35,7 @@ export declare function getL1BridgeAdapterAztec(WarpToad: WarpToadAztec): Promis
 export declare function getAztecMerkleData(WarpToad: WarpToadAztec, commitment: bigint, destinationLocalRootBlock: number): Promise<AztecMerkleData>;
 export declare function getMerkleData(gigaBridge: GigaBridge, warpToadOrigin: WarpToadEvm | WarpToadAztec, warpToadDestination: WarpToadEvm | WarpToadAztec, commitment: bigint): Promise<{
     isFromAztec: boolean;
-    gigaMerkleData: EvmMerkleData;
+    gigaMerkleData: any;
     evmMerkleData: EvmMerkleData;
     aztecMerkleData: AztecMerkleData;
     originLocalRoot: any;
