@@ -100,7 +100,7 @@
   },
   "name": "warp-toad-old-backend",
   "private": false,
-  "version": "1.0.12",
+  "version": "1.0.13",
   "repository": "https://github.com/warptoad/warp-toad/tree/backend-npm-package/backend",
   "author": "Jim Jim Valkema",
   "license": "MIT",
