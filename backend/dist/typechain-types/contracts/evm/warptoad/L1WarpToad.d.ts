@@ -1,0 +1,378 @@
+import type { BaseContract, BigNumberish, BytesLike, FunctionFragment, Result, Interface, EventFragment, AddressLike, ContractRunner, ContractMethod, Listener } from "ethers";
+import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, TypedLogDescription, TypedListener, TypedContractMethod } from "../../../common";
+export interface L1WarpToadInterface extends Interface {
+    getFunction(nameOrSignature: "_formatPublicInputs" | "allowance" | "approve" | "balanceOf" | "burn" | "cachedLocalRoot" | "commitTreeData" | "decimals" | "getLocalRootAndBlock" | "gigaRoot" | "gigaRootHistory" | "gigaRootProvider" | "initialize" | "isValidGigaRoot" | "isValidLocalRoot" | "l1BridgeAdapter" | "lastLeafIndex" | "localRoot" | "localRootHistory" | "maxTreeDepth" | "mint" | "name" | "nativeToken" | "receiveGigaRoot" | "storeLocalRootInHistory" | "symbol" | "totalSupply" | "transfer" | "transferFrom" | "unwrap" | "withdrawVerifier" | "wrap"): FunctionFragment;
+    getEvent(nameOrSignatureOrTopic: "Approval" | "Burn" | "Transfer"): EventFragment;
+    encodeFunctionData(functionFragment: "_formatPublicInputs", values: [
+        BigNumberish,
+        BigNumberish,
+        BigNumberish,
+        BigNumberish,
+        BigNumberish,
+        BigNumberish,
+        BigNumberish,
+        BigNumberish,
+        AddressLike,
+        AddressLike
+    ]): string;
+    encodeFunctionData(functionFragment: "allowance", values: [AddressLike, AddressLike]): string;
+    encodeFunctionData(functionFragment: "approve", values: [AddressLike, BigNumberish]): string;
+    encodeFunctionData(functionFragment: "balanceOf", values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: "burn", values: [BigNumberish, BigNumberish]): string;
+    encodeFunctionData(functionFragment: "cachedLocalRoot", values?: undefined): string;
+    encodeFunctionData(functionFragment: "commitTreeData", values?: undefined): string;
+    encodeFunctionData(functionFragment: "decimals", values?: undefined): string;
+    encodeFunctionData(functionFragment: "getLocalRootAndBlock", values?: undefined): string;
+    encodeFunctionData(functionFragment: "gigaRoot", values?: undefined): string;
+    encodeFunctionData(functionFragment: "gigaRootHistory", values: [BigNumberish]): string;
+    encodeFunctionData(functionFragment: "gigaRootProvider", values?: undefined): string;
+    encodeFunctionData(functionFragment: "initialize", values: [AddressLike, AddressLike]): string;
+    encodeFunctionData(functionFragment: "isValidGigaRoot", values: [BigNumberish]): string;
+    encodeFunctionData(functionFragment: "isValidLocalRoot", values: [BigNumberish]): string;
+    encodeFunctionData(functionFragment: "l1BridgeAdapter", values?: undefined): string;
+    encodeFunctionData(functionFragment: "lastLeafIndex", values?: undefined): string;
+    encodeFunctionData(functionFragment: "localRoot", values?: undefined): string;
+    encodeFunctionData(functionFragment: "localRootHistory", values: [BigNumberish]): string;
+    encodeFunctionData(functionFragment: "maxTreeDepth", values?: undefined): string;
+    encodeFunctionData(functionFragment: "mint", values: [
+        BigNumberish,
+        BigNumberish,
+        BigNumberish,
+        BigNumberish,
+        BigNumberish,
+        BigNumberish,
+        BigNumberish,
+        AddressLike,
+        AddressLike,
+        BytesLike
+    ]): string;
+    encodeFunctionData(functionFragment: "name", values?: undefined): string;
+    encodeFunctionData(functionFragment: "nativeToken", values?: undefined): string;
+    encodeFunctionData(functionFragment: "receiveGigaRoot", values: [BigNumberish]): string;
+    encodeFunctionData(functionFragment: "storeLocalRootInHistory", values?: undefined): string;
+    encodeFunctionData(functionFragment: "symbol", values?: undefined): string;
+    encodeFunctionData(functionFragment: "totalSupply", values?: undefined): string;
+    encodeFunctionData(functionFragment: "transfer", values: [AddressLike, BigNumberish]): string;
+    encodeFunctionData(functionFragment: "transferFrom", values: [AddressLike, AddressLike, BigNumberish]): string;
+    encodeFunctionData(functionFragment: "unwrap", values: [BigNumberish]): string;
+    encodeFunctionData(functionFragment: "withdrawVerifier", values?: undefined): string;
+    encodeFunctionData(functionFragment: "wrap", values: [BigNumberish]): string;
+    decodeFunctionResult(functionFragment: "_formatPublicInputs", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "allowance", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "approve", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "balanceOf", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "burn", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "cachedLocalRoot", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "commitTreeData", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "decimals", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getLocalRootAndBlock", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "gigaRoot", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "gigaRootHistory", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "gigaRootProvider", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "initialize", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "isValidGigaRoot", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "isValidLocalRoot", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "l1BridgeAdapter", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "lastLeafIndex", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "localRoot", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "localRootHistory", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "maxTreeDepth", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "mint", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "name", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "nativeToken", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "receiveGigaRoot", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "storeLocalRootInHistory", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "symbol", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "totalSupply", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "transfer", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "transferFrom", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "unwrap", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "withdrawVerifier", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "wrap", data: BytesLike): Result;
+}
+export declare namespace ApprovalEvent {
+    type InputTuple = [
+        owner: AddressLike,
+        spender: AddressLike,
+        value: BigNumberish
+    ];
+    type OutputTuple = [owner: string, spender: string, value: bigint];
+    interface OutputObject {
+        owner: string;
+        spender: string;
+        value: bigint;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
+export declare namespace BurnEvent {
+    type InputTuple = [
+        commitment: BigNumberish,
+        amount: BigNumberish,
+        index: BigNumberish
+    ];
+    type OutputTuple = [commitment: bigint, amount: bigint, index: bigint];
+    interface OutputObject {
+        commitment: bigint;
+        amount: bigint;
+        index: bigint;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
+export declare namespace TransferEvent {
+    type InputTuple = [
+        from: AddressLike,
+        to: AddressLike,
+        value: BigNumberish
+    ];
+    type OutputTuple = [from: string, to: string, value: bigint];
+    interface OutputObject {
+        from: string;
+        to: string;
+        value: bigint;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
+export interface L1WarpToad extends BaseContract {
+    connect(runner?: ContractRunner | null): L1WarpToad;
+    waitForDeployment(): Promise<this>;
+    interface: L1WarpToadInterface;
+    queryFilter<TCEvent extends TypedContractEvent>(event: TCEvent, fromBlockOrBlockhash?: string | number | undefined, toBlock?: string | number | undefined): Promise<Array<TypedEventLog<TCEvent>>>;
+    queryFilter<TCEvent extends TypedContractEvent>(filter: TypedDeferredTopicFilter<TCEvent>, fromBlockOrBlockhash?: string | number | undefined, toBlock?: string | number | undefined): Promise<Array<TypedEventLog<TCEvent>>>;
+    on<TCEvent extends TypedContractEvent>(event: TCEvent, listener: TypedListener<TCEvent>): Promise<this>;
+    on<TCEvent extends TypedContractEvent>(filter: TypedDeferredTopicFilter<TCEvent>, listener: TypedListener<TCEvent>): Promise<this>;
+    once<TCEvent extends TypedContractEvent>(event: TCEvent, listener: TypedListener<TCEvent>): Promise<this>;
+    once<TCEvent extends TypedContractEvent>(filter: TypedDeferredTopicFilter<TCEvent>, listener: TypedListener<TCEvent>): Promise<this>;
+    listeners<TCEvent extends TypedContractEvent>(event: TCEvent): Promise<Array<TypedListener<TCEvent>>>;
+    listeners(eventName?: string): Promise<Array<Listener>>;
+    removeAllListeners<TCEvent extends TypedContractEvent>(event?: TCEvent): Promise<this>;
+    _formatPublicInputs: TypedContractMethod<[
+        _nullifier: BigNumberish,
+        _chainId: BigNumberish,
+        _amount: BigNumberish,
+        _gigaRoot: BigNumberish,
+        _localRoot: BigNumberish,
+        _feeFactor: BigNumberish,
+        _priorityFee: BigNumberish,
+        _maxFee: BigNumberish,
+        _relayer: AddressLike,
+        _recipient: AddressLike
+    ], [
+        string[]
+    ], "view">;
+    allowance: TypedContractMethod<[
+        owner: AddressLike,
+        spender: AddressLike
+    ], [
+        bigint
+    ], "view">;
+    approve: TypedContractMethod<[
+        spender: AddressLike,
+        value: BigNumberish
+    ], [
+        boolean
+    ], "nonpayable">;
+    balanceOf: TypedContractMethod<[account: AddressLike], [bigint], "view">;
+    burn: TypedContractMethod<[
+        _preCommitment: BigNumberish,
+        _amount: BigNumberish
+    ], [
+        void
+    ], "nonpayable">;
+    cachedLocalRoot: TypedContractMethod<[], [bigint], "view">;
+    commitTreeData: TypedContractMethod<[
+    ], [
+        [bigint, bigint] & {
+            maxIndex: bigint;
+            numberOfLeaves: bigint;
+        }
+    ], "view">;
+    decimals: TypedContractMethod<[], [bigint], "view">;
+    getLocalRootAndBlock: TypedContractMethod<[
+    ], [
+        [bigint, bigint]
+    ], "nonpayable">;
+    gigaRoot: TypedContractMethod<[], [bigint], "view">;
+    gigaRootHistory: TypedContractMethod<[arg0: BigNumberish], [boolean], "view">;
+    gigaRootProvider: TypedContractMethod<[], [string], "view">;
+    initialize: TypedContractMethod<[
+        _gigaRootProvider: AddressLike,
+        _l1BridgeAdapter: AddressLike
+    ], [
+        void
+    ], "nonpayable">;
+    isValidGigaRoot: TypedContractMethod<[
+        _gigaRoot: BigNumberish
+    ], [
+        boolean
+    ], "view">;
+    isValidLocalRoot: TypedContractMethod<[
+        _localRoot: BigNumberish
+    ], [
+        boolean
+    ], "view">;
+    l1BridgeAdapter: TypedContractMethod<[], [string], "view">;
+    lastLeafIndex: TypedContractMethod<[], [bigint], "view">;
+    localRoot: TypedContractMethod<[], [bigint], "view">;
+    localRootHistory: TypedContractMethod<[
+        arg0: BigNumberish
+    ], [
+        boolean
+    ], "view">;
+    maxTreeDepth: TypedContractMethod<[], [bigint], "view">;
+    mint: TypedContractMethod<[
+        _nullifier: BigNumberish,
+        _amount: BigNumberish,
+        _gigaRoot: BigNumberish,
+        _localRoot: BigNumberish,
+        _feeFactor: BigNumberish,
+        _priorityFee: BigNumberish,
+        _maxFee: BigNumberish,
+        _relayer: AddressLike,
+        _recipient: AddressLike,
+        _poof: BytesLike
+    ], [
+        void
+    ], "nonpayable">;
+    name: TypedContractMethod<[], [string], "view">;
+    nativeToken: TypedContractMethod<[], [string], "view">;
+    receiveGigaRoot: TypedContractMethod<[
+        _gigaRoot: BigNumberish
+    ], [
+        void
+    ], "payable">;
+    storeLocalRootInHistory: TypedContractMethod<[], [bigint], "nonpayable">;
+    symbol: TypedContractMethod<[], [string], "view">;
+    totalSupply: TypedContractMethod<[], [bigint], "view">;
+    transfer: TypedContractMethod<[
+        to: AddressLike,
+        value: BigNumberish
+    ], [
+        boolean
+    ], "nonpayable">;
+    transferFrom: TypedContractMethod<[
+        from: AddressLike,
+        to: AddressLike,
+        value: BigNumberish
+    ], [
+        boolean
+    ], "nonpayable">;
+    unwrap: TypedContractMethod<[_amount: BigNumberish], [void], "nonpayable">;
+    withdrawVerifier: TypedContractMethod<[], [string], "view">;
+    wrap: TypedContractMethod<[_amount: BigNumberish], [void], "nonpayable">;
+    getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
+    getFunction(nameOrSignature: "_formatPublicInputs"): TypedContractMethod<[
+        _nullifier: BigNumberish,
+        _chainId: BigNumberish,
+        _amount: BigNumberish,
+        _gigaRoot: BigNumberish,
+        _localRoot: BigNumberish,
+        _feeFactor: BigNumberish,
+        _priorityFee: BigNumberish,
+        _maxFee: BigNumberish,
+        _relayer: AddressLike,
+        _recipient: AddressLike
+    ], [
+        string[]
+    ], "view">;
+    getFunction(nameOrSignature: "allowance"): TypedContractMethod<[
+        owner: AddressLike,
+        spender: AddressLike
+    ], [
+        bigint
+    ], "view">;
+    getFunction(nameOrSignature: "approve"): TypedContractMethod<[
+        spender: AddressLike,
+        value: BigNumberish
+    ], [
+        boolean
+    ], "nonpayable">;
+    getFunction(nameOrSignature: "balanceOf"): TypedContractMethod<[account: AddressLike], [bigint], "view">;
+    getFunction(nameOrSignature: "burn"): TypedContractMethod<[
+        _preCommitment: BigNumberish,
+        _amount: BigNumberish
+    ], [
+        void
+    ], "nonpayable">;
+    getFunction(nameOrSignature: "cachedLocalRoot"): TypedContractMethod<[], [bigint], "view">;
+    getFunction(nameOrSignature: "commitTreeData"): TypedContractMethod<[
+    ], [
+        [bigint, bigint] & {
+            maxIndex: bigint;
+            numberOfLeaves: bigint;
+        }
+    ], "view">;
+    getFunction(nameOrSignature: "decimals"): TypedContractMethod<[], [bigint], "view">;
+    getFunction(nameOrSignature: "getLocalRootAndBlock"): TypedContractMethod<[], [[bigint, bigint]], "nonpayable">;
+    getFunction(nameOrSignature: "gigaRoot"): TypedContractMethod<[], [bigint], "view">;
+    getFunction(nameOrSignature: "gigaRootHistory"): TypedContractMethod<[arg0: BigNumberish], [boolean], "view">;
+    getFunction(nameOrSignature: "gigaRootProvider"): TypedContractMethod<[], [string], "view">;
+    getFunction(nameOrSignature: "initialize"): TypedContractMethod<[
+        _gigaRootProvider: AddressLike,
+        _l1BridgeAdapter: AddressLike
+    ], [
+        void
+    ], "nonpayable">;
+    getFunction(nameOrSignature: "isValidGigaRoot"): TypedContractMethod<[_gigaRoot: BigNumberish], [boolean], "view">;
+    getFunction(nameOrSignature: "isValidLocalRoot"): TypedContractMethod<[_localRoot: BigNumberish], [boolean], "view">;
+    getFunction(nameOrSignature: "l1BridgeAdapter"): TypedContractMethod<[], [string], "view">;
+    getFunction(nameOrSignature: "lastLeafIndex"): TypedContractMethod<[], [bigint], "view">;
+    getFunction(nameOrSignature: "localRoot"): TypedContractMethod<[], [bigint], "view">;
+    getFunction(nameOrSignature: "localRootHistory"): TypedContractMethod<[arg0: BigNumberish], [boolean], "view">;
+    getFunction(nameOrSignature: "maxTreeDepth"): TypedContractMethod<[], [bigint], "view">;
+    getFunction(nameOrSignature: "mint"): TypedContractMethod<[
+        _nullifier: BigNumberish,
+        _amount: BigNumberish,
+        _gigaRoot: BigNumberish,
+        _localRoot: BigNumberish,
+        _feeFactor: BigNumberish,
+        _priorityFee: BigNumberish,
+        _maxFee: BigNumberish,
+        _relayer: AddressLike,
+        _recipient: AddressLike,
+        _poof: BytesLike
+    ], [
+        void
+    ], "nonpayable">;
+    getFunction(nameOrSignature: "name"): TypedContractMethod<[], [string], "view">;
+    getFunction(nameOrSignature: "nativeToken"): TypedContractMethod<[], [string], "view">;
+    getFunction(nameOrSignature: "receiveGigaRoot"): TypedContractMethod<[_gigaRoot: BigNumberish], [void], "payable">;
+    getFunction(nameOrSignature: "storeLocalRootInHistory"): TypedContractMethod<[], [bigint], "nonpayable">;
+    getFunction(nameOrSignature: "symbol"): TypedContractMethod<[], [string], "view">;
+    getFunction(nameOrSignature: "totalSupply"): TypedContractMethod<[], [bigint], "view">;
+    getFunction(nameOrSignature: "transfer"): TypedContractMethod<[
+        to: AddressLike,
+        value: BigNumberish
+    ], [
+        boolean
+    ], "nonpayable">;
+    getFunction(nameOrSignature: "transferFrom"): TypedContractMethod<[
+        from: AddressLike,
+        to: AddressLike,
+        value: BigNumberish
+    ], [
+        boolean
+    ], "nonpayable">;
+    getFunction(nameOrSignature: "unwrap"): TypedContractMethod<[_amount: BigNumberish], [void], "nonpayable">;
+    getFunction(nameOrSignature: "withdrawVerifier"): TypedContractMethod<[], [string], "view">;
+    getFunction(nameOrSignature: "wrap"): TypedContractMethod<[_amount: BigNumberish], [void], "nonpayable">;
+    getEvent(key: "Approval"): TypedContractEvent<ApprovalEvent.InputTuple, ApprovalEvent.OutputTuple, ApprovalEvent.OutputObject>;
+    getEvent(key: "Burn"): TypedContractEvent<BurnEvent.InputTuple, BurnEvent.OutputTuple, BurnEvent.OutputObject>;
+    getEvent(key: "Transfer"): TypedContractEvent<TransferEvent.InputTuple, TransferEvent.OutputTuple, TransferEvent.OutputObject>;
+    filters: {
+        "Approval(address,address,uint256)": TypedContractEvent<ApprovalEvent.InputTuple, ApprovalEvent.OutputTuple, ApprovalEvent.OutputObject>;
+        Approval: TypedContractEvent<ApprovalEvent.InputTuple, ApprovalEvent.OutputTuple, ApprovalEvent.OutputObject>;
+        "Burn(uint256,uint256,uint256)": TypedContractEvent<BurnEvent.InputTuple, BurnEvent.OutputTuple, BurnEvent.OutputObject>;
+        Burn: TypedContractEvent<BurnEvent.InputTuple, BurnEvent.OutputTuple, BurnEvent.OutputObject>;
+        "Transfer(address,address,uint256)": TypedContractEvent<TransferEvent.InputTuple, TransferEvent.OutputTuple, TransferEvent.OutputObject>;
+        Transfer: TypedContractEvent<TransferEvent.InputTuple, TransferEvent.OutputTuple, TransferEvent.OutputObject>;
+    };
+}

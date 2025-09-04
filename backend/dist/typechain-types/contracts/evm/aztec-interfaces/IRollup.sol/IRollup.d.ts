@@ -1,0 +1,666 @@
+import type { BaseContract, BigNumberish, BytesLike, FunctionFragment, Result, Interface, EventFragment, AddressLike, ContractRunner, ContractMethod, Listener } from "ethers";
+import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, TypedLogDescription, TypedListener, TypedContractMethod } from "../../../../common";
+export type BlockLogStruct = {
+    archive: BytesLike;
+    blockHash: BytesLike;
+    slotNumber: BigNumberish;
+};
+export type BlockLogStructOutput = [
+    archive: string,
+    blockHash: string,
+    slotNumber: bigint
+] & {
+    archive: string;
+    blockHash: string;
+    slotNumber: bigint;
+};
+export type PublicInputArgsStruct = {
+    previousArchive: BytesLike;
+    endArchive: BytesLike;
+    previousBlockHash: BytesLike;
+    endBlockHash: BytesLike;
+    endTimestamp: BigNumberish;
+    outHash: BytesLike;
+    proverId: AddressLike;
+};
+export type PublicInputArgsStructOutput = [
+    previousArchive: string,
+    endArchive: string,
+    previousBlockHash: string,
+    endBlockHash: string,
+    endTimestamp: bigint,
+    outHash: string,
+    proverId: string
+] & {
+    previousArchive: string;
+    endArchive: string;
+    previousBlockHash: string;
+    endBlockHash: string;
+    endTimestamp: bigint;
+    outHash: string;
+    proverId: string;
+};
+export type FeeHeaderStruct = {
+    excessMana: BigNumberish;
+    manaUsed: BigNumberish;
+    feeAssetPriceNumerator: BigNumberish;
+    congestionCost: BigNumberish;
+    provingCost: BigNumberish;
+};
+export type FeeHeaderStructOutput = [
+    excessMana: bigint,
+    manaUsed: bigint,
+    feeAssetPriceNumerator: bigint,
+    congestionCost: bigint,
+    provingCost: bigint
+] & {
+    excessMana: bigint;
+    manaUsed: bigint;
+    feeAssetPriceNumerator: bigint;
+    congestionCost: bigint;
+    provingCost: bigint;
+};
+export type L1FeeDataStruct = {
+    baseFee: BigNumberish;
+    blobFee: BigNumberish;
+};
+export type L1FeeDataStructOutput = [baseFee: bigint, blobFee: bigint] & {
+    baseFee: bigint;
+    blobFee: bigint;
+};
+export type ManaBaseFeeComponentsStruct = {
+    congestionCost: BigNumberish;
+    congestionMultiplier: BigNumberish;
+    dataCost: BigNumberish;
+    gasCost: BigNumberish;
+    provingCost: BigNumberish;
+};
+export type ManaBaseFeeComponentsStructOutput = [
+    congestionCost: bigint,
+    congestionMultiplier: bigint,
+    dataCost: bigint,
+    gasCost: bigint,
+    provingCost: bigint
+] & {
+    congestionCost: bigint;
+    congestionMultiplier: bigint;
+    dataCost: bigint;
+    gasCost: bigint;
+    provingCost: bigint;
+};
+export type ChainTipsStruct = {
+    pendingBlockNumber: BigNumberish;
+    provenBlockNumber: BigNumberish;
+};
+export type ChainTipsStructOutput = [
+    pendingBlockNumber: bigint,
+    provenBlockNumber: bigint
+] & {
+    pendingBlockNumber: bigint;
+    provenBlockNumber: bigint;
+};
+export type OracleInputStruct = {
+    feeAssetPriceModifier: BigNumberish;
+};
+export type OracleInputStructOutput = [feeAssetPriceModifier: bigint] & {
+    feeAssetPriceModifier: bigint;
+};
+export type ProposeArgsStruct = {
+    archive: BytesLike;
+    blockHash: BytesLike;
+    oracleInput: OracleInputStruct;
+    header: BytesLike;
+    txHashes: BytesLike[];
+};
+export type ProposeArgsStructOutput = [
+    archive: string,
+    blockHash: string,
+    oracleInput: OracleInputStructOutput,
+    header: string,
+    txHashes: string[]
+] & {
+    archive: string;
+    blockHash: string;
+    oracleInput: OracleInputStructOutput;
+    header: string;
+    txHashes: string[];
+};
+export type SignatureStruct = {
+    isEmpty: boolean;
+    v: BigNumberish;
+    r: BytesLike;
+    s: BytesLike;
+};
+export type SignatureStructOutput = [
+    isEmpty: boolean,
+    v: bigint,
+    r: string,
+    s: string
+] & {
+    isEmpty: boolean;
+    v: bigint;
+    r: string;
+    s: string;
+};
+export type SubmitEpochRootProofArgsStruct = {
+    start: BigNumberish;
+    end: BigNumberish;
+    args: PublicInputArgsStruct;
+    fees: BytesLike[];
+    blobPublicInputs: BytesLike;
+    aggregationObject: BytesLike;
+    proof: BytesLike;
+};
+export type SubmitEpochRootProofArgsStructOutput = [
+    start: bigint,
+    end: bigint,
+    args: PublicInputArgsStructOutput,
+    fees: string[],
+    blobPublicInputs: string,
+    aggregationObject: string,
+    proof: string
+] & {
+    start: bigint;
+    end: bigint;
+    args: PublicInputArgsStructOutput;
+    fees: string[];
+    blobPublicInputs: string;
+    aggregationObject: string;
+    proof: string;
+};
+export type BlockHeaderValidationFlagsStruct = {
+    ignoreDA: boolean;
+    ignoreSignatures: boolean;
+};
+export type BlockHeaderValidationFlagsStructOutput = [
+    ignoreDA: boolean,
+    ignoreSignatures: boolean
+] & {
+    ignoreDA: boolean;
+    ignoreSignatures: boolean;
+};
+export interface IRollupInterface extends Interface {
+    getFunction(nameOrSignature: "L1_BLOCK_AT_GENESIS" | "archive" | "archiveAt" | "canProposeAtTime" | "canPruneAtTime" | "claimProverRewards" | "claimSequencerRewards" | "getBlobPublicInputsHash" | "getBlock" | "getBurnAddress" | "getCollectiveProverRewardsForEpoch" | "getEpochForBlock" | "getEpochProofPublicInputs" | "getFeeAsset" | "getFeeAssetPerEth" | "getFeeAssetPortal" | "getFeeHeader" | "getHasSubmitted" | "getInbox" | "getL1FeesAt" | "getManaBaseFeeAt" | "getManaBaseFeeComponentsAt" | "getManaLimit" | "getManaTarget" | "getOutbox" | "getPendingBlockNumber" | "getProofSubmissionWindow" | "getProvenBlockNumber" | "getProvingCostPerManaInEth" | "getProvingCostPerManaInFeeAsset" | "getRewardDistributor" | "getSequencerRewards" | "getSpecificProverRewardsForEpoch" | "getTips" | "getVersion" | "propose" | "prune" | "setProvingCostPerMana" | "status" | "submitEpochRootProof" | "updateL1GasFeeOracle" | "validateBlobs" | "validateHeader"): FunctionFragment;
+    getEvent(nameOrSignatureOrTopic: "L2BlockProposed" | "L2ProofVerified" | "PrunedPending"): EventFragment;
+    encodeFunctionData(functionFragment: "L1_BLOCK_AT_GENESIS", values?: undefined): string;
+    encodeFunctionData(functionFragment: "archive", values?: undefined): string;
+    encodeFunctionData(functionFragment: "archiveAt", values: [BigNumberish]): string;
+    encodeFunctionData(functionFragment: "canProposeAtTime", values: [BigNumberish, BytesLike]): string;
+    encodeFunctionData(functionFragment: "canPruneAtTime", values: [BigNumberish]): string;
+    encodeFunctionData(functionFragment: "claimProverRewards", values: [AddressLike, BigNumberish[]]): string;
+    encodeFunctionData(functionFragment: "claimSequencerRewards", values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: "getBlobPublicInputsHash", values: [BigNumberish]): string;
+    encodeFunctionData(functionFragment: "getBlock", values: [BigNumberish]): string;
+    encodeFunctionData(functionFragment: "getBurnAddress", values?: undefined): string;
+    encodeFunctionData(functionFragment: "getCollectiveProverRewardsForEpoch", values: [BigNumberish]): string;
+    encodeFunctionData(functionFragment: "getEpochForBlock", values: [BigNumberish]): string;
+    encodeFunctionData(functionFragment: "getEpochProofPublicInputs", values: [
+        BigNumberish,
+        BigNumberish,
+        PublicInputArgsStruct,
+        BytesLike[],
+        BytesLike,
+        BytesLike
+    ]): string;
+    encodeFunctionData(functionFragment: "getFeeAsset", values?: undefined): string;
+    encodeFunctionData(functionFragment: "getFeeAssetPerEth", values?: undefined): string;
+    encodeFunctionData(functionFragment: "getFeeAssetPortal", values?: undefined): string;
+    encodeFunctionData(functionFragment: "getFeeHeader", values: [BigNumberish]): string;
+    encodeFunctionData(functionFragment: "getHasSubmitted", values: [BigNumberish, BigNumberish, AddressLike]): string;
+    encodeFunctionData(functionFragment: "getInbox", values?: undefined): string;
+    encodeFunctionData(functionFragment: "getL1FeesAt", values: [BigNumberish]): string;
+    encodeFunctionData(functionFragment: "getManaBaseFeeAt", values: [BigNumberish, boolean]): string;
+    encodeFunctionData(functionFragment: "getManaBaseFeeComponentsAt", values: [BigNumberish, boolean]): string;
+    encodeFunctionData(functionFragment: "getManaLimit", values?: undefined): string;
+    encodeFunctionData(functionFragment: "getManaTarget", values?: undefined): string;
+    encodeFunctionData(functionFragment: "getOutbox", values?: undefined): string;
+    encodeFunctionData(functionFragment: "getPendingBlockNumber", values?: undefined): string;
+    encodeFunctionData(functionFragment: "getProofSubmissionWindow", values?: undefined): string;
+    encodeFunctionData(functionFragment: "getProvenBlockNumber", values?: undefined): string;
+    encodeFunctionData(functionFragment: "getProvingCostPerManaInEth", values?: undefined): string;
+    encodeFunctionData(functionFragment: "getProvingCostPerManaInFeeAsset", values?: undefined): string;
+    encodeFunctionData(functionFragment: "getRewardDistributor", values?: undefined): string;
+    encodeFunctionData(functionFragment: "getSequencerRewards", values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: "getSpecificProverRewardsForEpoch", values: [BigNumberish, AddressLike]): string;
+    encodeFunctionData(functionFragment: "getTips", values?: undefined): string;
+    encodeFunctionData(functionFragment: "getVersion", values?: undefined): string;
+    encodeFunctionData(functionFragment: "propose", values: [ProposeArgsStruct, SignatureStruct[], BytesLike]): string;
+    encodeFunctionData(functionFragment: "prune", values?: undefined): string;
+    encodeFunctionData(functionFragment: "setProvingCostPerMana", values: [BigNumberish]): string;
+    encodeFunctionData(functionFragment: "status", values: [BigNumberish]): string;
+    encodeFunctionData(functionFragment: "submitEpochRootProof", values: [SubmitEpochRootProofArgsStruct]): string;
+    encodeFunctionData(functionFragment: "updateL1GasFeeOracle", values?: undefined): string;
+    encodeFunctionData(functionFragment: "validateBlobs", values: [BytesLike]): string;
+    encodeFunctionData(functionFragment: "validateHeader", values: [
+        BytesLike,
+        SignatureStruct[],
+        BytesLike,
+        BigNumberish,
+        BytesLike,
+        BlockHeaderValidationFlagsStruct
+    ]): string;
+    decodeFunctionResult(functionFragment: "L1_BLOCK_AT_GENESIS", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "archive", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "archiveAt", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "canProposeAtTime", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "canPruneAtTime", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "claimProverRewards", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "claimSequencerRewards", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getBlobPublicInputsHash", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getBlock", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getBurnAddress", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getCollectiveProverRewardsForEpoch", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getEpochForBlock", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getEpochProofPublicInputs", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getFeeAsset", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getFeeAssetPerEth", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getFeeAssetPortal", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getFeeHeader", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getHasSubmitted", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getInbox", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getL1FeesAt", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getManaBaseFeeAt", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getManaBaseFeeComponentsAt", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getManaLimit", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getManaTarget", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getOutbox", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getPendingBlockNumber", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getProofSubmissionWindow", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getProvenBlockNumber", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getProvingCostPerManaInEth", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getProvingCostPerManaInFeeAsset", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getRewardDistributor", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getSequencerRewards", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getSpecificProverRewardsForEpoch", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getTips", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getVersion", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "propose", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "prune", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "setProvingCostPerMana", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "status", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "submitEpochRootProof", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "updateL1GasFeeOracle", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "validateBlobs", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "validateHeader", data: BytesLike): Result;
+}
+export declare namespace L2BlockProposedEvent {
+    type InputTuple = [
+        blockNumber: BigNumberish,
+        archive: BytesLike,
+        versionedBlobHashes: BytesLike[]
+    ];
+    type OutputTuple = [
+        blockNumber: bigint,
+        archive: string,
+        versionedBlobHashes: string[]
+    ];
+    interface OutputObject {
+        blockNumber: bigint;
+        archive: string;
+        versionedBlobHashes: string[];
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
+export declare namespace L2ProofVerifiedEvent {
+    type InputTuple = [blockNumber: BigNumberish, proverId: AddressLike];
+    type OutputTuple = [blockNumber: bigint, proverId: string];
+    interface OutputObject {
+        blockNumber: bigint;
+        proverId: string;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
+export declare namespace PrunedPendingEvent {
+    type InputTuple = [
+        provenBlockNumber: BigNumberish,
+        pendingBlockNumber: BigNumberish
+    ];
+    type OutputTuple = [
+        provenBlockNumber: bigint,
+        pendingBlockNumber: bigint
+    ];
+    interface OutputObject {
+        provenBlockNumber: bigint;
+        pendingBlockNumber: bigint;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
+export interface IRollup extends BaseContract {
+    connect(runner?: ContractRunner | null): IRollup;
+    waitForDeployment(): Promise<this>;
+    interface: IRollupInterface;
+    queryFilter<TCEvent extends TypedContractEvent>(event: TCEvent, fromBlockOrBlockhash?: string | number | undefined, toBlock?: string | number | undefined): Promise<Array<TypedEventLog<TCEvent>>>;
+    queryFilter<TCEvent extends TypedContractEvent>(filter: TypedDeferredTopicFilter<TCEvent>, fromBlockOrBlockhash?: string | number | undefined, toBlock?: string | number | undefined): Promise<Array<TypedEventLog<TCEvent>>>;
+    on<TCEvent extends TypedContractEvent>(event: TCEvent, listener: TypedListener<TCEvent>): Promise<this>;
+    on<TCEvent extends TypedContractEvent>(filter: TypedDeferredTopicFilter<TCEvent>, listener: TypedListener<TCEvent>): Promise<this>;
+    once<TCEvent extends TypedContractEvent>(event: TCEvent, listener: TypedListener<TCEvent>): Promise<this>;
+    once<TCEvent extends TypedContractEvent>(filter: TypedDeferredTopicFilter<TCEvent>, listener: TypedListener<TCEvent>): Promise<this>;
+    listeners<TCEvent extends TypedContractEvent>(event: TCEvent): Promise<Array<TypedListener<TCEvent>>>;
+    listeners(eventName?: string): Promise<Array<Listener>>;
+    removeAllListeners<TCEvent extends TypedContractEvent>(event?: TCEvent): Promise<this>;
+    L1_BLOCK_AT_GENESIS: TypedContractMethod<[], [bigint], "view">;
+    archive: TypedContractMethod<[], [string], "view">;
+    archiveAt: TypedContractMethod<[
+        _blockNumber: BigNumberish
+    ], [
+        string
+    ], "view">;
+    canProposeAtTime: TypedContractMethod<[
+        _ts: BigNumberish,
+        _archive: BytesLike
+    ], [
+        [bigint, bigint]
+    ], "nonpayable">;
+    canPruneAtTime: TypedContractMethod<[_ts: BigNumberish], [boolean], "view">;
+    claimProverRewards: TypedContractMethod<[
+        _recipient: AddressLike,
+        _epochs: BigNumberish[]
+    ], [
+        bigint
+    ], "nonpayable">;
+    claimSequencerRewards: TypedContractMethod<[
+        _recipient: AddressLike
+    ], [
+        bigint
+    ], "nonpayable">;
+    getBlobPublicInputsHash: TypedContractMethod<[
+        _blockNumber: BigNumberish
+    ], [
+        string
+    ], "view">;
+    getBlock: TypedContractMethod<[
+        _blockNumber: BigNumberish
+    ], [
+        BlockLogStructOutput
+    ], "view">;
+    getBurnAddress: TypedContractMethod<[], [string], "view">;
+    getCollectiveProverRewardsForEpoch: TypedContractMethod<[
+        _epoch: BigNumberish
+    ], [
+        bigint
+    ], "view">;
+    getEpochForBlock: TypedContractMethod<[
+        _blockNumber: BigNumberish
+    ], [
+        bigint
+    ], "view">;
+    getEpochProofPublicInputs: TypedContractMethod<[
+        _start: BigNumberish,
+        _end: BigNumberish,
+        _args: PublicInputArgsStruct,
+        _fees: BytesLike[],
+        _blobPublicInputs: BytesLike,
+        _aggregationObject: BytesLike
+    ], [
+        string[]
+    ], "view">;
+    getFeeAsset: TypedContractMethod<[], [string], "view">;
+    getFeeAssetPerEth: TypedContractMethod<[], [bigint], "view">;
+    getFeeAssetPortal: TypedContractMethod<[], [string], "view">;
+    getFeeHeader: TypedContractMethod<[
+        _blockNumber: BigNumberish
+    ], [
+        FeeHeaderStructOutput
+    ], "view">;
+    getHasSubmitted: TypedContractMethod<[
+        _epoch: BigNumberish,
+        _length: BigNumberish,
+        _prover: AddressLike
+    ], [
+        boolean
+    ], "view">;
+    getInbox: TypedContractMethod<[], [string], "view">;
+    getL1FeesAt: TypedContractMethod<[
+        _timestamp: BigNumberish
+    ], [
+        L1FeeDataStructOutput
+    ], "view">;
+    getManaBaseFeeAt: TypedContractMethod<[
+        _timestamp: BigNumberish,
+        _inFeeAsset: boolean
+    ], [
+        bigint
+    ], "view">;
+    getManaBaseFeeComponentsAt: TypedContractMethod<[
+        _timestamp: BigNumberish,
+        _inFeeAsset: boolean
+    ], [
+        ManaBaseFeeComponentsStructOutput
+    ], "view">;
+    getManaLimit: TypedContractMethod<[], [bigint], "view">;
+    getManaTarget: TypedContractMethod<[], [bigint], "view">;
+    getOutbox: TypedContractMethod<[], [string], "view">;
+    getPendingBlockNumber: TypedContractMethod<[], [bigint], "view">;
+    getProofSubmissionWindow: TypedContractMethod<[], [bigint], "view">;
+    getProvenBlockNumber: TypedContractMethod<[], [bigint], "view">;
+    getProvingCostPerManaInEth: TypedContractMethod<[], [bigint], "view">;
+    getProvingCostPerManaInFeeAsset: TypedContractMethod<[], [bigint], "view">;
+    getRewardDistributor: TypedContractMethod<[], [string], "view">;
+    getSequencerRewards: TypedContractMethod<[
+        _sequencer: AddressLike
+    ], [
+        bigint
+    ], "view">;
+    getSpecificProverRewardsForEpoch: TypedContractMethod<[
+        _epoch: BigNumberish,
+        _prover: AddressLike
+    ], [
+        bigint
+    ], "view">;
+    getTips: TypedContractMethod<[], [ChainTipsStructOutput], "view">;
+    getVersion: TypedContractMethod<[], [bigint], "view">;
+    propose: TypedContractMethod<[
+        _args: ProposeArgsStruct,
+        _signatures: SignatureStruct[],
+        _blobInput: BytesLike
+    ], [
+        void
+    ], "nonpayable">;
+    prune: TypedContractMethod<[], [void], "nonpayable">;
+    setProvingCostPerMana: TypedContractMethod<[
+        _provingCostPerMana: BigNumberish
+    ], [
+        void
+    ], "nonpayable">;
+    status: TypedContractMethod<[
+        _myHeaderBlockNumber: BigNumberish
+    ], [
+        [
+            bigint,
+            string,
+            bigint,
+            string,
+            string,
+            bigint
+        ] & {
+            provenBlockNumber: bigint;
+            provenArchive: string;
+            pendingBlockNumber: bigint;
+            pendingArchive: string;
+            archiveOfMyBlock: string;
+            provenEpochNumber: bigint;
+        }
+    ], "view">;
+    submitEpochRootProof: TypedContractMethod<[
+        _args: SubmitEpochRootProofArgsStruct
+    ], [
+        void
+    ], "nonpayable">;
+    updateL1GasFeeOracle: TypedContractMethod<[], [void], "nonpayable">;
+    validateBlobs: TypedContractMethod<[
+        _blobsInputs: BytesLike
+    ], [
+        [string[], string, string]
+    ], "view">;
+    validateHeader: TypedContractMethod<[
+        _header: BytesLike,
+        _signatures: SignatureStruct[],
+        _digest: BytesLike,
+        _currentTime: BigNumberish,
+        _blobsHash: BytesLike,
+        _flags: BlockHeaderValidationFlagsStruct
+    ], [
+        void
+    ], "nonpayable">;
+    getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
+    getFunction(nameOrSignature: "L1_BLOCK_AT_GENESIS"): TypedContractMethod<[], [bigint], "view">;
+    getFunction(nameOrSignature: "archive"): TypedContractMethod<[], [string], "view">;
+    getFunction(nameOrSignature: "archiveAt"): TypedContractMethod<[_blockNumber: BigNumberish], [string], "view">;
+    getFunction(nameOrSignature: "canProposeAtTime"): TypedContractMethod<[
+        _ts: BigNumberish,
+        _archive: BytesLike
+    ], [
+        [bigint, bigint]
+    ], "nonpayable">;
+    getFunction(nameOrSignature: "canPruneAtTime"): TypedContractMethod<[_ts: BigNumberish], [boolean], "view">;
+    getFunction(nameOrSignature: "claimProverRewards"): TypedContractMethod<[
+        _recipient: AddressLike,
+        _epochs: BigNumberish[]
+    ], [
+        bigint
+    ], "nonpayable">;
+    getFunction(nameOrSignature: "claimSequencerRewards"): TypedContractMethod<[_recipient: AddressLike], [bigint], "nonpayable">;
+    getFunction(nameOrSignature: "getBlobPublicInputsHash"): TypedContractMethod<[_blockNumber: BigNumberish], [string], "view">;
+    getFunction(nameOrSignature: "getBlock"): TypedContractMethod<[
+        _blockNumber: BigNumberish
+    ], [
+        BlockLogStructOutput
+    ], "view">;
+    getFunction(nameOrSignature: "getBurnAddress"): TypedContractMethod<[], [string], "view">;
+    getFunction(nameOrSignature: "getCollectiveProverRewardsForEpoch"): TypedContractMethod<[_epoch: BigNumberish], [bigint], "view">;
+    getFunction(nameOrSignature: "getEpochForBlock"): TypedContractMethod<[_blockNumber: BigNumberish], [bigint], "view">;
+    getFunction(nameOrSignature: "getEpochProofPublicInputs"): TypedContractMethod<[
+        _start: BigNumberish,
+        _end: BigNumberish,
+        _args: PublicInputArgsStruct,
+        _fees: BytesLike[],
+        _blobPublicInputs: BytesLike,
+        _aggregationObject: BytesLike
+    ], [
+        string[]
+    ], "view">;
+    getFunction(nameOrSignature: "getFeeAsset"): TypedContractMethod<[], [string], "view">;
+    getFunction(nameOrSignature: "getFeeAssetPerEth"): TypedContractMethod<[], [bigint], "view">;
+    getFunction(nameOrSignature: "getFeeAssetPortal"): TypedContractMethod<[], [string], "view">;
+    getFunction(nameOrSignature: "getFeeHeader"): TypedContractMethod<[
+        _blockNumber: BigNumberish
+    ], [
+        FeeHeaderStructOutput
+    ], "view">;
+    getFunction(nameOrSignature: "getHasSubmitted"): TypedContractMethod<[
+        _epoch: BigNumberish,
+        _length: BigNumberish,
+        _prover: AddressLike
+    ], [
+        boolean
+    ], "view">;
+    getFunction(nameOrSignature: "getInbox"): TypedContractMethod<[], [string], "view">;
+    getFunction(nameOrSignature: "getL1FeesAt"): TypedContractMethod<[
+        _timestamp: BigNumberish
+    ], [
+        L1FeeDataStructOutput
+    ], "view">;
+    getFunction(nameOrSignature: "getManaBaseFeeAt"): TypedContractMethod<[
+        _timestamp: BigNumberish,
+        _inFeeAsset: boolean
+    ], [
+        bigint
+    ], "view">;
+    getFunction(nameOrSignature: "getManaBaseFeeComponentsAt"): TypedContractMethod<[
+        _timestamp: BigNumberish,
+        _inFeeAsset: boolean
+    ], [
+        ManaBaseFeeComponentsStructOutput
+    ], "view">;
+    getFunction(nameOrSignature: "getManaLimit"): TypedContractMethod<[], [bigint], "view">;
+    getFunction(nameOrSignature: "getManaTarget"): TypedContractMethod<[], [bigint], "view">;
+    getFunction(nameOrSignature: "getOutbox"): TypedContractMethod<[], [string], "view">;
+    getFunction(nameOrSignature: "getPendingBlockNumber"): TypedContractMethod<[], [bigint], "view">;
+    getFunction(nameOrSignature: "getProofSubmissionWindow"): TypedContractMethod<[], [bigint], "view">;
+    getFunction(nameOrSignature: "getProvenBlockNumber"): TypedContractMethod<[], [bigint], "view">;
+    getFunction(nameOrSignature: "getProvingCostPerManaInEth"): TypedContractMethod<[], [bigint], "view">;
+    getFunction(nameOrSignature: "getProvingCostPerManaInFeeAsset"): TypedContractMethod<[], [bigint], "view">;
+    getFunction(nameOrSignature: "getRewardDistributor"): TypedContractMethod<[], [string], "view">;
+    getFunction(nameOrSignature: "getSequencerRewards"): TypedContractMethod<[_sequencer: AddressLike], [bigint], "view">;
+    getFunction(nameOrSignature: "getSpecificProverRewardsForEpoch"): TypedContractMethod<[
+        _epoch: BigNumberish,
+        _prover: AddressLike
+    ], [
+        bigint
+    ], "view">;
+    getFunction(nameOrSignature: "getTips"): TypedContractMethod<[], [ChainTipsStructOutput], "view">;
+    getFunction(nameOrSignature: "getVersion"): TypedContractMethod<[], [bigint], "view">;
+    getFunction(nameOrSignature: "propose"): TypedContractMethod<[
+        _args: ProposeArgsStruct,
+        _signatures: SignatureStruct[],
+        _blobInput: BytesLike
+    ], [
+        void
+    ], "nonpayable">;
+    getFunction(nameOrSignature: "prune"): TypedContractMethod<[], [void], "nonpayable">;
+    getFunction(nameOrSignature: "setProvingCostPerMana"): TypedContractMethod<[
+        _provingCostPerMana: BigNumberish
+    ], [
+        void
+    ], "nonpayable">;
+    getFunction(nameOrSignature: "status"): TypedContractMethod<[
+        _myHeaderBlockNumber: BigNumberish
+    ], [
+        [
+            bigint,
+            string,
+            bigint,
+            string,
+            string,
+            bigint
+        ] & {
+            provenBlockNumber: bigint;
+            provenArchive: string;
+            pendingBlockNumber: bigint;
+            pendingArchive: string;
+            archiveOfMyBlock: string;
+            provenEpochNumber: bigint;
+        }
+    ], "view">;
+    getFunction(nameOrSignature: "submitEpochRootProof"): TypedContractMethod<[
+        _args: SubmitEpochRootProofArgsStruct
+    ], [
+        void
+    ], "nonpayable">;
+    getFunction(nameOrSignature: "updateL1GasFeeOracle"): TypedContractMethod<[], [void], "nonpayable">;
+    getFunction(nameOrSignature: "validateBlobs"): TypedContractMethod<[
+        _blobsInputs: BytesLike
+    ], [
+        [string[], string, string]
+    ], "view">;
+    getFunction(nameOrSignature: "validateHeader"): TypedContractMethod<[
+        _header: BytesLike,
+        _signatures: SignatureStruct[],
+        _digest: BytesLike,
+        _currentTime: BigNumberish,
+        _blobsHash: BytesLike,
+        _flags: BlockHeaderValidationFlagsStruct
+    ], [
+        void
+    ], "nonpayable">;
+    getEvent(key: "L2BlockProposed"): TypedContractEvent<L2BlockProposedEvent.InputTuple, L2BlockProposedEvent.OutputTuple, L2BlockProposedEvent.OutputObject>;
+    getEvent(key: "L2ProofVerified"): TypedContractEvent<L2ProofVerifiedEvent.InputTuple, L2ProofVerifiedEvent.OutputTuple, L2ProofVerifiedEvent.OutputObject>;
+    getEvent(key: "PrunedPending"): TypedContractEvent<PrunedPendingEvent.InputTuple, PrunedPendingEvent.OutputTuple, PrunedPendingEvent.OutputObject>;
+    filters: {
+        "L2BlockProposed(uint256,bytes32,bytes32[])": TypedContractEvent<L2BlockProposedEvent.InputTuple, L2BlockProposedEvent.OutputTuple, L2BlockProposedEvent.OutputObject>;
+        L2BlockProposed: TypedContractEvent<L2BlockProposedEvent.InputTuple, L2BlockProposedEvent.OutputTuple, L2BlockProposedEvent.OutputObject>;
+        "L2ProofVerified(uint256,address)": TypedContractEvent<L2ProofVerifiedEvent.InputTuple, L2ProofVerifiedEvent.OutputTuple, L2ProofVerifiedEvent.OutputObject>;
+        L2ProofVerified: TypedContractEvent<L2ProofVerifiedEvent.InputTuple, L2ProofVerifiedEvent.OutputTuple, L2ProofVerifiedEvent.OutputObject>;
+        "PrunedPending(uint256,uint256)": TypedContractEvent<PrunedPendingEvent.InputTuple, PrunedPendingEvent.OutputTuple, PrunedPendingEvent.OutputObject>;
+        PrunedPending: TypedContractEvent<PrunedPendingEvent.InputTuple, PrunedPendingEvent.OutputTuple, PrunedPendingEvent.OutputObject>;
+    };
+}

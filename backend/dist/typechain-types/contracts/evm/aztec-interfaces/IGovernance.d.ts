@@ -1,0 +1,433 @@
+import type { BaseContract, BigNumberish, BytesLike, FunctionFragment, Result, Interface, EventFragment, AddressLike, ContractRunner, ContractMethod, Listener } from "ethers";
+import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, TypedLogDescription, TypedListener, TypedContractMethod } from "../../../common";
+export declare namespace DataStructures {
+    type ProposeConfigurationStruct = {
+        lockDelay: BigNumberish;
+        lockAmount: BigNumberish;
+    };
+    type ProposeConfigurationStructOutput = [
+        lockDelay: bigint,
+        lockAmount: bigint
+    ] & {
+        lockDelay: bigint;
+        lockAmount: bigint;
+    };
+    type ConfigurationStruct = {
+        proposeConfig: DataStructures.ProposeConfigurationStruct;
+        votingDelay: BigNumberish;
+        votingDuration: BigNumberish;
+        executionDelay: BigNumberish;
+        gracePeriod: BigNumberish;
+        quorum: BigNumberish;
+        voteDifferential: BigNumberish;
+        minimumVotes: BigNumberish;
+    };
+    type ConfigurationStructOutput = [
+        proposeConfig: DataStructures.ProposeConfigurationStructOutput,
+        votingDelay: bigint,
+        votingDuration: bigint,
+        executionDelay: bigint,
+        gracePeriod: bigint,
+        quorum: bigint,
+        voteDifferential: bigint,
+        minimumVotes: bigint
+    ] & {
+        proposeConfig: DataStructures.ProposeConfigurationStructOutput;
+        votingDelay: bigint;
+        votingDuration: bigint;
+        executionDelay: bigint;
+        gracePeriod: bigint;
+        quorum: bigint;
+        voteDifferential: bigint;
+        minimumVotes: bigint;
+    };
+    type BallotStruct = {
+        yea: BigNumberish;
+        nea: BigNumberish;
+    };
+    type BallotStructOutput = [yea: bigint, nea: bigint] & {
+        yea: bigint;
+        nea: bigint;
+    };
+    type ProposalStruct = {
+        config: DataStructures.ConfigurationStruct;
+        state: BigNumberish;
+        payload: AddressLike;
+        governanceProposer: AddressLike;
+        creation: BigNumberish;
+        summedBallot: DataStructures.BallotStruct;
+    };
+    type ProposalStructOutput = [
+        config: DataStructures.ConfigurationStructOutput,
+        state: bigint,
+        payload: string,
+        governanceProposer: string,
+        creation: bigint,
+        summedBallot: DataStructures.BallotStructOutput
+    ] & {
+        config: DataStructures.ConfigurationStructOutput;
+        state: bigint;
+        payload: string;
+        governanceProposer: string;
+        creation: bigint;
+        summedBallot: DataStructures.BallotStructOutput;
+    };
+    type WithdrawalStruct = {
+        amount: BigNumberish;
+        unlocksAt: BigNumberish;
+        recipient: AddressLike;
+        claimed: boolean;
+    };
+    type WithdrawalStructOutput = [
+        amount: bigint,
+        unlocksAt: bigint,
+        recipient: string,
+        claimed: boolean
+    ] & {
+        amount: bigint;
+        unlocksAt: bigint;
+        recipient: string;
+        claimed: boolean;
+    };
+}
+export interface IGovernanceInterface extends Interface {
+    getFunction(nameOrSignature: "deposit" | "dropProposal" | "execute" | "finaliseWithdraw" | "getConfiguration" | "getProposal" | "getProposalState" | "getWithdrawal" | "initiateWithdraw" | "powerAt" | "propose" | "proposeWithLock" | "totalPowerAt" | "updateConfiguration" | "updateGovernanceProposer" | "vote"): FunctionFragment;
+    getEvent(nameOrSignatureOrTopic: "ConfigurationUpdated" | "Deposit" | "GovernanceProposerUpdated" | "ProposalExecuted" | "Proposed" | "VoteCast" | "WithdrawFinalised" | "WithdrawInitiated"): EventFragment;
+    encodeFunctionData(functionFragment: "deposit", values: [AddressLike, BigNumberish]): string;
+    encodeFunctionData(functionFragment: "dropProposal", values: [BigNumberish]): string;
+    encodeFunctionData(functionFragment: "execute", values: [BigNumberish]): string;
+    encodeFunctionData(functionFragment: "finaliseWithdraw", values: [BigNumberish]): string;
+    encodeFunctionData(functionFragment: "getConfiguration", values?: undefined): string;
+    encodeFunctionData(functionFragment: "getProposal", values: [BigNumberish]): string;
+    encodeFunctionData(functionFragment: "getProposalState", values: [BigNumberish]): string;
+    encodeFunctionData(functionFragment: "getWithdrawal", values: [BigNumberish]): string;
+    encodeFunctionData(functionFragment: "initiateWithdraw", values: [AddressLike, BigNumberish]): string;
+    encodeFunctionData(functionFragment: "powerAt", values: [AddressLike, BigNumberish]): string;
+    encodeFunctionData(functionFragment: "propose", values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: "proposeWithLock", values: [AddressLike, AddressLike]): string;
+    encodeFunctionData(functionFragment: "totalPowerAt", values: [BigNumberish]): string;
+    encodeFunctionData(functionFragment: "updateConfiguration", values: [DataStructures.ConfigurationStruct]): string;
+    encodeFunctionData(functionFragment: "updateGovernanceProposer", values: [AddressLike]): string;
+    encodeFunctionData(functionFragment: "vote", values: [BigNumberish, BigNumberish, boolean]): string;
+    decodeFunctionResult(functionFragment: "deposit", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "dropProposal", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "execute", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "finaliseWithdraw", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getConfiguration", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getProposal", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getProposalState", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "getWithdrawal", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "initiateWithdraw", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "powerAt", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "propose", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "proposeWithLock", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "totalPowerAt", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "updateConfiguration", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "updateGovernanceProposer", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "vote", data: BytesLike): Result;
+}
+export declare namespace ConfigurationUpdatedEvent {
+    type InputTuple = [time: BigNumberish];
+    type OutputTuple = [time: bigint];
+    interface OutputObject {
+        time: bigint;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
+export declare namespace DepositEvent {
+    type InputTuple = [
+        depositor: AddressLike,
+        onBehalfOf: AddressLike,
+        amount: BigNumberish
+    ];
+    type OutputTuple = [
+        depositor: string,
+        onBehalfOf: string,
+        amount: bigint
+    ];
+    interface OutputObject {
+        depositor: string;
+        onBehalfOf: string;
+        amount: bigint;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
+export declare namespace GovernanceProposerUpdatedEvent {
+    type InputTuple = [governanceProposer: AddressLike];
+    type OutputTuple = [governanceProposer: string];
+    interface OutputObject {
+        governanceProposer: string;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
+export declare namespace ProposalExecutedEvent {
+    type InputTuple = [proposalId: BigNumberish];
+    type OutputTuple = [proposalId: bigint];
+    interface OutputObject {
+        proposalId: bigint;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
+export declare namespace ProposedEvent {
+    type InputTuple = [proposalId: BigNumberish, proposal: AddressLike];
+    type OutputTuple = [proposalId: bigint, proposal: string];
+    interface OutputObject {
+        proposalId: bigint;
+        proposal: string;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
+export declare namespace VoteCastEvent {
+    type InputTuple = [
+        proposalId: BigNumberish,
+        voter: AddressLike,
+        support: boolean,
+        amount: BigNumberish
+    ];
+    type OutputTuple = [
+        proposalId: bigint,
+        voter: string,
+        support: boolean,
+        amount: bigint
+    ];
+    interface OutputObject {
+        proposalId: bigint;
+        voter: string;
+        support: boolean;
+        amount: bigint;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
+export declare namespace WithdrawFinalisedEvent {
+    type InputTuple = [withdrawalId: BigNumberish];
+    type OutputTuple = [withdrawalId: bigint];
+    interface OutputObject {
+        withdrawalId: bigint;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
+export declare namespace WithdrawInitiatedEvent {
+    type InputTuple = [
+        withdrawalId: BigNumberish,
+        recipient: AddressLike,
+        amount: BigNumberish
+    ];
+    type OutputTuple = [
+        withdrawalId: bigint,
+        recipient: string,
+        amount: bigint
+    ];
+    interface OutputObject {
+        withdrawalId: bigint;
+        recipient: string;
+        amount: bigint;
+    }
+    type Event = TypedContractEvent<InputTuple, OutputTuple, OutputObject>;
+    type Filter = TypedDeferredTopicFilter<Event>;
+    type Log = TypedEventLog<Event>;
+    type LogDescription = TypedLogDescription<Event>;
+}
+export interface IGovernance extends BaseContract {
+    connect(runner?: ContractRunner | null): IGovernance;
+    waitForDeployment(): Promise<this>;
+    interface: IGovernanceInterface;
+    queryFilter<TCEvent extends TypedContractEvent>(event: TCEvent, fromBlockOrBlockhash?: string | number | undefined, toBlock?: string | number | undefined): Promise<Array<TypedEventLog<TCEvent>>>;
+    queryFilter<TCEvent extends TypedContractEvent>(filter: TypedDeferredTopicFilter<TCEvent>, fromBlockOrBlockhash?: string | number | undefined, toBlock?: string | number | undefined): Promise<Array<TypedEventLog<TCEvent>>>;
+    on<TCEvent extends TypedContractEvent>(event: TCEvent, listener: TypedListener<TCEvent>): Promise<this>;
+    on<TCEvent extends TypedContractEvent>(filter: TypedDeferredTopicFilter<TCEvent>, listener: TypedListener<TCEvent>): Promise<this>;
+    once<TCEvent extends TypedContractEvent>(event: TCEvent, listener: TypedListener<TCEvent>): Promise<this>;
+    once<TCEvent extends TypedContractEvent>(filter: TypedDeferredTopicFilter<TCEvent>, listener: TypedListener<TCEvent>): Promise<this>;
+    listeners<TCEvent extends TypedContractEvent>(event: TCEvent): Promise<Array<TypedListener<TCEvent>>>;
+    listeners(eventName?: string): Promise<Array<Listener>>;
+    removeAllListeners<TCEvent extends TypedContractEvent>(event?: TCEvent): Promise<this>;
+    deposit: TypedContractMethod<[
+        _onBehalfOf: AddressLike,
+        _amount: BigNumberish
+    ], [
+        void
+    ], "nonpayable">;
+    dropProposal: TypedContractMethod<[
+        _proposalId: BigNumberish
+    ], [
+        boolean
+    ], "nonpayable">;
+    execute: TypedContractMethod<[
+        _proposalId: BigNumberish
+    ], [
+        boolean
+    ], "nonpayable">;
+    finaliseWithdraw: TypedContractMethod<[
+        _withdrawalId: BigNumberish
+    ], [
+        void
+    ], "nonpayable">;
+    getConfiguration: TypedContractMethod<[
+    ], [
+        DataStructures.ConfigurationStructOutput
+    ], "view">;
+    getProposal: TypedContractMethod<[
+        _proposalId: BigNumberish
+    ], [
+        DataStructures.ProposalStructOutput
+    ], "view">;
+    getProposalState: TypedContractMethod<[
+        _proposalId: BigNumberish
+    ], [
+        bigint
+    ], "view">;
+    getWithdrawal: TypedContractMethod<[
+        _withdrawalId: BigNumberish
+    ], [
+        DataStructures.WithdrawalStructOutput
+    ], "view">;
+    initiateWithdraw: TypedContractMethod<[
+        _to: AddressLike,
+        _amount: BigNumberish
+    ], [
+        bigint
+    ], "nonpayable">;
+    powerAt: TypedContractMethod<[
+        _owner: AddressLike,
+        _ts: BigNumberish
+    ], [
+        bigint
+    ], "view">;
+    propose: TypedContractMethod<[
+        _proposal: AddressLike
+    ], [
+        boolean
+    ], "nonpayable">;
+    proposeWithLock: TypedContractMethod<[
+        _proposal: AddressLike,
+        _to: AddressLike
+    ], [
+        boolean
+    ], "nonpayable">;
+    totalPowerAt: TypedContractMethod<[_ts: BigNumberish], [bigint], "view">;
+    updateConfiguration: TypedContractMethod<[
+        _configuration: DataStructures.ConfigurationStruct
+    ], [
+        void
+    ], "nonpayable">;
+    updateGovernanceProposer: TypedContractMethod<[
+        _governanceProposer: AddressLike
+    ], [
+        void
+    ], "nonpayable">;
+    vote: TypedContractMethod<[
+        _proposalId: BigNumberish,
+        _amount: BigNumberish,
+        _support: boolean
+    ], [
+        boolean
+    ], "nonpayable">;
+    getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
+    getFunction(nameOrSignature: "deposit"): TypedContractMethod<[
+        _onBehalfOf: AddressLike,
+        _amount: BigNumberish
+    ], [
+        void
+    ], "nonpayable">;
+    getFunction(nameOrSignature: "dropProposal"): TypedContractMethod<[_proposalId: BigNumberish], [boolean], "nonpayable">;
+    getFunction(nameOrSignature: "execute"): TypedContractMethod<[_proposalId: BigNumberish], [boolean], "nonpayable">;
+    getFunction(nameOrSignature: "finaliseWithdraw"): TypedContractMethod<[_withdrawalId: BigNumberish], [void], "nonpayable">;
+    getFunction(nameOrSignature: "getConfiguration"): TypedContractMethod<[
+    ], [
+        DataStructures.ConfigurationStructOutput
+    ], "view">;
+    getFunction(nameOrSignature: "getProposal"): TypedContractMethod<[
+        _proposalId: BigNumberish
+    ], [
+        DataStructures.ProposalStructOutput
+    ], "view">;
+    getFunction(nameOrSignature: "getProposalState"): TypedContractMethod<[_proposalId: BigNumberish], [bigint], "view">;
+    getFunction(nameOrSignature: "getWithdrawal"): TypedContractMethod<[
+        _withdrawalId: BigNumberish
+    ], [
+        DataStructures.WithdrawalStructOutput
+    ], "view">;
+    getFunction(nameOrSignature: "initiateWithdraw"): TypedContractMethod<[
+        _to: AddressLike,
+        _amount: BigNumberish
+    ], [
+        bigint
+    ], "nonpayable">;
+    getFunction(nameOrSignature: "powerAt"): TypedContractMethod<[
+        _owner: AddressLike,
+        _ts: BigNumberish
+    ], [
+        bigint
+    ], "view">;
+    getFunction(nameOrSignature: "propose"): TypedContractMethod<[_proposal: AddressLike], [boolean], "nonpayable">;
+    getFunction(nameOrSignature: "proposeWithLock"): TypedContractMethod<[
+        _proposal: AddressLike,
+        _to: AddressLike
+    ], [
+        boolean
+    ], "nonpayable">;
+    getFunction(nameOrSignature: "totalPowerAt"): TypedContractMethod<[_ts: BigNumberish], [bigint], "view">;
+    getFunction(nameOrSignature: "updateConfiguration"): TypedContractMethod<[
+        _configuration: DataStructures.ConfigurationStruct
+    ], [
+        void
+    ], "nonpayable">;
+    getFunction(nameOrSignature: "updateGovernanceProposer"): TypedContractMethod<[
+        _governanceProposer: AddressLike
+    ], [
+        void
+    ], "nonpayable">;
+    getFunction(nameOrSignature: "vote"): TypedContractMethod<[
+        _proposalId: BigNumberish,
+        _amount: BigNumberish,
+        _support: boolean
+    ], [
+        boolean
+    ], "nonpayable">;
+    getEvent(key: "ConfigurationUpdated"): TypedContractEvent<ConfigurationUpdatedEvent.InputTuple, ConfigurationUpdatedEvent.OutputTuple, ConfigurationUpdatedEvent.OutputObject>;
+    getEvent(key: "Deposit"): TypedContractEvent<DepositEvent.InputTuple, DepositEvent.OutputTuple, DepositEvent.OutputObject>;
+    getEvent(key: "GovernanceProposerUpdated"): TypedContractEvent<GovernanceProposerUpdatedEvent.InputTuple, GovernanceProposerUpdatedEvent.OutputTuple, GovernanceProposerUpdatedEvent.OutputObject>;
+    getEvent(key: "ProposalExecuted"): TypedContractEvent<ProposalExecutedEvent.InputTuple, ProposalExecutedEvent.OutputTuple, ProposalExecutedEvent.OutputObject>;
+    getEvent(key: "Proposed"): TypedContractEvent<ProposedEvent.InputTuple, ProposedEvent.OutputTuple, ProposedEvent.OutputObject>;
+    getEvent(key: "VoteCast"): TypedContractEvent<VoteCastEvent.InputTuple, VoteCastEvent.OutputTuple, VoteCastEvent.OutputObject>;
+    getEvent(key: "WithdrawFinalised"): TypedContractEvent<WithdrawFinalisedEvent.InputTuple, WithdrawFinalisedEvent.OutputTuple, WithdrawFinalisedEvent.OutputObject>;
+    getEvent(key: "WithdrawInitiated"): TypedContractEvent<WithdrawInitiatedEvent.InputTuple, WithdrawInitiatedEvent.OutputTuple, WithdrawInitiatedEvent.OutputObject>;
+    filters: {
+        "ConfigurationUpdated(uint256)": TypedContractEvent<ConfigurationUpdatedEvent.InputTuple, ConfigurationUpdatedEvent.OutputTuple, ConfigurationUpdatedEvent.OutputObject>;
+        ConfigurationUpdated: TypedContractEvent<ConfigurationUpdatedEvent.InputTuple, ConfigurationUpdatedEvent.OutputTuple, ConfigurationUpdatedEvent.OutputObject>;
+        "Deposit(address,address,uint256)": TypedContractEvent<DepositEvent.InputTuple, DepositEvent.OutputTuple, DepositEvent.OutputObject>;
+        Deposit: TypedContractEvent<DepositEvent.InputTuple, DepositEvent.OutputTuple, DepositEvent.OutputObject>;
+        "GovernanceProposerUpdated(address)": TypedContractEvent<GovernanceProposerUpdatedEvent.InputTuple, GovernanceProposerUpdatedEvent.OutputTuple, GovernanceProposerUpdatedEvent.OutputObject>;
+        GovernanceProposerUpdated: TypedContractEvent<GovernanceProposerUpdatedEvent.InputTuple, GovernanceProposerUpdatedEvent.OutputTuple, GovernanceProposerUpdatedEvent.OutputObject>;
+        "ProposalExecuted(uint256)": TypedContractEvent<ProposalExecutedEvent.InputTuple, ProposalExecutedEvent.OutputTuple, ProposalExecutedEvent.OutputObject>;
+        ProposalExecuted: TypedContractEvent<ProposalExecutedEvent.InputTuple, ProposalExecutedEvent.OutputTuple, ProposalExecutedEvent.OutputObject>;
+        "Proposed(uint256,address)": TypedContractEvent<ProposedEvent.InputTuple, ProposedEvent.OutputTuple, ProposedEvent.OutputObject>;
+        Proposed: TypedContractEvent<ProposedEvent.InputTuple, ProposedEvent.OutputTuple, ProposedEvent.OutputObject>;
+        "VoteCast(uint256,address,bool,uint256)": TypedContractEvent<VoteCastEvent.InputTuple, VoteCastEvent.OutputTuple, VoteCastEvent.OutputObject>;
+        VoteCast: TypedContractEvent<VoteCastEvent.InputTuple, VoteCastEvent.OutputTuple, VoteCastEvent.OutputObject>;
+        "WithdrawFinalised(uint256)": TypedContractEvent<WithdrawFinalisedEvent.InputTuple, WithdrawFinalisedEvent.OutputTuple, WithdrawFinalisedEvent.OutputObject>;
+        WithdrawFinalised: TypedContractEvent<WithdrawFinalisedEvent.InputTuple, WithdrawFinalisedEvent.OutputTuple, WithdrawFinalisedEvent.OutputObject>;
+        "WithdrawInitiated(uint256,address,uint256)": TypedContractEvent<WithdrawInitiatedEvent.InputTuple, WithdrawInitiatedEvent.OutputTuple, WithdrawInitiatedEvent.OutputObject>;
+        WithdrawInitiated: TypedContractEvent<WithdrawInitiatedEvent.InputTuple, WithdrawInitiatedEvent.OutputTuple, WithdrawInitiatedEvent.OutputObject>;
+    };
+}

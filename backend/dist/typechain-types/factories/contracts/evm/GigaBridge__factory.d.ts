@@ -1,0 +1,198 @@
+import { ContractFactory, ContractTransactionResponse } from "ethers";
+import type { Signer, BigNumberish, AddressLike, ContractDeployTransaction, ContractRunner } from "ethers";
+import type { NonPayableOverrides } from "../../../common";
+import type { GigaBridge, GigaBridgeInterface } from "../../../contracts/evm/GigaBridge";
+type GigaBridgeConstructorParams = [linkLibraryAddresses: GigaBridgeLibraryAddresses, signer?: Signer] | ConstructorParameters<typeof ContractFactory>;
+export declare class GigaBridge__factory extends ContractFactory {
+    constructor(...args: GigaBridgeConstructorParams);
+    static linkBytecode(linkLibraryAddresses: GigaBridgeLibraryAddresses): string;
+    getDeployTransaction(_gigaRootRecipients: AddressLike[], _maxTreeDepth: BigNumberish, overrides?: NonPayableOverrides & {
+        from?: string;
+    }): Promise<ContractDeployTransaction>;
+    deploy(_gigaRootRecipients: AddressLike[], _maxTreeDepth: BigNumberish, overrides?: NonPayableOverrides & {
+        from?: string;
+    }): Promise<GigaBridge & {
+        deploymentTransaction(): ContractTransactionResponse;
+    }>;
+    connect(runner: ContractRunner | null): GigaBridge__factory;
+    static readonly bytecode = "0x608060405234801561000f575f5ffd5b50604051610e6f380380610e6f83398101604081905261002e91610271565b6003805460ff191660ff8316908117909155604051631844db3b60e21b815260016004820152602481019190915273__$5fc44c2a7799c6ceb48acabb21e98687d0$__906361136cec906044015f6040518083038186803b158015610091575f5ffd5b505af41580156100a3573d5f5f3e3d5ffd5b505f925050505b82518164ffffffffff161015610162576100ea838264ffffffffff16815181106100d6576100d661034d565b6020026020010151826101f160201b60201c565b60405163011277af60e11b8152600160048201525f602482015273__$5fc44c2a7799c6ceb48acabb21e98687d0$__90630224ef5e906044015f6040518083038186803b158015610139575f5ffd5b505af415801561014b573d5f5f3e3d5ffd5b50505050808061015a90610375565b9150506100aa565b5081516006556003546040516339ebe6e360e01b81526001600482015260ff909116602482015273__$5fc44c2a7799c6ceb48acabb21e98687d0$__906339ebe6e390604401602060405180830381865af41580156101c3573d5f5f3e3d5ffd5b505050506040513d601f19601f820116820180604052508101906101e7919061039b565b5f55506103d59050565b6101fc8160016103b2565b6001600160a01b03929092165f908152600460205260409020805464ffffffffff191664ffffffffff9093169290921790915550565b634e487b7160e01b5f52604160045260245ffd5b80516001600160a01b038116811461025c575f5ffd5b919050565b805160ff8116811461025c575f5ffd5b5f5f60408385031215610282575f5ffd5b82516001600160401b03811115610297575f5ffd5b8301601f810185136102a7575f5ffd5b80516001600160401b038111156102c0576102c0610232565b604051600582901b90603f8201601f191681016001600160401b03811182821017156102ee576102ee610232565b60405291825260208184018101929081018884111561030b575f5ffd5b6020850194505b838510156103315761032385610246565b815260209485019401610312565b5094506103449250505060208401610261565b90509250929050565b634e487b7160e01b5f52603260045260245ffd5b634e487b7160e01b5f52601160045260245ffd5b5f64ffffffffff821664ffffffffff810361039257610392610361565b60010192915050565b5f602082840312156103ab575f5ffd5b5051919050565b64ffffffffff81811683821601908111156103cf576103cf610361565b92915050565b610a8d806103e25f395ff3fe6080604052600436106100ad575f3560e01c80638e79a15c11610066578063cc9c92e31161004c578063cc9c92e3146101eb578063d3f9fa5114610216578063ed31090b14610241575f5ffd5b80638e79a15c1461017f578063b32a95711461019e575f5ffd5b8063363f1dad11610096578063363f1dad146100ed5780633b7cd9de146101355780633df6effa1461016a575f5ffd5b8063025e2480146100b157806329c50fa9146100d9575b5f5ffd5b3480156100bc575f5ffd5b506100c660065481565b6040519081526020015b60405180910390f35b3480156100e4575f5ffd5b506100c65f5481565b3480156100f8575f5ffd5b506001546101179064ffffffffff808216916501000000000090041682565b6040805164ffffffffff9384168152929091166020830152016100d0565b348015610140575f5ffd5b5061015461014f3660046107c2565b610254565b60405164ffffffffff90911681526020016100d0565b61017d6101783660046107c2565b610285565b005b34801561018a575f5ffd5b5061017d6101993660046108bb565b610328565b3480156101a9575f5ffd5b506101db6101b83660046107c2565b6001600160a01b03165f9081526004602052604090205464ffffffffff16151590565b60405190151581526020016100d0565b3480156101f6575f5ffd5b506100c66102053660046107c2565b60056020525f908152604090205481565b348015610221575f5ffd5b5060035461022f9060ff1681565b60405160ff90911681526020016100d0565b61017d61024f3660046108f5565b6106c8565b6001600160a01b0381165f9081526004602052604081205461027f9060019064ffffffffff166109c7565b92915050565b5f8054604051909182917f5262fb268b6ad97e5b83c2aba6751e21eca0cfbef291e46408cddbaca13cd8f49190a26040517f27e74ca3000000000000000000000000000000000000000000000000000000008152600481018290526001600160a01b038316906327e74ca39034906024015f604051808303818588803b15801561030d575f5ffd5b505af115801561031f573d5f5f3e3d5ffd5b50505050505050565b5f5b81518164ffffffffff1610156105fb575f828264ffffffffff1681518110610354576103546109e4565b602002602001015190505f61036882610254565b9050610391826001600160a01b03165f9081526004602052604090205464ffffffffff16151590565b6104085760405162461bcd60e51b815260206004820152602f60248201527f41646472657373206973206e6f742061207265676973746572656420726f6f7460448201527f206272696467652061646472657373000000000000000000000000000000000060648201526084015b60405180910390fd5b5f5f836001600160a01b031663ae5582fa6040518163ffffffff1660e01b815260040160408051808303815f875af1158015610446573d5f5f3e3d5ffd5b505050506040513d601f19601f8201168201806040525081019061046a91906109f8565b6001600160a01b0386165f9081526005602052604090205491935091508110156104fc5760405162461bcd60e51b815260206004820152602560248201527f6c6f63616c526f6f742068617320746f206265206e65776572206f722074686560448201527f2073616d6500000000000000000000000000000000000000000000000000000060648201526084016103ff565b6001600160a01b0384165f9081526005602052604090819020829055517f09489a3c000000000000000000000000000000000000000000000000000000008152600160048201526024810183905264ffffffffff8416604482015273__$5fc44c2a7799c6ceb48acabb21e98687d0$__906309489a3c906064015f6040518083038186803b15801561058c575f5ffd5b505af415801561059e573d5f5f3e3d5ffd5b505050508264ffffffffff16827fd22c20021486e0e86b4af0b379484ed1fb952315fb1e05df3dda5bd6421d936e836040516105dc91815260200190565b60405180910390a35050505080806105f390610a1a565b91505061032a565b506003546040517f39ebe6e30000000000000000000000000000000000000000000000000000000081526001600482015260ff90911660248201525f9073__$5fc44c2a7799c6ceb48acabb21e98687d0$__906339ebe6e390604401602060405180830381865af4158015610672573d5f5f3e3d5ffd5b505050506040513d601f19601f820116820180604052508101906106969190610a40565b60405190915081907f8e90d8cfb527d5c92458e67bc378f86769c754f180409b1e5c7ec5e183c91820905f90a25f5550565b5f8054604051909182917f5262fb268b6ad97e5b83c2aba6751e21eca0cfbef291e46408cddbaca13cd8f49190a25f5b83518110156107a1575f848281518110610714576107146109e4565b60200260200101519050806001600160a01b03166327e74ca385848151811061073f5761073f6109e4565b6020026020010151856040518363ffffffff1660e01b815260040161076691815260200190565b5f604051808303818588803b15801561077d575f5ffd5b505af115801561078f573d5f5f3e3d5ffd5b5050600190940193506106f892505050565b50505050565b80356001600160a01b03811681146107bd575f5ffd5b919050565b5f602082840312156107d2575f5ffd5b6107db826107a7565b9392505050565b634e487b7160e01b5f52604160045260245ffd5b604051601f8201601f1916810167ffffffffffffffff8111828210171561081f5761081f6107e2565b604052919050565b5f67ffffffffffffffff821115610840576108406107e2565b5060051b60200190565b5f82601f830112610859575f5ffd5b813561086c61086782610827565b6107f6565b8082825260208201915060208360051b86010192508583111561088d575f5ffd5b602085015b838110156108b1576108a3816107a7565b835260209283019201610892565b5095945050505050565b5f602082840312156108cb575f5ffd5b813567ffffffffffffffff8111156108e1575f5ffd5b6108ed8482850161084a565b949350505050565b5f5f60408385031215610906575f5ffd5b823567ffffffffffffffff81111561091c575f5ffd5b6109288582860161084a565b925050602083013567ffffffffffffffff811115610944575f5ffd5b8301601f81018513610954575f5ffd5b803561096261086782610827565b8082825260208201915060208360051b850101925087831115610983575f5ffd5b6020840193505b828410156109a557833582526020938401939091019061098a565b809450505050509250929050565b634e487b7160e01b5f52601160045260245ffd5b64ffffffffff828116828216039081111561027f5761027f6109b3565b634e487b7160e01b5f52603260045260245ffd5b5f5f60408385031215610a09575f5ffd5b505080516020909101519092909150565b5f64ffffffffff821664ffffffffff8103610a3757610a376109b3565b60010192915050565b5f60208284031215610a50575f5ffd5b505191905056fea26469706673582212209d895b84d612b1101d2de2ddca38c4896a2c1a82f28f425b1a30e46965bb443664736f6c634300081d0033";
+    static readonly abi: readonly [{
+        readonly inputs: readonly [{
+            readonly internalType: "address[]";
+            readonly name: "_gigaRootRecipients";
+            readonly type: "address[]";
+        }, {
+            readonly internalType: "uint8";
+            readonly name: "_maxTreeDepth";
+            readonly type: "uint8";
+        }];
+        readonly stateMutability: "nonpayable";
+        readonly type: "constructor";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: true;
+            readonly internalType: "uint256";
+            readonly name: "newGigaRoot";
+            readonly type: "uint256";
+        }];
+        readonly name: "ConstructedNewGigaRoot";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: true;
+            readonly internalType: "uint256";
+            readonly name: "newLocalRoot";
+            readonly type: "uint256";
+        }, {
+            readonly indexed: true;
+            readonly internalType: "uint40";
+            readonly name: "localRootIndex";
+            readonly type: "uint40";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "localRootBlockNumber";
+            readonly type: "uint256";
+        }];
+        readonly name: "ReceivedNewLocalRoot";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: true;
+            readonly internalType: "uint256";
+            readonly name: "gigaRoot";
+            readonly type: "uint256";
+        }];
+        readonly name: "SentGigaRoot";
+        readonly type: "event";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "amountOfLocalRoots";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "_localRootProvider";
+            readonly type: "address";
+        }];
+        readonly name: "getLocalRootProvidersIndex";
+        readonly outputs: readonly [{
+            readonly internalType: "uint40";
+            readonly name: "";
+            readonly type: "uint40";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "gigaRoot";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "_localRootProvider";
+            readonly type: "address";
+        }];
+        readonly name: "isLocalRootProviders";
+        readonly outputs: readonly [{
+            readonly internalType: "bool";
+            readonly name: "";
+            readonly type: "bool";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "";
+            readonly type: "address";
+        }];
+        readonly name: "localRootBlockNumbers";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "maxTreeDepth";
+        readonly outputs: readonly [{
+            readonly internalType: "uint8";
+            readonly name: "";
+            readonly type: "uint8";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "rootTreeData";
+        readonly outputs: readonly [{
+            readonly internalType: "uint40";
+            readonly name: "maxIndex";
+            readonly type: "uint40";
+        }, {
+            readonly internalType: "uint40";
+            readonly name: "numberOfLeaves";
+            readonly type: "uint40";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "_gigaRootRecipient";
+            readonly type: "address";
+        }];
+        readonly name: "sendGigaRoot";
+        readonly outputs: readonly [];
+        readonly stateMutability: "payable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address[]";
+            readonly name: "_gigaRootRecipients";
+            readonly type: "address[]";
+        }, {
+            readonly internalType: "uint256[]";
+            readonly name: "_amounts";
+            readonly type: "uint256[]";
+        }];
+        readonly name: "sendGigaRoot";
+        readonly outputs: readonly [];
+        readonly stateMutability: "payable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address[]";
+            readonly name: "_localRootProvider";
+            readonly type: "address[]";
+        }];
+        readonly name: "updateGigaRoot";
+        readonly outputs: readonly [];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }];
+    static createInterface(): GigaBridgeInterface;
+    static connect(address: string, runner?: ContractRunner | null): GigaBridge;
+}
+export interface GigaBridgeLibraryAddresses {
+    ["@zk-kit/lazy-imt.sol/LazyIMT.sol:LazyIMT"]: string;
+}
+export {};

@@ -1,0 +1,227 @@
+import { ContractFactory, ContractTransactionResponse } from "ethers";
+import type { Signer, ContractDeployTransaction, ContractRunner } from "ethers";
+import type { NonPayableOverrides } from "../../../../common";
+import type { L1AztecBridgeAdapter, L1AztecBridgeAdapterInterface } from "../../../../contracts/evm/adapters/L1AztecBridgeAdapter";
+type L1AztecBridgeAdapterConstructorParams = [signer?: Signer] | ConstructorParameters<typeof ContractFactory>;
+export declare class L1AztecBridgeAdapter__factory extends ContractFactory {
+    constructor(...args: L1AztecBridgeAdapterConstructorParams);
+    getDeployTransaction(overrides?: NonPayableOverrides & {
+        from?: string;
+    }): Promise<ContractDeployTransaction>;
+    deploy(overrides?: NonPayableOverrides & {
+        from?: string;
+    }): Promise<L1AztecBridgeAdapter & {
+        deploymentTransaction(): ContractTransactionResponse;
+    }>;
+    connect(runner: ContractRunner | null): L1AztecBridgeAdapter__factory;
+    static readonly bytecode = "0x60806040526008805460ff60a01b19169055348015601b575f5ffd5b50600880546001600160a01b03191633179055610d738061003b5f395ff3fe6080604052600436106100ce575f3560e01c8063b08938871161007c578063d0623e6d11610057578063d0623e6d146101f6578063d26b3e6e1461020a578063df37416514610229578063fb0e722b14610248575f5ffd5b8063b08938871461018b578063cb23bcb5146101a0578063ce11e6ab146101d7575f5ffd5b806395e2c676116100ac57806395e2c6761461012e578063ac0437101461014d578063ae5582fa14610162575f5ffd5b806327e74ca3146100d25780632f4eb62d146100e75780634bd1a1c61461010f575b5f5ffd5b6100e56100e0366004610abe565b610267565b005b3480156100f2575f5ffd5b506100fc60015481565b6040519081526020015b60405180910390f35b34801561011a575f5ffd5b506100e5610129366004610ad5565b6102d2565b348015610139575f5ffd5b506100fc610148366004610b6b565b6103f4565b348015610158575f5ffd5b506100fc60025481565b34801561016d575f5ffd5b5061017661042f565b60408051928352602083019190915201610106565b348015610196575f5ffd5b506100fc60065481565b3480156101ab575f5ffd5b506003546101bf906001600160a01b031681565b6040516001600160a01b039091168152602001610106565b3480156101e2575f5ffd5b506004546101bf906001600160a01b031681565b348015610201575f5ffd5b506100fc5f5481565b348015610215575f5ffd5b506100e5610224366004610b9f565b610577565b348015610234575f5ffd5b506007546101bf906001600160a01b031681565b348015610253575f5ffd5b506005546101bf906001600160a01b031681565b6007546001600160a01b031633146102c65760405162461bcd60e51b815260206004820152600e60248201527f4e6f74206769676142726964676500000000000000000000000000000000000060448201526064015b60405180910390fd5b6102cf816108fe565b50565b5f6102dd87876103f4565b6040805160a0810182525f54606082019081526006546080830152815281518083018352308152466020808301919091528201528082018390526004805492517f7fb3496700000000000000000000000000000000000000000000000000000000815293945090926001600160a01b0390921691637fb349679161036b9185918b918b918b918b9101610bde565b5f604051808303815f87803b158015610382575f5ffd5b505af1158015610394573d5f5f3e3d5ffd5b50506002548a9250891090506103e957807f475b5c7799f48003a7afb7bac86d23c4d2cfd499581b90657c981e4616318a2c896040516103d691815260200190565b60405180910390a2600181905560028890555b505050505050505050565b5f6104288383604051602001610414929190918252602082015260400190565b604051602081830303815290604052610a23565b9392505050565b5f5f5f600154116104ce5760405162461bcd60e51b815260206004820152605060248201527f416e204c3220726f6f74206861736e277420796574206265656e20627269646760448201527f656420746f207468697320636f6e74726163742e2072656672657368526f6f7460648201527f206d7573742062652063616c6c65642e00000000000000000000000000000000608482015260a4016102bd565b5f6002541161056b5760405162461bcd60e51b815260206004820152605060248201527f416e204c3220726f6f74206861736e277420796574206265656e20627269646760448201527f656420746f207468697320636f6e74726163742e2072656672657368526f6f7460648201527f206d7573742062652063616c6c65642e00000000000000000000000000000000608482015260a4016102bd565b50506001546002549091565b6008546001600160a01b031633146105d15760405162461bcd60e51b815260206004820152601060248201527f4e6f7420746865206465706c6f7965720000000000000000000000000000000060448201526064016102bd565b600854600160a01b900460ff161561062b5760405162461bcd60e51b815260206004820152601560248201527f63616e7420696e697469616c697a65207477696365000000000000000000000060448201526064016102bd565b600880547fffffffffffffffffffffff00ffffffffffffffffffffffffffffffffffffffff16600160a01b1790555f829055604080517f971b0e6b00000000000000000000000000000000000000000000000000000000815290516001600160a01b0385169163971b0e6b9160048083019260209291908290030181865afa1580156106b9573d5f5f3e3d5ffd5b505050506040513d601f19601f820116820180604052508101906106dd9190610c83565b6003805473ffffffffffffffffffffffffffffffffffffffff19166001600160a01b03929092169182179055604080517fa32fbb7b000000000000000000000000000000000000000000000000000000008152905163a32fbb7b916004808201926020929091908290030181865afa15801561075b573d5f5f3e3d5ffd5b505050506040513d601f19601f8201168201806040525081019061077f9190610c83565b6004805473ffffffffffffffffffffffffffffffffffffffff19166001600160a01b03928316178155600354604080517f368c093c0000000000000000000000000000000000000000000000000000000081529051919093169263368c093c92818101926020929091908290030181865afa158015610800573d5f5f3e3d5ffd5b505050506040513d601f19601f820116820180604052508101906108249190610c83565b6005805473ffffffffffffffffffffffffffffffffffffffff19166001600160a01b03928316179055600354604080517f0d8e6e2c00000000000000000000000000000000000000000000000000000000815290519190921691630d8e6e2c9160048083019260209291908290030181865afa1580156108a6573d5f5f3e3d5ffd5b505050506040513d601f19601f820116820180604052508101906108ca9190610c9e565b6006556007805473ffffffffffffffffffffffffffffffffffffffff19166001600160a01b03929092169190911790555050565b6040805180820182525f805482526006546020830190815260055493517f1f6d510b0000000000000000000000000000000000000000000000000000000081528351600482015290516024820152604481018590527e1dc7b0244cb71a4609d526300ba6771064bd046848666f7bfe577053d630c56064820181905292938593929182916001600160a01b031690631f6d510b9060840160408051808303815f875af11580156109b0573d5f5f3e3d5ffd5b505050506040513d601f19601f820116820180604052508101906109d49190610cb5565b91509150837f64986607a90a031414cac90eb78251d467a1219888fd4297669057a9718533458383604051610a13929190918252602082015260400190565b60405180910390a2505050505050565b6040805160018082528183019092525f9160208201818036833701905050600283604051610a519190610cee565b602060405180830381855afa158015610a6c573d5f5f3e3d5ffd5b5050506040513d601f19601f82011682018060405250810190610a8f9190610c9e565b604051602001610aa0929190610cf9565b604051602081830303815290604052610ab890610d17565b92915050565b5f60208284031215610ace575f5ffd5b5035919050565b5f5f5f5f5f5f60a08789031215610aea575f5ffd5b86359550602087013594506040870135935060608701359250608087013567ffffffffffffffff811115610b1c575f5ffd5b8701601f81018913610b2c575f5ffd5b803567ffffffffffffffff811115610b42575f5ffd5b8960208260051b8401011115610b56575f5ffd5b60208201935080925050509295509295509295565b5f5f60408385031215610b7c575f5ffd5b50508035926020909101359150565b6001600160a01b03811681146102cf575f5ffd5b5f5f5f60608486031215610bb1575f5ffd5b8335610bbc81610b8b565b9250602084013591506040840135610bd381610b8b565b809150509250925092565b610bf381875180518252602090810151910152565b5f60208701516001600160a01b0381511660408401526020810151606084015250604087015160808301528560a08301528460c083015261010060e0830152826101008301527f07ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff831115610c65575f5ffd5b8260051b808561012085013791909101610120019695505050505050565b5f60208284031215610c93575f5ffd5b815161042881610b8b565b5f60208284031215610cae575f5ffd5b5051919050565b5f5f60408385031215610cc6575f5ffd5b505080516020909101519092909150565b5f81518060208401855e5f93019283525090919050565b5f6104288284610cd7565b5f610d048285610cd7565b60ff199390931683525050601f01919050565b80516020808301519190811015610d37575f198160200360031b1b821691505b5091905056fea2646970667358221220dd1e19b731f05df9124314e4df94a83d4009d1ae0d929bb7f5857cb25ffde7d864736f6c634300081d0033";
+    static readonly abi: readonly [{
+        readonly inputs: readonly [];
+        readonly stateMutability: "nonpayable";
+        readonly type: "constructor";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: true;
+            readonly internalType: "bytes32";
+            readonly name: "newGigaRoot";
+            readonly type: "bytes32";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "bytes32";
+            readonly name: "key";
+            readonly type: "bytes32";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "index";
+            readonly type: "uint256";
+        }];
+        readonly name: "NewGigaRootSentToAztec";
+        readonly type: "event";
+    }, {
+        readonly anonymous: false;
+        readonly inputs: readonly [{
+            readonly indexed: true;
+            readonly internalType: "uint256";
+            readonly name: "newL2Root";
+            readonly type: "uint256";
+        }, {
+            readonly indexed: false;
+            readonly internalType: "uint256";
+            readonly name: "l2Block";
+            readonly type: "uint256";
+        }];
+        readonly name: "ReceivedNewL2Root";
+        readonly type: "event";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "bytes32";
+            readonly name: "_newL2Root";
+            readonly type: "bytes32";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "_bridgedL2BlockNumber";
+            readonly type: "uint256";
+        }];
+        readonly name: "getContentHash";
+        readonly outputs: readonly [{
+            readonly internalType: "bytes32";
+            readonly name: "";
+            readonly type: "bytes32";
+        }];
+        readonly stateMutability: "pure";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "getLocalRootAndBlock";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "bytes32";
+            readonly name: "_newL2Root";
+            readonly type: "bytes32";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "_bridgedL2BlockNumber";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "_witnessL2BlockNumber";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "uint256";
+            readonly name: "_leafIndex";
+            readonly type: "uint256";
+        }, {
+            readonly internalType: "bytes32[]";
+            readonly name: "_path";
+            readonly type: "bytes32[]";
+        }];
+        readonly name: "getNewRootFromL2";
+        readonly outputs: readonly [];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "gigaBridge";
+        readonly outputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "";
+            readonly type: "address";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "inbox";
+        readonly outputs: readonly [{
+            readonly internalType: "contract IInbox";
+            readonly name: "";
+            readonly type: "address";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "address";
+            readonly name: "_registry";
+            readonly type: "address";
+        }, {
+            readonly internalType: "bytes32";
+            readonly name: "_l2AztecBridgeAdapter";
+            readonly type: "bytes32";
+        }, {
+            readonly internalType: "address";
+            readonly name: "_gigaRootBridge";
+            readonly type: "address";
+        }];
+        readonly name: "initialize";
+        readonly outputs: readonly [];
+        readonly stateMutability: "nonpayable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "l2AztecBridgeAdapter";
+        readonly outputs: readonly [{
+            readonly internalType: "bytes32";
+            readonly name: "";
+            readonly type: "bytes32";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "mostRecentL2Root";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "mostRecentL2RootBlockNumber";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "outbox";
+        readonly outputs: readonly [{
+            readonly internalType: "contract IOutbox";
+            readonly name: "";
+            readonly type: "address";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "_newGigaRoot";
+            readonly type: "uint256";
+        }];
+        readonly name: "receiveGigaRoot";
+        readonly outputs: readonly [];
+        readonly stateMutability: "payable";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "rollup";
+        readonly outputs: readonly [{
+            readonly internalType: "contract IRollup";
+            readonly name: "";
+            readonly type: "address";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }, {
+        readonly inputs: readonly [];
+        readonly name: "rollupVersion";
+        readonly outputs: readonly [{
+            readonly internalType: "uint256";
+            readonly name: "";
+            readonly type: "uint256";
+        }];
+        readonly stateMutability: "view";
+        readonly type: "function";
+    }];
+    static createInterface(): L1AztecBridgeAdapterInterface;
+    static connect(address: string, runner?: ContractRunner | null): L1AztecBridgeAdapter;
+}
+export {};

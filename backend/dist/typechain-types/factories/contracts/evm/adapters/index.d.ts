@@ -1,0 +1,3 @@
+export { L1AztecBridgeAdapter__factory } from "./L1AztecBridgeAdapter__factory";
+export { L1ScrollBridgeAdapter__factory } from "./L1ScrollBridgeAdapter__factory";
+export { L2ScrollBridgeAdapter__factory } from "./L2ScrollBridgeAdapter__factory";

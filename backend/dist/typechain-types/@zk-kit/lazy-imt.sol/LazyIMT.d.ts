@@ -1,0 +1,39 @@
+import type { BaseContract, BigNumberish, BytesLike, FunctionFragment, Result, Interface, ContractRunner, ContractMethod, Listener } from "ethers";
+import type { TypedContractEvent, TypedDeferredTopicFilter, TypedEventLog, TypedListener, TypedContractMethod } from "../../common";
+export interface LazyIMTInterface extends Interface {
+    getFunction(nameOrSignature: "defaultZero" | "indexForElement"): FunctionFragment;
+    encodeFunctionData(functionFragment: "defaultZero", values: [BigNumberish]): string;
+    encodeFunctionData(functionFragment: "indexForElement", values: [BigNumberish, BigNumberish]): string;
+    decodeFunctionResult(functionFragment: "defaultZero", data: BytesLike): Result;
+    decodeFunctionResult(functionFragment: "indexForElement", data: BytesLike): Result;
+}
+export interface LazyIMT extends BaseContract {
+    connect(runner?: ContractRunner | null): LazyIMT;
+    waitForDeployment(): Promise<this>;
+    interface: LazyIMTInterface;
+    queryFilter<TCEvent extends TypedContractEvent>(event: TCEvent, fromBlockOrBlockhash?: string | number | undefined, toBlock?: string | number | undefined): Promise<Array<TypedEventLog<TCEvent>>>;
+    queryFilter<TCEvent extends TypedContractEvent>(filter: TypedDeferredTopicFilter<TCEvent>, fromBlockOrBlockhash?: string | number | undefined, toBlock?: string | number | undefined): Promise<Array<TypedEventLog<TCEvent>>>;
+    on<TCEvent extends TypedContractEvent>(event: TCEvent, listener: TypedListener<TCEvent>): Promise<this>;
+    on<TCEvent extends TypedContractEvent>(filter: TypedDeferredTopicFilter<TCEvent>, listener: TypedListener<TCEvent>): Promise<this>;
+    once<TCEvent extends TypedContractEvent>(event: TCEvent, listener: TypedListener<TCEvent>): Promise<this>;
+    once<TCEvent extends TypedContractEvent>(filter: TypedDeferredTopicFilter<TCEvent>, listener: TypedListener<TCEvent>): Promise<this>;
+    listeners<TCEvent extends TypedContractEvent>(event: TCEvent): Promise<Array<TypedListener<TCEvent>>>;
+    listeners(eventName?: string): Promise<Array<Listener>>;
+    removeAllListeners<TCEvent extends TypedContractEvent>(event?: TCEvent): Promise<this>;
+    defaultZero: TypedContractMethod<[index: BigNumberish], [bigint], "view">;
+    indexForElement: TypedContractMethod<[
+        level: BigNumberish,
+        index: BigNumberish
+    ], [
+        bigint
+    ], "view">;
+    getFunction<T extends ContractMethod = ContractMethod>(key: string | FunctionFragment): T;
+    getFunction(nameOrSignature: "defaultZero"): TypedContractMethod<[index: BigNumberish], [bigint], "view">;
+    getFunction(nameOrSignature: "indexForElement"): TypedContractMethod<[
+        level: BigNumberish,
+        index: BigNumberish
+    ], [
+        bigint
+    ], "view">;
+    filters: {};
+}
