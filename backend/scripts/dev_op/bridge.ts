@@ -4,9 +4,8 @@ import { ArgumentParser } from 'argparse';
 import { createPXEClient, PXE, waitForPXE } from '@aztec/aztec.js';
 
 // local
-import { getL1Contracts, getL2Contracts, getAztecTestWallet } from './utils';
-import { getLocalRootProviders, getPayableGigaRootRecipients, bridgeBetweenL1AndL2, sleep } from '../lib/bridging';
-
+import { getL1Contracts, getL2Contracts, getAztecTestWallet } from 'warp-toad-old-backend/deployment';
+import { getLocalRootProviders, getPayableGigaRootRecipients, bridgeBetweenL1AndL2, sleep } from 'warp-toad-old-backend/bridging';
 
 const AZTEC_NODE_URL = "https://aztec-alpha-testnet-fullnode.zkv.xyz"
 
@@ -68,7 +67,7 @@ async function main() {
 
     //------------------- get contract details -------------------------------
     const localRootProviders = args.localRootProviders ? args.localRootProviders : await getLocalRootProviders(l1ChainId)
-    const { L1Adapter, gigaBridge } = await getL1Contracts(l1ChainId, l2ChainId as bigint, l1Wallet, args.isAztec)
+    const { L1Adapter, gigaBridge, l1Warptoad } = await getL1Contracts(l1ChainId, l2ChainId as bigint, l1Wallet, args.isAztec)
     const { L2Adapter, L2WarpToad } = await getL2Contracts(l2Wallet,l1ChainId, l2ChainId, args.isAztec, PXE as PXE, AZTEC_NODE_URL)
     const payableLocalRootProviders = await getPayableGigaRootRecipients(l1ChainId)
     //--------------------------------------------------------------------------
