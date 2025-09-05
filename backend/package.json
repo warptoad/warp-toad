@@ -1,7 +1,7 @@
 {
-  "name": "@warp-toad/backend",
-  "private": true,
-  "version": "1.0.18",
+  "name": "warp-toad-old-backend",
+  "private": false,
+  "version": "1.0.19",
   "repository": "https://github.com/warptoad/warp-toad/tree/backend-npm-package/backend",
   "author": "Jim Jim Valkema",
   "license": "MIT",
@@ -54,8 +54,7 @@
     "fixed-merkle-tree": "^0.7.3",
     "minimatch": "^10.0.3",
     "poseidon-lite": "^0.3.0",
-    "ts-node": "^10.9.2",
-    "warp-toad-old-backend": "^1.0.18"
+    "ts-node": "^10.9.2"
   },
   "main": "./dist/index.js",
   "esbuildOptions": {
