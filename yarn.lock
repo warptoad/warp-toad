@@ -1707,7 +1707,7 @@
   resolved "https://registry.yarnpkg.com/@nomicfoundation/edr-win32-x64-msvc/-/edr-win32-x64-msvc-0.11.3.tgz#fb208b94553c7eb22246d73a1ac4de5bfdb97d01"
   integrity sha512-snvEf+WB3OV0wj2A7kQ+ZQqBquMcrozSLXcdnMdEl7Tmn+KDCbmFKBt3Tk0X3qOU4RKQpLPnTxdM07TJNVtung==
 
-"@nomicfoundation/edr@^0.11.0":
+"@nomicfoundation/edr@^0.11.3":
   version "0.11.3"
   resolved "https://registry.yarnpkg.com/@nomicfoundation/edr/-/edr-0.11.3.tgz#e8b30b868788e45d7a2ee2359a021ef7dcb96952"
   integrity sha512-kqILRkAd455Sd6v8mfP3C1/0tCOynJWY+Ir+k/9Boocu2kObCrsFgG+ZWB7fSBVdd9cPVSNrnhWS+V+PEo637g==
@@ -2249,7 +2249,7 @@
     enhanced-resolve "^5.18.3"
     jiti "^2.5.1"
     lightningcss "1.30.1"
-    magic-string "^0.30.18"
+    magic-string "^0.30.17"
     source-map-js "^1.2.1"
     tailwindcss "4.1.12"
 
@@ -2528,11 +2528,6 @@
   integrity sha512-pk2B1NWalF9toCRu6gjBzR69syFjP4Od8WRAX+0mmf9lAjCRicLOWc+ZrxZHx/0XRjotgkF9t6iaMJ+aXcOdZQ==
   dependencies:
     "@types/istanbul-lib-report" "*"
-
-"@types/lru-cache@^5.1.0":
-  version "5.1.1"
-  resolved "https://registry.yarnpkg.com/@types/lru-cache/-/lru-cache-5.1.1.tgz#c48c2e27b65d2a153b19bfc1a317e30872e01eef"
-  integrity sha512-ssE3Vlrys7sdIzs5LOxCzTVMsU7i9oa/IaW92wF32JFb3CVczqOkru2xspuKczHEbG3nvmPY7IFqVmGGHdNbYw==
 
 "@types/minimatch@*":
   version "6.0.0"
@@ -4885,18 +4880,16 @@ hardhat-gas-reporter@1.0.10:
     eth-gas-reporter "^0.2.25"
     sha1 "^1.1.1"
 
-hardhat@2.24.1:
-  version "2.24.1"
-  resolved "https://registry.yarnpkg.com/hardhat/-/hardhat-2.24.1.tgz#08cc2c43210be21eb1e7900123b63f465f656eb7"
-  integrity sha512-3iwrO2liEGCw1rz/l/mlB1rSNexCc4CFcMj0DlvjXGChzmD3sGUgLwWDOZPf+ya8MEm5ZhO1oprRVmb/wVi0YA==
+hardhat@^2.26.0:
+  version "2.26.3"
+  resolved "https://registry.yarnpkg.com/hardhat/-/hardhat-2.26.3.tgz#87f3f4b6d1001970299d5bff135d57e8adae7a07"
+  integrity sha512-gBfjbxCCEaRgMCRgTpjo1CEoJwqNPhyGMMVHYZJxoQ3LLftp2erSVf8ZF6hTQC0r2wst4NcqNmLWqMnHg1quTw==
   dependencies:
     "@ethereumjs/util" "^9.1.0"
     "@ethersproject/abi" "^5.1.2"
-    "@nomicfoundation/edr" "^0.11.0"
+    "@nomicfoundation/edr" "^0.11.3"
     "@nomicfoundation/solidity-analyzer" "^0.1.0"
     "@sentry/node" "^5.18.1"
-    "@types/bn.js" "^5.1.0"
-    "@types/lru-cache" "^5.1.0"
     adm-zip "^0.4.16"
     aggregate-error "^3.0.0"
     ansi-escapes "^4.3.0"
@@ -8453,7 +8446,7 @@ walker@^1.0.8:
   dependencies:
     makeerror "1.0.12"
 
-warp-toad-old-backend@1.0.18:
+warp-toad-old-backend@^1.0.18:
   version "1.0.18"
   resolved "https://registry.yarnpkg.com/warp-toad-old-backend/-/warp-toad-old-backend-1.0.18.tgz#bbb7a943a07b683bb21a6f61d1d7340e2c58c35b"
   integrity sha512-7ONjJQ8EUGom1JzszT5cKNPuuMzPSbNE71pdda6TcSBYzjL+LumE5PF+hYzl1dJG8kjDTmbVTMfvGawQE2HsmA==

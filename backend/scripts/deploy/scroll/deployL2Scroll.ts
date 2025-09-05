@@ -6,7 +6,7 @@ import { deployPoseidon } from "../poseidon";
 import L2Scroll from "../../../ignition/modules/L2Scroll"
 //@ts-ignore
 import er20Abi from "../../dev_op/erc20ABI.json"  with { type: 'json' }
-import { checkFileExists, getContractAddressesEvm, getEvmDeployedAddressesFilePath, getEvmDeployedAddressesFolderPath, promptBool } from "../../dev_op/utils";
+import { getContractAddressesEvm, getEvmDeployedAddressesFilePath, getEvmDeployedAddressesFolderPath } from "../../dev_op/deployment";
 
 import { readFile } from 'fs/promises';
 import fs from 'fs/promises';
@@ -14,6 +14,7 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 import { vars } from "hardhat/config.js";
 import { L2_SCROLL_MESSENGER_MAINNET, L2_SCROLL_MESSENGER_SEPOLIA } from "../../lib/constants";
+import { checkFileExists, promptBool } from "scripts/dev_op/utils";
 const SEPOLIA_URL = vars.get("SEPOLIA_URL")
 
 async function main() {

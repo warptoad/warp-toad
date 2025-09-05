@@ -405,63 +405,63 @@ export async function createProof(proofInputs: ProofInputs, threads: number | un
 }
 
 
-export async function generateNoirTest(proofInputs:ProofInputs) {
-const noirTest = `
-#[test]
-fn test_main() {
-    let nullifier:              Field = ${proofInputs.nullifier};
-    let chain_id:               Field = ${proofInputs.chain_id};
-    let amount:                 Field = ${proofInputs.amount};
-    let giga_root:              Field = ${proofInputs.giga_root};
-    let destination_local_root: Field = ${proofInputs.destination_local_root};
-    let fee_factor:             Field = ${proofInputs.fee_factor};
-    let priority_fee:           Field = ${proofInputs.priority_fee};
-    let max_fee:                Field = ${proofInputs.max_fee};
-    let relayer_address:        Field = ${proofInputs.relayer_address};            
-    let recipient_address:      Field = ${proofInputs.recipient_address};          
+// export async function generateNoirTest(proofInputs:ProofInputs) {
+// const noirTest = `
+// #[test]
+// fn test_main() {
+//     let nullifier:              Field = ${proofInputs.nullifier};
+//     let chain_id:               Field = ${proofInputs.chain_id};
+//     let amount:                 Field = ${proofInputs.amount};
+//     let giga_root:              Field = ${proofInputs.giga_root};
+//     let destination_local_root: Field = ${proofInputs.destination_local_root};
+//     let fee_factor:             Field = ${proofInputs.fee_factor};
+//     let priority_fee:           Field = ${proofInputs.priority_fee};
+//     let max_fee:                Field = ${proofInputs.max_fee};
+//     let relayer_address:        Field = ${proofInputs.relayer_address};            
+//     let recipient_address:      Field = ${proofInputs.recipient_address};          
 
-    // ----- private inputs -----
-    let origin_local_root:      Field = ${proofInputs.origin_local_root};
-    let is_from_aztec:          bool  = ${proofInputs.is_from_aztec};
-    let nullifier_preimage:     Field = ${proofInputs.nullifier_preimage};
-    let secret:                 Field = ${proofInputs.secret};
-    let aztec_merkle_data: Aztec_merkle_data<40> = Aztec_merkle_data {
-        leaf_index:                 ${proofInputs.aztec_merkle_data.leaf_index},
-        hash_path:                  [${proofInputs.aztec_merkle_data.hash_path.toString()}],
-        leaf_nonce:                 ${proofInputs.aztec_merkle_data.leaf_nonce},
-        contract_address:           ${proofInputs.aztec_merkle_data.contract_address},
-    };
-    let evm_merkle_data: Evm_merkle_data<32> = Evm_merkle_data {
-        leaf_index:                 ${proofInputs.evm_merkle_data.leaf_index},
-        hash_path:                  [${proofInputs.evm_merkle_data.hash_path.toString()}],
-    };
-    let giga_merkle_data: Evm_merkle_data<5> = Evm_merkle_data {
-        leaf_index:                 ${proofInputs.giga_merkle_data.leaf_index},
-        hash_path:                  [${proofInputs.giga_merkle_data.hash_path.toString()}],
-    };
-    main(
-        nullifier,
-        chain_id,
-        amount,
-        giga_root,
-        destination_local_root,
-        fee_factor, 
-        priority_fee,
-        max_fee,
-        relayer_address,              
-        recipient_address,             
-        origin_local_root, 
-        is_from_aztec,
-        nullifier_preimage, 
-        secret,
-        aztec_merkle_data,
-        evm_merkle_data,
-        giga_merkle_data,
-    )
-}
-`
-    const isFromAztec = proofInputs.is_from_aztec ? "is_from_aztec" : "not_from_aztec"
-    await fs.writeFile(`./out/${proofInputs.chain_id}-${isFromAztec}-proofInputsAsNoirTest.nr`, noirTest);
-    await fs.writeFile(`./out/${proofInputs.chain_id}-${isFromAztec}-proofInputs.json`, JSON.stringify(proofInputs,null,2));
-    return noirTest
-}
+//     // ----- private inputs -----
+//     let origin_local_root:      Field = ${proofInputs.origin_local_root};
+//     let is_from_aztec:          bool  = ${proofInputs.is_from_aztec};
+//     let nullifier_preimage:     Field = ${proofInputs.nullifier_preimage};
+//     let secret:                 Field = ${proofInputs.secret};
+//     let aztec_merkle_data: Aztec_merkle_data<40> = Aztec_merkle_data {
+//         leaf_index:                 ${proofInputs.aztec_merkle_data.leaf_index},
+//         hash_path:                  [${proofInputs.aztec_merkle_data.hash_path.toString()}],
+//         leaf_nonce:                 ${proofInputs.aztec_merkle_data.leaf_nonce},
+//         contract_address:           ${proofInputs.aztec_merkle_data.contract_address},
+//     };
+//     let evm_merkle_data: Evm_merkle_data<32> = Evm_merkle_data {
+//         leaf_index:                 ${proofInputs.evm_merkle_data.leaf_index},
+//         hash_path:                  [${proofInputs.evm_merkle_data.hash_path.toString()}],
+//     };
+//     let giga_merkle_data: Evm_merkle_data<5> = Evm_merkle_data {
+//         leaf_index:                 ${proofInputs.giga_merkle_data.leaf_index},
+//         hash_path:                  [${proofInputs.giga_merkle_data.hash_path.toString()}],
+//     };
+//     main(
+//         nullifier,
+//         chain_id,
+//         amount,
+//         giga_root,
+//         destination_local_root,
+//         fee_factor, 
+//         priority_fee,
+//         max_fee,
+//         relayer_address,              
+//         recipient_address,             
+//         origin_local_root, 
+//         is_from_aztec,
+//         nullifier_preimage, 
+//         secret,
+//         aztec_merkle_data,
+//         evm_merkle_data,
+//         giga_merkle_data,
+//     )
+// }
+// `
+//     const isFromAztec = proofInputs.is_from_aztec ? "is_from_aztec" : "not_from_aztec"
+//     await fs.writeFile(`./out/${proofInputs.chain_id}-${isFromAztec}-proofInputsAsNoirTest.nr`, noirTest);
+//     await fs.writeFile(`./out/${proofInputs.chain_id}-${isFromAztec}-proofInputs.json`, JSON.stringify(proofInputs,null,2));
+//     return noirTest
+// }

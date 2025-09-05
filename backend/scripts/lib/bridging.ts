@@ -6,7 +6,7 @@ import { L2AztecBridgeAdapterContract } from '../../contracts/aztec/L2AztecBridg
 import { WarpToadCoreContract as L2WarpToadAZTEC } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
 //@ts-ignore
 import { sha256ToField } from "@aztec/foundation/crypto";
-import { getContractAddressesEvm } from "../dev_op/utils";
+import { getContractAddressesEvm } from "../dev_op/deployment";
 import { L1_SCROLL_MESSENGER_MAINNET, L1_SCROLL_MESSENGER_SEPOLIA } from "./constants";
 export const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 

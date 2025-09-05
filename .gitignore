@@ -33,3 +33,8 @@ backend/contracts/aztec/L2AztecBridgeAdapter/target/cache/*.vk
 backend/contracts/aztec/WarpToadCore/target/cache/*.vk
 backend/contracts/aztec/WarpToadCore/target/*.json.bak
 backend/contracts/aztec/L2AztecBridgeAdapter/target/*.json.bak
+
+# dist
+backend/dist
+
+backend/typechain-types
