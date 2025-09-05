@@ -21,7 +21,7 @@ import {USDcoin, PoseidonT3, LazyIMT, L1AztecBridgeAdapter, GigaBridge, L1WarpTo
 import { GIGA_TREE_DEPTH } from "warp-toad-old-backend/constants"//"../scripts/lib/constants";
 import { EVM_TREE_DEPTH, gasCostPerChain } from "warp-toad-old-backend/constants";
 import { hashCommitment, hashPreCommitment, hashNoteHashNonce } from "warp-toad-old-backend/hashing";
-import { calculateFeeFactor, createProof, generateNoirTest, getAztecNoteHashTreeRoot, getMerkleData, getProofInputs } from "warp-toad-old-backend/proving";
+import { calculateFeeFactor, createProof, getAztecNoteHashTreeRoot, getMerkleData, getProofInputs } from "warp-toad-old-backend/proving";
 import { AztecMerkleData } from "warp-toad-old-backend/types";
 import { sendGigaRoot, bridgeAZTECLocalRootToL1, parseEventFromTx, updateGigaRoot, receiveGigaRootOnAztec } from "warp-toad-old-backend/bridging";
 
