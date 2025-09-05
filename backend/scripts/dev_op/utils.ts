@@ -21,11 +21,12 @@ import { L1Adapter } from "../lib/bridging";
 import { SCROLL_CHAINID_MAINNET, SCROLL_CHAINID_SEPOLIA } from '../lib/constants';
 
 // evm 
-import { L2ScrollBridgeAdapter, GigaBridge__factory, L1AztecBridgeAdapter__factory, L1ScrollBridgeAdapter__factory, L2ScrollBridgeAdapter__factory, L2WarpToad as L2EvmWarpToad, L2WarpToad__factory } from '../../typechain-types';
+import { L2ScrollBridgeAdapter, GigaBridge__factory, L1AztecBridgeAdapter__factory, L1ScrollBridgeAdapter__factory, L2ScrollBridgeAdapter__factory, L2WarpToad as L2EvmWarpToad, L2WarpToad__factory, L1WarpToad__factory } from '../../typechain-types';
 
 // aztec
 import { WarpToadCoreContract as L2AztecWarpToad, WarpToadCoreContract, WarpToadCoreContractArtifact } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
 import { L2AztecBridgeAdapterContract, L2AztecBridgeAdapterContractArtifact } from '../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter';
+import path from 'path';
 
 // constants
 const projectRoot = `${__dirname}/../../`
@@ -81,7 +82,8 @@ export async function getL1Contracts(l1ChainId: bigint, l2ChainId: bigint, signe
     const l1Contracts = await getContractAddressesEvm(l1ChainId)
     const L1Adapter = getL1Adapter(l2ChainId, isAztec, signer, l1Contracts)
     const gigaBridge = GigaBridge__factory.connect(l1Contracts["L1InfraModule#GigaBridge"], signer)
-    return { L1Adapter, gigaBridge }
+    const l1Warptoad = L1WarpToad__factory.connect(l1Contracts["L1InfraModule#L1WarpToad"], signer)
+    return { L1Adapter, gigaBridge, l1Warptoad }
 }
 
 export async function getL2EvmContracts(l2ChainId: bigint, signer: ethers.Signer): Promise<{ L2Adapter: L2ScrollBridgeAdapter, L2WarpToad: L2EvmWarpToad }> {

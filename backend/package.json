@@ -1,20 +1,122 @@
 {
+  "main": "./dist/index.js",
   "esbuildOptions": {
     "target": "esnext"
   },
+  "files": [
+    "dist"
+  ],
   "exports": {
-    "./proving": "./scripts/lib/proving.ts",
-    "./types": "./scripts/lib/types.ts",
-    "./hashing": "./scripts/lib/hashing.ts",
-    "./constants": "./scripts/lib/constants.ts",
-    "./bridging": "./scripts/lib/bridging.ts"
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/index.js"
+      }
+    },
+    "./aztec/L2AztecBridgeAdapter": {
+      "import": {
+        "types": "./dist/contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.d.ts",
+        "default": "./dist/contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.js"
+      },
+      "require": {
+        "types": "./dist/contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.d.ts",
+        "default": "./dist/contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.js"
+      }
+    },
+    "./aztec/WarpToadCore": {
+      "import": {
+        "types": "./dist/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore.d.ts",
+        "default": "./dist/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore.js"
+      },
+      "require": {
+        "types": "./dist/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore.d.ts",
+        "default": "./dist/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore.js"
+      }
+    },
+    "./ethers/typechain-types": {
+      "import": {
+        "types": "./dist/typechain-types/index.js.d.ts",
+        "default": "./dist/typechain-types/index.js"
+      },
+      "require": {
+        "types": "./dist/typechain-types/index.js.d.ts",
+        "default": "./dist/typechain-types/index.js"
+      }
+    },
+    "./bridging": {
+      "import": {
+        "types": "./dist/scripts/lib/bridging.d.ts",
+        "default": "./dist/scripts/lib/bridging.js"
+      },
+      "require": {
+        "types": "./dist/scripts/lib/bridging.d.ts",
+        "default": "./dist/scripts/lib/bridging.js"
+      }
+    },
+    "./constants": {
+      "import": {
+        "types": "./dist/scripts/lib/constants.d.ts",
+        "default": "./dist/scripts/lib/constants.js"
+      },
+      "require": {
+        "types": "./dist/scripts/lib/constants.d.ts",
+        "default": "./dist/scripts/lib/constants.js"
+      }
+    },
+    "./hashing": {
+      "import": {
+        "types": "./dist/scripts/lib/hashing.d.ts",
+        "default": "./dist/scripts/lib/hashing.js"
+      },
+      "require": {
+        "types": "./dist/scripts/lib/hashing.d.ts",
+        "default": "./dist/scripts/lib/hashing.js"
+      }
+    },
+    "./proving": {
+      "import": {
+        "types": "./dist/scripts/lib/proving.d.ts",
+        "default": "./dist/scripts/lib/proving.js"
+      },
+      "require": {
+        "types": "./dist/scripts/lib/proving.d.ts",
+        "default": "./dist/scripts/lib/proving.js"
+      }
+    },
+    "./types": {
+      "import": {
+        "types": "./dist/scripts/lib/types.d.ts",
+        "default": "./dist/scripts/lib/types.js"
+      },
+      "require": {
+        "types": "./dist/scripts/lib/types.d.ts",
+        "default": "./dist/scripts/lib/types.js"
+      }
+    },
+    "./deployment": {
+      "import": {
+        "types": "./dist/scripts/dev_op/utils.d.ts",
+        "default": "./dist/scripts/dev_op/utils.js"
+      },
+      "require": {
+        "types": "./dist/scripts/dev_op/utils.d.ts",
+        "default": "./dist/scripts/dev_op/utils.js"
+      }
+    }
   },
-  "name": "@warp-toad/backend",
+  "name": "warp-toad-old-backend",
   "private": false,
-  "version": "1.0.5",
+  "version": "1.0.18",
   "repository": "https://github.com/warptoad/warp-toad/tree/backend-npm-package/backend",
   "author": "Jim Jim Valkema",
   "license": "MIT",
+  "scripts": {
+    "build": "yarn tsc --build tsconfigOnBuild.json; cp -r ignition/deployments/ dist/ignition/; cp -r scripts/deploy/aztec/aztecDeployments/ dist/scripts/deploy/aztec/"
+  },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",
     "@nomicfoundation/hardhat-ethers": "^3.0.8",
@@ -27,7 +129,6 @@
     "@typechain/ethers-v6": "^0.5.1",
     "@typechain/hardhat": "^9.1.0",
     "@types/chai": "4.3.20",
-    "@types/minimatch": "^6.0.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "^24.0.10",
     "chai": "4.5.0",
@@ -60,7 +161,7 @@
     "argparse": "^2.0.1",
     "bun": "^1.2.12",
     "fixed-merkle-tree": "^0.7.3",
-    "patch-package": "^8.0.0",
+    "minimatch": "^10.0.3",
     "poseidon-lite": "^0.3.0",
     "ts-node": "^10.9.2",
     "warp-toad-old-backend": "1.0.18"

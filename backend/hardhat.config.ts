@@ -1,9 +1,13 @@
-import "@nomicfoundation/hardhat-toolbox";
 //@ts-ignore
 //import { HardhatUserConfig } from "hardhat/config";
 
 //cjs shit
 // require( "@nomicfoundation/hardhat-toolbox")
+// const { vars } = require("hardhat/config.js")
+// require("@typechain/hardhat")
+
+// esm
+import "@nomicfoundation/hardhat-toolbox";
 import { vars } from "hardhat/config.js";
 import "@typechain/hardhat"; 
 
