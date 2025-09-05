@@ -40,7 +40,7 @@ export declare function getSponsoredFPCInstance(): Promise<ContractInstanceWithA
  * @returns
  */
 export declare function getAztecTestWallet(PXE: PXE, chainId: bigint): Promise<{
-    wallet: import("node_modules/@aztec/aztec.js/dest/index.js", { with: { "resolution-mode": "import" } }).AccountWalletWithSecretKey;
+    wallet: import("@aztec/aztec.js", { with: { "resolution-mode": "import" } }).AccountWalletWithSecretKey;
     sponsoredPaymentMethod: SponsoredFeePaymentMethod;
 }>;
 export declare function checkFileExists(filePath: string): Promise<boolean>;

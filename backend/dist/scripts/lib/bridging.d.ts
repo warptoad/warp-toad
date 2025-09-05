@@ -32,7 +32,7 @@ export declare function bridgeAZTECLocalRootToL1(PXE: PXE, L2AztecBridgeAdapter:
 }>;
 export declare function bridgeLocalRootToL1(l1Wallet: ethers.Signer, gigaBridge: GigaBridge, L1Adapter: L1Adapter, L2Adapter: L2Adapter, isAztec?: boolean, PXE?: PXE, sponsoredPaymentMethodAZTEC?: SponsoredFeePaymentMethod): Promise<{
     sendRootToL1Tx: FieldsOf<TxReceipt>;
-    sendRootToL1TxHash: import("node_modules/@aztec/aztec.js/dest/index.js", { with: { "resolution-mode": "import" } }).TxHash;
+    sendRootToL1TxHash: import("@aztec/aztec.js", { with: { "resolution-mode": "import" } }).TxHash;
 } | {
     sendRootToL1Tx: ethers.TransactionReceipt;
     sendRootToL1TxHash: string;
@@ -115,7 +115,7 @@ export declare function bridgeBetweenL1AndL2(l1Wallet: ethers.Signer, L1Adapter:
         receiveGigaRootTx: ethers.TransactionResponse | FieldsOf<TxReceipt>;
     };
     txHashes: {
-        sendRootToL1TxHash: string | import("node_modules/@aztec/aztec.js/dest/index.js", { with: { "resolution-mode": "import" } }).TxHash;
+        sendRootToL1TxHash: string | import("@aztec/aztec.js", { with: { "resolution-mode": "import" } }).TxHash;
         gigaRootUpdateTxHash: string;
         sendGigaRootTxHash: string;
         receiveGigaRootTxHash: string | Fr;

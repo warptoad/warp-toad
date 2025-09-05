@@ -5,7 +5,7 @@ import { ethers } from "ethers";
 import { PXE } from "@aztec/aztec.js";
 import { ProofInputs, EvmMerkleData, AztecMerkleData } from "./types";
 export declare function connectPXE(): Promise<{
-    wallets: import("node_modules/@aztec/aztec.js/dest/index.js", { with: { "resolution-mode": "import" } }).AccountWalletWithSecretKey[];
+    wallets: import("@aztec/aztec.js", { with: { "resolution-mode": "import" } }).AccountWalletWithSecretKey[];
     PXE: PXE;
 }>;
 /**
