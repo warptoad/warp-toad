@@ -110,12 +110,12 @@
   },
   "name": "warp-toad-old-backend",
   "private": false,
-  "version": "1.0.16",
+  "version": "1.0.17",
   "repository": "https://github.com/warptoad/warp-toad/tree/backend-npm-package/backend",
   "author": "Jim Jim Valkema",
   "license": "MIT",
   "scripts": {
-    "build": "yarn tsc --build tsconfigOnBuild.json"
+    "build": "yarn tsc --build tsconfigOnBuild.json; cp -r ignition/deployments/ dist/ignition/"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",

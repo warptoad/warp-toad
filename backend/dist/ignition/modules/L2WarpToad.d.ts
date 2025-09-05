@@ -1,4 +1,4 @@
-declare const _default: import("@nomicfoundation/ignition-core").IgnitionModule<"L2WarpToadModule", string, {
+declare const _default: import("node_modules/@nomicfoundation/ignition-core/dist/src").IgnitionModule<"L2WarpToadModule", string, {
     L2WarpToad: any;
     withdrawVerifier: any;
     PoseidonT3Lib: any;

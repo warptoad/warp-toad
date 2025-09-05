@@ -26,6 +26,7 @@ import { L2ScrollBridgeAdapter, GigaBridge__factory, L1AztecBridgeAdapter__facto
 // aztec
 import { WarpToadCoreContract as L2AztecWarpToad, WarpToadCoreContract, WarpToadCoreContractArtifact } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
 import { L2AztecBridgeAdapterContract, L2AztecBridgeAdapterContractArtifact } from '../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter';
+import path from 'path';
 
 // constants
 const projectRoot = `${__dirname}/../../`
