@@ -12,7 +12,8 @@ import { ERC20__factory, USDcoin__factory } from "../../../typechain-types";
 import er20Abi from "../../dev_op/erc20ABI.json"  with { type: 'json' }
 import { L1_SCROLL_MESSENGER_MAINNET, L1_SCROLL_MESSENGER_SEPOLIA } from "../../lib/constants";
 import fs from "fs/promises";
-import { getContractAddressesEvm, getEvmDeployedAddressesFilePath, getEvmDeployedAddressesFolderPath } from "../../dev_op/deployment";
+import { getContractAddressesEvm  } from "../../dev_op/deployment";
+import {  getEvmDeployedAddressesFilePath, getEvmDeployedAddressesFolderPath } from "../../dev_op/utils";
 import { checkFileExists, promptBool } from "scripts/dev_op/utils";
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 

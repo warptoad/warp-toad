@@ -19,7 +19,10 @@ import er20Abi from "../../dev_op/erc20ABI.json"  with { type: 'json' }
 import { deployL2AztecBridgeAdapter } from "./L2AztecBridgeAdapter";
 
 import hre, { network } from "hardhat"
-import { getAztecDeployedAddressesFilePath, getAztecDeployedAddressesFolderPath, getContractAddressesEvm } from "../../dev_op/deployment";
+import { getContractAddressesEvm } from "../../dev_op/deployment";
+
+import { getAztecDeployedAddressesFilePath, getAztecDeployedAddressesFolderPath } from "../../dev_op/utils";
+
 //@ts-ignore
 import { getSchnorrAccount } from "@aztec/accounts/schnorr";
 //@ts-ignore

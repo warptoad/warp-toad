@@ -27,7 +27,6 @@ const { PXE_URL = 'http://localhost:8080' } = process.env;
 
 import { poseidon2 } from "poseidon-lite";
 
-import fs from "fs/promises";
 import { parseEventFromTx, parseMultipleEventsFromTx } from "./bridging";
 const abiCoder = new ethers.AbiCoder()
 
@@ -390,7 +389,8 @@ export async function getProofInputs(
 
 export async function createProof(proofInputs: ProofInputs, threads: number | undefined): Promise<ProofData> {
     // TODO assumes that if window doesn't exist os does
-    threads = threads ? threads : window ? window.navigator.hardwareConcurrency : os.cpus().length
+    //threads = threads ? threads : window ? window.navigator.hardwareConcurrency : os.cpus().length
+    threads = threads ? threads : window ? window.navigator.hardwareConcurrency : 69 // haha imagine debuging this
 
     const noir = new Noir(circuit as CompiledCircuit);
     console.log({ threads })

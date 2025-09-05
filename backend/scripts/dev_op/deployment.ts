@@ -45,28 +45,8 @@ export const aztecDeployments:deployments = {
     11155111:aztecDeploymentsSepolia
 }
 
-// constants
-const projectRoot = `${__dirname}/../../`
-export const AZTEC_DEPLOYED_FOLDER_PATH = `${projectRoot}/scripts/deploy/aztec/aztecDeployments/`
-export const EVM_DEPLOYMENT_FOLDER_PATH = `${projectRoot}/ignition/deployments`
 
 export const delay = async (timeInMs: number) => await new Promise((resolve) => setTimeout(resolve, timeInMs))
-
-export function getAztecDeployedAddressesFolderPath(chainId: bigint) {
-    return `${AZTEC_DEPLOYED_FOLDER_PATH}/${Number(chainId)}`
-}
-
-export function getAztecDeployedAddressesFilePath(chainId: bigint) {
-    return `${getAztecDeployedAddressesFolderPath(chainId)}/deployed_addresses.json`
-}
-
-export function getEvmDeployedAddressesFolderPath(chainId: bigint) {
-    return `${EVM_DEPLOYMENT_FOLDER_PATH}/chain-${Number(chainId)}`
-}
-
-export function getEvmDeployedAddressesFilePath(chainId: bigint) {
-    return `${getEvmDeployedAddressesFolderPath(chainId)}/deployed_addresses.json`
-}
 
 export async function getContractAddressesAztec(chainId: bigint) {
     // const deployedAddressesPath = getAztecDeployedAddressesFilePath(chainId)
