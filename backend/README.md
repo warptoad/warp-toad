@@ -9,7 +9,7 @@ npm publish
 ```
 
 ### note
-you might need to add with {type:"json"} to L2AztecBridgeAdapter.ts and WarpToadCore.ts and add a //@ts-ignore above it!
+you might need to add with {type:"json"} to L2AztecBridgeAdapter.ts and WarpToadCore.ts
 
 
 ### how to use

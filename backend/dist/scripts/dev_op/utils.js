@@ -89,7 +89,8 @@ async function getL1Contracts(l1ChainId, l2ChainId, signer, isAztec = false) {
     const l1Contracts = await getContractAddressesEvm(l1ChainId);
     const L1Adapter = getL1Adapter(l2ChainId, isAztec, signer, l1Contracts);
     const gigaBridge = typechain_types_1.GigaBridge__factory.connect(l1Contracts["L1InfraModule#GigaBridge"], signer);
-    return { L1Adapter, gigaBridge };
+    const l1Warptoad = typechain_types_1.L1WarpToad__factory.connect(l1Contracts["L1InfraModule#L1WarpToad"], signer);
+    return { L1Adapter, gigaBridge, l1Warptoad };
 }
 async function getL2EvmContracts(l2ChainId, signer) {
     const l2Contracts = await getContractAddressesEvm(l2ChainId);

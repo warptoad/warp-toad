@@ -17,6 +17,7 @@ export declare function getL1Adapter(l2ChainId: bigint, isAztec: boolean, signer
 export declare function getL1Contracts(l1ChainId: bigint, l2ChainId: bigint, signer: ethers.Signer, isAztec?: boolean): Promise<{
     L1Adapter: L1Adapter;
     gigaBridge: import("../../typechain-types").GigaBridge;
+    l1Warptoad: import("../../typechain-types").L1WarpToad;
 }>;
 export declare function getL2EvmContracts(l2ChainId: bigint, signer: ethers.Signer): Promise<{
     L2Adapter: L2ScrollBridgeAdapter;

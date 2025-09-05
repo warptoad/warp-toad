@@ -35,7 +35,7 @@ import {
   type WrappedFieldLike,
 } from '@aztec/aztec.js';
 //@ts-ignore
-import WarpToadCoreContractArtifactJson from '../../target/WarpToadCore-WarpToadCore.json' with { type: 'json' };
+import WarpToadCoreContractArtifactJson from '../../target/WarpToadCore-WarpToadCore.json'  with {type:"json"};
 export const WarpToadCoreContractArtifact = loadContractArtifact(WarpToadCoreContractArtifactJson as NoirCompiledContract);
 
 
