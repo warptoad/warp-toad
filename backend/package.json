@@ -1,7 +1,7 @@
 {
   "name": "warp-toad-old-backend",
   "private": false,
-  "version": "1.0.23",
+  "version": "1.0.25",
   "repository": "https://github.com/warptoad/warp-toad/tree/backend-npm-package/backend",
   "author": "Jim Jim Valkema",
   "license": "MIT",
@@ -66,69 +66,70 @@
   "files": [
     "dist"
   ],
-  "main": "dist/cjs/index.js",
-  "module": "dist/esm/index.js",
-  "browser": "dist/browser/index.js",
+  "default": "dist/cjs/index.js",
+  "require": "dist/cjs/index.js",
+  "node": "dist/esm/index.js",
+  "import": "dist/browser/index.js",
   "types": "dist/types/index.d.ts",
   "exports": {
     ".": {
-      "import": "./dist/esm/index.js",
+      "node": "./dist/esm/index.js",
       "require": "./dist/cjs/index.js",
-      "browser": "./dist/browser/index.js",
+      "import": "./dist/browser/index.js",
       "types": "./dist/types/index.d.ts"
     },
     "./aztec/L2AztecBridgeAdapter": {
-      "import": "./dist/esm/contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.js",
+      "node": "./dist/esm/contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.js",
       "require": "./dist/cjs/contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.js",
-      "browser": "./dist/browser/contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.js",
+      "import": "./dist/browser/contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.js",
       "types": "./dist/types/contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.d.ts"
     },
     "./aztec/WarpToadCore": {
-      "import": "./dist/esm/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore.js",
+      "node": "./dist/esm/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore.js",
       "require": "./dist/cjs/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore.js",
-      "browser": "./dist/browser/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore.js",
+      "import": "./dist/browser/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore.js",
       "types": "./dist/types/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore.d.ts"
     },
     "./ethers/typechain-types": {
-      "import": "./dist/esm/typechain-types/index.js",
+      "node": "./dist/esm/typechain-types/index.js",
       "require": "./dist/cjs/typechain-types/index.js",
-      "browser": "./dist/browser/typechain-types/index.js",
-      "types": "./dist/types/typechain-types/index.js.d.ts"
+      "import": "./dist/browser/typechain-types/index.js",
+      "types": "./dist/types/typechain-types/index.d.ts"
     },
     "./bridging": {
-      "import": "./dist/esm/scripts/lib/bridging.js",
+      "node": "./dist/esm/scripts/lib/bridging.js",
       "require": "./dist/cjs/scripts/lib/bridging.js",
-      "browser": "./dist/browser/scripts/lib/bridging.js",
+      "import": "./dist/browser/scripts/lib/bridging.js",
       "types": "./dist/types/scripts/lib/bridging.d.ts"
     },
     "./constants": {
-      "import": "./dist/esm/scripts/lib/constants.js",
+      "node": "./dist/esm/scripts/lib/constants.js",
       "require": "./dist/cjs/scripts/lib/constants.js",
-      "browser": "./dist/browser/scripts/lib/constants.js",
+      "import": "./dist/browser/scripts/lib/constants.js",
       "types": "./dist/types/scripts/lib/constants.d.ts"
     },
     "./hashing": {
-      "import": "./dist/esm/scripts/lib/hashing.js",
+      "node": "./dist/esm/scripts/lib/hashing.js",
       "require": "./dist/cjs/scripts/lib/hashing.js",
-      "browser": "./dist/browser/scripts/lib/hashing.js",
+      "import": "./dist/browser/scripts/lib/hashing.js",
       "types": "./dist/types/scripts/lib/hashing.d.ts"
     },
     "./proving": {
-      "import": "./dist/esm/scripts/lib/proving.js",
+      "node": "./dist/esm/scripts/lib/proving.js",
       "require": "./dist/cjs/scripts/lib/proving.js",
-      "browser": "./dist/browser/scripts/lib/proving.js",
+      "import": "./dist/browser/scripts/lib/proving.js",
       "types": "./dist/types/scripts/lib/proving.d.ts"
     },
     "./types": {
-      "import": "./dist/esm/scripts/lib/types.js",
+      "node": "./dist/esm/scripts/lib/types.js",
       "require": "./dist/cjs/scripts/lib/types.js",
-      "browser": "./dist/browser/scripts/lib/types.js",
+      "import": "./dist/browser/scripts/lib/types.js",
       "types": "./dist/types/scripts/lib/types.d.ts"
     },
     "./deployment": {
-      "import": "./dist/esm/scripts/dev_op/deployment.js",
+      "node": "./dist/esm/scripts/dev_op/deployment.js",
       "require": "./dist/cjs/scripts/dev_op/deployment.js",
-      "browser": "./dist/browser/scripts/dev_op/deployment.js",
+      "import": "./dist/browser/scripts/dev_op/deployment.js",
       "types": "./dist/types/scripts/dev_op/deployment.d.ts"
     }
   },
