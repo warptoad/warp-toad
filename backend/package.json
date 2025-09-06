@@ -55,7 +55,7 @@
     "minimatch": "^10.0.3",
     "poseidon-lite": "^0.3.0",
     "ts-node": "^10.9.2",
-    "warp-toad-old-backend": "^1.0.20"
+    "warp-toad-old-backend": "^1.0.24"
   },
   "main": "./dist/index.js",
   "esbuildOptions": {
