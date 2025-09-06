@@ -21,7 +21,7 @@ import { deployL2AztecBridgeAdapter } from "./L2AztecBridgeAdapter";
 import hre, { network } from "hardhat"
 import { getContractAddressesEvm } from "../../dev_op/deployment";
 
-import { getAztecDeployedAddressesFilePath, getAztecDeployedAddressesFolderPath } from "../../dev_op/utils";
+import { checkFileExists, getAztecDeployedAddressesFilePath, getAztecDeployedAddressesFolderPath, promptBool } from "../../dev_op/utils";
 
 //@ts-ignore
 import { getSchnorrAccount } from "@aztec/accounts/schnorr";
@@ -35,9 +35,8 @@ import { createAztecNodeClient } from "@aztec/stdlib/interfaces/client";
 //@ts-ignore
 import { computePartialAddress } from "@aztec/stdlib/contract";
 import { getAztecTestWallet } from "../../dev_op/deployment";
-import { checkFileExists, promptBool } from "scripts/dev_op/utils";
-//import { ObsidionDeployerFPCContractArtifact } from "../dev_op/getObsidionWallet/ObsidionDeployerFPC"
 
+//import { ObsidionDeployerFPCContractArtifact } from "../dev_op/getObsidionWallet/ObsidionDeployerFPC"
 
 
 const delay = async (timeInMs: number) => await new Promise((resolve) => setTimeout(resolve, timeInMs))

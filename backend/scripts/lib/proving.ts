@@ -259,7 +259,7 @@ export async function getAztecMerkleData(WarpToad:WarpToadAztec, commitment:bigi
         storageSlot: WarpToadAztec.storage.commitments.slot
     }
     const notes = await PXE.getNotes(warpToadNoteFilter)
-    const currentNote = notes.find((n)=> hashCommitmentFromNoteItems(n.note.items) === commitment);
+    const currentNote = notes.find((n:any)=> hashCommitmentFromNoteItems(n.note.items) === commitment);
     const siloedNoteHash = await hashSiloedNoteHash(WarpToad.address.toBigInt() ,commitment)
     const uniqueNoteHash = await hashUniqueNoteHash(currentNote!.noteNonce.toBigInt(),siloedNoteHash)
     const witness = await WarpToad.methods.get_note_proof(destinationLocalRootBlock,uniqueNoteHash ).simulate()
