@@ -3,8 +3,8 @@
     "outDir": "./dist",
     "rootDir": "./",
     "target": "esnext",
-    "module": "NodeNext", 
-    "moduleResolution": "NodeNext",
+    "module": "ESNext", 
+    "moduleResolution": "Bundler", 
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
     "strict": false,
@@ -12,12 +12,12 @@
     "resolveJsonModule": true,
     "declaration": true,
     "allowJs": true,
-    "types": ["node"],
     "allowSyntheticDefaultImports": true,
     "baseUrl": ".",
     "paths": {
       "*": ["./*"]
-    }
+    },
+    "lib": ["ESNext", "DOM"] 
   },
   "include": ["/**/*"],
   "exclude": ["node_modules", "dist", "target"]
