@@ -1,9 +1,8 @@
-// @ts-ignore
+
 import { UltraHonkBackend, UltraPlonkBackend } from "@aztec/bb.js";
-// @ts-ignore
 import { CompiledCircuit, Noir, InputMap } from "@noir-lang/noir_js";
 import os from 'os';
-//@ts-ignore
+// @ts-ignore
 import circuit from "../../circuits/withdraw/target/withdraw.json"  with { type: 'json' }
 import { ProofData } from "@aztec/bb.js";
 
@@ -27,7 +26,6 @@ const { PXE_URL = 'http://localhost:8080' } = process.env;
 
 import { poseidon2 } from "poseidon-lite";
 
-import fs from "fs/promises";
 import { parseEventFromTx, parseMultipleEventsFromTx } from "./bridging";
 const abiCoder = new ethers.AbiCoder()
 
@@ -260,7 +258,7 @@ export async function getAztecMerkleData(WarpToad:WarpToadAztec, commitment:bigi
         storageSlot: WarpToadAztec.storage.commitments.slot
     }
     const notes = await PXE.getNotes(warpToadNoteFilter)
-    const currentNote = notes.find((n)=> hashCommitmentFromNoteItems(n.note.items) === commitment);
+    const currentNote = notes.find((n:any)=> hashCommitmentFromNoteItems(n.note.items) === commitment);
     const siloedNoteHash = await hashSiloedNoteHash(WarpToad.address.toBigInt() ,commitment)
     const uniqueNoteHash = await hashUniqueNoteHash(currentNote!.noteNonce.toBigInt(),siloedNoteHash)
     const witness = await WarpToad.methods.get_note_proof(destinationLocalRootBlock,uniqueNoteHash ).simulate()
@@ -390,7 +388,8 @@ export async function getProofInputs(
 
 export async function createProof(proofInputs: ProofInputs, threads: number | undefined): Promise<ProofData> {
     // TODO assumes that if window doesn't exist os does
-    threads = threads ? threads : window ? window.navigator.hardwareConcurrency : os.cpus().length
+    //threads = threads ? threads : window ? window.navigator.hardwareConcurrency : os.cpus().length
+    threads = threads ? threads : window ? window.navigator.hardwareConcurrency : 69 // haha imagine debuging this
 
     const noir = new Noir(circuit as CompiledCircuit);
     console.log({ threads })

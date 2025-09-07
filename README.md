@@ -389,3 +389,17 @@ yarn workspace @warp-toad/backend ts-node scripts/dev_op/estimateGas.ts -d ignit
 ```shell
     yarn dev in /frontend or yarn f:dev
 ```
+
+## publish backend npm package
+makes sure the aztec, ethers and circuit artifacts are build (compile instruction above)  
+You might need to add `// @ts-ignore` in  `backend/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore.ts` and `backend/contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.ts` above the json import line
+
+### build it
+```shell
+yarn workspace @warp-toad/backend build
+```
+
+### publish it
+```shell
+yarn workspace @warp-toad/backend publish
+```

@@ -2,7 +2,7 @@
 import { ethers } from 'ethers';
 
 //@ts-ignore
-import { Fr, type ContractInstanceWithAddress, type PXE, getContractInstanceFromDeployParams, PXE, SponsoredFeePaymentMethod, AccountManager, GrumpkinScalar, Wallet as aztecWallet, createAztecNodeClient } from "@aztec/aztec.js";
+import { Fr, type ContractInstanceWithAddress, type PXE, getContractInstanceFromDeployParams, SponsoredFeePaymentMethod, AccountManager, GrumpkinScalar, Wallet as aztecWallet, createAztecNodeClient } from "@aztec/aztec.js";
 //@ts-ignore
 import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
 //@ts-ignore
@@ -23,14 +23,14 @@ import { L2ScrollBridgeAdapter, GigaBridge__factory, L1AztecBridgeAdapter__facto
 
 // aztec
 import { WarpToadCoreContract as L2AztecWarpToad, WarpToadCoreContract, WarpToadCoreContractArtifact } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
-import { L2AztecBridgeAdapterContract, L2AztecBridgeAdapterContractArtifact } from 'contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter';
+import { L2AztecBridgeAdapterContract, L2AztecBridgeAdapterContractArtifact } from '../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter';
 
 //@ts-ignore
 import aztecDeploymentsSepolia from "../deploy/aztec/aztecDeployments/11155111/deployed_addresses.json" with { type: 'json' }; 
 //@ts-ignore
 import scrollDeploymentsSepolia from "../../ignition/deployments/chain-534351/deployed_addresses.json" with { type: 'json' }; 
 //@ts-ignore
-import L1DeploymentsSepolia from "../../ignition/deployments/chain-534351/deployed_addresses.json" with { type: 'json' }; 
+import L1DeploymentsSepolia from "../../ignition/deployments/chain-11155111/deployed_addresses.json" with { type: 'json' }; 
 
 interface deployments {
   [chainId: number]: any
@@ -45,28 +45,8 @@ export const aztecDeployments:deployments = {
     11155111:aztecDeploymentsSepolia
 }
 
-// constants
-const projectRoot = `${__dirname}/../../`
-export const AZTEC_DEPLOYED_FOLDER_PATH = `${projectRoot}/scripts/deploy/aztec/aztecDeployments/`
-export const EVM_DEPLOYMENT_FOLDER_PATH = `${projectRoot}/ignition/deployments`
 
 export const delay = async (timeInMs: number) => await new Promise((resolve) => setTimeout(resolve, timeInMs))
-
-export function getAztecDeployedAddressesFolderPath(chainId: bigint) {
-    return `${AZTEC_DEPLOYED_FOLDER_PATH}/${Number(chainId)}`
-}
-
-export function getAztecDeployedAddressesFilePath(chainId: bigint) {
-    return `${getAztecDeployedAddressesFolderPath(chainId)}/deployed_addresses.json`
-}
-
-export function getEvmDeployedAddressesFolderPath(chainId: bigint) {
-    return `${EVM_DEPLOYMENT_FOLDER_PATH}/chain-${Number(chainId)}`
-}
-
-export function getEvmDeployedAddressesFilePath(chainId: bigint) {
-    return `${getEvmDeployedAddressesFolderPath(chainId)}/deployed_addresses.json`
-}
 
 export async function getContractAddressesAztec(chainId: bigint) {
     // const deployedAddressesPath = getAztecDeployedAddressesFilePath(chainId)
