@@ -1,20 +1,20 @@
 {
-  "esbuildOptions": {
-    "target": "esnext"
-  },
-  "exports": {
-    "./proving": "./scripts/lib/proving.ts",
-    "./types": "./scripts/lib/types.ts",
-    "./hashing": "./scripts/lib/hashing.ts",
-    "./constants": "./scripts/lib/constants.ts",
-    "./bridging": "./scripts/lib/bridging.ts"
-  },
   "name": "@warp-toad/backend",
   "private": false,
-  "version": "1.0.5",
+  "version": "0.0.3",
   "repository": "https://github.com/warptoad/warp-toad/tree/backend-npm-package/backend",
   "author": "Jim Jim Valkema",
   "license": "MIT",
+  "scripts": {
+    "cp-deployments:esm": "cp -r ignition/deployments/ dist/esm/ignition/; cp -r scripts/deploy/aztec/aztecDeployments/ dist/esm/scripts/deploy/aztec/;",
+    "cp-deployments:cjs": "cp -r ignition/deployments/ dist/cjs/ignition/; cp -r scripts/deploy/aztec/aztecDeployments/ dist/cjs/scripts/deploy/aztec/;",
+    "cp-deployments:browser": "cp -r ignition/deployments/ dist/browser/ignition/; cp -r scripts/deploy/aztec/aztecDeployments/ dist/browser/scripts/deploy/aztec/;",
+    "cp-deployments": "yarn cp-deployments:esm && yarn cp-deployments:cjs && yarn cp-deployments:browser",
+    "build:esm": "tsc -p tsconfig.json",
+    "build:cjs": "tsc -p tsconfig.cjs.json",
+    "build:browser": "tsc -p tsconfig.browser.json",
+    "build": "yarn build:esm && yarn build:cjs && yarn build:browser"
+  },
   "devDependencies": {
     "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",
     "@nomicfoundation/hardhat-ethers": "^3.0.8",
@@ -27,12 +27,11 @@
     "@typechain/ethers-v6": "^0.5.1",
     "@typechain/hardhat": "^9.1.0",
     "@types/chai": "4.3.20",
-    "@types/minimatch": "^6.0.0",
     "@types/mocha": "^10.0.10",
     "@types/node": "^24.0.10",
     "chai": "4.5.0",
     "ethers": "^6.13.5",
-    "hardhat": "2.24.1",
+    "hardhat": "^2.26.0",
     "hardhat-gas-reporter": "1.0.10",
     "jest": "^29.7.0",
     "patch-package": "^8.0.0",
@@ -60,9 +59,79 @@
     "argparse": "^2.0.1",
     "bun": "^1.2.12",
     "fixed-merkle-tree": "^0.7.3",
-    "patch-package": "^8.0.0",
+    "minimatch": "^10.0.3",
     "poseidon-lite": "^0.3.0",
     "ts-node": "^10.9.2"
+  },
+  "files": [
+    "dist"
+  ],
+  "default": "dist/cjs/index.js",
+  "require": "dist/cjs/index.js",
+  "node": "dist/esm/index.js",
+  "import": "dist/browser/index.js",
+  "types": "dist/types/index.d.ts",
+  "exports": {
+    ".": {
+      "node": "./dist/esm/index.js",
+      "require": "./dist/cjs/index.js",
+      "import": "./dist/browser/index.js",
+      "types": "./dist/types/index.d.ts"
+    },
+    "./aztec/L2AztecBridgeAdapter": {
+      "node": "./dist/esm/contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.js",
+      "require": "./dist/cjs/contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.js",
+      "import": "./dist/browser/contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.js",
+      "types": "./dist/types/contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.d.ts"
+    },
+    "./aztec/WarpToadCore": {
+      "node": "./dist/esm/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore.js",
+      "require": "./dist/cjs/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore.js",
+      "import": "./dist/browser/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore.js",
+      "types": "./dist/types/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore.d.ts"
+    },
+    "./ethers/typechain-types": {
+      "node": "./dist/esm/typechain-types/index.js",
+      "require": "./dist/cjs/typechain-types/index.js",
+      "import": "./dist/browser/typechain-types/index.js",
+      "types": "./dist/types/typechain-types/index.d.ts"
+    },
+    "./bridging": {
+      "node": "./dist/esm/scripts/lib/bridging.js",
+      "require": "./dist/cjs/scripts/lib/bridging.js",
+      "import": "./dist/browser/scripts/lib/bridging.js",
+      "types": "./dist/types/scripts/lib/bridging.d.ts"
+    },
+    "./constants": {
+      "node": "./dist/esm/scripts/lib/constants.js",
+      "require": "./dist/cjs/scripts/lib/constants.js",
+      "import": "./dist/browser/scripts/lib/constants.js",
+      "types": "./dist/types/scripts/lib/constants.d.ts"
+    },
+    "./hashing": {
+      "node": "./dist/esm/scripts/lib/hashing.js",
+      "require": "./dist/cjs/scripts/lib/hashing.js",
+      "import": "./dist/browser/scripts/lib/hashing.js",
+      "types": "./dist/types/scripts/lib/hashing.d.ts"
+    },
+    "./proving": {
+      "node": "./dist/esm/scripts/lib/proving.js",
+      "require": "./dist/cjs/scripts/lib/proving.js",
+      "import": "./dist/browser/scripts/lib/proving.js",
+      "types": "./dist/types/scripts/lib/proving.d.ts"
+    },
+    "./types": {
+      "node": "./dist/esm/scripts/lib/types.js",
+      "require": "./dist/cjs/scripts/lib/types.js",
+      "import": "./dist/browser/scripts/lib/types.js",
+      "types": "./dist/types/scripts/lib/types.d.ts"
+    },
+    "./deployment": {
+      "node": "./dist/esm/scripts/dev_op/deployment.js",
+      "require": "./dist/cjs/scripts/dev_op/deployment.js",
+      "import": "./dist/browser/scripts/dev_op/deployment.js",
+      "types": "./dist/types/scripts/dev_op/deployment.d.ts"
+    }
   },
   "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

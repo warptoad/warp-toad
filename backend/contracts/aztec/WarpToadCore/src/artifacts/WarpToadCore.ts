@@ -33,8 +33,10 @@ import {
   type Wallet,
   type U128Like,
   type WrappedFieldLike,
+  //@ts-ignore
 } from '@aztec/aztec.js';
-import WarpToadCoreContractArtifactJson from '../../target/WarpToadCore-WarpToadCore.json' ;
+//@ts-ignore
+import WarpToadCoreContractArtifactJson from '../../target/WarpToadCore-WarpToadCore.json' with { type: 'json' };
 export const WarpToadCoreContractArtifact = loadContractArtifact(WarpToadCoreContractArtifactJson as NoirCompiledContract);
 
 

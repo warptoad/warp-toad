@@ -4,13 +4,13 @@ import { AztecAddress, Contract, createAztecNodeClient, createPXEClient, waitFor
 import { WarpToadCoreContract, WarpToadCoreContractArtifact } from "../../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore";
 //@ts-ignore
 // import { getInitialTestAccountsWallets } from "@aztec/accounts/testing";
-import { getContractAddressesAztec, getContractAddressesEvm } from "../../dev_op/utils";
+import { getContractAddressesAztec, getContractAddressesEvm } from "../../dev_op/deployment";
 //@ts-ignore
 // import { computePartialAddress } from "@aztec/stdlib/contract";
 // import { ObsidionDeployerFPCContractArtifact } from "../dev_op/getObsidionWallet/ObsidionDeployerFPC";
 // import { getObsidionDeployerFPCWallet } from "../dev_op/getObsidionWallet/getObsidionWallet";
 import { L2AztecBridgeAdapterContractArtifact } from "../../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter";
-import { getAztecTestWallet } from "../../dev_op/utils";
+import { getAztecTestWallet } from "../../dev_op/deployment";
 
 
 const hre = require("hardhat")

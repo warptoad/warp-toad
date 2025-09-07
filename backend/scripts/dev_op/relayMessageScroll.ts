@@ -2,7 +2,7 @@ import { ArgumentParser } from "argparse";
 import { IL1ScrollMessenger, IL1ScrollMessenger__factory } from "../../typechain-types";
 import { L1_SCROLL_MESSENGER_MAINNET, L1_SCROLL_MESSENGER_SEPOLIA, SCROLL_CHAINID_MAINNET, SCROLL_CHAINID_SEPOLIA, SEPOLIA_CHAINID } from "../lib/constants";
 import { ethers, Result } from "ethers";
-import { getContractAddressesEvm } from "../dev_op/utils";
+import { getContractAddressesEvm } from "./deployment";
 import hre from "hardhat";
 import { claimL1WithdrawScroll, getClaimDataScroll } from "../lib/bridging";
 

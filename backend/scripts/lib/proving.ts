@@ -1,8 +1,8 @@
+
 import { UltraHonkBackend, UltraPlonkBackend } from "@aztec/bb.js";
-// @ts-ignore
 import { CompiledCircuit, Noir, InputMap } from "@noir-lang/noir_js";
 import os from 'os';
-//@ts-ignore
+// @ts-ignore
 import circuit from "../../circuits/withdraw/target/withdraw.json"  with { type: 'json' }
 import { ProofData } from "@aztec/bb.js";
 
@@ -26,7 +26,6 @@ const { PXE_URL = 'http://localhost:8080' } = process.env;
 
 import { poseidon2 } from "poseidon-lite";
 
-import fs from "fs/promises";
 import { parseEventFromTx, parseMultipleEventsFromTx } from "./bridging";
 const abiCoder = new ethers.AbiCoder()
 
@@ -259,7 +258,7 @@ export async function getAztecMerkleData(WarpToad:WarpToadAztec, commitment:bigi
         storageSlot: WarpToadAztec.storage.commitments.slot
     }
     const notes = await PXE.getNotes(warpToadNoteFilter)
-    const currentNote = notes.find((n)=> hashCommitmentFromNoteItems(n.note.items) === commitment);
+    const currentNote = notes.find((n:any)=> hashCommitmentFromNoteItems(n.note.items) === commitment);
     const siloedNoteHash = await hashSiloedNoteHash(WarpToad.address.toBigInt() ,commitment)
     const uniqueNoteHash = await hashUniqueNoteHash(currentNote!.noteNonce.toBigInt(),siloedNoteHash)
     const witness = await WarpToad.methods.get_note_proof(destinationLocalRootBlock,uniqueNoteHash ).simulate()
@@ -322,7 +321,7 @@ export async function getMerkleData(gigaBridge:GigaBridge, warpToadOrigin: WarpT
         evmMerkleData = emptyEvmMerkleData
     } else {
         aztecMerkleData = emptyAztecMerkleData
-        evmMerkleData = await getEvmMerkleData(warpToadOrigin, commitment, EVM_TREE_DEPTH,Number(destinationLocalRootL2Block));
+        evmMerkleData = await getEvmMerkleData(warpToadOrigin, commitment, EVM_TREE_DEPTH, Number(destinationLocalRootL2Block));
     }
 
     return {isFromAztec, gigaMerkleData,evmMerkleData,aztecMerkleData, originLocalRoot, blockNumber:BigInt(destinationLocalRootL2Block)}
@@ -342,7 +341,6 @@ export async function getProofInputs(
     //private
     nullifierPreImage: bigint,
     secret: bigint,
-
 ): Promise<ProofInputs> {
     // TODO performance: do all these awaits concurrently 
     const chainId = (await warpToadDestination.runner?.provider?.getNetwork())?.chainId as bigint
@@ -390,7 +388,8 @@ export async function getProofInputs(
 
 export async function createProof(proofInputs: ProofInputs, threads: number | undefined): Promise<ProofData> {
     // TODO assumes that if window doesn't exist os does
-    threads = threads ? threads : window ? window.navigator.hardwareConcurrency : os.cpus().length
+    //threads = threads ? threads : window ? window.navigator.hardwareConcurrency : os.cpus().length
+    threads = threads ? threads : window ? window.navigator.hardwareConcurrency : 69 // haha imagine debuging this
 
     const noir = new Noir(circuit as CompiledCircuit);
     console.log({ threads })
@@ -405,63 +404,63 @@ export async function createProof(proofInputs: ProofInputs, threads: number | un
 }
 
 
-export async function generateNoirTest(proofInputs:ProofInputs) {
-const noirTest = `
-#[test]
-fn test_main() {
-    let nullifier:              Field = ${proofInputs.nullifier};
-    let chain_id:               Field = ${proofInputs.chain_id};
-    let amount:                 Field = ${proofInputs.amount};
-    let giga_root:              Field = ${proofInputs.giga_root};
-    let destination_local_root: Field = ${proofInputs.destination_local_root};
-    let fee_factor:             Field = ${proofInputs.fee_factor};
-    let priority_fee:           Field = ${proofInputs.priority_fee};
-    let max_fee:                Field = ${proofInputs.max_fee};
-    let relayer_address:        Field = ${proofInputs.relayer_address};            
-    let recipient_address:      Field = ${proofInputs.recipient_address};          
+// export async function generateNoirTest(proofInputs:ProofInputs) {
+// const noirTest = `
+// #[test]
+// fn test_main() {
+//     let nullifier:              Field = ${proofInputs.nullifier};
+//     let chain_id:               Field = ${proofInputs.chain_id};
+//     let amount:                 Field = ${proofInputs.amount};
+//     let giga_root:              Field = ${proofInputs.giga_root};
+//     let destination_local_root: Field = ${proofInputs.destination_local_root};
+//     let fee_factor:             Field = ${proofInputs.fee_factor};
+//     let priority_fee:           Field = ${proofInputs.priority_fee};
+//     let max_fee:                Field = ${proofInputs.max_fee};
+//     let relayer_address:        Field = ${proofInputs.relayer_address};            
+//     let recipient_address:      Field = ${proofInputs.recipient_address};          
 
-    // ----- private inputs -----
-    let origin_local_root:      Field = ${proofInputs.origin_local_root};
-    let is_from_aztec:          bool  = ${proofInputs.is_from_aztec};
-    let nullifier_preimage:     Field = ${proofInputs.nullifier_preimage};
-    let secret:                 Field = ${proofInputs.secret};
-    let aztec_merkle_data: Aztec_merkle_data<40> = Aztec_merkle_data {
-        leaf_index:                 ${proofInputs.aztec_merkle_data.leaf_index},
-        hash_path:                  [${proofInputs.aztec_merkle_data.hash_path.toString()}],
-        leaf_nonce:                 ${proofInputs.aztec_merkle_data.leaf_nonce},
-        contract_address:           ${proofInputs.aztec_merkle_data.contract_address},
-    };
-    let evm_merkle_data: Evm_merkle_data<32> = Evm_merkle_data {
-        leaf_index:                 ${proofInputs.evm_merkle_data.leaf_index},
-        hash_path:                  [${proofInputs.evm_merkle_data.hash_path.toString()}],
-    };
-    let giga_merkle_data: Evm_merkle_data<5> = Evm_merkle_data {
-        leaf_index:                 ${proofInputs.giga_merkle_data.leaf_index},
-        hash_path:                  [${proofInputs.giga_merkle_data.hash_path.toString()}],
-    };
-    main(
-        nullifier,
-        chain_id,
-        amount,
-        giga_root,
-        destination_local_root,
-        fee_factor, 
-        priority_fee,
-        max_fee,
-        relayer_address,              
-        recipient_address,             
-        origin_local_root, 
-        is_from_aztec,
-        nullifier_preimage, 
-        secret,
-        aztec_merkle_data,
-        evm_merkle_data,
-        giga_merkle_data,
-    )
-}
-`
-    const isFromAztec = proofInputs.is_from_aztec ? "is_from_aztec" : "not_from_aztec"
-    await fs.writeFile(`./out/${proofInputs.chain_id}-${isFromAztec}-proofInputsAsNoirTest.nr`, noirTest);
-    await fs.writeFile(`./out/${proofInputs.chain_id}-${isFromAztec}-proofInputs.json`, JSON.stringify(proofInputs,null,2));
-    return noirTest
-}
+//     // ----- private inputs -----
+//     let origin_local_root:      Field = ${proofInputs.origin_local_root};
+//     let is_from_aztec:          bool  = ${proofInputs.is_from_aztec};
+//     let nullifier_preimage:     Field = ${proofInputs.nullifier_preimage};
+//     let secret:                 Field = ${proofInputs.secret};
+//     let aztec_merkle_data: Aztec_merkle_data<40> = Aztec_merkle_data {
+//         leaf_index:                 ${proofInputs.aztec_merkle_data.leaf_index},
+//         hash_path:                  [${proofInputs.aztec_merkle_data.hash_path.toString()}],
+//         leaf_nonce:                 ${proofInputs.aztec_merkle_data.leaf_nonce},
+//         contract_address:           ${proofInputs.aztec_merkle_data.contract_address},
+//     };
+//     let evm_merkle_data: Evm_merkle_data<32> = Evm_merkle_data {
+//         leaf_index:                 ${proofInputs.evm_merkle_data.leaf_index},
+//         hash_path:                  [${proofInputs.evm_merkle_data.hash_path.toString()}],
+//     };
+//     let giga_merkle_data: Evm_merkle_data<5> = Evm_merkle_data {
+//         leaf_index:                 ${proofInputs.giga_merkle_data.leaf_index},
+//         hash_path:                  [${proofInputs.giga_merkle_data.hash_path.toString()}],
+//     };
+//     main(
+//         nullifier,
+//         chain_id,
+//         amount,
+//         giga_root,
+//         destination_local_root,
+//         fee_factor, 
+//         priority_fee,
+//         max_fee,
+//         relayer_address,              
+//         recipient_address,             
+//         origin_local_root, 
+//         is_from_aztec,
+//         nullifier_preimage, 
+//         secret,
+//         aztec_merkle_data,
+//         evm_merkle_data,
+//         giga_merkle_data,
+//     )
+// }
+// `
+//     const isFromAztec = proofInputs.is_from_aztec ? "is_from_aztec" : "not_from_aztec"
+//     await fs.writeFile(`./out/${proofInputs.chain_id}-${isFromAztec}-proofInputsAsNoirTest.nr`, noirTest);
+//     await fs.writeFile(`./out/${proofInputs.chain_id}-${isFromAztec}-proofInputs.json`, JSON.stringify(proofInputs,null,2));
+//     return noirTest
+// }

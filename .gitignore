@@ -8,10 +8,10 @@ backend/cache
 backend/artifacts
 
 # TypeChain files
-/typechain
-/typechain-types
-backend/typechain
-backend/typechain-types
+# /typechain
+# /typechain-types
+# backend/typechain
+# backend/typechain-types
 # solidity-coverage files
 /coverage
 /coverage.json
@@ -23,13 +23,18 @@ ignition/deployments/chain-31337
 backend/ignition/deployments/chain-31337
 
 # aztec contracts
-backend/contracts/aztec/L2AztecBridgeAdapter/target
 backend/contracts/aztec/L2AztecBridgeAdapter/codegenCache.json
-
-backend/contracts/aztec/WarpToadCore/target
 backend/contracts/aztec/WarpToadCore/codegenCache.json
-
 backend/scripts/deploy/aztecDeployments/31337
 
 # circuit
 backend/circuits/withdraw/target
+backend/contracts/aztec/L2AztecBridgeAdapter/target/cache/*.vk
+backend/contracts/aztec/WarpToadCore/target/cache/*.vk
+backend/contracts/aztec/WarpToadCore/target/*.json.bak
+backend/contracts/aztec/L2AztecBridgeAdapter/target/*.json.bak
+
+# dist
+backend/dist
+
+backend/typechain-types
