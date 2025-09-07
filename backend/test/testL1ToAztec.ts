@@ -8,7 +8,9 @@ import { time, loadFixture } from "@nomicfoundation/hardhat-toolbox/network-help
 //aztec
 import { Wallet as AztecWallet, createPXEClient, waitForPXE, Contract, PXE} from "@aztec/aztec.js"
 import { ethers } from "ethers";
+//@ts-ignore
 import { getInitialTestAccountsWallets } from '@aztec/accounts/testing'; // idk why but node is bitching about this but bun doesnt care
+//@ts-ignore
 import { sha256ToField } from "@aztec/foundation/crypto";
 
 // other

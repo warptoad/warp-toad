@@ -3,6 +3,7 @@ import { ethers } from "ethers";
 import { WarpToadCore as WarpToadEvm, USDcoin, PoseidonT3, LazyIMT, L1AztecBridgeAdapter, GigaBridge, L2ScrollBridgeAdapter, ILocalRootProvider__factory, IL1BridgeAdapter__factory, L1AztecBridgeAdapter__factory, IL1ScrollMessenger__factory, L1ScrollBridgeAdapter, L2WarpToad as L2WarpToadEVM } from "../../typechain-types";
 import { L2AztecBridgeAdapterContract } from '../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter'
 import { WarpToadCoreContract as L2WarpToadAZTEC } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
+//@ts-ignore
 import { sha256ToField } from "@aztec/foundation/crypto";
 import { getContractAddressesEvm } from "../dev_op/deployment";
 import { L1_SCROLL_MESSENGER_MAINNET, L1_SCROLL_MESSENGER_SEPOLIA } from "./constants";

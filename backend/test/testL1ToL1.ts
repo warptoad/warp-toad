@@ -6,6 +6,7 @@ import { time, loadFixture } from "@nomicfoundation/hardhat-toolbox/network-help
 // aztec
 import {Contract, Wallet as AztecWallet } from "@aztec/aztec.js"
 import { ethers } from "ethers";
+//@ts-ignore
 import { sha256ToField } from "@aztec/foundation/crypto";
 
 //misc

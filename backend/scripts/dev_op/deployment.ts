@@ -1,11 +1,17 @@
 
 import { ethers } from 'ethers';
 
+//@ts-ignore
 import { Fr, type ContractInstanceWithAddress, type PXE, getContractInstanceFromDeployParams, SponsoredFeePaymentMethod, AccountManager, GrumpkinScalar, Wallet as aztecWallet, createAztecNodeClient } from "@aztec/aztec.js";
+//@ts-ignore
 import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
+//@ts-ignore
 import { getSchnorrAccount } from "@aztec/accounts/schnorr";
+//@ts-ignore
 import { deriveSigningKey } from "@aztec/stdlib/keys";
+//@ts-ignore
 import { getInitialTestAccountsWallets } from "@aztec/accounts/testing";
+//@ts-ignore
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 
 // local imports
