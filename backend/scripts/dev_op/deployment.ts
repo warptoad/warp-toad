@@ -30,7 +30,7 @@ import aztecDeploymentsSepolia from "../deploy/aztec/aztecDeployments/11155111/d
 //@ts-ignore
 import scrollDeploymentsSepolia from "../../ignition/deployments/chain-534351/deployed_addresses.json" with { type: 'json' }; 
 //@ts-ignore
-import L1DeploymentsSepolia from "../../ignition/deployments/chain-534351/deployed_addresses.json" with { type: 'json' }; 
+import L1DeploymentsSepolia from "../../ignition/deployments/chain-11155111/deployed_addresses.json" with { type: 'json' }; 
 
 interface deployments {
   [chainId: number]: any
