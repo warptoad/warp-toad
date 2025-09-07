@@ -1,32 +1,27 @@
 // hardhat 
 const hre = require("hardhat");
-//@ts-ignore
 import { expect } from "chai";
-//@ts-ignore
 import { time, loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers.js";
 
 //aztec
-//@ts-ignore
-import { Contract, Wallet as AztecWallet, createPXEClient, waitForPXE, Contract, PXE} from "@aztec/aztec.js"
+import { Wallet as AztecWallet, createPXEClient, waitForPXE, Contract, PXE} from "@aztec/aztec.js"
 import { ethers } from "ethers";
-//@ts-ignore
-import { getInitialTestAccountsWallets } from '@aztec/accounts/testing'; // idk why but node is bitching about this but bun doesnt care
-//@ts-ignore
+import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
 import { sha256ToField } from "@aztec/foundation/crypto";
 
 // other
 import { poseidon2, poseidon3 } from 'poseidon-lite'
 import os from 'os';
 
-// @danish look npm lib yay!
-import { WarpToadCoreContractArtifact, WarpToadCoreContract as AztecWarpToadCore } from '../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'//"warp-toad-old-backend/aztec/WarpToadCore" //'../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
-import { L2AztecBridgeAdapterContractArtifact, L2AztecBridgeAdapterContract } from "../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter"//"warp-toad-old-backend/aztec/L2AztecBridgeAdapter"//'../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter'
-import {USDcoin, PoseidonT3, LazyIMT, L1AztecBridgeAdapter, GigaBridge} from "../typechain-types"//"warp-toad-old-backend/ethers/typechain-types"//"../typechain-types";
-import { GIGA_TREE_DEPTH } from "../scripts/lib/constants"//"warp-toad-old-backend/constants"//"../scripts/lib/constants";
-import { EVM_TREE_DEPTH, gasCostPerChain } from "../scripts/lib/constants"//"warp-toad-old-backend/constants";
-import { hashCommitment, hashPreCommitment } from "../scripts/lib/hashing"//"warp-toad-old-backend/hashing";
-import { calculateFeeFactor, createProof, getMerkleData, getProofInputs } from "../scripts/lib/proving"//"warp-toad-old-backend/proving";
-import { sendGigaRoot, bridgeAZTECLocalRootToL1, parseEventFromTx, updateGigaRoot, receiveGigaRootOnAztec, bridgeBetweenL1AndL2 } from "../scripts/lib/bridging"//"warp-toad-old-backend/bridging";
+
+import { WarpToadCoreContractArtifact, WarpToadCoreContract as AztecWarpToadCore } from '../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'//"@warp-toad/backend/aztec/WarpToadCore" //'../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
+import { L2AztecBridgeAdapterContractArtifact, L2AztecBridgeAdapterContract } from "../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter"//"@warp-toad/backend/aztec/L2AztecBridgeAdapter"//'../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter'
+import {USDcoin, PoseidonT3, LazyIMT, L1AztecBridgeAdapter, GigaBridge} from "../typechain-types"//"@warp-toad/backend/ethers/typechain-types"//"../typechain-types";
+import { GIGA_TREE_DEPTH } from "../scripts/lib/constants"//"@warp-toad/backend/constants"//"../scripts/lib/constants";
+import { EVM_TREE_DEPTH, gasCostPerChain } from "../scripts/lib/constants"//"@warp-toad/backend/constants";
+import { hashCommitment, hashPreCommitment } from "../scripts/lib/hashing"//"@warp-toad/backend/hashing";
+import { calculateFeeFactor, createProof, getMerkleData, getProofInputs } from "../scripts/lib/proving"//"@warp-toad/backend/proving";
+import { sendGigaRoot, bridgeAZTECLocalRootToL1, parseEventFromTx, updateGigaRoot, receiveGigaRootOnAztec, bridgeBetweenL1AndL2 } from "../scripts/lib/bridging"//"@warp-toad/backend/bridging";
 
 async function connectPXE() {
     const { PXE_URL = 'http://localhost:8080' } = process.env;

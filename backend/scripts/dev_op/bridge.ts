@@ -4,8 +4,8 @@ import { ArgumentParser } from 'argparse';
 import { createPXEClient, PXE, waitForPXE } from '@aztec/aztec.js';
 
 // local
-import { getL1Contracts, getL2Contracts, getAztecTestWallet } from "../dev_op/deployment"//'warp-toad-old-backend/deployment';
-import { getLocalRootProviders, getPayableGigaRootRecipients, bridgeBetweenL1AndL2, sleep } from "../lib/bridging"//'warp-toad-old-backend/bridging';
+import { getL1Contracts, getL2Contracts, getAztecTestWallet } from "../dev_op/deployment"//'@warp-toad/backend/deployment';
+import { getLocalRootProviders, getPayableGigaRootRecipients, bridgeBetweenL1AndL2, sleep } from "../lib/bridging"//'@warp-toad/backend/bridging';
 
 const AZTEC_NODE_URL = "https://aztec-alpha-testnet-fullnode.zkv.xyz"
 

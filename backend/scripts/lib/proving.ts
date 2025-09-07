@@ -1,9 +1,8 @@
-// @ts-ignore
+
 import { UltraHonkBackend, UltraPlonkBackend } from "@aztec/bb.js";
-// @ts-ignore
 import { CompiledCircuit, Noir, InputMap } from "@noir-lang/noir_js";
 import os from 'os';
-//@ts-ignore
+// @ts-ignore
 import circuit from "../../circuits/withdraw/target/withdraw.json"  with { type: 'json' }
 import { ProofData } from "@aztec/bb.js";
 
