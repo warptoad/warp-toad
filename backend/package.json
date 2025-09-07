@@ -1,5 +1,5 @@
 {
-  "name": "@warp-toad/backend",
+  "name": "@not-warp-toad/backend",
   "private": false,
   "version": "0.0.3",
   "repository": "https://github.com/warptoad/warp-toad/tree/backend-npm-package/backend",
@@ -53,6 +53,7 @@
     "@openzeppelin/contracts": "^5.2.0",
     "@scroll-tech/contracts": "^2.0.1",
     "@types/argparse": "^2.0.17",
+    "@warp-toad/backend": "^0.0.3",
     "@zk-kit/imt": "^2.0.0-beta.8",
     "@zk-kit/lazy-imt.sol": "^2.0.0-beta.12",
     "@zkpassport/poseidon2": "^0.6.1",

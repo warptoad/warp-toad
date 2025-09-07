@@ -12,14 +12,14 @@ import { sha256ToField } from "@aztec/foundation/crypto";
 //misc
 import os from 'os';
 
-import { WarpToadCoreContractArtifact, WarpToadCoreContract as AztecWarpToadCore } from '../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'//"@warp-toad/backend/aztec/WarpToadCore" //'../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
-import { L2AztecBridgeAdapterContractArtifact, L2AztecBridgeAdapterContract } from "../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter"//"@warp-toad/backend/aztec/L2AztecBridgeAdapter"//'../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter'
-import {USDcoin, PoseidonT3, LazyIMT, L1AztecBridgeAdapter, GigaBridge, L1WarpToad, WithdrawVerifier__factory} from "../typechain-types"//"@warp-toad/backend/ethers/typechain-types"//"../typechain-types";
-import { GIGA_TREE_DEPTH } from "../scripts/lib/constants"//"@warp-toad/backend/constants"//"../scripts/lib/constants";
-import { EVM_TREE_DEPTH, gasCostPerChain } from "../scripts/lib/constants"//"@warp-toad/backend/constants";
-import { hashCommitment, hashPreCommitment } from "../scripts/lib/hashing"//"@warp-toad/backend/hashing";
-import { calculateFeeFactor, createProof, getMerkleData, getProofInputs } from "../scripts/lib/proving"//"@warp-toad/backend/proving";
-import { sendGigaRoot, bridgeAZTECLocalRootToL1, parseEventFromTx, updateGigaRoot, receiveGigaRootOnAztec, bridgeBetweenL1AndL2 } from "../scripts/lib/bridging"//"@warp-toad/backend/bridging";
+import { WarpToadCoreContractArtifact, WarpToadCoreContract as AztecWarpToadCore } from '@warp-toad/backend/aztec/WarpToadCore'//"@warp-toad/backend/aztec/WarpToadCore" //'../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
+import { L2AztecBridgeAdapterContractArtifact, L2AztecBridgeAdapterContract } from "@warp-toad/backend/aztec/L2AztecBridgeAdapter"//"@warp-toad/backend/aztec/L2AztecBridgeAdapter"//'../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter'
+import {USDcoin, PoseidonT3, LazyIMT, L1AztecBridgeAdapter, GigaBridge, L1WarpToad, WithdrawVerifier__factory} from "@warp-toad/backend/ethers/typechain-types"//"@warp-toad/backend/ethers/typechain-types"//"../typechain-types";
+import { GIGA_TREE_DEPTH } from "@warp-toad/backend/constants"//"@warp-toad/backend/constants"//"../scripts/lib/constants";
+import { EVM_TREE_DEPTH, gasCostPerChain } from "@warp-toad/backend/constants"//"@warp-toad/backend/constants";
+import { hashCommitment, hashPreCommitment } from "@warp-toad/backend/hashing"//"@warp-toad/backend/hashing";
+import { calculateFeeFactor, createProof, getMerkleData, getProofInputs } from "@warp-toad/backend/proving"//"@warp-toad/backend/proving";
+import { sendGigaRoot, bridgeAZTECLocalRootToL1, parseEventFromTx, updateGigaRoot, receiveGigaRootOnAztec, bridgeBetweenL1AndL2 } from "@warp-toad/backend/bridging"//"@warp-toad/backend/bridging";
 
 describe("AztecWarpToad", function () {
     async function deployAztecWarpToad(nativeToken: USDcoin, deployerWallet:AztecWallet) {

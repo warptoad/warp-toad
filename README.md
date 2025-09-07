@@ -219,7 +219,7 @@ cd ../../..;
 mv backend/circuits/withdraw/target/contract.sol backend/contracts/evm/WithdrawVerifier.sol
 
 # rename the contract
-yarn workspace @warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file ./contracts/evm/WithdrawVerifier.sol --remove "contract HonkVerifier is BaseHonkVerifier(N, LOG_N, NUMBER_OF_PUBLIC_INPUTS) {" --replace "contract WithdrawVerifier is BaseHonkVerifier(N, LOG_N, NUMBER_OF_PUBLIC_INPUTS) {"
+yarn workspace @not-warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file ./contracts/evm/WithdrawVerifier.sol --remove "contract HonkVerifier is BaseHonkVerifier(N, LOG_N, NUMBER_OF_PUBLIC_INPUTS) {" --replace "contract WithdrawVerifier is BaseHonkVerifier(N, LOG_N, NUMBER_OF_PUBLIC_INPUTS) {"
 ``` -->
 ```shell
 cd backend/circuits/withdraw/; 
@@ -232,7 +232,7 @@ cd ../../..;
 mv backend/circuits/withdraw/target/contract.sol backend/contracts/evm/WithdrawVerifier.sol
 
 # rename the contract
-yarn workspace @warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file ./contracts/evm/WithdrawVerifier.sol --remove "contract UltraVerifier is BaseUltraVerifier {" --replace "contract WithdrawVerifier is BaseUltraVerifier {"
+yarn workspace @not-warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file ./contracts/evm/WithdrawVerifier.sol --remove "contract UltraVerifier is BaseUltraVerifier {" --replace "contract WithdrawVerifier is BaseUltraVerifier {"
 ```
 
 
@@ -258,123 +258,123 @@ export SPONSORED_FPC_ADDRESS=0x0b27e30667202907fc700d50e9bc816be42f8141fae8b9f22
 ## deploy
 ### setup secrets
 ```shell
-yarn workspace @warp-toad/backend hardhat vars set PRIVATE_KEY;
-yarn workspace @warp-toad/backend hardhat vars set SEPOLIA_URL;
-yarn workspace @warp-toad/backend hardhat vars set ETHERSCAN_KEY;
-yarn workspace @warp-toad/backend hardhat vars set ETHERSCAN_KEY_SCROLL;
+yarn workspace @not-warp-toad/backend hardhat vars set PRIVATE_KEY;
+yarn workspace @not-warp-toad/backend hardhat vars set SEPOLIA_URL;
+yarn workspace @not-warp-toad/backend hardhat vars set ETHERSCAN_KEY;
+yarn workspace @not-warp-toad/backend hardhat vars set ETHERSCAN_KEY_SCROLL;
 ```
 
 ### deploy L1 aztec-sandbox
 #### deploy test token
 ```shell
-yarn workspace @warp-toad/backend hardhat ignition deploy ignition/modules/TestToken.ts --network aztecSandbox;
+yarn workspace @not-warp-toad/backend hardhat ignition deploy ignition/modules/TestToken.ts --network aztecSandbox;
 ```
 
 <!-- ```shell
-yarn workspace @warp-toad/backend hardhat ignition deploy ignition/modules/TestToken.ts --network sepolia
+yarn workspace @not-warp-toad/backend hardhat ignition deploy ignition/modules/TestToken.ts --network sepolia
 ``` -->
 #### deploy on L1
 ```shell
-NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/deployL1.ts --network aztecSandbox;
+NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @not-warp-toad/backend hardhat run scripts/deploy/L1/deployL1.ts --network aztecSandbox;
 ```
 <!--  
-NATIVE_TOKEN_ADDRESS=0xc5a5C42992dECbae36851359345FE25997F5C42d yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/deployL1.ts --network aztecSandbox;
+NATIVE_TOKEN_ADDRESS=0xc5a5C42992dECbae36851359345FE25997F5C42d yarn workspace @not-warp-toad/backend hardhat run scripts/deploy/L1/deployL1.ts --network aztecSandbox;
 
-NATIVE_TOKEN_ADDRESS=0x53bAc8Df8Ee03a057DF9309f4f613E5478354E60 yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/deployL1.ts --network sepolia;
+NATIVE_TOKEN_ADDRESS=0x53bAc8Df8Ee03a057DF9309f4f613E5478354E60 yarn workspace @not-warp-toad/backend hardhat run scripts/deploy/L1/deployL1.ts --network sepolia;
 
 -->
 
 #### deploy on aztec
 ```shell
-NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/deployAztec.ts --network aztecSandbox;
+NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress PXE_URL=http:/localhost:8080 yarn workspace @not-warp-toad/backend hardhat run scripts/deploy/aztec/deployAztec.ts --network aztecSandbox;
 ```
 
 <!--
-NATIVE_TOKEN_ADDRESS=0xc5a5C42992dECbae36851359345FE25997F5C42d PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/deployAztec.ts --network aztecSandbox;
+NATIVE_TOKEN_ADDRESS=0xc5a5C42992dECbae36851359345FE25997F5C42d PXE_URL=http:/localhost:8080 yarn workspace @not-warp-toad/backend hardhat run scripts/deploy/aztec/deployAztec.ts --network aztecSandbox;
 
-NATIVE_TOKEN_ADDRESS=0x53bAc8Df8Ee03a057DF9309f4f613E5478354E60 PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/deployAztec.ts --network sepolia;
+NATIVE_TOKEN_ADDRESS=0x53bAc8Df8Ee03a057DF9309f4f613E5478354E60 PXE_URL=http:/localhost:8080 yarn workspace @not-warp-toad/backend hardhat run scripts/deploy/aztec/deployAztec.ts --network sepolia;
 -->
 
 #### deploy on scroll
 ```shell
-NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/scroll/deployL2Scroll.ts --network scrollSepolia;
+NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @not-warp-toad/backend hardhat run scripts/deploy/scroll/deployL2Scroll.ts --network scrollSepolia;
 ```
 <!-- 
-NATIVE_TOKEN_ADDRESS=0x53bAc8Df8Ee03a057DF9309f4f613E5478354E60 yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/deployL2Scroll.ts --network scrollSepolia;
+NATIVE_TOKEN_ADDRESS=0x53bAc8Df8Ee03a057DF9309f4f613E5478354E60 yarn workspace @not-warp-toad/backend hardhat run scripts/deploy/aztec/deployL2Scroll.ts --network scrollSepolia;
  -->
 
 #### initialize contracts
 sandbox  
 ```shell
 #L1
-PXE_URL=http://localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/initializeL1.ts --network aztecSandbox;
+PXE_URL=http://localhost:8080 yarn workspace @not-warp-toad/backend hardhat run scripts/deploy/L1/initializeL1.ts --network aztecSandbox;
 #aztec
-PXE_URL=http://localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/initializeAztec.ts --network aztecSandbox;
+PXE_URL=http://localhost:8080 yarn workspace @not-warp-toad/backend hardhat run scripts/deploy/aztec/initializeAztec.ts --network aztecSandbox;
 ```
   
 sepolia  
 ```shell
-PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/initializeL1.ts --network sepolia;
+PXE_URL=http:/localhost:8080 yarn workspace @not-warp-toad/backend hardhat run scripts/deploy/L1/initializeL1.ts --network sepolia;
 #aztec
-PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/initializeAztec.ts --network sepolia;
+PXE_URL=http:/localhost:8080 yarn workspace @not-warp-toad/backend hardhat run scripts/deploy/aztec/initializeAztec.ts --network sepolia;
 #scroll
-yarn workspace @warp-toad/backend hardhat run scripts/deploy/scroll/initializeL2Scroll.ts --network scrollSepolia;
+yarn workspace @not-warp-toad/backend hardhat run scripts/deploy/scroll/initializeL2Scroll.ts --network scrollSepolia;
 ```
 
 ## verify contracts
 The deploy script verifies most contracts accept for poseidon since it is on an older version.
 <!-- ```shell
 #sepolia  
-yarn workspace @warp-toad/backend hardhat ignition verify chain-11155111 --include-unrelated-contracts;
+yarn workspace @not-warp-toad/backend hardhat ignition verify chain-11155111 --include-unrelated-contracts;
 #scroll sepolia  
-yarn workspace @warp-toad/backend hardhat ignition verify chain-534351 --include-unrelated-contracts;
+yarn workspace @not-warp-toad/backend hardhat ignition verify chain-534351 --include-unrelated-contracts;
 
 ``` -->
 
 ## bridge
 #### sandbox 
 ```shell
-yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --isAztec
+yarn workspace @not-warp-toad/backend bun scripts/dev_op/bridge.ts --isAztec
 ```
 #### aztec
 Takes about 0.5-1 hour to run
 ```shell
-yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --L1Rpc UrUrl --L2Rpc http://localhost:8080/ --privatekey 0xUrPrivateKey --isAztec
+yarn workspace @not-warp-toad/backend bun scripts/dev_op/bridge.ts --L1Rpc UrUrl --L2Rpc http://localhost:8080/ --privatekey 0xUrPrivateKey --isAztec
 ```
 
 #### scroll
 Note: You have to use a paid rpc since free rpcs wont allow you to work with events well enough  
 Takes about 2-3 hours to run
 ```shell
-yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --L1Rpc https://usSepoliaRpc --L2Rpc https://urlScrollRpc  --evmPrivatekey 0xUrPrivateKey
+yarn workspace @not-warp-toad/backend bun scripts/dev_op/bridge.ts --L1Rpc https://usSepoliaRpc --L2Rpc https://urlScrollRpc  --evmPrivatekey 0xUrPrivateKey
 ```
 
 ## test contracts
 test L1->Aztec
 ```shell
-yarn workspace @warp-toad/backend hardhat test test/testL1ToAztec.ts --network aztecSandbox
+yarn workspace @not-warp-toad/backend hardhat test test/testL1ToAztec.ts --network aztecSandbox
 ```
 
 test Aztec->L1
 ```shell
-yarn workspace @warp-toad/backend hardhat test test/testAztecToL1.ts --network aztecSandbox
+yarn workspace @not-warp-toad/backend hardhat test test/testAztecToL1.ts --network aztecSandbox
 ```
 
 test L1->L1
 ```shell
-yarn workspace @warp-toad/backend hardhat test test/testL1ToL1.ts --network aztecSandbox
+yarn workspace @not-warp-toad/backend hardhat test test/testL1ToL1.ts --network aztecSandbox
 ```
 
 test EVERYTHING
 ```shell
-yarn workspace @warp-toad/backend hardhat test --network aztecSandbox
+yarn workspace @not-warp-toad/backend hardhat test --network aztecSandbox
 ```
 
 get gas estimation minting (broken)
 ```shell
 rm -fr backend/ignition/deployments/chain-31337/;
-yarn workspace @warp-toad/backend hardhat ignition deploy ./ignition/modules/L1WarpToadWithTestToken.ts --parameters ignition/WarpToadCoreParametersTesting.json --network aztecSandbox;
-yarn workspace @warp-toad/backend ts-node scripts/dev_op/estimateGas.ts -d ignition/deployments/chain-31337/deployed_addresses.json;
+yarn workspace @not-warp-toad/backend hardhat ignition deploy ./ignition/modules/L1WarpToadWithTestToken.ts --parameters ignition/WarpToadCoreParametersTesting.json --network aztecSandbox;
+yarn workspace @not-warp-toad/backend ts-node scripts/dev_op/estimateGas.ts -d ignition/deployments/chain-31337/deployed_addresses.json;
 ```
 
 # frontend 
@@ -396,10 +396,10 @@ You might need to add `// @ts-ignore` in  `backend/contracts/aztec/WarpToadCore/
 
 ### build it
 ```shell
-yarn workspace @warp-toad/backend build
+yarn workspace @not-warp-toad/backend build
 ```
 
 ### publish it
 ```shell
-yarn workspace @warp-toad/backend publish
+yarn workspace @not-warp-toad/backend publish
 ```
