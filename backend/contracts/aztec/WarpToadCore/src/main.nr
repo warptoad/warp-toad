@@ -144,11 +144,13 @@ pub contract WarpToadCore {
         giga_merkle_data: Evm_merkle_data<GIGA_TREE_DEPTH>,
         evm_merkle_data: Evm_merkle_data<EVM_TREE_DEPTH>,
     ) {
+        
         let chain_id: Field = get_chain_id(context.version());
-        let giga_root_slot: Field =
-            aztec::state_vars::storage::Storage::get_storage_slot(storage.giga_root);
+        let giga_root_slot: Field = aztec::state_vars::storage::Storage::get_storage_slot(storage.giga_root);
         let contract_address: AztecAddress = context.this_address();
-        let giga_root: Field = context.historical_header.public_storage_historical_read(
+        
+        let historical_header = context.get_block_header_at(block_number);
+        let giga_root: Field = historical_header.public_storage_historical_read(
             giga_root_slot,
             contract_address,
         );
