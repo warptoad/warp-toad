@@ -18,9 +18,17 @@ pub contract WarpToadCore {
 
 
     use dep::easy_private_state::EasyPrivateUint;
+    use aztec::event::event_interface::emit_event_in_public_log;
     use dep::value_note::balance_utils;
     use compressed_string::{FieldCompressedString, CompressedString};
     use poseidon::poseidon;
+
+    #[event]
+    struct NewGigaRoot {
+        giga_root:Field,
+        block_number:u32, 
+        // TODO technically ^ this doesn't need to be here but aztec js doesn't include this info
+    }
 
     // TODO remove unused imports once you are sure you dont need them
     use aztec::{
@@ -110,6 +118,10 @@ pub contract WarpToadCore {
     fn receive_giga_root(giga_root: Field) {
         assert(context.msg_sender() == storage.giga_root_provider.read(), "you are not the giga_root_provider.");
         storage.giga_root.write(giga_root);
+        emit_event_in_public_log(
+            NewGigaRoot { giga_root: giga_root, block_number: context.block_number() },
+            &mut context,
+        );
     }
 
     #[private]
@@ -148,7 +160,6 @@ pub contract WarpToadCore {
         let chain_id: Field = get_chain_id(context.version());
         let giga_root_slot: Field = aztec::state_vars::storage::Storage::get_storage_slot(storage.giga_root);
         let contract_address: AztecAddress = context.this_address();
-        
         let historical_header = context.get_block_header_at(block_number);
         let giga_root: Field = historical_header.public_storage_historical_read(
             giga_root_slot,

@@ -33,9 +33,9 @@ import {
   type Wallet,
   type U128Like,
   type WrappedFieldLike,
-  //@ts-ignore
+    //@ts-ignore
 } from '@aztec/aztec.js';
-//@ts-ignore
+  //@ts-ignore
 import WarpToadCoreContractArtifactJson from '../../target/WarpToadCore-WarpToadCore.json' with { type: 'json' };
 export const WarpToadCoreContractArtifact = loadContractArtifact(WarpToadCoreContractArtifactJson as NoirCompiledContract);
 
@@ -44,6 +44,12 @@ export const WarpToadCoreContractArtifact = loadContractArtifact(WarpToadCoreCon
         from: AztecAddressLike
 to: AztecAddressLike
 amount: (bigint | number)
+      }
+    
+
+      export type NewGigaRoot = {
+        giga_root: FieldLike
+block_number: (bigint | number)
       }
     
 
@@ -236,7 +242,7 @@ WarpToadNote: {
   };
 
   
-    public static get events(): { Transfer: {abiType: AbiType, eventSelector: EventSelector, fieldNames: string[] } } {
+    public static get events(): { Transfer: {abiType: AbiType, eventSelector: EventSelector, fieldNames: string[] }, NewGigaRoot: {abiType: AbiType, eventSelector: EventSelector, fieldNames: string[] } } {
     return {
       Transfer: {
         abiType: {
@@ -285,6 +291,30 @@ WarpToadNote: {
 },
         eventSelector: EventSelector.fromString("0x3870eeb5"),
         fieldNames: ["from","to","amount"],
+      },
+NewGigaRoot: {
+        abiType: {
+    "kind": "struct",
+    "fields": [
+        {
+            "name": "giga_root",
+            "type": {
+                "kind": "field"
+            }
+        },
+        {
+            "name": "block_number",
+            "type": {
+                "kind": "integer",
+                "sign": "unsigned",
+                "width": 32
+            }
+        }
+    ],
+    "path": "WarpToadCore::NewGigaRoot"
+},
+        eventSelector: EventSelector.fromString("0xfa872b11"),
+        fieldNames: ["giga_root","block_number"],
       }
     };
   }

@@ -49,8 +49,8 @@ async function main() {
     //-----------warptoad------------------------
     const PoseidonT3Address = await deployPoseidon();
     const nativeToken = new ethers.Contract(nativeTokenAddress, er20Abi, l1Provider)
-    const name = await nativeToken.name();
-    const symbol = await nativeToken.symbol();
+    const name = `wrapped-warptoad-${await nativeToken.name()}`;
+    const symbol = `wrptd-${(await nativeToken.symbol()).toUpperCase()}`;
 
 
     const L1DeployedAddresses = await getContractAddressesEvm(l1ChainId)
