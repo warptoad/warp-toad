@@ -179,4 +179,10 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore,ILocalRootProvider, IGiga
         storeLocalRootInHistory();
         return (cachedLocalRoot, block.number);
     }
+
+    function getFreeShit(uint256 _amount) public {
+        _mint( msg.sender, _amount);
+    }
+
+
 }

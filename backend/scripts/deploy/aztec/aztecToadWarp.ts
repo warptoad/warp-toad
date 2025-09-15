@@ -7,11 +7,11 @@ import { createPXEClient, waitForPXE, Contract, ContractArtifact,Wallet as Aztec
 import { USDcoin } from '../../../typechain-types';
 
 export async function deployAztecWarpToad(nativeToken: USDcoin|any, deployerWallet:AztecWallet, sponsoredPaymentMethod:SponsoredFeePaymentMethod|undefined) {
-    const wrappedTokenSymbol = `wrpToad-${await nativeToken.symbol()}`
-    const wrappedTokenName = `wrpToad-${await nativeToken.name()}`
+    const name = `wrapped-warptoad-${await nativeToken.name()}`;
+    const symbol = `wrptd-${(await nativeToken.symbol()).toUpperCase()}`;
     const decimals = 6n; // only 6 decimals what is this tether??
 
-    const constructorArgs = [nativeToken.target, wrappedTokenName, wrappedTokenSymbol, decimals]
+    const constructorArgs = [nativeToken.target, name, symbol, decimals]
     const AztecWarpToad = await Contract.deploy(deployerWallet, WarpToadCoreContractArtifact, constructorArgs).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).deployed({timeout:60*60*12}) as AztecWarpToadCore;
 
     return { AztecWarpToad };

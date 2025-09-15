@@ -7,7 +7,7 @@ import circuit from "../../circuits/withdraw/target/withdraw.json"  with { type:
 import { ProofData } from "@aztec/bb.js";
 
 import { GigaBridge, WarpToadCore as WarpToadEvm } from "../../typechain-types";
-import { WarpToadCoreContract as WarpToadAztec } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
+import { WarpToadCoreContract as WarpToadAztec, NewGigaRoot,  } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
 import { BytesLike, ethers } from "ethers";
 import { MerkleTree, Element } from "fixed-merkle-tree";
 import { findNoteHashIndex, hashCommitment, hashNullifier, hashPreCommitment, hashUniqueNoteHash , hashCommitmentFromNoteItems, hashSiloedNoteHash} from "./hashing";
@@ -274,9 +274,9 @@ export async function getAztecMerkleData(WarpToad:WarpToadAztec, commitment:bigi
 
 async function getAztecLocalData() {
     const {PXE} = await connectPXE()
-    const blockNumber = await PXE.getBlockNumber()
-    const noteHashTreeRoot = await getAztecNoteHashTreeRoot(blockNumber,PXE)
-    return {blockNumber,localRoot:noteHashTreeRoot}
+    const currentBlockNumber = await PXE.getBlockNumber()
+    const noteHashTreeRoot = await getAztecNoteHashTreeRoot(currentBlockNumber,PXE)
+    return {blockNumber:currentBlockNumber,localRoot:noteHashTreeRoot}
 }
 
 async function getEvmLocalData(warpToadOrigin:WarpToadEvm) {
@@ -292,6 +292,8 @@ export async function getMerkleData(gigaBridge:GigaBridge, warpToadOrigin: WarpT
     const isFromAztec = !("target" in warpToadOrigin);
     const isOnlyLocal = warpToadDestination === warpToadOrigin;
     const gigaRoot = isToAztec ? await warpToadDestination.methods.get_giga_root().simulate() : await warpToadDestination.gigaRoot()
+    // TODO BUG make sure that it actually exist at that block, with event scanning. especially with aztec since that will break if a new gigaRoot arrives right when before the promise finishes
+    const gigaRootArrivalBlockNumber:bigint = isToAztec ? BigInt(await (await connectPXE()).PXE.getBlockNumber()) : BigInt(await warpToadDestination.runner?.provider?.getBlockNumber() as number)
     
     console.log("getting gigaProof")
     let originLocalRoot;
@@ -324,7 +326,7 @@ export async function getMerkleData(gigaBridge:GigaBridge, warpToadOrigin: WarpT
         evmMerkleData = await getEvmMerkleData(warpToadOrigin, commitment, EVM_TREE_DEPTH, Number(destinationLocalRootL2Block));
     }
 
-    return {isFromAztec, gigaMerkleData,evmMerkleData,aztecMerkleData, originLocalRoot, blockNumber:BigInt(destinationLocalRootL2Block)}
+    return {isFromAztec, gigaMerkleData,evmMerkleData,aztecMerkleData, originLocalRoot, blockNumber: gigaRootArrivalBlockNumber}
 }
 
 export async function getProofInputs(
@@ -359,7 +361,6 @@ export async function getProofInputs(
         aztecMerkleData, 
         originLocalRoot
     } = await getMerkleData(gigaBridge,warpToadOrigin,warpToadDestination, commitment)
-    
     const proofInputs: ProofInputs = {
         // ----- public inputs -----
         nullifier: ethers.toBeHex(nullifier),

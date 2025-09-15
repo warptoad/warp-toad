@@ -48,8 +48,8 @@ async function main() {
     //-----------warptoad------------------------
     const PoseidonT3Address = await deployPoseidon();
     const nativeToken = new ethers.Contract(nativeTokenAddress, er20Abi, provider)
-    const name = await nativeToken.name();
-    const symbol = await nativeToken.symbol();
+    const name = `wrapped-warptoad-${await nativeToken.name()}`;
+    const symbol = `wrptd-${(await nativeToken.symbol()).toUpperCase()}`;
 
     const { L1WarpToad, withdrawVerifier, PoseidonT3Lib, LazyIMTLib } = await hre.ignition.deploy(L1WarpToadModule, {
         parameters: {

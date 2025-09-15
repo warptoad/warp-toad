@@ -136,27 +136,28 @@ We have the Aztec smart contracts deployed on testnet, but the application doesn
 It does work fully in the Aztec sandbox environment.
 
 ### L1 sepolia
-L1WarpToad:[0x199953A6a80a67B1FFFf7A541cEd4602eF662bc9](https://sepolia.etherscan.io/address/0x199953A6a80a67B1FFFf7A541cEd4602eF662bc9)
+L1WarpToad:[0x2aAac78A5C2031247053153Af1c482EaD6e51646](https://sepolia.etherscan.io/address/0x2aAac78A5C2031247053153Af1c482EaD6e51646)
 
-L1AztecBridgeAdapter: [0xCCeB96020819b9a5f194FC7176659624BD87a674](https://sepolia.etherscan.io/address/0xCCeB96020819b9a5f194FC7176659624BD87a674#code)
+L1AztecBridgeAdapter: [0xfbaf549fE0d1eA2727E5F5B3662F54dBfA1eCbA1](https://sepolia.etherscan.io/address/0xfbaf549fE0d1eA2727E5F5B3662F54dBfA1eCbA1#code)
 
-<!-- L1ScrollBridgeAdapter: [0xf524005D94849D5a5935B775544ab6b6A1B4c483](https://sepolia.etherscan.io/address/0xf524005D94849D5a5935B775544ab6b6A1B4c483#code) -->
+L1ScrollBridgeAdapter: [0x4c9fE34E23bDd68fb15A5e607B5a5Cc2849B74f1](https://sepolia.etherscan.io/address/0x4c9fE34E23bDd68fb15A5e607B5a5Cc2849B74f1#code)
 
-GigaBridge: [0x7dd5bC8bc0dA28B282322143e2c8A4a1A8e916F1](https://sepolia.etherscan.io/address/0x7dd5bC8bc0dA28B282322143e2c8A4a1A8e916F1#code)
+GigaBridge: [0xb8e2cD67eD66722a8e70ad5dAc817F7CC53136dE](https://sepolia.etherscan.io/address/0xb8e2cD67eD66722a8e70ad5dAc817F7CC53136dE#code)
 
-WithdrawVerifier: [0x28A6aA736A47823822355f70642d167e36dA7760](https://sepolia.etherscan.io/address/0x28A6aA736A47823822355f70642d167e36dA7760)
+WithdrawVerifier: [0x1bd4bECbD487D32872c15741d80F97581c1726aA](https://sepolia.etherscan.io/address/0x1bd4bECbD487D32872c15741d80F97581c1726aA)
+
 
 ### L2 aztec
-Aztec WarpToad: [0x0e730046743e6432ae2260b82ac5060d428fdc6a22674181244928b9b14a778e](https://aztecscan.xyz/contracts/instances/0x0e730046743e6432ae2260b82ac5060d428fdc6a22674181244928b9b14a778e)
+Aztec WarpToad: [0x2f741db4f3a2412e4b05bfea2b2c40e3f1d83e2923e60e4be305d1769301dc4f](https://aztecscan.xyz/contracts/instances/0x2f741db4f3a2412e4b05bfea2b2c40e3f1d83e2923e60e4be305d1769301dc4f)
 
-L2AztecBridgeAdapter: [0x11992442ce2548511f7fa7e83b263b72a6c7fb7029e489b089f7fc50e5b69753](https://aztecscan.xyz/contracts/instances/0x11992442ce2548511f7fa7e83b263b72a6c7fb7029e489b089f7fc50e5b69753)
-<!-- 
+L2AztecBridgeAdapter: [0x2c27cd4c4eef2378fe61ae1c87149f980d63d51d1c0236d40586dc5002d5ef0f](https://aztecscan.xyz/contracts/instances/0x2c27cd4c4eef2378fe61ae1c87149f980d63d51d1c0236d40586dc5002d5ef0f)
+
 ### L2 scroll
-L2WarpToad: [0x83f981ebb58d6540b0661b38aad0a12163b29ef5](https://sepolia.scrollscan.com/address/0x83f981ebb58d6540b0661b38aad0a12163b29ef5)
+L2WarpToad: [0x2aAac78A5C2031247053153Af1c482EaD6e51646](https://sepolia.scrollscan.com/address/0x2aAac78A5C2031247053153Af1c482EaD6e51646)
 
-L2ScrollAdapter: [0x2f94c4e2fd362c62983745adcb90e8492587f026](https://sepolia.scrollscan.com/address/0x2f94c4e2fd362c62983745adcb90e8492587f026)
+L2ScrollAdapter: [0xfbaf549fE0d1eA2727E5F5B3662F54dBfA1eCbA1](https://sepolia.scrollscan.com/address/0xfbaf549fE0d1eA2727E5F5B3662F54dBfA1eCbA1)
 
-WithdrawVerfifier: [0xb88e8c9af5069b42b4cea9a9f0218ae0c412f827](https://sepolia.scrollscan.com/address/0xb88e8c9af5069b42b4cea9a9f0218ae0c412f827) -->
+WithdrawVerifier: [0x1bd4bECbD487D32872c15741d80F97581c1726aA](https://sepolia.scrollscan.com/address/0x1bd4bECbD487D32872c15741d80F97581c1726aA)
 
 
 
@@ -274,6 +275,8 @@ yarn workspace @warp-toad/backend hardhat ignition deploy ignition/modules/TestT
 yarn workspace @warp-toad/backend hardhat ignition deploy ignition/modules/TestToken.ts --network sepolia
 ``` -->
 #### deploy on L1
+note: you might need comment out the scroll chainId json imports in `backend/scripts/dev_op/deployment.ts`  
+@TODO fix that
 ```shell
 NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/deployL1.ts --network aztecSandbox;
 ```
