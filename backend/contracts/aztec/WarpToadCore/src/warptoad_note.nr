@@ -1,17 +1,17 @@
-use poseidon::poseidon;
+use dep::poseidon::poseidon;
 use dep::aztec::{
     //macros::notes::note,
+    context::{PrivateContext},
+    note::note_interface::{NoteHash},
+    macros::notes::{custom_note},
     protocol_types::{
         //address::AztecAddress, 
-        traits::Serialize
+        traits::{Packable, Serialize}
         }};
-use dep::aztec::macros::notes::{custom_note};
-use dep::aztec::note::note_interface::{NoteHash};
-use dep::aztec::context::{PrivateContext};
 //use aztec::note::note_interface::NoteHash::{compute_nullifier, compute_note_hash};
 
+#[derive(Eq, Serialize,Packable)]
 #[custom_note]
-#[derive(Eq, Serialize)]
 pub struct WarpToadNote {
     nullifier_preimage: Field,
     secret: Field,

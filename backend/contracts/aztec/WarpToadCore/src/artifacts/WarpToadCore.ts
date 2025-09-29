@@ -14,7 +14,6 @@ import {
   type ContractInstanceWithAddress,
   type ContractMethod,
   type ContractStorageLayout,
-  type ContractNotes,
   decodeFromAbi,
   DeployMethod,
   EthAddress,
@@ -26,16 +25,13 @@ import {
   loadContractArtifact,
   loadContractArtifactForPublic,
   type NoirCompiledContract,
-  NoteSelector,
   Point,
   type PublicKey,
   PublicKeys,
   type Wallet,
   type U128Like,
   type WrappedFieldLike,
-    //@ts-ignore
 } from '@aztec/aztec.js';
-  //@ts-ignore
 import WarpToadCoreContractArtifactJson from '../../target/WarpToadCore-WarpToadCore.json' with { type: 'json' };
 export const WarpToadCoreContractArtifact = loadContractArtifact(WarpToadCoreContractArtifactJson as NoirCompiledContract);
 
@@ -164,21 +160,6 @@ l1_bridge_adapter: {
       } as ContractStorageLayout<'giga_root' | 'native_token' | 'balances' | 'commitments' | 'symbol' | 'name' | 'decimals' | 'deployer' | 'giga_root_provider' | 'l1_bridge_adapter'>;
     }
     
-
-  public static get notes(): ContractNotes<'ValueNote' | 'UintNote' | 'WarpToadNote'> {
-    return {
-      ValueNote: {
-          id: new NoteSelector(0),
-        },
-UintNote: {
-          id: new NoteSelector(1),
-        },
-WarpToadNote: {
-          id: new NoteSelector(2),
-        }
-    } as ContractNotes<'ValueNote' | 'UintNote' | 'WarpToadNote'>;
-  }
-  
 
   /** Type-safe wrappers for the public methods exposed by the contract. */
   public declare methods: {

@@ -1,7 +1,9 @@
-use dep::std::hash::poseidon2::{Poseidon2};
+use dep::poseidon::poseidon2;
 use dep::poseidon::poseidon;
 use trees::{merkle::{MembershipProver, MerkleTree}, types::MT_Creator};
+use dep::aztec::protocol_types::traits::{Packable, Serialize};
 
+#[derive(Serialize, Packable, Eq)]
 pub struct Aztec_merkle_data<let D: u32> {
     leaf_index: Field,
     hash_path: [Field; D],
@@ -9,14 +11,31 @@ pub struct Aztec_merkle_data<let D: u32> {
     contract_address: Field,
 }
 
+#[derive(Serialize, Packable, Eq)]
 pub struct Evm_merkle_data<let D: u32> {
     leaf_index: Field,
     hash_path: [Field; D],
 }
 
+pub fn make_aztec_merkle_data<let D: u32>(
+    leaf_index: Field,
+    hash_path: [Field; D],
+    leaf_nonce: Field,
+    contract_address: Field,
+) -> Aztec_merkle_data<D> {
+    Aztec_merkle_data { leaf_index, hash_path, leaf_nonce, contract_address }
+}
+
+pub fn make_evm_merkle_data<let D: u32>(
+    leaf_index: Field,
+    hash_path: [Field; D],
+) -> Evm_merkle_data<D> {
+    Evm_merkle_data { leaf_index, hash_path }
+}
+
 // trees::merkle::MerkleTree requires a hasher function
 fn poseidon2_hasher(leaves: [Field; 2]) -> Field {
-    Poseidon2::hash(leaves,leaves.len())
+    poseidon2::Poseidon2::hash(leaves,leaves.len())
 }
 
 fn poseidon_hasher(leaves: [Field; 2]) -> Field {
@@ -41,14 +60,14 @@ pub fn hash_commitment(nullifier_preimage: Field, secret: Field, chain_id: Field
 }
 
 pub fn compute_unique_note_hash(nonce: Field, siloed_note_hash: Field) -> Field {
-    std::hash::poseidon2::Poseidon2::hash(
+    poseidon2::Poseidon2::hash(
         [GENERATOR_INDEX__UNIQUE_NOTE_HASH as Field,nonce,siloed_note_hash],
         3
     )
 }
 
 pub fn compute_siloed_note_hash(contract_address: Field, note_hash: Field) -> Field {
-    std::hash::poseidon2::Poseidon2::hash(
+    poseidon2::Poseidon2::hash(
         [GENERATOR_INDEX__SILOED_NOTE_HASH as Field,contract_address,note_hash],
         3
     )

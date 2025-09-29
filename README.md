@@ -176,9 +176,9 @@ npm install --global yarn;
 yarn install;
 ```
 
-make sure you're on aztec 1.1.3
+make sure you're on aztec 2.0.3
 ```shell
-aztec-up 1.1.3
+aztec-up 2.0.3
 ```
 
 install noir and backend
@@ -193,12 +193,14 @@ noirup -v 1.0.0-beta.5;
 # aztec warpToad
 cd backend/contracts/aztec/WarpToadCore;
 aztec-nargo compile;
+aztec-postprocess-contract
 aztec codegen -o src/artifacts target;
 cd ../../../..
 
 # L2AztecBridgeAdapter
 cd backend/contracts/aztec/L2AztecBridgeAdapter;
 aztec-nargo compile;
+aztec-postprocess-contract
 aztec codegen -o src/artifacts target;
 cd ../../../..
 ```
@@ -239,12 +241,12 @@ yarn workspace @warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file
 
 ## run sandbox
 ```shell
-VERSION=1.1.3 aztec start --sandbox
+VERSION=2.0.3 aztec start --sandbox --rollup-version 1714840162
 ```
 
 ## run PXE on alpha testnet
 ```shell
-VERSION=1.1.3 aztec start --port 8080 --pxe --pxe.nodeUrl=https://full-node.alpha-testnet.aztec.network --l1-chain-id 11155111 --l1-rpc-urls https://sepolia.infura.io/v3/urkey
+VERSION=2.0.3 aztec start --port 8080 --pxe --pxe.nodeUrl=https://full-node.alpha-testnet.aztec.network --rollup-version 1714840162 --l1-chain-id 11155111 --l1-rpc-urls https://sepolia.infura.io/v3/urkey
 
 ```
 <!--

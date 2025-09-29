@@ -1,6 +1,5 @@
 use aztec::macros::aztec;
 mod warptoad_note;
-mod hashing;
 // from
 // https://github.com/privacy-scaling-explorations/zk-kit.noir/blob/fa5fdb0f0d0867e367388f85079db3b1f9a47590/packages/merkle-trees/src/merkle.nr#L3
 
@@ -11,14 +10,14 @@ pub contract WarpToadCore {
 
     // local dep
     use crate::warptoad_note::WarpToadNote;
-    use crate::hashing::{Aztec_merkle_data, Evm_merkle_data, aztec_merkle_verify, evm_merkle_verify};
-    use super::warptoad_note::Serialize;
+    use hashing::{Aztec_merkle_data, Evm_merkle_data, aztec_merkle_verify, evm_merkle_verify};
+    use dep::aztec::protocol_types::traits::{Packable, Serialize};
     use constants::{AZTEC_TREE_DEPTH, EVM_TREE_DEPTH, GIGA_TREE_DEPTH};
     use hashing::{hash_commitment};
 
 
     use dep::easy_private_state::EasyPrivateUint;
-    use aztec::event::event_interface::emit_event_in_public_log;
+    use aztec::event::event_interface::emit_event_in_public;
     use dep::value_note::balance_utils;
     use compressed_string::{FieldCompressedString, CompressedString};
     use poseidon::poseidon;
@@ -42,20 +41,25 @@ pub contract WarpToadCore {
             storage::storage,
         },
         // TODO for v1.1.3
-        event::event_interface::{emit_event_in_private_log, PrivateLogContent},
+        event::event_interface::{emit_event_in_private, MessageDelivery},
         messages::logs::{
             //event::encode_and_encrypt_event_unconstrained,
             note::{encode_and_encrypt_note}//, encode_and_encrypt_note_unconstrained},
         },
         note::{
-            note_getter::{get_note_internal},//, get_notes},
-            note_interface::NoteHash::{self, compute_note_hash, compute_nullifier},
-            retrieved_note::RetrievedNote,
+            //note_getter::{get_note_internal},//, get_notes},
+            note_interface::NoteHash::{self}
         },
         oracle::get_membership_witness::{get_note_hash_membership_witness, MembershipWitness},
-        prelude::{
-            AztecAddress, EthAddress, Map, PrivateSet, PublicImmutable,PublicMutable,
-            //PrivateMutable
+        protocol_types::{
+            abis::function_selector::FunctionSelector,
+            address::{AztecAddress, EthAddress},
+            point::Point,
+            traits::{Deserialize},
+        },
+        state_vars::{
+            map::Map, private_immutable::PrivateImmutable, private_mutable::PrivateMutable,
+            private_set::PrivateSet, public_immutable::PublicImmutable, public_mutable::PublicMutable,
         },
         protocol_types::{
             //block_header::BlockHeader,
@@ -111,14 +115,14 @@ pub contract WarpToadCore {
     // @TODO @WARNING remove this in prod!! Do minting from giga root instead
     #[private]
     fn mint_for_testing(amount: u64, recipient: AztecAddress) {
-        storage.balances.at(recipient).add(amount, recipient, context.msg_sender());
+        storage.balances.at(recipient).add(amount, recipient);
     }
 
     #[public]
     fn receive_giga_root(giga_root: Field) {
         assert(context.msg_sender() == storage.giga_root_provider.read(), "you are not the giga_root_provider.");
         storage.giga_root.write(giga_root);
-        emit_event_in_public_log(
+        emit_event_in_public(
             NewGigaRoot { giga_root: giga_root, block_number: context.block_number() },
             &mut context,
         );
@@ -127,19 +131,18 @@ pub contract WarpToadCore {
     #[private]
     fn burn(amount: u64, destination_chain_id: Field, secret: Field, nullifier_preimage: Field) {
         let sender = context.msg_sender();
-        storage.balances.at(sender).sub(amount, sender, sender);
+        storage.balances.at(sender).sub(amount, sender);
 
-        let warptoad_note: WarpToadNote = WarpToadNote {
-            nullifier_preimage: nullifier_preimage,
+        let warptoad_note: WarpToadNote = WarpToadNote::new(
+            nullifier_preimage,
             secret,
-            chain_id: destination_chain_id,
-            amount: amount as Field,
+            destination_chain_id,
+            amount as Field,
             
-        };
+        );
         storage.commitments.insert(warptoad_note).emit(encode_and_encrypt_note(
             &mut context,
-            context.msg_sender(),
-            context.msg_sender(),
+            context.msg_sender()
         ));
     }
 
@@ -158,7 +161,7 @@ pub contract WarpToadCore {
     ) {
         
         let chain_id: Field = get_chain_id(context.version());
-        let giga_root_slot: Field = aztec::state_vars::storage::Storage::get_storage_slot(storage.giga_root);
+        let giga_root_slot: Field = aztec::state_vars::storage::HasStorageSlot::get_storage_slot(storage.giga_root);
         let contract_address: AztecAddress = context.this_address();
         let historical_header = context.get_block_header_at(block_number);
         let giga_root: Field = historical_header.public_storage_historical_read(
@@ -172,7 +175,7 @@ pub contract WarpToadCore {
         // verify commitment is part of origin_local_root
         evm_merkle_verify(origin_local_root, commitment, evm_merkle_data);
         context.push_nullifier(nullifier);
-        storage.balances.at(recipient).add(amount , recipient, context.msg_sender());
+        storage.balances.at(recipient).add(amount , recipient);
     }
 
     // since 1.1.3 the size of the contract was too large and this is commented out.
@@ -332,15 +335,14 @@ pub contract WarpToadCore {
         let from = context.msg_sender();
         let balances = storage.balances;
 
-        balances.at(from).sub(amount, from, from);
-        balances.at(to).add(amount, to, from);
+        balances.at(from).sub(amount, from);
+        balances.at(to).add(amount, to);
         // TODO for 1.1.3
-        emit_event_in_private_log(
+        emit_event_in_private(
             Transfer { from, to, amount },
             &mut context,
-            from,
             to,
-            PrivateLogContent.NO_CONSTRAINTS,
+            MessageDelivery.UNCONSTRAINED_OFFCHAIN,
         );
 
         // Transfer { from, to, amount }.emit(encode_and_encrypt_event_unconstrained(
@@ -354,7 +356,7 @@ pub contract WarpToadCore {
     // Helper function to get the balance of a user.
     #[utility]
     unconstrained fn balance_of(owner: AztecAddress) -> pub Field {
-        balance_utils::get_balance(storage.balances.at(owner).set)
+        balance_utils::get_balance(storage.balances.at(owner).set) // aaaaaaaa y dis brokey? ahh I get it, it's already deprecated >:/ TODO: find alternative
     }
 
     #[utility]
