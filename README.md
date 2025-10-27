@@ -227,7 +227,7 @@ yarn workspace @warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file
 ``` -->
 ```shell
 cd backend/circuits/withdraw/; 
-aztec-nargo compile; 
+nargo compile; 
 bb write_vk -b ./target/withdraw.json;
 bb contract;
 cd ../../..;
