@@ -176,9 +176,10 @@ npm install --global yarn;
 yarn install;
 ```
 
-make sure you're on aztec 2.0.3
+make sure you're on aztec 2.1.0-rc.20
 ```shell
 aztec-up 2.0.3
+
 ```
 
 install noir and backend
@@ -212,7 +213,7 @@ idk what happened to the new versions of bb but it sucks!!
 This is how to do it with the new version of bb but it doesnt work
 ```shell
 cd backend/circuits/withdraw/; 
-nargo compile; 
+aztec-nargo compile; 
 bb write_vk -b ./target/withdraw.json -o ./target/ --oracle_hash keccak;
 bb write_solidity_verifier -k ./target/vk --scheme ultra_honk -o ./target/contract.sol;
 
@@ -226,7 +227,7 @@ yarn workspace @warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file
 ``` -->
 ```shell
 cd backend/circuits/withdraw/; 
-nargo compile; 
+aztec-nargo compile; 
 bb write_vk -b ./target/withdraw.json;
 bb contract;
 cd ../../..;

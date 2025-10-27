@@ -1,36 +1,17 @@
 use dep::poseidon::poseidon2;
 use dep::poseidon::poseidon;
 use trees::{merkle::{MembershipProver, MerkleTree}, types::MT_Creator};
-use dep::aztec::protocol_types::traits::{Packable, Serialize};
 
-#[derive(Serialize, Packable, Eq)]
 pub struct Aztec_merkle_data<let D: u32> {
-    leaf_index: Field,
-    hash_path: [Field; D],
-    leaf_nonce: Field,
-    contract_address: Field,
+    pub leaf_index: Field,
+    pub hash_path: [Field; D],
+    pub leaf_nonce: Field,
+    pub contract_address: Field,
 }
 
-#[derive(Serialize, Packable, Eq)]
 pub struct Evm_merkle_data<let D: u32> {
-    leaf_index: Field,
-    hash_path: [Field; D],
-}
-
-pub fn make_aztec_merkle_data<let D: u32>(
-    leaf_index: Field,
-    hash_path: [Field; D],
-    leaf_nonce: Field,
-    contract_address: Field,
-) -> Aztec_merkle_data<D> {
-    Aztec_merkle_data { leaf_index, hash_path, leaf_nonce, contract_address }
-}
-
-pub fn make_evm_merkle_data<let D: u32>(
-    leaf_index: Field,
-    hash_path: [Field; D],
-) -> Evm_merkle_data<D> {
-    Evm_merkle_data { leaf_index, hash_path }
+    pub leaf_index: Field,
+    pub hash_path: [Field; D],
 }
 
 // trees::merkle::MerkleTree requires a hasher function
