@@ -5,15 +5,18 @@ use dep::aztec::macros::aztec;
 
 #[aztec]
 pub contract L2AztecBridgeAdapter {
-    use dep::aztec::prelude::{
-        EthAddress,  PublicImmutable, PublicMutable, AztecAddress,
-        Map, PrivateMutable, PrivateSet,
-    };
+
+    use dep::aztec::{
+    state_vars::{ 
+        public_immutable::PublicImmutable, public_mutable::PublicMutable
+    },
+    protocol_types::address::{AztecAddress, EthAddress},
+};
 
 	use dep::aztec::protocol_types::hash::sha256_to_field;
 
     use dep::aztec::macros::{
-        functions::{initializer, private, public, utility, view},
+        functions::{initializer, private, public, view},
         storage::storage,
     };
 

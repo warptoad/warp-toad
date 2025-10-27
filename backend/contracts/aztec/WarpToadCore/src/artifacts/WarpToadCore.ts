@@ -49,6 +49,13 @@ block_number: (bigint | number)
       }
     
 
+      export type Approval = {
+        owner: AztecAddressLike
+spender: AztecAddressLike
+amount: (bigint | number)
+      }
+    
+
 /**
  * Type-safe interface for contract WarpToadCore;
  */
@@ -125,7 +132,7 @@ export class WarpToadCoreContract extends ContractBase {
   }
   
 
-  public static get storage(): ContractStorageLayout<'giga_root' | 'native_token' | 'balances' | 'commitments' | 'symbol' | 'name' | 'decimals' | 'deployer' | 'giga_root_provider' | 'l1_bridge_adapter'> {
+  public static get storage(): ContractStorageLayout<'giga_root' | 'native_token' | 'commitments' | 'balances' | 'allowances' | 'symbol' | 'name' | 'decimals' | 'deployer' | 'giga_root_provider' | 'l1_bridge_adapter'> {
       return {
         giga_root: {
       slot: new Fr(1n),
@@ -133,45 +140,48 @@ export class WarpToadCoreContract extends ContractBase {
 native_token: {
       slot: new Fr(2n),
     },
-balances: {
+commitments: {
       slot: new Fr(4n),
     },
-commitments: {
+balances: {
       slot: new Fr(5n),
     },
-symbol: {
+allowances: {
       slot: new Fr(6n),
     },
+symbol: {
+      slot: new Fr(7n),
+    },
 name: {
-      slot: new Fr(8n),
+      slot: new Fr(9n),
     },
 decimals: {
-      slot: new Fr(10n),
+      slot: new Fr(11n),
     },
 deployer: {
-      slot: new Fr(12n),
+      slot: new Fr(13n),
     },
 giga_root_provider: {
-      slot: new Fr(14n),
+      slot: new Fr(15n),
     },
 l1_bridge_adapter: {
-      slot: new Fr(16n),
+      slot: new Fr(17n),
     }
-      } as ContractStorageLayout<'giga_root' | 'native_token' | 'balances' | 'commitments' | 'symbol' | 'name' | 'decimals' | 'deployer' | 'giga_root_provider' | 'l1_bridge_adapter'>;
+      } as ContractStorageLayout<'giga_root' | 'native_token' | 'commitments' | 'balances' | 'allowances' | 'symbol' | 'name' | 'decimals' | 'deployer' | 'giga_root_provider' | 'l1_bridge_adapter'>;
     }
     
 
   /** Type-safe wrappers for the public methods exposed by the contract. */
   public declare methods: {
     
-    /** balance_of(owner: struct) */
-    balance_of: ((owner: AztecAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
-
     /** burn(amount: integer, destination_chain_id: field, secret: field, nullifier_preimage: field) */
     burn: ((amount: (bigint | number), destination_chain_id: FieldLike, secret: FieldLike, nullifier_preimage: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** constructor(native_token: struct, _name: string, _symbol: string, _decimals: integer) */
     constructor: ((native_token: EthAddressLike, _name: string, _symbol: string, _decimals: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** decrease_allowance(spender: struct, subtracted: integer) */
+    decrease_allowance: ((spender: AztecAddressLike, subtracted: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** get_chain_id_unconstrained(aztec_version: field) */
     get_chain_id_unconstrained: ((aztec_version: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -190,6 +200,9 @@ l1_bridge_adapter: {
 
     /** get_version() */
     get_version: (() => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** increase_allowance(spender: struct, added: integer) */
+    increase_allowance: ((spender: AztecAddressLike, added: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
     /** initialize(_giga_root_provider: struct, _l1_bridge_adapter: struct) */
     initialize: ((_giga_root_provider: AztecAddressLike, _l1_bridge_adapter: EthAddressLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
@@ -220,10 +233,13 @@ l1_bridge_adapter: {
 
     /** transfer(to: struct, amount: integer) */
     transfer: ((to: AztecAddressLike, amount: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
+    /** transfer_from(owner: struct, to: struct, amount: integer) */
+    transfer_from: ((owner: AztecAddressLike, to: AztecAddressLike, amount: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
   };
 
   
-    public static get events(): { Transfer: {abiType: AbiType, eventSelector: EventSelector, fieldNames: string[] }, NewGigaRoot: {abiType: AbiType, eventSelector: EventSelector, fieldNames: string[] } } {
+    public static get events(): { Transfer: {abiType: AbiType, eventSelector: EventSelector, fieldNames: string[] }, NewGigaRoot: {abiType: AbiType, eventSelector: EventSelector, fieldNames: string[] }, Approval: {abiType: AbiType, eventSelector: EventSelector, fieldNames: string[] } } {
     return {
       Transfer: {
         abiType: {
@@ -296,6 +312,54 @@ NewGigaRoot: {
 },
         eventSelector: EventSelector.fromString("0xfa872b11"),
         fieldNames: ["giga_root","block_number"],
+      },
+Approval: {
+        abiType: {
+    "kind": "struct",
+    "fields": [
+        {
+            "name": "owner",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "inner",
+                        "type": {
+                            "kind": "field"
+                        }
+                    }
+                ],
+                "path": "protocol_types::address::aztec_address::AztecAddress"
+            }
+        },
+        {
+            "name": "spender",
+            "type": {
+                "kind": "struct",
+                "fields": [
+                    {
+                        "name": "inner",
+                        "type": {
+                            "kind": "field"
+                        }
+                    }
+                ],
+                "path": "protocol_types::address::aztec_address::AztecAddress"
+            }
+        },
+        {
+            "name": "amount",
+            "type": {
+                "kind": "integer",
+                "sign": "unsigned",
+                "width": 64
+            }
+        }
+    ],
+    "path": "WarpToadCore::Approval"
+},
+        eventSelector: EventSelector.fromString("0x5275598d"),
+        fieldNames: ["owner","spender","amount"],
       }
     };
   }

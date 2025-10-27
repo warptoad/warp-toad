@@ -14,7 +14,6 @@ import {
   type ContractInstanceWithAddress,
   type ContractMethod,
   type ContractStorageLayout,
-  type ContractNotes,
   decodeFromAbi,
   DeployMethod,
   EthAddress,
@@ -26,16 +25,13 @@ import {
   loadContractArtifact,
   loadContractArtifactForPublic,
   type NoirCompiledContract,
-  NoteSelector,
   Point,
   type PublicKey,
   PublicKeys,
   type Wallet,
   type U128Like,
   type WrappedFieldLike,
-  //@ts-ignore
 } from '@aztec/aztec.js';
-//@ts-ignore
 import L2AztecBridgeAdapterContractArtifactJson from '../../target/L2AztecBridgeAdapter-L2AztecBridgeAdapter.json' with { type: 'json' };
 export const L2AztecBridgeAdapterContractArtifact = loadContractArtifact(L2AztecBridgeAdapterContractArtifactJson as NoirCompiledContract);
 
@@ -128,21 +124,6 @@ counter: {
       } as ContractStorageLayout<'l1BridgeAdapter' | 'counter'>;
     }
     
-
-  public static get notes(): ContractNotes<'ValueNote' | 'UintNote' | 'WarpToadNote'> {
-    return {
-      ValueNote: {
-          id: new NoteSelector(0),
-        },
-UintNote: {
-          id: new NoteSelector(1),
-        },
-WarpToadNote: {
-          id: new NoteSelector(2),
-        }
-    } as ContractNotes<'ValueNote' | 'UintNote' | 'WarpToadNote'>;
-  }
-  
 
   /** Type-safe wrappers for the public methods exposed by the contract. */
   public declare methods: {
