@@ -16,8 +16,9 @@ import { createPXEClient, waitForPXE } from "@aztec/aztec.js";
 import { getInitialTestAccountsWallets } from "@aztec/accounts/testing";
 
 import fs from "fs/promises";
-import { getContractAddressesAztec, getContractAddressesEvm } from "../../dev_op/deployment";
+
 import { vars } from "hardhat/config.js";
+import { evmDeployments } from "scripts/dev_op/deployment";
 const SEPOLIA_URL = vars.get("SEPOLIA_URL")
 
 // function getArgs() {
