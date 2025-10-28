@@ -5,7 +5,7 @@ import { L2AztecBridgeAdapterContract } from '../../contracts/aztec/L2AztecBridg
 import { WarpToadCoreContract as L2WarpToadAZTEC } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
 //@ts-ignore
 import { sha256ToField } from "@aztec/foundation/crypto";
-import { getContractAddressesEvm } from "../dev_op/deployment";
+import { evmDeployments } from "../dev_op/deployment";
 import { L1_SCROLL_MESSENGER_MAINNET, L1_SCROLL_MESSENGER_SEPOLIA } from "./constants";
 export const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
@@ -20,17 +20,17 @@ const chainIds = {
 }
 
 export async function getLocalRootProviders(chainId: bigint) {
-    const contracts = await getContractAddressesEvm(chainId)
+    const contracts = evmDeployments[Number(chainId)]
     return [contracts["L1WarpToadModule#L1WarpToad"], contracts["L1InfraModule#L1AztecBridgeAdapter"], contracts["L1InfraModule#L1ScrollBridgeAdapter"]]
 }
 
 export async function getPayableGigaRootRecipients(chainId: bigint) {
-    const contracts = await getContractAddressesEvm(chainId)
+    const contracts = evmDeployments[Number(chainId)]
     return [contracts["L1InfraModule#L1ScrollBridgeAdapter"]].filter((v) => v !== undefined)
 }
 
 async function getNonPayableLocalRootProviders(chainId: bigint) {
-    const contracts = await getContractAddressesEvm(chainId)
+    const contracts = evmDeployments[Number(chainId)]
     return [contracts["L1WarpToadModule#L1WarpToad"], contracts["L1InfraModule#L1AztecBridgeAdapter"]].filter((v) => v !== undefined)
 }
 export async function getL1ClaimDataScrollBridgeApi(l2BridgeInitiationContract: ethers.AddressLike, txHash?: ethers.BytesLike, pageSize = 10) {
@@ -133,6 +133,9 @@ export async function bridgeAZTECLocalRootToL1(
 ) {
     const blockNumberOfRoot = await PXE.getBlockNumber();
     const PXE_L2Root = (await PXE.getBlock(blockNumberOfRoot))?.header.state.partial.noteHashTree.root as Fr
+
+    // @danish oh o the aztec sdk changed again :(, it needs {from:wallet.account} or something like that
+    // we prob need to find and replace every .send() with .send({from:wallet.account} ) (manually check if it is aztec ofc)
     const sendRootToL1Tx = await L2AztecBridgeAdapter.methods.send_root_to_l1(blockNumberOfRoot).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait({ timeout: 60 * 60 * 12 });
 
     const l1ChainId = (await provider.getNetwork()).chainId
@@ -345,6 +348,7 @@ export async function receiveGigaRootOnAztec(
 
     if (isSandBox) {
         // this is to make the sandbox progress n blocks
+
         await L2AztecBridgeAdapter.methods.count(0n).send().wait();
         await L2AztecBridgeAdapter.methods.count(4n).send().wait();
     } else {

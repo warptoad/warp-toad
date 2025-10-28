@@ -16,7 +16,7 @@ import { createPXEClient, waitForPXE } from "@aztec/aztec.js";
 import { getInitialTestAccountsWallets } from "@aztec/accounts/testing";
 
 import fs from "fs/promises";
-import { getContractAddressesAztec, getContractAddressesEvm } from "../../dev_op/deployment";
+import { getContractAddressesAztec, getContractAddressesEvm } from "scripts/dev_op/utils";
 
 
 function getArgs() {
@@ -56,7 +56,7 @@ async function main() {
     const scrollChainId = IS_MAINNET ? 534352n : 534351n
     const L1DeployedAddresses = await getContractAddressesEvm(chainId)
     const L2ScrollDeployedAddresses = await getContractAddressesEvm(scrollChainId)
-    const aztecDeployedAddresses =await getContractAddressesAztec(chainId)
+    const aztecDeployedAddresses = await getContractAddressesAztec(chainId)
     const L1WarpToadAddress = L1DeployedAddresses["L1WarpToadModule#L1WarpToad"]
     const gigaBridgeAddress = L1DeployedAddresses["L1InfraModule#GigaBridge"]
     const L1AztecBridgeAdapterAddress = L1DeployedAddresses["L1InfraModule#L1AztecBridgeAdapter"]

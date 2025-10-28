@@ -54,8 +54,8 @@ async function main() {
     const l1ChainId = (await l1Provider.getNetwork()).chainId
 
 
-    const L1DeployedAddresses = await getContractAddressesEvm(l1ChainId)
-    const L2ScrollDeployedAddresses = await getContractAddressesEvm(l2ChainId)
+    const L1DeployedAddresses = evmDeployments[Number(l1ChainId)]
+    const L2ScrollDeployedAddresses = evmDeployments[Number(l2ChainId)]
 
     const L1ScrollBridgeAdapterAddress = L1DeployedAddresses["L1InfraModule#L1ScrollBridgeAdapter"]
     const L2WarpToadAddress = L2ScrollDeployedAddresses["L2ScrollModule#L2WarpToad"]

@@ -12,8 +12,7 @@ import { ERC20__factory, USDcoin__factory } from "../../../typechain-types";
 import er20Abi from "../../dev_op/erc20ABI.json"  with { type: 'json' }
 import { L1_SCROLL_MESSENGER_MAINNET, L1_SCROLL_MESSENGER_SEPOLIA } from "../../lib/constants";
 import fs from "fs/promises";
-import { getContractAddressesEvm  } from "../../dev_op/deployment";
-import {  checkFileExists, getEvmDeployedAddressesFilePath, getEvmDeployedAddressesFolderPath, promptBool } from "../../dev_op/utils";
+import {  checkFileExists, getContractAddressesAztec, getContractAddressesEvm, getEvmDeployedAddressesFilePath, getEvmDeployedAddressesFolderPath, promptBool } from "../../dev_op/utils";
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
@@ -32,8 +31,9 @@ async function main() {
 
     const deployedAddressesPath = getEvmDeployedAddressesFilePath(chainId)
     if(await checkFileExists(deployedAddressesPath)) {
-        const contracts = await getContractAddressesEvm(chainId)
+        const contracts = await getContractAddressesEvm(chainId) //evmDeployments[Number(chainId)]
         const WarpToadDeployId = "L1WarpToadModule#L1WarpToad"
+        console.log({contracts})
         if (WarpToadDeployId in contracts) {
             if(await promptBool(`A deployment of ${WarpToadDeployId} already exist at ${deployedAddressesPath} \n Are you sure want to override?`)) {
                 await fs.rm(getEvmDeployedAddressesFolderPath(chainId),{force:true, recursive:true})
@@ -73,7 +73,6 @@ async function main() {
             }
         },
     });
-    console.log("aaaaaaaaaaaa", { fragments: L1WarpToad })
 
 
     console.log(`

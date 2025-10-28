@@ -48,20 +48,6 @@ export const aztecDeployments:deployments = {
 
 export const delay = async (timeInMs: number) => await new Promise((resolve) => setTimeout(resolve, timeInMs))
 
-export async function getContractAddressesAztec(chainId: bigint) {
-    // const deployedAddressesPath = getAztecDeployedAddressesFilePath(chainId)
-    // const json = (await fs.readFile(deployedAddressesPath)).toString()
-    return aztecDeployments[Number(chainId)]
-}
-
-export async function getContractAddressesEvm(chainId: bigint) {
-    // const deployedAddressesPath = getEvmDeployedAddressesFilePath(chainId)
-    // const json = (await fs.readFile(deployedAddressesPath)).toString()
-    // return JSON.parse(json)
-    return evmDeployments[Number(chainId)]
-}
-
-
 export function getL1Adapter(l2ChainId: bigint, isAztec = false, signer: ethers.Signer, allL1Contracts: any): L1Adapter {
     if ((!l2ChainId) && (!isAztec)) { throw new Error("either set isAztec to true, or provide a l2ChainId both cannot be falsy") }
     if (isAztec) {
@@ -77,7 +63,7 @@ export function getL1Adapter(l2ChainId: bigint, isAztec = false, signer: ethers.
 }
 
 export async function getL1Contracts(l1ChainId: bigint, l2ChainId: bigint, signer: ethers.Signer, isAztec = false,) {
-    const l1Contracts = await getContractAddressesEvm(l1ChainId)
+    const l1Contracts = evmDeployments[Number(l1ChainId)]
     const L1Adapter = getL1Adapter(l2ChainId, isAztec, signer, l1Contracts)
     const gigaBridge = GigaBridge__factory.connect(l1Contracts["L1InfraModule#GigaBridge"], signer)
     const l1Warptoad = L1WarpToad__factory.connect(l1Contracts["L1InfraModule#L1WarpToad"], signer)
@@ -85,7 +71,7 @@ export async function getL1Contracts(l1ChainId: bigint, l2ChainId: bigint, signe
 }
 
 export async function getL2EvmContracts(l2ChainId: bigint, signer: ethers.Signer): Promise<{ L2Adapter: L2ScrollBridgeAdapter, L2WarpToad: L2EvmWarpToad }> {
-    const l2Contracts = await getContractAddressesEvm(l2ChainId)
+    const l2Contracts = evmDeployments[Number(l2ChainId)]
     let L2Adapter;
     let L2WarpToad;
     switch (l2ChainId) {
@@ -108,7 +94,7 @@ export async function getL2AZTECContracts(
 ): Promise<{ L2Adapter: L2AztecBridgeAdapterContract, L2WarpToad: L2AztecWarpToad }> {
     console.log({l1ChainId})
     const isSandBox = BigInt(l1ChainId) === 31337n
-    const contracts = await getContractAddressesAztec(l1ChainId)
+    const contracts = aztecDeployments[Number(l1ChainId)]
 
     const L2AztecAdapterAddress = contracts["L2AztecBridgeAdapter"]
     const AztecWarpToadAddress = contracts["AztecWarpToad"]

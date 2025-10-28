@@ -49,8 +49,8 @@ async function main() {
     const chainId = (await provider.getNetwork()).chainId
 
     const {wallet, sponsoredPaymentMethod} = await getAztecTestWallet(PXE,chainId)//await getAztecWallet(PXE,privateKey as string,AZTEC_NODE_URL ,chainId)
-    const evmContractAddresses = await getContractAddressesEvm(chainId)
-    const aztecContractAddresses = await getContractAddressesAztec(chainId)
+    const evmContractAddresses = evmDeployments[Number(chainId)]
+    const aztecContractAddresses = aztecDeployments[Number(chainId)]
     console.log({aztecContractAddresses})
 
     const L1AztecBridgeAdapter = evmContractAddresses["L1InfraModule#L1AztecBridgeAdapter"]

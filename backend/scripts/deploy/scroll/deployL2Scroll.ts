@@ -53,7 +53,7 @@ async function main() {
     const symbol = `wrptd-${(await nativeToken.symbol()).toUpperCase()}`;
 
 
-    const L1DeployedAddresses = await getContractAddressesEvm(l1ChainId)
+    const L1DeployedAddresses = evmDeployments[Number(l1ChainId)]
     const GigaBridgeAddress = L1DeployedAddresses["L1InfraModule#GigaBridge"]
     const L1ScrollBridgeAdapterAddress = L1DeployedAddresses["L1InfraModule#L1ScrollBridgeAdapter"]
     const l2ScrollMessengerAddress = IS_SCROLL_MAINNET ? L2_SCROLL_MESSENGER_MAINNET : L2_SCROLL_MESSENGER_SEPOLIA
