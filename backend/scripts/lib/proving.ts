@@ -15,7 +15,7 @@ import { EVM_TREE_DEPTH, AZTEC_TREE_DEPTH, emptyAztecMerkleData, emptyGigaMerkle
 
 
 //@ts-ignore
-import { createPXEClient, waitForPXE,NotesFilter, AztecAddress, PXE } from "@aztec/aztec.js";
+import { createPXEClient, waitForPXE,NotesFilter, AztecAddress, PXE, Wallet as AztecWallet } from "@aztec/aztec.js";
 //@ts-ignore
 import { getInitialTestAccountsWallets } from "@aztec/accounts/testing";
 
@@ -287,11 +287,11 @@ async function getEvmLocalData(warpToadOrigin:WarpToadEvm) {
 }
 
 // if you ever run into a bug with this. I am so sorry
-export async function getMerkleData(gigaBridge:GigaBridge, warpToadOrigin: WarpToadEvm | WarpToadAztec, warpToadDestination:WarpToadEvm | WarpToadAztec, commitment:bigint) { 
+export async function getMerkleData(gigaBridge:GigaBridge, warpToadOrigin: WarpToadEvm | WarpToadAztec, warpToadDestination:WarpToadEvm | WarpToadAztec, commitment:bigint, aztecWallet:AztecWallet) { 
     const isToAztec = !("target" in warpToadDestination);
     const isFromAztec = !("target" in warpToadOrigin);
     const isOnlyLocal = warpToadDestination === warpToadOrigin;
-    const gigaRoot = isToAztec ? await warpToadDestination.methods.get_giga_root().simulate() : await warpToadDestination.gigaRoot()
+    const gigaRoot = isToAztec ? await warpToadDestination.methods.get_giga_root().simulate({from:aztecWallet.getAddress()}) : await warpToadDestination.gigaRoot()
     // TODO BUG make sure that it actually exist at that block, with event scanning. especially with aztec since that will break if a new gigaRoot arrives right when before the promise finishes
     const gigaRootArrivalBlockNumber:bigint = isToAztec ? BigInt(await (await connectPXE()).PXE.getBlockNumber()) : BigInt(await warpToadDestination.runner?.provider?.getBlockNumber() as number)
     

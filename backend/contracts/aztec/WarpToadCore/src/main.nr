@@ -10,10 +10,12 @@ pub contract WarpToadCore {
     // local dep
     use crate::warptoad_note::WarpToadNote;
     use hashing::{Evm_merkle_data, evm_merkle_verify};
-    use dep::aztec::protocol_types::traits::{Serialize, ToField};
-    use dep::std::hash::pedersen_hash;
+    use dep::aztec::protocol_types::traits::{Serialize};
+    //use dep::std::hash::pedersen_hash;
     use constants::{EVM_TREE_DEPTH, GIGA_TREE_DEPTH};
     use hashing::{hash_commitment};
+    // use aztec::utils::with_hash::WithHash;
+
 
     use aztec::event::event_interface::emit_event_in_public;
     use compressed_string::{FieldCompressedString, CompressedString};
@@ -56,13 +58,13 @@ pub contract WarpToadCore {
         amount: u64,
     }
 
-    #[derive(Serialize)]
-    #[event]
-    struct Approval {
-        owner: AztecAddress,
-        spender: AztecAddress,
-        amount: u64,
-    }
+    // #[derive(Serialize)]
+    // #[event]
+    // struct Approval {
+    //     owner: AztecAddress,
+    //     spender: AztecAddress,
+    //     amount: u64,
+    // }
 
     #[event]
     struct NewGigaRoot {
@@ -83,11 +85,11 @@ pub contract WarpToadCore {
 
         //AIP-20 token state
         balances: Map<AztecAddress, EasyPrivateUint<Context>, Context>,
-        allowances: Map<Field, EasyPrivateUint<Context>, Context>,
+        //allowances: Map<Field, EasyPrivateUint<Context>, Context>,
         //Token Metadata
-        symbol: PublicImmutable<FieldCompressedString, Context>,
-        name: PublicImmutable<FieldCompressedString, Context>,
-        decimals: PublicImmutable<u8, Context>,
+        // symbol: PublicImmutable<FieldCompressedString, Context>,
+        // name: PublicImmutable<FieldCompressedString, Context>,
+        // decimals: PublicImmutable<u8, Context>,
 
         //Admin | wiring
         deployer: PublicImmutable<AztecAddress, Context>,
@@ -102,20 +104,21 @@ pub contract WarpToadCore {
     #[public]
     fn constructor(native_token: EthAddress, _name: str<31>, _symbol: str<31>, _decimals: u8) {
         storage.native_token.initialize(native_token);
-        storage.name.initialize(FieldCompressedString::from_string(_name));
-        storage.symbol.initialize(FieldCompressedString::from_string(_symbol));
-        storage.decimals.initialize(_decimals);
         storage.deployer.initialize(context.msg_sender());
+
+        // storage.name.initialize(FieldCompressedString::from_string(_name));
+        // storage.symbol.initialize(FieldCompressedString::from_string(_symbol));
+        // storage.decimals.initialize(_decimals);
     }
 
-     #[public]
+    #[public]
     fn initialize(_giga_root_provider: AztecAddress, _l1_bridge_adapter: EthAddress) {
         assert(context.msg_sender() == storage.deployer.read(), "not deployer");
         storage.giga_root_provider.initialize(_giga_root_provider);
         storage.l1_bridge_adapter.initialize(_l1_bridge_adapter);
     }
 
-    //-------warptoad things----------------------
+    // //-------warptoad things----------------------
 
     // @TODO @WARNING remove this in prod!! Do minting from giga root instead
     #[private]
@@ -200,74 +203,74 @@ pub contract WarpToadCore {
     }
 
     //-----------------------------------------------
-
+    // commented out because request body too large
     // -------------standard token things------------
     // inspired by https://github.com/AztecProtocol/aztec-packages/tree/v0.86.0/noir-projects/noir-contracts/contracts/app/easy_private_token_contract
     // TODO post hackathon make it more like: https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr
     // so it can support u128 balances
     // but simplified to reduce scope for the hackathon
 
-    // Transfers `amount` of tokens from `sender` to a `recipient`.
-    #[private]
-    fn transfer(to: AztecAddress, amount: u64) {
-        let from = context.msg_sender();
-        storage.balances.at(from).sub(amount, from); // reverts if insufficient funds
-        storage.balances.at(to).add(amount, to);
+    //Transfers `amount` of tokens from `sender` to a `recipient`.
+    // #[private]
+    // fn transfer(to: AztecAddress, amount: u64) {
+    //     let from = context.msg_sender();
+    //     storage.balances.at(from).sub(amount, from); // reverts if insufficient funds
+    //     storage.balances.at(to).add(amount, to);
 
-        emit_event_in_private(
-            Transfer { from, to, amount },
-            &mut context,
-            to,
-            MessageDelivery.UNCONSTRAINED_OFFCHAIN,
-        );
-    }
+    //     emit_event_in_private(
+    //         Transfer { from, to, amount },
+    //         &mut context,
+    //         to,
+    //         MessageDelivery.UNCONSTRAINED_OFFCHAIN,
+    //     );
+    // }
 
-    #[private]
-    fn increase_allowance(spender: AztecAddress, added: u64) {
-        let owner = context.msg_sender();
-        let key = pedersen_hash([owner.to_field(), spender.to_field()]);
-        storage.allowances.at(key).add(added, owner);
-        let _ = added;
-        // we emit delta for wallet UX; clients should track deltas or query via PXE.
-        emit_event_in_private(
-            Approval { owner, spender, amount: added },
-            &mut context,
-            owner,
-            MessageDelivery.UNCONSTRAINED_OFFCHAIN,
-        );
-    }
+    // #[private]
+    // fn increase_allowance(spender: AztecAddress, added: u64) {
+    //     let owner = context.msg_sender();
+    //     let key = pedersen_hash([owner.to_field(), spender.to_field()]);
+    //     storage.allowances.at(key).add(added, owner);
+    //     let _ = added;
+    //     // we emit delta for wallet UX; clients should track deltas or query via PXE.
+    //     emit_event_in_private(
+    //         Approval { owner, spender, amount: added },
+    //         &mut context,
+    //         owner,
+    //         MessageDelivery.UNCONSTRAINED_OFFCHAIN,
+    //     );
+    // }
 
-    #[private]
-    fn decrease_allowance(spender: AztecAddress, subtracted: u64) {
-        let owner = context.msg_sender();
-        let key = pedersen_hash([owner.to_field(), spender.to_field()]);
-        storage.allowances.at(key).sub(subtracted, owner); // underflow means revert
-        emit_event_in_private(
-            Approval { owner, spender, amount: 0u64 }, // semantic: signal decrease occurred
-            &mut context,
-            owner,
-            MessageDelivery.UNCONSTRAINED_OFFCHAIN,
-        );
-    }
+    // #[private]
+    // fn decrease_allowance(spender: AztecAddress, subtracted: u64) {
+    //     let owner = context.msg_sender();
+    //     let key = pedersen_hash([owner.to_field(), spender.to_field()]);
+    //     storage.allowances.at(key).sub(subtracted, owner); // underflow means revert
+    //     emit_event_in_private(
+    //         Approval { owner, spender, amount: 0u64 }, // semantic: signal decrease occurred
+    //         &mut context,
+    //         owner,
+    //         MessageDelivery.UNCONSTRAINED_OFFCHAIN,
+    //     );
+    // }
     
 
-    #[private]
-    fn transfer_from(owner: AztecAddress, to: AztecAddress, amount: u64) {
-        let spender = context.msg_sender();
-        let key = pedersen_hash([owner.to_field(), spender.to_field()]);
-        // Check & consume allowance (reverts on insufficient)
-        storage.allowances.at(key).sub(amount, owner);
+    // #[private]
+    // fn transfer_from(owner: AztecAddress, to: AztecAddress, amount: u64) {
+    //     let spender = context.msg_sender();
+    //     let key = pedersen_hash([owner.to_field(), spender.to_field()]);
+    //     // Check & consume allowance (reverts on insufficient)
+    //     storage.allowances.at(key).sub(amount, owner);
 
-        storage.balances.at(owner).sub(amount, owner);
-        storage.balances.at(to).add(amount, to);
+    //     storage.balances.at(owner).sub(amount, owner);
+    //     storage.balances.at(to).add(amount, to);
 
-        emit_event_in_private(
-            Transfer { from: owner, to, amount },
-            &mut context,
-            to,
-            MessageDelivery.UNCONSTRAINED_OFFCHAIN,
-        );
-    }
+    //     emit_event_in_private(
+    //         Transfer { from: owner, to, amount },
+    //         &mut context,
+    //         to,
+    //         MessageDelivery.UNCONSTRAINED_OFFCHAIN,
+    //     );
+    // }
 
     // utility
 
@@ -276,7 +279,9 @@ pub contract WarpToadCore {
         storage.giga_root.read() 
     }
 
-    // it allows us to do a eth_getProof like thing for a commitment. Kinda cringe that i cant just call a api in js like on ethereum? Maybe you can?
+    //10 495 566 
+    //10 808 330
+    //it allows us to do a eth_getProof like thing for a commitment. Kinda cringe that i cant just call a api in js like on ethereum? Maybe you can?
     #[utility]
     unconstrained fn get_note_proof(
         block_number: u32,
@@ -307,19 +312,19 @@ pub contract WarpToadCore {
         context.version() 
     }
 
-    #[utility]
-    unconstrained fn public_get_name() -> pub FieldCompressedString { 
-        storage.name.read() 
-    }
+    // #[utility]
+    // unconstrained fn public_get_name() -> pub FieldCompressedString { 
+    //     storage.name.read() 
+    // }
 
-    #[utility]
-    unconstrained fn public_get_symbol() -> pub FieldCompressedString { 
-        storage.symbol.read() 
-    }
+    // #[utility]
+    // unconstrained fn public_get_symbol() -> pub FieldCompressedString { 
+    //     storage.symbol.read() 
+    // }
 
-    #[utility]
-    unconstrained fn get_decimals() -> pub u8 { 
-        storage.decimals.read() 
-    }
+    // #[utility]
+    // unconstrained fn get_decimals() -> pub u8 { 
+    //     storage.decimals.read() 
+    // }
 
 }

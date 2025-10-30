@@ -184,7 +184,7 @@ describe("AztecWarpToad", function () {
             const { chainId: chainIdEvmProvider } = await provider.getNetwork()
 
             const aztecVersion = (await PXE.getNodeInfo()).rollupVersion
-            const aztecVersionFromContract = await AztecWarpToad.methods.get_version().simulate({from:aztecDeployer.getAddress()});
+            //const aztecVersionFromContract = await AztecWarpToad.methods.get_version().simulate({from:aztecDeployer.getAddress()});
             const chainIdAztecFromContract = hre.ethers.toBigInt(await AztecWarpToad.methods.get_chain_id_unconstrained(aztecVersion).simulate({from:aztecDeployer.getAddress()}))
 
             const commitmentPreImg1 = {
@@ -232,7 +232,8 @@ describe("AztecWarpToad", function () {
                 gigaBridge,
                 AztecWarpToad,
                 localRootProviders,
-                gigaRootRecipients
+                gigaRootRecipients,
+                aztecDeployer
             )
         
             // check bridgeNoteHashTreeRoot()
@@ -285,7 +286,7 @@ describe("AztecWarpToad", function () {
             //     commitmentPreImg1.secret,
             // )
             const commitment1 = hashCommitment(preCommitment1,commitmentPreImg1.amount)
-            const aztecMerkleData1 = await getMerkleData(gigaBridge,L1WarpToad,AztecWarpToad,commitment1)
+            const aztecMerkleData1 = await getMerkleData(gigaBridge,L1WarpToad,AztecWarpToad,commitment1, aztecDeployer)
             //await generateNoirTest(proofInputs);
             // const proof = await createProof(proofInputs, os.cpus().length)
 
@@ -320,10 +321,11 @@ describe("AztecWarpToad", function () {
                 gigaBridge,
                 AztecWarpToad,
                 localRootProviders,
-                gigaRootRecipients
+                gigaRootRecipients,
+                aztecDeployer
             )
 
-            const aztecMerkleData2 = await getMerkleData(gigaBridge,L1WarpToad,AztecWarpToad,commitment2)
+            const aztecMerkleData2 = await getMerkleData(gigaBridge,L1WarpToad,AztecWarpToad,commitment2, aztecDeployer)
             // possible bugs. aztecMerkleData2 needs to be called after bridging. 
             // not waiting on tx to settle
             // the localRoot block number extracted from the gigaRoot event is wrong
@@ -356,13 +358,15 @@ async function doFullBridgeAztec(
     AztecWarpToad: AztecWarpToadCore,
     localRootProviders: ethers.AddressLike[],
     gigaRootRecipients: ethers.AddressLike[],
+    aztecWallet: AztecWallet
 
 ) {
     const {refreshRootTx,PXE_L2Root} = await bridgeAZTECLocalRootToL1(
         PXE,
         L2AztecBridgeAdapter,
         L1AztecBridgeAdapter,
-        provider
+        provider,
+        aztecWallet
     )
 
     const {gigaRootUpdateTx} = await updateGigaRoot(
@@ -381,6 +385,7 @@ async function doFullBridgeAztec(
         AztecWarpToad,
         sendGigaRootTx,
         PXE,
+        aztecWallet,
         true
     )
     return  {refreshRootTx, PXE_L2Root,gigaRootUpdateTx}

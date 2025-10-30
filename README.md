@@ -196,7 +196,9 @@ cd backend/contracts/aztec/WarpToadCore;
 aztec-nargo compile;
 aztec-postprocess-contract
 aztec codegen -o src/artifacts target;
-cd ../../../..
+cd ../../../..;
+# just so i can copy paste and test body size in one go
+yarn workspace @warp-toad/backend hardhat test test/testL1ToAztec.ts --network aztecSandbox
 
 # L2AztecBridgeAdapter
 cd backend/contracts/aztec/L2AztecBridgeAdapter;

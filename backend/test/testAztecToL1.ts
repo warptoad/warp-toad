@@ -271,7 +271,8 @@ describe("AztecWarpToad", function () {
             //     gigaBridge,
             //     AztecWarpToad,
             //     localRootProviders,
-            //     [L1AztecBridgeAdapter.target]
+            //     [L1AztecBridgeAdapter.target],
+            //  
             // )
             await bridgeBetweenL1AndL2(
                 evmRelayer,
@@ -348,13 +349,15 @@ async function doFullBridgeAztec(
     AztecWarpToad: AztecWarpToadCore,
     localRootProviders: ethers.AddressLike[],
     gigaRootRecipients: ethers.AddressLike[],
+    aztecWallet: AztecWallet
 
 ) {
     const {refreshRootTx,PXE_L2Root} = await bridgeAZTECLocalRootToL1(
         PXE,
         L2AztecBridgeAdapter,
         L1AztecBridgeAdapter,
-        provider
+        provider,
+        aztecWallet
     )
 
     const {gigaRootUpdateTx} = await updateGigaRoot(
@@ -373,6 +376,7 @@ async function doFullBridgeAztec(
         AztecWarpToad,
         sendGigaRootTx,
         PXE,
+        aztecWallet,
         true
     )
     return  {refreshRootTx, PXE_L2Root,gigaRootUpdateTx}

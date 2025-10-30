@@ -1,4 +1,4 @@
-import { Fr, PXE, EthAddress, SponsoredFeePaymentMethod, FieldsOf, TxReceipt, ContractBase as AztecContract } from "@aztec/aztec.js"
+import { Fr, PXE, EthAddress, SponsoredFeePaymentMethod, FieldsOf, TxReceipt, ContractBase as AztecContract, Wallet as AztecWallet} from "@aztec/aztec.js"
 import { ethers } from "ethers";
 import { WarpToadCore as WarpToadEvm, USDcoin, PoseidonT3, LazyIMT, L1AztecBridgeAdapter, GigaBridge, L2ScrollBridgeAdapter, ILocalRootProvider__factory, IL1BridgeAdapter__factory, L1AztecBridgeAdapter__factory, IL1ScrollMessenger__factory, L1ScrollBridgeAdapter, L2WarpToad as L2WarpToadEVM } from "../../typechain-types";
 import { L2AztecBridgeAdapterContract } from '../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter'
@@ -129,14 +129,15 @@ export async function bridgeAZTECLocalRootToL1(
     L2AztecBridgeAdapter: L2AztecBridgeAdapterContract,
     L1AztecBridgeAdapter: L1AztecBridgeAdapter,
     provider: ethers.Provider,
-    sponsoredPaymentMethod?: SponsoredFeePaymentMethod | undefined
+    aztecWallet: AztecWallet,
+    sponsoredPaymentMethod?: SponsoredFeePaymentMethod | undefined,
 ) {
     const blockNumberOfRoot = await PXE.getBlockNumber();
     const PXE_L2Root = (await PXE.getBlock(blockNumberOfRoot))?.header.state.partial.noteHashTree.root as Fr
 
     // @danish oh o the aztec sdk changed again :(, it needs {from:wallet.account} or something like that
     // we prob need to find and replace every .send() with .send({from:wallet.account} ) (manually check if it is aztec ofc)
-    const sendRootToL1Tx = await L2AztecBridgeAdapter.methods.send_root_to_l1(blockNumberOfRoot).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait({ timeout: 60 * 60 * 12 });
+    const sendRootToL1Tx = await L2AztecBridgeAdapter.methods.send_root_to_l1(blockNumberOfRoot).send({ fee: { paymentMethod: sponsoredPaymentMethod }, from: aztecWallet.getAddress()}).wait({ timeout: 60 * 60 * 12 });
 
     const l1ChainId = (await provider.getNetwork()).chainId
     const messageContent = sha256ToField([ // does sha256(PXE_L2Root, blockNumberOfRoot) then removes the last byte and then adds byte(1) in front (to fit into a field)
@@ -330,6 +331,7 @@ export async function receiveGigaRootOnAztec(
     AztecWarpToad: L2WarpToadAZTEC,
     sendGigaRootTx: ethers.TransactionReceipt, // either get it from sendGigaRoot. or event scan for a specific gigaRoot with "NewGigaRootSentToAztec"
     PXE: PXE,
+    aztecWallet:AztecWallet,
     isSandBox?: boolean,
     sponsoredPaymentMethod?: SponsoredFeePaymentMethod | undefined
 
@@ -349,14 +351,14 @@ export async function receiveGigaRootOnAztec(
     if (isSandBox) {
         // this is to make the sandbox progress n blocks
 
-        await L2AztecBridgeAdapter.methods.count(0n).send().wait();
-        await L2AztecBridgeAdapter.methods.count(4n).send().wait();
+        await L2AztecBridgeAdapter.methods.count(0n).send({from:aztecWallet.getAddress()}).wait();
+        await L2AztecBridgeAdapter.methods.count(4n).send({from:aztecWallet.getAddress()}).wait();
     } else {
         console.warn("isSandBox is not set or detected. I hope ur indeed not on sandbox because it will break if u are!")
         await waitForBlocksAztec(blocksToWait, PXE);
     }
 
-    const receiveGigaRootTx = await L2AztecBridgeAdapter.methods.receive_giga_root(content_hash, index, AztecWarpToad.address).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait({ timeout: 60 * 60 * 12 });
+    const receiveGigaRootTx = await L2AztecBridgeAdapter.methods.receive_giga_root(content_hash, index, AztecWarpToad.address).send({ fee: { paymentMethod: sponsoredPaymentMethod }, from:aztecWallet.getAddress() }).wait({ timeout: 60 * 60 * 12 });
     return { receiveGigaRootTx }
 }
 
