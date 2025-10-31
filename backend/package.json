@@ -42,12 +42,12 @@
     "typescript": "^5.8.2"
   },
   "dependencies": {
-    "@aztec/accounts": "2.0.3",
-    "@aztec/aztec.js": "2.0.3",
+    "@aztec/accounts": "3.0.0-devnet.2",
+    "@aztec/aztec.js": "3.0.0-devnet.2",
     "@aztec/bb.js": "0.72.1",
-    "@aztec/ethereum": "2.0.3",
-    "@aztec/foundation": "2.0.3",
-    "@aztec/noir-contracts.js": "2.0.3",
+    "@aztec/ethereum": "3.0.0-devnet.2",
+    "@aztec/foundation": "3.0.0-devnet.2",
+    "@aztec/noir-contracts.js": "3.0.0-devnet.2",
     "@noir-lang/noir_js": "1.0.0-beta.5",
     "@noir-lang/noir_wasm": "1.0.0-beta.5",
     "@openzeppelin/contracts": "^5.2.0",

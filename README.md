@@ -178,7 +178,7 @@ yarn install;
 
 make sure you're on aztec 2.1.0-rc.20
 ```shell
-aztec-up 2.0.3
+aztec-up 3.0.0-devnet.2
 
 ```
 
@@ -242,12 +242,12 @@ yarn workspace @warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file
 
 ## run sandbox
 ```shell
-VERSION=2.0.3 aztec start --sandbox --rollup-version 1714840162
+VERSION=3.0.0-devnet.2 aztec start --sandbox --rollup-version 1714840162
 ```
 
 ## run PXE on alpha testnet
 ```shell
-VERSION=2.0.3 aztec start --port 8080 --pxe --pxe.nodeUrl=https://full-node.alpha-testnet.aztec.network --rollup-version 1714840162 --l1-chain-id 11155111 --l1-rpc-urls https://sepolia.infura.io/v3/urkey
+VERSION=3.0.0-devnet.2 aztec start --port 8080 --pxe --pxe.nodeUrl=https://full-node.alpha-testnet.aztec.network --rollup-version 1714840162 --l1-chain-id 11155111 --l1-rpc-urls https://sepolia.infura.io/v3/urkey
 
 ```
 <!--
@@ -281,7 +281,7 @@ yarn workspace @warp-toad/backend hardhat ignition deploy ignition/modules/TestT
 note: you might need comment out the scroll chainId json imports in `backend/scripts/dev_op/deployment.ts`  
 @TODO fix that
 ```shell
-NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/deployL1.ts --network aztecSandbox;
+NATIVE_TOKEN_ADDRESS=0x95401dc811bb5740090279Ba06cfA8fcF6113778 yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/deployL1.ts --network aztecSandbox;
 ```
 <!--  
 NATIVE_TOKEN_ADDRESS=0xc5a5C42992dECbae36851359345FE25997F5C42d yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/deployL1.ts --network aztecSandbox;
@@ -292,7 +292,7 @@ NATIVE_TOKEN_ADDRESS=0x53bAc8Df8Ee03a057DF9309f4f613E5478354E60 yarn workspace @
 
 #### deploy on aztec
 ```shell
-NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/deployAztec.ts --network aztecSandbox;
+NATIVE_TOKEN_ADDRESS=0x95401dc811bb5740090279Ba06cfA8fcF6113778 PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/deployAztec.ts --network aztecSandbox;
 ```
 
 <!--

@@ -15,7 +15,7 @@ pub contract WarpToadCore {
     use constants::{EVM_TREE_DEPTH, GIGA_TREE_DEPTH};
     use hashing::{hash_commitment};
 
-    use aztec::event::event_interface::emit_event_in_public;
+    use aztec::event::event_emission::emit_event_in_public;
     use compressed_string::{FieldCompressedString, CompressedString};
     use poseidon::poseidon;
     use easy_private_state::{EasyPrivateUint};
@@ -24,13 +24,12 @@ pub contract WarpToadCore {
         history::public_storage::PublicStorageHistoricalRead,
         macros::{
             events::event,
-            functions::{initializer, private, public, utility},
-            notes::note,
+            functions::{initializer, external},
             storage::storage,
         },
-        event::event_interface::{emit_event_in_private, MessageDelivery},
-        messages::logs::{
-            note::{encode_and_encrypt_note}
+        event::event_emission::{emit_event_in_private},
+        messages::{
+            message_delivery::MessageDelivery
         },
         oracle::get_membership_witness::{get_note_hash_membership_witness, MembershipWitness},
         protocol_types::{
@@ -99,18 +98,18 @@ pub contract WarpToadCore {
      * initialize the contract's initial state variables.
      */
     #[initializer]
-    #[public]
+    #[external("public")]
     fn constructor(native_token: EthAddress, _name: str<31>, _symbol: str<31>, _decimals: u8) {
         storage.native_token.initialize(native_token);
         storage.name.initialize(FieldCompressedString::from_string(_name));
         storage.symbol.initialize(FieldCompressedString::from_string(_symbol));
         storage.decimals.initialize(_decimals);
-        storage.deployer.initialize(context.msg_sender());
+        storage.deployer.initialize(context.msg_sender().expect(f"Deployer must not be none!"));
     }
 
-     #[public]
+     #[external("public")]
     fn initialize(_giga_root_provider: AztecAddress, _l1_bridge_adapter: EthAddress) {
-        assert(context.msg_sender() == storage.deployer.read(), "not deployer");
+        assert(context.msg_sender().expect(f"msg sender must not be none!") == storage.deployer.read(), "not deployer");
         storage.giga_root_provider.initialize(_giga_root_provider);
         storage.l1_bridge_adapter.initialize(_l1_bridge_adapter);
     }
@@ -118,7 +117,7 @@ pub contract WarpToadCore {
     //-------warptoad things----------------------
 
     // @TODO @WARNING remove this in prod!! Do minting from giga root instead
-    #[private]
+    #[external("private")]
     fn mint_for_testing(amount: u64, recipient: AztecAddress) {
         storage.balances.at(recipient).add(amount, recipient);
         emit_event_in_private(
@@ -129,16 +128,16 @@ pub contract WarpToadCore {
         );
     }
 
-    #[public]
+    #[external("public")]
     fn receive_giga_root(giga_root: Field) {
-        assert(context.msg_sender() == storage.giga_root_provider.read(), "not giga_root_provider");
+        assert(context.msg_sender().expect(f"Sender must not be none!") == storage.giga_root_provider.read(), "not giga_root_provider");
         storage.giga_root.write(giga_root);
         emit_event_in_public(NewGigaRoot { giga_root, block_number: context.block_number() }, &mut context);
     }
 
     // a separate function for evm vs aztec since aztec uses poseidon2. But evm not yet
     // this works without creating a gigaRoot history right? we just need to make sure the block number we provide matches what gigaRoot was at that time in here!
-    #[private]
+    #[external("private")]
     fn mint_giga_root_evm(
         amount: u64,
         secret: Field,
@@ -175,9 +174,9 @@ pub contract WarpToadCore {
         );
     }
 
-    #[private]
+    #[external("private")]
     fn burn(amount: u64, destination_chain_id: Field, secret: Field, nullifier_preimage: Field) {
-        let sender = context.msg_sender();
+        let sender = context.msg_sender().expect(f"Sender must not be none!");
 
         // Will fail if insufficient balance so no need for bal checkssssss
         storage.balances.at(sender).sub(amount, sender);
@@ -189,7 +188,7 @@ pub contract WarpToadCore {
             (amount as Field),
         );
 
-        storage.commitments.insert(warptoad_note).emit(encode_and_encrypt_note(&mut context, sender));
+        storage.commitments.insert(warptoad_note).emit(sender, MessageDelivery.CONSTRAINED_ONCHAIN);
 
         emit_event_in_private(
             Transfer { from: sender, to: context.this_address(), amount },
@@ -208,9 +207,9 @@ pub contract WarpToadCore {
     // but simplified to reduce scope for the hackathon
 
     // Transfers `amount` of tokens from `sender` to a `recipient`.
-    #[private]
+    #[external("private")]
     fn transfer(to: AztecAddress, amount: u64) {
-        let from = context.msg_sender();
+        let from = context.msg_sender().expect(f"From must not be none!");
         storage.balances.at(from).sub(amount, from); // reverts if insufficient funds
         storage.balances.at(to).add(amount, to);
 
@@ -222,9 +221,9 @@ pub contract WarpToadCore {
         );
     }
 
-    #[private]
+    #[external("private")]
     fn increase_allowance(spender: AztecAddress, added: u64) {
-        let owner = context.msg_sender();
+        let owner = context.msg_sender().expect(f"Owner must not be none!");
         let key = pedersen_hash([owner.to_field(), spender.to_field()]);
         storage.allowances.at(key).add(added, owner);
         let _ = added;
@@ -237,9 +236,9 @@ pub contract WarpToadCore {
         );
     }
 
-    #[private]
+    #[external("private")]
     fn decrease_allowance(spender: AztecAddress, subtracted: u64) {
-        let owner = context.msg_sender();
+        let owner = context.msg_sender().expect(f"Owner must not be none!");
         let key = pedersen_hash([owner.to_field(), spender.to_field()]);
         storage.allowances.at(key).sub(subtracted, owner); // underflow means revert
         emit_event_in_private(
@@ -251,9 +250,9 @@ pub contract WarpToadCore {
     }
     
 
-    #[private]
+    #[external("private")]
     fn transfer_from(owner: AztecAddress, to: AztecAddress, amount: u64) {
-        let spender = context.msg_sender();
+        let spender = context.msg_sender().expect(f"Spender must not be none!");
         let key = pedersen_hash([owner.to_field(), spender.to_field()]);
         // Check & consume allowance (reverts on insufficient)
         storage.allowances.at(key).sub(amount, owner);
@@ -271,13 +270,13 @@ pub contract WarpToadCore {
 
     // utility
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn get_giga_root() -> pub Field { 
         storage.giga_root.read() 
     }
 
     // it allows us to do a eth_getProof like thing for a commitment. Kinda cringe that i cant just call a api in js like on ethereum? Maybe you can?
-    #[utility]
+    #[external("utility")]
     unconstrained fn get_note_proof(
         block_number: u32,
         note_hash: Field,
@@ -285,7 +284,7 @@ pub contract WarpToadCore {
         get_note_hash_membership_witness(block_number, note_hash)
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn get_l1_bridge_adapter() -> pub EthAddress { storage.l1_bridge_adapter.read() }
 
     // we hallucinate our own chainId since we just need a unique identifier to identify the chain
@@ -297,27 +296,27 @@ pub contract WarpToadCore {
         poseidon::bn254::hash_2([salt.serialize()[0], aztec_version])
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn get_chain_id_unconstrained(aztec_version: Field) -> pub Field { 
         get_chain_id(aztec_version) 
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn get_version() -> Field { 
         context.version() 
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn public_get_name() -> pub FieldCompressedString { 
         storage.name.read() 
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn public_get_symbol() -> pub FieldCompressedString { 
         storage.symbol.read() 
     }
 
-    #[utility]
+    #[external("utility")]
     unconstrained fn get_decimals() -> pub u8 { 
         storage.decimals.read() 
     }

@@ -16,7 +16,7 @@ pub contract L2AztecBridgeAdapter {
 	use dep::aztec::protocol_types::hash::sha256_to_field;
 
     use dep::aztec::macros::{
-        functions::{initializer, private, public, view},
+        functions::{initializer, external, view},
         storage::storage,
     };
 
@@ -29,20 +29,20 @@ pub contract L2AztecBridgeAdapter {
     }
 
     // Constructs the contract.
-    #[public]
+    #[external("public")]
     #[initializer]
     fn constructor(l1BridgeAdapter: EthAddress) {
         storage.l1BridgeAdapter.initialize(l1BridgeAdapter); 
     } 
 
-    #[public]
+    #[external("public")]
     #[view]
     fn get_l1BridgeAdapter_public() -> EthAddress {
         storage.l1BridgeAdapter.read()
     }
 
     // Consumes a L1->L2 message and calls the WarpToadCore contract to update the GigaRoot
-    #[public]
+    #[external("public")]
     fn receive_giga_root(new_gigaroot: Field, message_leaf_index: Field, warpToadCore:AztecAddress) {
         // `secret` is used to make the consumption of a message on the L2 private.
         // we don't care about keeping message consumption private at all so to
@@ -61,7 +61,7 @@ pub contract L2AztecBridgeAdapter {
     }
 
     // temp for testing.  Need to call 2 functions to progress the L2 2 blocks
-    #[public]
+    #[external("public")]
     fn count(new_count: Field) {
         storage.counter.write(new_count);
     }
@@ -72,7 +72,7 @@ pub contract L2AztecBridgeAdapter {
 	// entire state root
 	// Needs to be private because accessing `block_header.state.partial.note_hash_tree.root` 
 	// can only be done from a private context
-    #[private]
+    #[external("private")]
     fn send_root_to_l1(block_number: u32) {
         let l1BridgeAdapter = storage.l1BridgeAdapter.read();
 
