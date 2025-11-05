@@ -4,7 +4,7 @@
   "private": true,
   "workspaces": {
     "packages": ["backend","frontend"],
-    "nohoist": ["**/backend/**","**/frontend/**"]
+    "nohoist": ["backend","frontend"]
   },
   "scripts": {
     "f:dev": "cd frontend && yarn dev",
