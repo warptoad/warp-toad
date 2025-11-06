@@ -1,16 +1,14 @@
 
 import { ethers } from 'ethers';
 
-//@ts-ignore
-import { Fr, type ContractInstanceWithAddress, type PXE, getContractInstanceFromDeployParams, SponsoredFeePaymentMethod, AccountManager, GrumpkinScalar, Wallet as aztecWallet, createAztecNodeClient } from "@aztec/aztec.js";
-//@ts-ignore
+import { getSchnorrAccount, Fr, type ContractInstanceWithAddress, getContractInstanceFromDeployParams, SponsoredFeePaymentMethod, AccountManager, GrumpkinScalar, Wallet as aztecWallet, createAztecNodeClient } from "@aztec/aztec.js";
+
 import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
-//@ts-ignore
-import { getSchnorrAccount } from "@aztec/accounts/schnorr";
+
 //@ts-ignore
 import { deriveSigningKey } from "@aztec/stdlib/keys";
-//@ts-ignore
-import { getInitialTestAccountsWallets } from "@aztec/accounts/testing";
+
+import { getInitialTestAccountsData } from "@aztec/accounts/testing";
 //@ts-ignore
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 
@@ -207,7 +205,7 @@ async function getTestnetWallet(pxe: PXE) {
 export async function getAztecTestWallet(PXE: PXE, chainId: bigint) {
     if (chainId == 31337n) {
         console.warn("assuming ur on sandbox since chainId is 31337")
-        return { wallet: (await getInitialTestAccountsWallets(PXE))[0], sponsoredPaymentMethod: undefined }
+        return { wallet: (await getInitialTestAccountsData())[0], sponsoredPaymentMethod: undefined }
     } else {
         console.warn("assuming ur on testnet since chainId is NOT 31337")
         return await getTestnetWallet(PXE)

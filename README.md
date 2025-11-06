@@ -281,10 +281,10 @@ yarn workspace @warp-toad/backend hardhat ignition deploy ignition/modules/TestT
 note: you might need comment out the scroll chainId json imports in `backend/scripts/dev_op/deployment.ts`  
 @TODO fix that
 ```shell
-NATIVE_TOKEN_ADDRESS=0x95401dc811bb5740090279Ba06cfA8fcF6113778 yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/deployL1.ts --network aztecSandbox;
+NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/deployL1.ts --network aztecSandbox;
 ```
 <!--  
-NATIVE_TOKEN_ADDRESS=0xc5a5C42992dECbae36851359345FE25997F5C42d yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/deployL1.ts --network aztecSandbox;
+NATIVE_TOKEN_ADDRESS=0x95401dc811bb5740090279Ba06cfA8fcF6113778 yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/deployL1.ts --network aztecSandbox;
 
 NATIVE_TOKEN_ADDRESS=0x53bAc8Df8Ee03a057DF9309f4f613E5478354E60 yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/deployL1.ts --network sepolia;
 
@@ -292,11 +292,11 @@ NATIVE_TOKEN_ADDRESS=0x53bAc8Df8Ee03a057DF9309f4f613E5478354E60 yarn workspace @
 
 #### deploy on aztec
 ```shell
-NATIVE_TOKEN_ADDRESS=0x95401dc811bb5740090279Ba06cfA8fcF6113778 PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/deployAztec.ts --network aztecSandbox;
+NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/deployAztec.ts --network aztecSandbox;
 ```
 
 <!--
-NATIVE_TOKEN_ADDRESS=0xc5a5C42992dECbae36851359345FE25997F5C42d PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/deployAztec.ts --network aztecSandbox;
+NATIVE_TOKEN_ADDRESS=0x95401dc811bb5740090279Ba06cfA8fcF6113778 PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/deployAztec.ts --network aztecSandbox;
 
 NATIVE_TOKEN_ADDRESS=0x53bAc8Df8Ee03a057DF9309f4f613E5478354E60 PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/deployAztec.ts --network sepolia;
 -->
