@@ -1,47 +1,13 @@
 // initializing more than one contract? use try and catch!
-const hre = require("hardhat");
-// import hre from "hardhat"
-import { ethers } from "ethers";
-import { deployPoseidon } from "../poseidon";
+import * as hre from "hardhat";
 
-import L1WarpToadModule from "../../../ignition/modules/L1WarpToad"
-import L1InfraModule from "../../../ignition/modules/L1Infra"
+import { L1AztecBridgeAdapter__factory, L1ScrollBridgeAdapter__factory, L1WarpToad__factory } from "../../../typechain-types";
 
-import { ERC20__factory, L1AztecBridgeAdapter__factory, L1ScrollBridgeAdapter__factory, L1WarpToad__factory, USDcoin__factory } from "../../../typechain-types";
-//@ts-ignore
-import er20Abi from "../../dev_op/erc20ABI.json"  with { type: 'json' }
-//@ts-ignore
-import { createPXEClient, waitForPXE } from "@aztec/aztec.js";
-//@ts-ignore
-import { getInitialTestAccountsWallets } from "@aztec/accounts/testing";
+import { getContractAddressesAztec, getContractAddressesEvm } from "../../dev_op/utils";
+import { initNodeClient } from "../utils/aztecUtils";
 
-import fs from "fs/promises";
-import { getContractAddressesAztec, getContractAddressesEvm } from "scripts/dev_op/utils";
-
-
-function getArgs() {
-    // if(!Boolean(process.env.NATIVE_TOKEN_ADDRESS) ) { 
-    //     throw new Error("NATIVE_TOKEN_ADDRESS not set. do NATIVE_TOKEN_ADDRESS=0xurTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts  --network aztecSandbox")
-    // } else if (!ethers.isAddress(process.env.NATIVE_TOKEN_ADDRESS)) {
-    //     throw new Error(`the value: ${process.env.NATIVE_TOKEN_ADDRESS} is not a valid address. Set NATIVE_TOKEN_ADDRESS= to a valid address`)
-    // }
-    if(!Boolean(process.env.PXE_URL) ) { 
-        throw new Error("PXE_URL not set. do PXE_URL=http://UR.PXE yarn workspace @warp-toad/backend hardhat run scripts/deploy/initializeL1.ts  --network aztecSandbox")
-    }
-
-    //const nativeTokenAddress = ethers.getAddress(process.env.NATIVE_TOKEN_ADDRESS as string);
-    const PXE_URL = process.env.PXE_URL as string
-    return { PXE_URL}
-
-}
 
 async function main() {
-    //----PXE and wallet-----
-    const {PXE_URL} = getArgs()
-    console.log("creating PXE client")
-    const PXE = createPXEClient(PXE_URL);
-    console.log("waiting on PXE client", PXE_URL)
-    await waitForPXE(PXE);
     // const wallets = await getInitialTestAccountsWallets(PXE);
     // const deployWallet = wallets[0]
     const provider = hre.ethers.provider
@@ -49,7 +15,8 @@ async function main() {
 
     //--------arguments-------------------
     // cant pass arguments like flags with hardhat. so it like `NATIVE_TOKEN_ADDRESS=0xurTokenAddress hardhat run` instead
-    const aztecNativeBridgeRegistryAddress = (await PXE.getNodeInfo()).l1ContractAddresses.registryAddress.toString();
+    const nodeInfo = await (await initNodeClient()).getNodeInfo()
+    const aztecNativeBridgeRegistryAddress = nodeInfo.l1ContractAddresses.registryAddress.toString();
 
     const chainId = (await provider.getNetwork()).chainId
     const IS_MAINNET = chainId === 1n
@@ -68,10 +35,10 @@ async function main() {
     const L1AztecBridgeAdapter = L1AztecBridgeAdapter__factory.connect(L1AztecBridgeAdapterAddress, signer)
     const L1ScrollBridgeAdapter = L1ScrollBridgeAdapter__factory.connect(L1ScrollBridgeAdapterAddress, signer)
     const L1WarpToad = L1WarpToad__factory.connect(L1WarpToadAddress, signer)
-    const initializationStatus:any = {}
+    const initializationStatus: any = {}
 
     //aztec
-    try{
+    try {
         await L1AztecBridgeAdapter.initialize(aztecNativeBridgeRegistryAddress, L2AztecAdapterAddress, gigaBridgeAddress);
         initializationStatus["L1AztecBridgeAdapter"] = true
     } catch {
@@ -82,8 +49,8 @@ async function main() {
     }
 
     // scroll
-    try{
-        await L1ScrollBridgeAdapter.initialize(L2ScrollBridgeAdapterAddress ,gigaBridgeAddress);
+    try {
+        await L1ScrollBridgeAdapter.initialize(L2ScrollBridgeAdapterAddress, gigaBridgeAddress);
         initializationStatus["L1ScrollBridgeAdapter"] = true
     } catch {
         console.warn(`couldn't initialize: L1ScrollBridgeAdapter at: ${L1ScrollBridgeAdapter.target}. 
@@ -91,9 +58,9 @@ async function main() {
         `)
         initializationStatus["L1ScrollBridgeAdapter"] = false
     }
-    
+
     //warptoad
-    try{
+    try {
         await L1WarpToad.initialize(gigaBridgeAddress, L1WarpToad.target) // <- L1WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
         initializationStatus["L1WarpToad"] = true
     } catch {
@@ -102,23 +69,23 @@ async function main() {
         `)
         initializationStatus["L1WarpToad"] = false
     }
-    
+
 
 
     console.log(`
     initialized: 
         L1AztecBridgeAdapter:       ${L1AztecBridgeAdapter.target}
-        initializationSuccess?:     ${initializationStatus["L1AztecBridgeAdapter"] }
-        args:                       ${JSON.stringify({aztecNativeBridgeRegistryAddress, L2AztecAdapterAddress, gigaBridgeAddress},null,2)}
+        initializationSuccess?:     ${initializationStatus["L1AztecBridgeAdapter"]}
+        args:                       ${JSON.stringify({ aztecNativeBridgeRegistryAddress, L2AztecAdapterAddress, gigaBridgeAddress }, null, 2)}
 
         L1WarpToad:                 ${L1WarpToad.target}
-        initializationSuccess?:     ${initializationStatus["L1WarpToad"] }
-        args:                       ${JSON.stringify({gigaBridgeAddress, L1WarpToad:L1WarpToad.target},null,2)}
+        initializationSuccess?:     ${initializationStatus["L1WarpToad"]}
+        args:                       ${JSON.stringify({ gigaBridgeAddress, L1WarpToad: L1WarpToad.target }, null, 2)}
     `)
     console.log(`
         L1ScrollBridgeAdapter:      ${L1ScrollBridgeAdapter.target}
         initializationSuccess?:     ${initializationStatus["L1ScrollBridgeAdapter"]}
-        args:                       ${JSON.stringify({L2ScrollBridgeAdapterAddress ,gigaBridgeAddress},null,2)}
+        args:                       ${JSON.stringify({ L2ScrollBridgeAdapterAddress, gigaBridgeAddress }, null, 2)}
     `)
 
 }

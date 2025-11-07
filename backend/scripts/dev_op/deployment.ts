@@ -1,14 +1,12 @@
 
 import { ethers } from 'ethers';
 
-import { getSchnorrAccount, Fr, type ContractInstanceWithAddress, getContractInstanceFromDeployParams, SponsoredFeePaymentMethod, AccountManager, GrumpkinScalar, Wallet as aztecWallet, createAztecNodeClient } from "@aztec/aztec.js";
-
 import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
 
 //@ts-ignore
 import { deriveSigningKey } from "@aztec/stdlib/keys";
 
-import { getInitialTestAccountsData } from "@aztec/accounts/testing";
+import { generateSchnorrAccounts, getInitialTestAccountsData } from "@aztec/accounts/testing";
 //@ts-ignore
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 
@@ -24,23 +22,35 @@ import { WarpToadCoreContract as L2AztecWarpToad, WarpToadCoreContract, WarpToad
 import { L2AztecBridgeAdapterContract, L2AztecBridgeAdapterContractArtifact } from '../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter';
 
 //@ts-ignore
-import aztecDeploymentsSepolia from "../deploy/aztec/aztecDeployments/11155111/deployed_addresses.json" with { type: 'json' }; 
+import aztecDeploymentsSepolia from "../deploy/aztec/aztecDeployments/11155111/deployed_addresses.json" with { type: 'json' };
 //@ts-ignore
-import scrollDeploymentsSepolia from "../../ignition/deployments/chain-534351/deployed_addresses.json" with { type: 'json' }; 
+import aztecDeploymentsSandbox from "../deploy/aztec/aztecDeployments/31337/deployed_addresses.json" with { type: 'json' };
 //@ts-ignore
-import L1DeploymentsSepolia from "../../ignition/deployments/chain-11155111/deployed_addresses.json" with { type: 'json' }; 
+import scrollDeploymentsSepolia from "../../ignition/deployments/chain-534351/deployed_addresses.json" with { type: 'json' };
+//@ts-ignore
+import L1DeploymentsSepolia from "../../ignition/deployments/chain-11155111/deployed_addresses.json" with { type: 'json' };
+//@ts-ignore
+import L1DeploymentsSandbox from "../../ignition/deployments/chain-31337/deployed_addresses.json" with { type: 'json' };
+import { AccountManager, Wallet } from '@aztec/aztec.js/wallet';
+import { PXE } from '@aztec/pxe/server';
+import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
+import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
+import { ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
+import { getAztecTestAccounts } from '../deploy/utils/aztecUtils';
 
 interface deployments {
-  [chainId: number]: any
+    [chainId: number]: any
 }
 
-export const evmDeployments:deployments = {
+export const evmDeployments: deployments = {
     534351: scrollDeploymentsSepolia,
-    11155111: L1DeploymentsSepolia
+    11155111: L1DeploymentsSepolia,
+    31337: L1DeploymentsSandbox
 }
 
-export const aztecDeployments:deployments = {
-    11155111:aztecDeploymentsSepolia
+export const aztecDeployments: deployments = {
+    11155111: aztecDeploymentsSepolia,
+    31337: aztecDeploymentsSandbox
 }
 
 
@@ -86,17 +96,20 @@ export async function getL2EvmContracts(l2ChainId: bigint, signer: ethers.Signer
 
 export async function getL2AZTECContracts(
     l1ChainId: bigint,
-    l2Wallet: aztecWallet,
+    l2Wallet: Wallet,
     PXE: PXE,
     aztecNodeUrl: string
 ): Promise<{ L2Adapter: L2AztecBridgeAdapterContract, L2WarpToad: L2AztecWarpToad }> {
-    console.log({l1ChainId})
+    console.log({ l1ChainId })
     const isSandBox = BigInt(l1ChainId) === 31337n
     const contracts = aztecDeployments[Number(l1ChainId)]
 
     const L2AztecAdapterAddress = contracts["L2AztecBridgeAdapter"]
     const AztecWarpToadAddress = contracts["AztecWarpToad"]
 
+    console.log("IS SANDBOX?:",isSandBox)
+
+    /*
     if (!isSandBox) {
         const node = createAztecNodeClient(aztecNodeUrl)
         const AztecWarpToadContract = await node.getContract(AztecWarpToadAddress as any)
@@ -112,14 +125,15 @@ export async function getL2AZTECContracts(
         })
         await delay(10000)
     }
+        */
 
-    const L2AztecBridgeAdapter = await L2AztecBridgeAdapterContract.at(L2AztecAdapterAddress, l2Wallet as aztecWallet)
-    const AztecWarpToad = await WarpToadCoreContract.at(AztecWarpToadAddress, l2Wallet as aztecWallet)
+    const L2AztecBridgeAdapter = await L2AztecBridgeAdapterContract.at(L2AztecAdapterAddress, l2Wallet as Wallet)
+    const AztecWarpToad = await WarpToadCoreContract.at(AztecWarpToadAddress, l2Wallet as Wallet)
     return { L2Adapter: L2AztecBridgeAdapter, L2WarpToad: AztecWarpToad }
 }
 
 export async function getL2Contracts(
-    l2Wallet: aztecWallet | ethers.Signer,
+    l2Wallet: Wallet | ethers.Signer,
     l1ChainId: bigint,
     l2ChainId: bigint,
     isAztec: boolean,
@@ -130,7 +144,7 @@ export async function getL2Contracts(
     L2WarpToad: L2EvmWarpToad | L2AztecWarpToad
 }> {
     if (isAztec) {
-        return await getL2AZTECContracts(l1ChainId, l2Wallet as aztecWallet, PXE, aztecNodeUrl)
+        return await getL2AZTECContracts(l1ChainId, l2Wallet as Wallet, PXE, aztecNodeUrl)
 
     } else {
         return await getL2EvmContracts(l2ChainId, l2Wallet as ethers.Signer)
@@ -146,7 +160,7 @@ export function createRandomAztecPrivateKey(): `0x${string}` {
 }
 
 // from https://github.com/AztecProtocol/aztec-starter/blob/d9a8377aa240c4e75e3bf7912f3c58681927ba7e/src/utils/deploy_account.ts#L9
-export async function deploySchnorrAccount(pxe: PXE, hexSecretKey?: string, saltString?: string): Promise<AccountManager> {
+/*export async function deploySchnorrAccount(pxe: PXE, hexSecretKey?: string, saltString?: string): Promise<AccountManager> {
     const sponsoredFPC = await getSponsoredFPCInstance();
     //@ts-ignore
     await pxe.registerContract({ instance: sponsoredFPC, artifact: SponsoredFPCContract.artifact });
@@ -155,7 +169,7 @@ export async function deploySchnorrAccount(pxe: PXE, hexSecretKey?: string, salt
     let secretKey = Fr.fromHexString(hexSecretKey ? hexSecretKey : "0x46726565416c65787950657274736576416e64526f6d616e53746f726d2122")//0x46726565416c65787950657274736576416e64526f6d616e53746f726d2121
     let salt = Fr.fromHexString(saltString ? saltString : "0x46726565416c65787950657274736576416e64526f6d616e53746f726d2122")//Fr.random();
 
-    let schnorrAccount = await getSchnorrAccount(pxe, secretKey, deriveSigningKey(secretKey), salt.toBigInt());
+    let schnorrAccount = await generateSchnorrAccounts(pxe, secretKey, deriveSigningKey(secretKey), salt.toBigInt());
     try {
         await schnorrAccount.deploy({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait({ timeout: 60 * 60 * 12 });
     } catch (error) {
@@ -170,10 +184,9 @@ export async function deploySchnorrAccount(pxe: PXE, hexSecretKey?: string, salt
         }
 
     }
-    let wallet = await schnorrAccount.getWallet();
 
     return schnorrAccount;
-}
+}*/
 
 
 export async function getSponsoredFPCInstance(): Promise<ContractInstanceWithAddress> {
@@ -191,8 +204,9 @@ async function getTestnetWallet(pxe: PXE) {
     await pxe.registerContract({ instance: sponsoredFPC, artifact: SponsoredFPCContract.artifact });
     const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(sponsoredFPC.address);
 
-    let accountManager = await deploySchnorrAccount(pxe);
-    const wallet = await accountManager.getWallet();
+    //let accountManager = await deploySchnorrAccount(pxe);
+    //const wallet = await accountManager.getWallet();
+    const wallet = await getAztecTestAccounts(2n)
     return { wallet, sponsoredPaymentMethod }
 }
 

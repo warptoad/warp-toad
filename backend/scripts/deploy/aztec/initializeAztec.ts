@@ -1,73 +1,45 @@
 // initializing more than one contract? use try and catch!
-//@ts-ignore
-import { AztecAddress, Contract, createAztecNodeClient, createPXEClient, waitForPXE , Fr, GrumpkinScalar, PXE} from "@aztec/aztec.js";
 import { WarpToadCoreContract, WarpToadCoreContractArtifact } from "../../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore";
-//@ts-ignore
-// import { getInitialTestAccountsWallets } from "@aztec/accounts/testing";
-import { getContractAddressesAztec, getContractAddressesEvm } from "../../dev_op/deployment";
-//@ts-ignore
-// import { computePartialAddress } from "@aztec/stdlib/contract";
-// import { ObsidionDeployerFPCContractArtifact } from "../dev_op/getObsidionWallet/ObsidionDeployerFPC";
-// import { getObsidionDeployerFPCWallet } from "../dev_op/getObsidionWallet/getObsidionWallet";
-import { L2AztecBridgeAdapterContractArtifact } from "../../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter";
-import { getAztecTestWallet } from "../../dev_op/deployment";
+import { getAztecTestAccounts, initNodeClient, initPXE } from "../utils/aztecUtils";
+import * as hre from "hardhat";
+import { aztecDeployments, evmDeployments } from "../../dev_op/deployment";
+import { AztecAddress } from "@aztec/aztec.js/addresses";
+import { L2AztecBridgeAdapterContractArtifact } from "contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter";
 
-
-const hre = require("hardhat")
-
-const AZTEC_NODE_URL = "https://aztec-alpha-testnet-fullnode.zkv.xyz"
-const delay = async (timeInMs: number) => await new Promise((resolve) => setTimeout(resolve, timeInMs))
-
-
-function getEnvArgs() {
-    if (!Boolean(process.env.PXE_URL)) {
-        throw new Error("PXE_URL not set. do PXE_URL=http://UR.PXE NATIVE_TOKEN_ADDRESS=0xurTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts  --network aztecSandbox")
-    }
-
-    // if (!Boolean(process.env.PRIVATE_KEY)) {
-    //     throw new Error("PRIVATE_KEY not set")
-    // }
-
-
-    const PXE_URL = process.env.PXE_URL as string
-    return { PXE_URL, privateKey:process.env.PRIVATE_KEY }
-
-}
+export const delay = async (timeInMs: number) => await new Promise((resolve) => setTimeout(resolve, timeInMs))
 
 
 async function main() {
-    const {PXE_URL, privateKey} = getEnvArgs()
-    //----PXE and wallet-----
-    console.log("creating PXE client")
-    const PXE = createPXEClient(PXE_URL);
-    console.log("waiting on PXE client", PXE_URL)
-    await waitForPXE(PXE);
-
 
 
     const provider = hre.ethers.provider
     const chainId = (await provider.getNetwork()).chainId
 
-    const {wallet, sponsoredPaymentMethod} = await getAztecTestWallet(PXE,chainId)//await getAztecWallet(PXE,privateKey as string,AZTEC_NODE_URL ,chainId)
+    const wallet = await getAztecTestAccounts(chainId)
+
+    const sponsoredPaymentMethod = undefined;
     const evmContractAddresses = evmDeployments[Number(chainId)]
     const aztecContractAddresses = aztecDeployments[Number(chainId)]
-    console.log({aztecContractAddresses})
+    console.log({ aztecContractAddresses })
 
     const L1AztecBridgeAdapter = evmContractAddresses["L1InfraModule#L1AztecBridgeAdapter"]
 
     const AztecWarpToadAddress = aztecContractAddresses["AztecWarpToad"]
-    const L2AztecAdapterAddress =  aztecContractAddresses["L2AztecBridgeAdapter"]
+    const L2AztecAdapterAddress = aztecContractAddresses["L2AztecBridgeAdapter"]
+
 
     if (chainId !== 31337n) {
         console.log("assuming ur not on sand box so registering the contracts with aztec testnet node")
-        const node = createAztecNodeClient(AZTEC_NODE_URL)
-        const AztecWarpToadContract = await node.getContract(AztecWarpToadAddress as any)
+        const nodeClient = await initNodeClient()
+        const PXE = await initPXE(nodeClient);
+
+
         await PXE.registerContract({
-            instance: AztecWarpToadContract as any,
+            instance: WarpToadCoreContract as any,
             artifact: WarpToadCoreContractArtifact,
         })
         await delay(10000)
-        const L2AztecAdapterContract = await node.getContract(L2AztecAdapterAddress as any)
+        const L2AztecAdapterContract = await nodeClient.getContract(L2AztecAdapterAddress as any)
         await PXE.registerContract({
             instance: L2AztecAdapterContract as any,
             artifact: L2AztecBridgeAdapterContractArtifact,
@@ -76,12 +48,15 @@ async function main() {
 
     }
 
-    const AztecWarpToad = await Contract.at(AztecWarpToadAddress, WarpToadCoreContractArtifact, wallet) as WarpToadCoreContract
-    
-    const initializationStatus:any = {}
 
-    try{
-        await AztecWarpToad.methods.initialize(L2AztecAdapterAddress, L1AztecBridgeAdapter).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait({timeout:60*60*12}) // <- L1WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
+    console.log(AztecAddress.fromString(AztecWarpToadAddress));
+
+    const AztecWarpToad = await WarpToadCoreContract.at(AztecAddress.fromString(AztecWarpToadAddress), wallet)
+
+    const initializationStatus: any = {}
+
+    try {
+        await AztecWarpToad.methods.initialize(L2AztecAdapterAddress, L1AztecBridgeAdapter).send({ fee: { paymentMethod: sponsoredPaymentMethod }, from: (await wallet.getAccounts())[0].item }).wait({ timeout: 60 * 60 * 12 }) // <- L1WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
         initializationStatus["AztecWarpToad"] = true
     } catch (error) {
         console.warn(`couldn't initialize: AztecWarpToad at: ${AztecWarpToad.address}. 
@@ -94,8 +69,8 @@ async function main() {
     console.log(`
         initialized: 
             AztecWarpToad:              ${AztecWarpToad.address}
-            initializationSuccess?:     ${initializationStatus["AztecWarpToad"] }
-            args:                       ${JSON.stringify({L2AztecAdapterAddress, L1AztecBridgeAdapter}, null, 2)}
+            initializationSuccess?:     ${initializationStatus["AztecWarpToad"]}
+            args:                       ${JSON.stringify({ L2AztecAdapterAddress, L1AztecBridgeAdapter }, null, 2)}
         `)
 
 }
