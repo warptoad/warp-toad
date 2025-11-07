@@ -4,9 +4,20 @@ import { getAztecTestAccounts, initNodeClient, initPXE } from "../utils/aztecUti
 import * as hre from "hardhat";
 import { aztecDeployments, evmDeployments } from "../../dev_op/deployment";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
-import { L2AztecBridgeAdapterContractArtifact } from "contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter";
+import { L2AztecBridgeAdapterContractArtifact } from "../../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter";
+import { Contract, ContractInstanceWithAddress } from "@aztec/aztec.js/contracts";
+import { error } from "console";
 
 export const delay = async (timeInMs: number) => await new Promise((resolve) => setTimeout(resolve, timeInMs))
+
+async function getContractInstanceFromAddress(address: AztecAddress): Promise<ContractInstanceWithAddress> {
+    const nodeClient = await initNodeClient()
+    const contractInstance = await nodeClient.getContract(address)
+    if (contractInstance == undefined) {
+        throw error("seems like the address is not in the node") //todo create better error message :D
+    }
+    return contractInstance
+}
 
 
 async function main() {
@@ -29,10 +40,10 @@ async function main() {
 
 
     if (chainId !== 31337n) {
+
         console.log("assuming ur not on sand box so registering the contracts with aztec testnet node")
         const nodeClient = await initNodeClient()
         const PXE = await initPXE(nodeClient);
-
 
         await PXE.registerContract({
             instance: WarpToadCoreContract as any,
@@ -49,17 +60,25 @@ async function main() {
     }
 
 
-    console.log(AztecAddress.fromString(AztecWarpToadAddress));
+    const aztecWarpToadContractInstance = await getContractInstanceFromAddress(AztecAddress.fromString(AztecWarpToadAddress))
 
-    const AztecWarpToad = await WarpToadCoreContract.at(AztecAddress.fromString(AztecWarpToadAddress), wallet)
+    await wallet.registerContract(aztecWarpToadContractInstance, WarpToadCoreContractArtifact)
+
+    const aztecWarpToad = await WarpToadCoreContract.at(AztecAddress.fromString(AztecWarpToadAddress), wallet);
+
+    console.log(aztecWarpToad)
+
+
+
+    console.log("\n\n\n DOES NOT DISPLAY \n\n\n")
 
     const initializationStatus: any = {}
 
     try {
-        await AztecWarpToad.methods.initialize(L2AztecAdapterAddress, L1AztecBridgeAdapter).send({ fee: { paymentMethod: sponsoredPaymentMethod }, from: (await wallet.getAccounts())[0].item }).wait({ timeout: 60 * 60 * 12 }) // <- L1WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
+        await aztecWarpToad.methods.initialize(L2AztecAdapterAddress, L1AztecBridgeAdapter).send({ fee: { paymentMethod: sponsoredPaymentMethod }, from: (await wallet.getAccounts())[0].item }).wait({ timeout: 60 * 60 * 12 }) // <- L1WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
         initializationStatus["AztecWarpToad"] = true
     } catch (error) {
-        console.warn(`couldn't initialize: AztecWarpToad at: ${AztecWarpToad.address}. 
+        console.warn(`couldn't initialize: AztecWarpToad at: ${aztecWarpToad.address}. 
         Was it already initialized?     
         `)
         console.warn(error)
@@ -68,7 +87,7 @@ async function main() {
 
     console.log(`
         initialized: 
-            AztecWarpToad:              ${AztecWarpToad.address}
+            AztecWarpToad:              ${aztecWarpToad.address}
             initializationSuccess?:     ${initializationStatus["AztecWarpToad"]}
             args:                       ${JSON.stringify({ L2AztecAdapterAddress, L1AztecBridgeAdapter }, null, 2)}
         `)

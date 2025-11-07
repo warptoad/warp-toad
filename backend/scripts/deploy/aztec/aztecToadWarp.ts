@@ -11,7 +11,6 @@ export async function deployAztecWarpToad(nativeToken: USDcoin | any, deployerWa
     const symbol = `wrptd-${(await nativeToken.symbol()).toUpperCase()}`;
     const decimals = 6n; // only 6 decimals what is this tether??
 
-    const constructorArgs = [nativeToken.target, name, symbol, decimals]
     const AztecWarpToad = await WarpToadCoreContract.deploy(deployerWallet, nativeToken.target, name, symbol, decimals).send({ fee: { paymentMethod: sponsoredPaymentMethod }, from: (await deployerWallet.getAccounts())[0].item }).deployed({ timeout: 60 * 60 * 12 });
 
     return { AztecWarpToad };
