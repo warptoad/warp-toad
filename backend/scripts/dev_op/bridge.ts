@@ -44,6 +44,7 @@ async function main() {
     const l1ChainId = (await l1Provider.getNetwork()).chainId
     if (args.evmPrivatekey === "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80" && l1ChainId !== 31337n) { console.warn("default anvil key used on a l1 network that is not chainId 31337!") }
 
+    console.log("bridge0")
     // aztec is not evm!
     const l2Data = {} as any; //TODO 
     if (args.isAztec) {
@@ -56,32 +57,37 @@ async function main() {
         l2Data.l2Wallet = new ethers.Wallet(args.evmPrivatekey, l2Data.l2Provider);
         l2Data.l2ChainId = (await l2Data.l2Provider!.getNetwork()).chainId
     }
+    console.log("bridge1")
     const { l2Provider, l2Wallet, l2ChainId, PXE, sponsoredPaymentMethod } = l2Data
     //----------------------------------------------------------------
+    console.log("bridge1.1")
 
     //------------------- get contract details -------------------------------
     const localRootProviders = args.localRootProviders ? args.localRootProviders : await getLocalRootProviders(l1ChainId)
+    console.log("bridge1.2")
     const { L1Adapter, gigaBridge, l1Warptoad } = await getL1Contracts(l1ChainId, l2ChainId as bigint, l1Wallet, args.isAztec)
-    const { L2Adapter, L2WarpToad } = await getL2Contracts(l2Wallet,l1ChainId, l2ChainId, args.isAztec, PXE as PXE, AZTEC_NODE_URL)
+    console.log("bridge1.3")
+    const { L2Adapter, L2WarpToad } = await getL2Contracts(l2Wallet, l1ChainId, l2ChainId, args.isAztec, PXE as PXE, AZTEC_NODE_URL)
+    console.log("bridge1.4")
     const payableLocalRootProviders = await getPayableGigaRootRecipients(l1ChainId)
     //--------------------------------------------------------------------------
-
+    console.log("bridge2")
     // ----------------------- bridge! ----------------------------------------
-    console.log({localRootProviders,payableLocalRootProviders})
+    console.log({ localRootProviders, payableLocalRootProviders })
     let bridgeIteration = 0
     const errorsLimit = 1000
-    let errors:any[] = []
+    let errors: any[] = []
     let lastBridgePromise;
     do {
         if (errors.length > errorsLimit) {
             console.log(errors)
-            throw new Error(`ran into too many errors: ${errors.length} errors`,{cause:errors[errors.length-1]})
+            throw new Error(`ran into too many errors: ${errors.length} errors`, { cause: errors[errors.length - 1] })
         }
         bridgeIteration += 1
         console.log(`starting ${bridgeIteration}th L1<->L2 bridge run`)
 
         // quick and ugly try and catch wrapper
-        const bridgeBetweenL1AndL2TryCatch = async (inputs:Parameters<typeof bridgeBetweenL1AndL2>) => {
+        const bridgeBetweenL1AndL2TryCatch = async (inputs: Parameters<typeof bridgeBetweenL1AndL2>) => {
             try {
                 return await bridgeBetweenL1AndL2(...inputs)
             } catch (error) {
@@ -103,7 +109,7 @@ async function main() {
                 PXE: PXE,
                 sponsoredPaymentMethod: sponsoredPaymentMethod
             }
-        ]).then((res)=>console.log(`completed ${bridgeIteration}th bridge run`,res?.txHashes))
+        ]).then((res) => console.log(`completed ${bridgeIteration}th bridge run`, res?.txHashes))
 
         await sleep(600000) // 10 min
     } while (args.repeat)

@@ -36,7 +36,9 @@ import { PXE } from '@aztec/pxe/server';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
-import { getAztecTestAccounts } from '../deploy/utils/aztecUtils';
+import { getAztecTestAccounts, initNodeClient, initPXE } from '../deploy/utils/aztecUtils';
+import { getContractInstanceFromAddress } from '../deploy/aztec/initializeAztec';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
 
 interface deployments {
     [chainId: number]: any
@@ -107,29 +109,54 @@ export async function getL2AZTECContracts(
     const L2AztecAdapterAddress = contracts["L2AztecBridgeAdapter"]
     const AztecWarpToadAddress = contracts["AztecWarpToad"]
 
-    console.log("IS SANDBOX?:",isSandBox)
+    console.log("IS SANDBOX?:", isSandBox)
 
-    /*
+
     if (!isSandBox) {
-        const node = createAztecNodeClient(aztecNodeUrl)
-        const AztecWarpToadContract = await node.getContract(AztecWarpToadAddress as any)
+
+        console.log("assuming ur not on sand box so registering the contracts with aztec testnet node")
+        const nodeClient = await initNodeClient()
+        const PXE = await initPXE(nodeClient);
+
         await PXE.registerContract({
-            instance: AztecWarpToadContract as any,
+            instance: WarpToadCoreContract as any,
             artifact: WarpToadCoreContractArtifact,
         })
         await delay(10000)
-        const L2AztecAdapterContract = await node.getContract(L2AztecAdapterAddress as any)
+        const L2AztecAdapterContract = await nodeClient.getContract(L2AztecAdapterAddress as any)
         await PXE.registerContract({
             instance: L2AztecAdapterContract as any,
             artifact: L2AztecBridgeAdapterContractArtifact,
         })
         await delay(10000)
     }
-        */
 
-    const L2AztecBridgeAdapter = await L2AztecBridgeAdapterContract.at(L2AztecAdapterAddress, l2Wallet as Wallet)
-    const AztecWarpToad = await WarpToadCoreContract.at(AztecWarpToadAddress, l2Wallet as Wallet)
-    return { L2Adapter: L2AztecBridgeAdapter, L2WarpToad: AztecWarpToad }
+
+    const aztecWarpToadContractInstance = await getContractInstanceFromAddress(AztecAddress.fromString(AztecWarpToadAddress))
+    const l2AztecAdapterContractInstance = await getContractInstanceFromAddress(AztecAddress.fromString(L2AztecAdapterAddress))
+
+    const nodeClient = await initNodeClient()
+    const L2AztecAdapterContract = await nodeClient.getContract(L2AztecAdapterAddress)
+
+    console.log("\n\n\n 1 \n\n\n");
+    PXE.registerContract({
+        instance: aztecWarpToadContractInstance,
+        artifact: WarpToadCoreContractArtifact
+    })
+    await delay(10000)
+    console.log("\n\n\n 2 \n\n\n");
+    PXE.registerContract({
+        instance: l2AztecAdapterContractInstance,
+        artifact: L2AztecBridgeAdapterContractArtifact
+    })
+    console.log("\n\n\n 3 \n\n\n");
+    await delay(10000)
+
+    const aztecWarpToad = await WarpToadCoreContract.at(AztecAddress.fromString(AztecWarpToadAddress), l2Wallet);
+    const l2AztecBridgeAdapter = await L2AztecBridgeAdapterContract.at(AztecAddress.fromString(L2AztecAdapterAddress), l2Wallet)
+
+    console.log("\n\n\n 4 \n\n\n");
+    return { L2Adapter: l2AztecBridgeAdapter, L2WarpToad: aztecWarpToad }
 }
 
 export async function getL2Contracts(

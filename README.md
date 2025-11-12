@@ -1,171 +1,4 @@
-# Warptoad
 
-> Cross-bridge privacy infrastructure that scales with Aztec
-
-
-## Table of Contents
-
-- [Technical Overview](#technical-overview)
-- [The GigaRoot](#the-gigaroot)
-- [Proving](#proving)
-- [Siloing Commitments Per Chain ID](#siloing-commitments-per-chain-id)
-- [Aztec Integration](#aztec-integration)
-- [Project History and NoirHack Contributions](#project-history-and-noirhack-contributions)
-- [Privacy Primitives Used](#privacy-primitives-used)
-- [Benchmarks](#benchmarks)
-- [Live Demo](#live-demo)
-- [Video Demo](#video-demo)
-- [Pitch](#pitch)
-- [Links to deployed contracts](#links-to-deployed-contracts)
-- [Warning: Known Issues](#️-warning-known-issues)
-- [Installation and Execution Guide](#installation-and-execution-guide)
-
----
-
-## Technical Overview
-
-WarpToad is a privacy-preserving bridge protocol that enables users to move assets across L1, L2s, and Aztec without revealing sender, recipient or the chain you came from. It does this by aggregating commitments from each chain and creating a unified Merkle root — the GigaRoot — on Ethereum mainnet.
-
-### The GigaRoot
-
-WarpToad achieves cross-chain privacy by tracking commitments inside in-contract Merkle trees on each chain separately. It then uses the native bridges of the integrated rollups to send those roots to L1. On L1, the GigaBridge contract collects these roots and aggregates them into a larger Merkle tree (the **GigaTree**), with the root known as the **GigaRoot**. This GigaTree includes commitments from all integrated L2s and L1.
-
-### Proving
-
-Once the GigaRoot is posted to L1, it is propagated back to the L2s. Users can then generate zk-proofs showing they made a valid deposit on any integrated chain — without revealing the chain, the deposit, or transaction details.
-
-For users who deposit and withdraw on the same chain, WarpToad includes the latest local Merkle root. This allows for same-chain withdrawals using the full cross-chain anonymity set — no need to wait for the GigaRoot.
-This is useful for users who want privacy without moving assets across chains, such as recycling addresses, breaking linkability, or hiding the timing between deposit and use.
-
-Because roots are sent asynchronously, the protocol remains fast and responsive, even across rollups with different bridging speeds.
-
-### Siloing Commitments Per Chain ID
-
-WarpToad commitments are **siloed per destination chain ID**. Each commitment is created as:
-`commitment = hash(hash(nullifierPreimage, secret, destinationChainId), amount)`
-This is similar to 0xbow, with the chain ID added. The inclusion of the chain ID enforces that a commitment can only be withdrawn on one specific chain. This eliminates the need to bridge nullifiers. The circuit enforces this by requiring the destination chain ID to be revealed as a public input during withdrawal.
-
-### Aztec Integration
-
-On Aztec, privacy is even stronger due to its shielded architecture and larger anonymity set. Instead of creating a separate Merkle tree on Aztec, WarpToad pushes commitments and nullifiers directly into Aztec’s native note tree.
-
-This means:
-
-* Bridging transactions that originate on Aztec are fully shielded and indistinguishable from other Aztec transactions.
-* Transactions arriving on Aztec are also completely private.
-* Since bridge transfers resemble regular shielded transfers, **WarpToad inherits the full anonymity set of Aztec**.
-
-This model scales even better in the future if another privacy-preserving protocol integrates WarpToad as deeply as Aztec. In that scenario, anonymity sets of multiple protocols could be joined through WarpToad — simply by virtue of the shared bridge.
-
-
-### Project History and NoirHack Contributions
-
-WarpToad began two weeks prior to NoirHack during ETHaly, where initial work was limited to architectural research and implementation planning — no code was written before the hackathon.
-
-The project is a direct evolution of an earlier hackathon submission, [Toadnado](https://ethglobal.com/showcase/toadnado-vvkcb) , built at ETHGlobal Brussels 2024. Toadnado was a cross-layer mixer enabling shielded transfers between L1 and L2, and won prizes from Blockscout and Scroll.
-
-WarpToad builds on that conceptual foundation but reimagines cross-chain privacy with:
-
-asynchronous commitment aggregation,
-
-destination-bound commitments,
-
-and deep integration with Aztec’s native note tree.
-
----
-
-## Privacy Primitives Used
-
-* **Lazy Incremental Merkle Tree (Lazy IMT):** Used to track commitments on each chain. Lazy IMTs reduce gas costs by delaying root computation until needed, allowing amortized cost across multiple deposits.
-* **GigaTree as Lazy IMT:** The GigaTree also uses a Lazy IMT to enable batch insertion of L2 roots efficiently during aggregation.
-* **Poseidon & Poseidon2:** We use Poseidon for on-chain hashing and Poseidon2 for Aztec compatibility.
-* **zk-Kits Merkle Verifier:** Merkle proofs are verified in Noir using zk-Kits' verifier, which supports custom hash functions.
-
----
-
-## Benchmarks
-```
-constraint count:
-Aztec Warptoad:
-goblin ecc op : 4/1024
-busread       : 727/6000
-lookups       : 9354/15000
-pub inputs    : 16/5000 (populated in decider pk constructor)
-arithmetic    : 56000/56000
-delta range   : 2381/18000
-elliptic      : 670/6000
-auxiliary     : 549/26000
-poseidon ext  : 622/17000
-poseidon int  : 3536/92000
-overflow      : 30841/30841
-```
-
-*Constraints evm circuit (noir + bb)*
-```
-acir_opcodes: 25403
-circuit_size: 81060
-```
-
-*Gas cost evm mint:*
-```
-·····························|················|················|·················|················|
-|  Contracts / Methods       ·  Min           ·  Max           ·  Avg            ·  # calls       |
-·····························|················|················|·················|················|
-|  L1WarpToad                ·                                                                    |
-·····························|················|················|·················|················|
-|      burn                  ·       104,705  ·       820,196  ·        159,753  ·         20000  |       
-```
-
----
-
-## Live Demo
-
-* [https://warptoad.xyz/](https://warptoad.xyz/)
-
-## Video Demo
-
-* [Demo Recording](https://www.youtube.com/watch?v=0HKP5Viis_0)
-
-## Pitch
-
-* [Pitch recording](https://www.youtube.com/watch?v=SElCIv6eW78)
-
-## Links to deployed contracts
-
-We have the Aztec smart contracts deployed on testnet, but the application doesn't currently work there, likely due to a configuration issue with the L1 to L2 bridge.
-It does work fully in the Aztec sandbox environment.
-
-### L1 sepolia
-L1WarpToad:[0x2aAac78A5C2031247053153Af1c482EaD6e51646](https://sepolia.etherscan.io/address/0x2aAac78A5C2031247053153Af1c482EaD6e51646)
-
-L1AztecBridgeAdapter: [0xfbaf549fE0d1eA2727E5F5B3662F54dBfA1eCbA1](https://sepolia.etherscan.io/address/0xfbaf549fE0d1eA2727E5F5B3662F54dBfA1eCbA1#code)
-
-L1ScrollBridgeAdapter: [0x4c9fE34E23bDd68fb15A5e607B5a5Cc2849B74f1](https://sepolia.etherscan.io/address/0x4c9fE34E23bDd68fb15A5e607B5a5Cc2849B74f1#code)
-
-GigaBridge: [0xb8e2cD67eD66722a8e70ad5dAc817F7CC53136dE](https://sepolia.etherscan.io/address/0xb8e2cD67eD66722a8e70ad5dAc817F7CC53136dE#code)
-
-WithdrawVerifier: [0x1bd4bECbD487D32872c15741d80F97581c1726aA](https://sepolia.etherscan.io/address/0x1bd4bECbD487D32872c15741d80F97581c1726aA)
-
-
-### L2 aztec
-Aztec WarpToad: [0x2f741db4f3a2412e4b05bfea2b2c40e3f1d83e2923e60e4be305d1769301dc4f](https://aztecscan.xyz/contracts/instances/0x2f741db4f3a2412e4b05bfea2b2c40e3f1d83e2923e60e4be305d1769301dc4f)
-
-L2AztecBridgeAdapter: [0x2c27cd4c4eef2378fe61ae1c87149f980d63d51d1c0236d40586dc5002d5ef0f](https://aztecscan.xyz/contracts/instances/0x2c27cd4c4eef2378fe61ae1c87149f980d63d51d1c0236d40586dc5002d5ef0f)
-
-### L2 scroll
-L2WarpToad: [0x2aAac78A5C2031247053153Af1c482EaD6e51646](https://sepolia.scrollscan.com/address/0x2aAac78A5C2031247053153Af1c482EaD6e51646)
-
-L2ScrollAdapter: [0xfbaf549fE0d1eA2727E5F5B3662F54dBfA1eCbA1](https://sepolia.scrollscan.com/address/0xfbaf549fE0d1eA2727E5F5B3662F54dBfA1eCbA1)
-
-WithdrawVerifier: [0x1bd4bECbD487D32872c15741d80F97581c1726aA](https://sepolia.scrollscan.com/address/0x1bd4bECbD487D32872c15741d80F97581c1726aA)
-
-
-
----
-
----
-
-## Installation and Execution Guide
 
 ## install
 make sure you're on node 20 (hardhat needs it)
@@ -176,9 +9,9 @@ npm install --global yarn;
 yarn install;
 ```
 
-make sure you're on aztec 2.1.0-rc.20
+make sure you're on aztec 3.0.0-devnet.4
 ```shell
-aztec-up 3.0.0-devnet.2
+aztec-up 3.0.0-devnet.4
 
 ```
 
@@ -242,12 +75,12 @@ yarn workspace @warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file
 
 ## run sandbox
 ```shell
-VERSION=3.0.0-devnet.2 aztec start --sandbox --rollup-version 1714840162
+VERSION=3.0.0-devnet.4 aztec start --sandbox --rollup-version 1714840162
 ```
 
 ## run PXE on alpha testnet
 ```shell
-VERSION=3.0.0-devnet.2 aztec start --port 8080 --pxe --pxe.nodeUrl=https://full-node.alpha-testnet.aztec.network --rollup-version 1714840162 --l1-chain-id 11155111 --l1-rpc-urls https://sepolia.infura.io/v3/urkey
+VERSION=3.0.0-devnet.4 aztec start --port 8080 --pxe --pxe.nodeUrl=https://full-node.alpha-testnet.aztec.network --rollup-version 1714840162 --l1-chain-id 11155111 --l1-rpc-urls https://sepolia.infura.io/v3/urkey
 
 ```
 <!--
@@ -340,7 +173,7 @@ yarn workspace @warp-toad/backend hardhat ignition verify chain-534351 --include
 ## bridge
 #### sandbox 
 ```shell
-yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --isAztec
+PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --isAztec
 ```
 #### aztec
 Takes about 0.5-1 hour to run

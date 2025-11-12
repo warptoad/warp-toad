@@ -10,7 +10,7 @@ import { error } from "console";
 
 export const delay = async (timeInMs: number) => await new Promise((resolve) => setTimeout(resolve, timeInMs))
 
-async function getContractInstanceFromAddress(address: AztecAddress): Promise<ContractInstanceWithAddress> {
+export async function getContractInstanceFromAddress(address: AztecAddress): Promise<ContractInstanceWithAddress> {
     const nodeClient = await initNodeClient()
     const contractInstance = await nodeClient.getContract(address)
     if (contractInstance == undefined) {
@@ -61,16 +61,19 @@ async function main() {
 
 
     const aztecWarpToadContractInstance = await getContractInstanceFromAddress(AztecAddress.fromString(AztecWarpToadAddress))
+    const nodeClient = await initNodeClient()
+    const PXE = await initPXE(nodeClient);
+    PXE.registerContract({
+        instance: aztecWarpToadContractInstance,
+        artifact: WarpToadCoreContractArtifact
+    })
 
-    await wallet.registerContract(aztecWarpToadContractInstance, WarpToadCoreContractArtifact)
+
+
+    //await wallet.registerContract(aztecWarpToadContractInstance, WarpToadCoreContractArtifact)
 
     const aztecWarpToad = await WarpToadCoreContract.at(AztecAddress.fromString(AztecWarpToadAddress), wallet);
 
-    console.log(aztecWarpToad)
-
-
-
-    console.log("\n\n\n DOES NOT DISPLAY \n\n\n")
 
     const initializationStatus: any = {}
 
