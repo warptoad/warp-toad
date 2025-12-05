@@ -9,9 +9,9 @@ npm install --global yarn;
 yarn install;
 ```
 
-make sure you're on aztec 3.0.0-devnet.4
+make sure you're on aztec 3.0.0-devnet.5
 ```shell
-aztec-up 3.0.0-devnet.4
+aztec-up 3.0.0-devnet.5
 
 ```
 
@@ -75,12 +75,12 @@ yarn workspace @warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file
 
 ## run sandbox
 ```shell
-VERSION=3.0.0-devnet.4 aztec start --sandbox --rollup-version 1714840162
+VERSION=3.0.0-devnet.5 aztec start --sandbox --rollup-version 1714840162
 ```
 
 ## run PXE on alpha testnet
 ```shell
-VERSION=3.0.0-devnet.4 aztec start --port 8080 --pxe --pxe.nodeUrl=https://full-node.alpha-testnet.aztec.network --rollup-version 1714840162 --l1-chain-id 11155111 --l1-rpc-urls https://sepolia.infura.io/v3/urkey
+VERSION=3.0.0-devnet.5 aztec start --port 8080 --pxe --pxe.nodeUrl=https://full-node.alpha-testnet.aztec.network --rollup-version 1714840162 --l1-chain-id 11155111 --l1-rpc-urls https://sepolia.infura.io/v3/urkey
 
 ```
 <!--

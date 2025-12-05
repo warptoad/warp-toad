@@ -38,3 +38,7 @@ backend/contracts/aztec/L2AztecBridgeAdapter/target/*.json.bak
 backend/dist
 
 backend/typechain-types
+backend/contracts/aztec/WarpToadCore/target/WarpToadCore-WarpToadCore.json
+backend/contracts/aztec/L2AztecBridgeAdapter/target/L2AztecBridgeAdapter-L2AztecBridgeAdapter.json
+backend/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore.ts
+backend/contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.ts
