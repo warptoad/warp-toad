@@ -1,6 +1,6 @@
 // initializing more than one contract? use try and catch!
 import { WarpToadCoreContract, WarpToadCoreContractArtifact } from "../../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore";
-import { getAztecTestAccounts, initNodeClient, initPXE } from "../utils/aztecUtils";
+import { getAztecTestAccounts, getContractInstanceFromAddress, initNodeClient, initPXE } from "../utils/aztecUtils";
 import * as hre from "hardhat";
 import { aztecDeployments, evmDeployments } from "../../dev_op/deployment";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
@@ -9,16 +9,6 @@ import { Contract, ContractInstanceWithAddress } from "@aztec/aztec.js/contracts
 import { error } from "console";
 
 export const delay = async (timeInMs: number) => await new Promise((resolve) => setTimeout(resolve, timeInMs))
-
-export async function getContractInstanceFromAddress(address: AztecAddress): Promise<ContractInstanceWithAddress> {
-    const nodeClient = await initNodeClient()
-    const contractInstance = await nodeClient.getContract(address)
-    if (contractInstance == undefined) {
-        throw error("seems like the address is not in the node") //todo create better error message :D
-    }
-    return contractInstance
-}
-
 
 async function main() {
 
@@ -70,7 +60,7 @@ async function main() {
 
 
 
-    //await wallet.registerContract(aztecWarpToadContractInstance, WarpToadCoreContractArtifact)
+    await wallet.registerContract(aztecWarpToadContractInstance, WarpToadCoreContractArtifact)
 
     const aztecWarpToad = await WarpToadCoreContract.at(AztecAddress.fromString(AztecWarpToadAddress), wallet);
 

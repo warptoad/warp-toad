@@ -75,18 +75,18 @@ yarn workspace @warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file
 
 ## run sandbox
 ```shell
-VERSION=3.0.0-devnet.5 aztec start --sandbox --rollup-version 1714840162
+VERSION=3.0.0-devnet.5 aztec start --sandbox
 ```
 
 ## run PXE on alpha testnet
 ```shell
-VERSION=3.0.0-devnet.5 aztec start --port 8080 --pxe --pxe.nodeUrl=https://full-node.alpha-testnet.aztec.network --rollup-version 1714840162 --l1-chain-id 11155111 --l1-rpc-urls https://sepolia.infura.io/v3/urkey
+VERSION=3.0.0-devnet.5 aztec start --port 8080 --pxe --pxe.nodeUrl=https://devnet.aztec-labs.com/--l1-chain-id 11155111 --l1-rpc-urls https://sepolia.infura.io/v3/urkey
 
 ```
 <!--
 ## aztec testnet deploy environment
 ```shell
-export NODE_URL=https://full-node.alpha-testnet.aztec.network
+export NODE_URL=https://aztec-alpha-testnet-fullnode.zkv.xyz
 export SPONSORED_FPC_ADDRESS=0x0b27e30667202907fc700d50e9bc816be42f8141fae8b9f2281873dbdb9fc2e5
 ```
 -->

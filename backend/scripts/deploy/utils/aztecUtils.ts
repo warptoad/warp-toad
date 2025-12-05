@@ -6,8 +6,19 @@ import { AztecNode, createAztecNodeClient } from "@aztec/aztec.js/node";
 import { createPXE, getPXEConfig, PXE } from "@aztec/pxe/server";
 import { getInitialTestAccountsData, InitialAccountData } from '@aztec/accounts/testing';
 import { TestWallet } from "@aztec/test-wallet/server";
+import { AztecAddress } from "@aztec/aztec.js/addresses";
+import { ContractInstanceWithAddress } from "@aztec/aztec.js/contracts";
 
 const PXE_URL = getPxeUrl()
+
+export async function getContractInstanceFromAddress(address: AztecAddress): Promise<ContractInstanceWithAddress> {
+    const nodeClient = await initNodeClient()
+    const contractInstance = await nodeClient.getContract(address)
+    if (contractInstance == undefined) {
+        throw new Error("seems like the address is not in the node") //todo create better error message :D
+    }
+    return contractInstance
+}
 
 export function getPxeUrl() {
     if (!Boolean(process.env.PXE_URL)) {

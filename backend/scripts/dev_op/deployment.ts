@@ -36,8 +36,7 @@ import { PXE } from '@aztec/pxe/server';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
-import { getAztecTestAccounts, initNodeClient, initPXE } from '../deploy/utils/aztecUtils';
-import { getContractInstanceFromAddress } from '../deploy/aztec/initializeAztec';
+import { getAztecTestAccounts, getContractInstanceFromAddress, initNodeClient, initPXE } from '../deploy/utils/aztecUtils';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 
 interface deployments {
@@ -138,24 +137,21 @@ export async function getL2AZTECContracts(
     const nodeClient = await initNodeClient()
     const L2AztecAdapterContract = await nodeClient.getContract(L2AztecAdapterAddress)
 
-    console.log("\n\n\n 1 \n\n\n");
     PXE.registerContract({
         instance: aztecWarpToadContractInstance,
         artifact: WarpToadCoreContractArtifact
     })
     await delay(10000)
-    console.log("\n\n\n 2 \n\n\n");
     PXE.registerContract({
         instance: l2AztecAdapterContractInstance,
         artifact: L2AztecBridgeAdapterContractArtifact
     })
     console.log("\n\n\n 3 \n\n\n");
     await delay(10000)
-
+    console.log({AztecWarpToadAddress, l2Wallet})
     const aztecWarpToad = await WarpToadCoreContract.at(AztecAddress.fromString(AztecWarpToadAddress), l2Wallet);
     const l2AztecBridgeAdapter = await L2AztecBridgeAdapterContract.at(AztecAddress.fromString(L2AztecAdapterAddress), l2Wallet)
 
-    console.log("\n\n\n 4 \n\n\n");
     return { L2Adapter: l2AztecBridgeAdapter, L2WarpToad: aztecWarpToad }
 }
 
