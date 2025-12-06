@@ -39,8 +39,36 @@ export async function setupWallet(node: AztecNode): Promise<TestWallet> {
     return wallet;
 }
 
-export async function getAztecTestAccount(chainId: bigint) {
-    const wallet = await setupWallet(await initNodeClient());
+export async function getAztecTestAccounts(aztecNode: AztecNode) {
+
+    const testAccountsData = (await getInitialTestAccountsData());
+    const wallets = []
+    for (const accountData of testAccountsData) {
+        const wallet = await setupWallet(aztecNode);
+        await wallet.createSchnorrAccount(accountData.secret, accountData.salt);
+        wallets.push(wallet)
+    }
+    return wallets
+}
+
+// danish made everything use process.env but sometime you need to pass it as parameter!
+export async function initNodeClientNoEnv(nodeUrl:string): Promise<AztecNode> {
+    try {
+        console.log("creating Aztec Node Client...");
+        const node = createAztecNodeClient(nodeUrl);
+        const nodeInfo = await node.getNodeInfo();
+        console.log("Connected to sandbox version:", nodeInfo.nodeVersion);
+        console.log("Chain ID:", nodeInfo.l1ChainId);
+        return node;
+
+    } catch (error) {
+        console.log("failed to create Aztec Node Client: ", error);
+        throw error;
+    }
+}
+
+export async function getAztecTestAccountNoEnv(chainId: bigint, nodeUrl:string) {
+    const wallet = await setupWallet(await initNodeClientNoEnv(nodeUrl));
     const testAccountData = (await getInitialTestAccountsData())[0];
 
     if (chainId == 31337n) {
@@ -54,39 +82,11 @@ export async function getAztecTestAccount(chainId: bigint) {
     }
 }
 
-export async function getAztecTestAccounts(aztecNode: AztecNode) {
-
-    const testAccountsData = (await getInitialTestAccountsData());
-    const wallets = []
-    for (const accountData of testAccountsData) {
-        const wallet = await setupWallet(aztecNode);
-        await wallet.createSchnorrAccount(accountData.secret, accountData.salt);
-        wallets.push(wallet)
-    }
-    return wallets
-}
-
-export async function getContractInstanceFromAddress(address: AztecAddress): Promise<ContractInstanceWithAddress> {
-    const nodeClient = await initNodeClient()
+export async function getContractInstanceFromAddressNoEnv(address: AztecAddress, nodeUrl:string): Promise<ContractInstanceWithAddress> {
+    const nodeClient = await initNodeClientNoEnv(nodeUrl)
     const contractInstance = await nodeClient.getContract(address)
     if (contractInstance == undefined) {
         throw new Error("seems like the address is not in the node") //todo create better error message :D
     }
     return contractInstance
-}
-
-// danish made everything use process.env but sometime you need to pass it as parameter!
-export async function initNodeClientNoEnv(PXE_URL:string): Promise<AztecNode> {
-    try {
-        console.log("creating Aztec Node Client...");
-        const node = createAztecNodeClient(PXE_URL);
-        const nodeInfo = await node.getNodeInfo();
-        console.log("Connected to sandbox version:", nodeInfo.nodeVersion);
-        console.log("Chain ID:", nodeInfo.l1ChainId);
-        return node;
-
-    } catch (error) {
-        console.log("failed to create Aztec Node Client: ", error);
-        throw error;
-    }
 }

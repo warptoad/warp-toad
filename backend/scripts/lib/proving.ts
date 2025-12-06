@@ -58,12 +58,12 @@ export async function queryEventInChunks(contract: ethers.Contract | ethers.Base
         // Math.min <= to ensure never go above lastBlock
         const stop = Math.min(start + chunksize, lastBlock)
         const events = await contract.queryFilter(filter, start, stop) as ethers.EventLog[]
-        console.log({start, stop, events})
+        // console.log({start, stop, events})
         return events
     }
     const numIters = Math.ceil((lastBlock - firstBlock) / chunksize)
 
-    console.log({numIters})
+    //console.log({numIters})
     if (reverseOrder) {
         for (let index = numIters-1; index >= 0; index--) {
             allEvents = [...(await scanLogic(index)), ...allEvents]
@@ -153,7 +153,7 @@ export async function getGigaMerkleData(gigaBridge:GigaBridge,localRoot:bigint, 
         }
         return newObj
     },{})
-    console.log({allRootIndexes,eventsPerIndex})
+    //console.log({allRootIndexes,eventsPerIndex})
     let sortedLeafs = [];
     for (const index of allRootIndexes) {
         if (index.toString() in eventsPerIndex){
@@ -301,13 +301,13 @@ async function getEvmLocalData(warpToadOrigin:WarpToadEvm) {
 }
 
 // if you ever run into a bug with this. I am so sorry
-export async function getMerkleData(gigaBridge:GigaBridge, warpToadOrigin: WarpToadEvm | WarpToadAztec, warpToadDestination:WarpToadEvm | WarpToadAztec, commitment:bigint, aztecWallet:AztecWallet, PXE:PXE,aztecNode:AztecNode) { 
+export async function getMerkleData(gigaBridge:GigaBridge, warpToadOrigin: WarpToadEvm | WarpToadAztec, warpToadDestination:WarpToadEvm | WarpToadAztec, commitment:bigint, aztecWallet?:AztecWallet, PXE?:PXE,aztecNode?:AztecNode) { 
     const isToAztec = !("target" in warpToadDestination);
     const isFromAztec = !("target" in warpToadOrigin);
     const isOnlyLocal = warpToadDestination === warpToadOrigin;
-    const gigaRoot = isToAztec ? await warpToadDestination.methods.get_giga_root().simulate({from:(await aztecWallet.getAccounts())[0].item}) : await warpToadDestination.gigaRoot()
+    const gigaRoot = isToAztec ? await warpToadDestination.methods.get_giga_root().simulate({from:(await (aztecWallet as AztecWallet).getAccounts())[0].item}) : await warpToadDestination.gigaRoot()
     // TODO BUG make sure that it actually exist at that block, with event scanning. especially with aztec since that will break if a new gigaRoot arrives right when before the promise finishes
-    const gigaRootArrivalBlockNumber:bigint = isToAztec ? BigInt(await aztecNode.getBlockNumber()) : BigInt(await warpToadDestination.runner?.provider?.getBlockNumber() as number)
+    const gigaRootArrivalBlockNumber:bigint = isToAztec ? BigInt(await (aztecNode as AztecNode).getBlockNumber()) : BigInt(await warpToadDestination.runner?.provider?.getBlockNumber() as number)
     
     console.log("getting gigaProof")
     let originLocalRoot;
@@ -315,14 +315,14 @@ export async function getMerkleData(gigaBridge:GigaBridge, warpToadOrigin: WarpT
     let destinationLocalRootL2Block;
     if (isOnlyLocal) {
         // get local root directly from the contract instead of extracting it from the gigaRoot (we wont use gigaRoot anyway)
-        const  {blockNumber,localRoot} = isFromAztec ? await getAztecLocalData(aztecNode) : await getEvmLocalData(warpToadOrigin)
+        const  {blockNumber,localRoot} = isFromAztec ? await getAztecLocalData( (aztecNode as AztecNode)) : await getEvmLocalData(warpToadOrigin)
         destinationLocalRootL2Block = blockNumber
         originLocalRoot = localRoot
         gigaMerkleData = emptyGigaMerkleData
     } else {
         // you need to get the local root from the event that created the gigaRoot. Other wise you might end up using a local root that hasn't been bridged into a gigaRoot yet ☝🤓
         const gigaRootBlockNumber = await getGigaRootBlockNumber(gigaBridge, gigaRoot)
-        const {localRoot, localRootL2BlockNumber,localRootIndex:originLocalRootIndex } = await getLocalRootInGigaRoot(gigaBridge, gigaRoot,gigaRootBlockNumber, warpToadOrigin, aztecWallet)
+        const {localRoot, localRootL2BlockNumber,localRootIndex:originLocalRootIndex } = await getLocalRootInGigaRoot(gigaBridge, gigaRoot,gigaRootBlockNumber, warpToadOrigin, aztecWallet as AztecWallet)
         originLocalRoot = localRoot
         destinationLocalRootL2Block = localRootL2BlockNumber;
 
@@ -333,7 +333,7 @@ export async function getMerkleData(gigaBridge:GigaBridge, warpToadOrigin: WarpT
     let aztecMerkleData:AztecMerkleData;
     let evmMerkleData:EvmMerkleData;
     if (isFromAztec) {
-        aztecMerkleData = await getAztecMerkleData(warpToadOrigin, commitment, Number(destinationLocalRootL2Block),PXE,aztecWallet) 
+        aztecMerkleData = await getAztecMerkleData(warpToadOrigin, commitment, Number(destinationLocalRootL2Block),PXE as PXE,aztecWallet as AztecWallet) 
         evmMerkleData = emptyEvmMerkleData
     } else {
         aztecMerkleData = emptyAztecMerkleData
@@ -357,9 +357,9 @@ export async function getProofInputs(
     //private
     nullifierPreImage: bigint,
     secret: bigint,
-    aztecWallet:AztecWallet,
-    PXE:PXE, 
-    aztecNode:AztecNode
+    aztecWallet?:AztecWallet,
+    PXE?:PXE, 
+    aztecNode?:AztecNode
 ): Promise<ProofInputs> {
     // TODO performance: do all these awaits concurrently 
     const chainId = (await warpToadDestination.runner?.provider?.getNetwork())?.chainId as bigint
@@ -401,8 +401,6 @@ export async function getProofInputs(
         evm_merkle_data: evmMerkleData,
         giga_merkle_data: gigaMerkleData as EvmMerkleData,
     }
-    console.log({proofInputs})
-    console.log(JSON.stringify(proofInputs))
     return proofInputs
 }
 

@@ -8,6 +8,7 @@ import { getInitialTestAccountsData, InitialAccountData } from '@aztec/accounts/
 import { TestWallet } from "@aztec/test-wallet/server";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { ContractInstanceWithAddress } from "@aztec/aztec.js/contracts";
+import { setupWallet } from "./aztecUtilsNoEnv";
 
 const PXE_URL = getPxeUrl()
 
@@ -49,4 +50,28 @@ export async function initNodeClient(): Promise<AztecNode> {
         console.log("failed to create Aztec Node Client: ", error);
         throw error;
     }
+}
+
+export async function getAztecTestAccount(chainId: bigint) {
+    const wallet = await setupWallet(await initNodeClient());
+    const testAccountData = (await getInitialTestAccountsData())[0];
+
+    if (chainId == 31337n) {
+        console.warn("assuming ur on sandbox since chainId is 31337")
+        await wallet.createSchnorrAccount(testAccountData.secret, testAccountData.salt);
+        return wallet
+    } else {
+        console.warn("assuming ur on testnet since chainId is NOT 31337")
+        await wallet.createSchnorrAccount(testAccountData.secret, testAccountData.salt);
+        return wallet
+    }
+}
+
+export async function getContractInstanceFromAddress(address: AztecAddress): Promise<ContractInstanceWithAddress> {
+    const nodeClient = await initNodeClient()
+    const contractInstance = await nodeClient.getContract(address)
+    if (contractInstance == undefined) {
+        throw new Error("seems like the address is not in the node") //todo create better error message :D
+    }
+    return contractInstance
 }

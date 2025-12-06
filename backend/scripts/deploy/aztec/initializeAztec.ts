@@ -1,12 +1,13 @@
 // initializing more than one contract? use try and catch!
 import { WarpToadCoreContract, WarpToadCoreContractArtifact } from "../../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore";
-import { getAztecTestAccount, getContractInstanceFromAddress, initNodeClient, initPXE } from "../utils/aztecUtils";
+import {  getAztecTestAccount, getContractInstanceFromAddress, initNodeClient } from "../utils/aztecUtils";
 import * as hre from "hardhat";
 import { aztecDeployments, evmDeployments } from "../../dev_op/deployment";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { L2AztecBridgeAdapterContractArtifact } from "../../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter";
 import { Contract, ContractInstanceWithAddress } from "@aztec/aztec.js/contracts";
 import { error } from "console";
+import { initPXE } from "../utils/aztecUtilsNoEnv";
 
 export const delay = async (timeInMs: number) => await new Promise((resolve) => setTimeout(resolve, timeInMs))
 
@@ -33,7 +34,7 @@ async function main() {
 
         console.log("assuming ur not on sand box so registering the contracts with aztec testnet node")
         const nodeClient = await initNodeClient()
-        const PXE = await initPXE(nodeClient);
+        const PXE = await initPXE(nodeClient, chainId);
 
         await PXE.registerContract({
             instance: WarpToadCoreContract as any,
@@ -52,7 +53,7 @@ async function main() {
 
     const aztecWarpToadContractInstance = await getContractInstanceFromAddress(AztecAddress.fromString(AztecWarpToadAddress))
     const nodeClient = await initNodeClient()
-    const PXE = await initPXE(nodeClient);
+    const PXE = await initPXE(nodeClient, chainId);
     PXE.registerContract({
         instance: aztecWarpToadContractInstance,
         artifact: WarpToadCoreContractArtifact

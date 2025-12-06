@@ -14,6 +14,8 @@ import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { L1Adapter } from "../lib/bridging";
 import { SCROLL_CHAINID_MAINNET, SCROLL_CHAINID_SEPOLIA } from '../lib/constants';
 
+import { initNodeClientNoEnv, getAztecTestAccountNoEnv, getContractInstanceFromAddressNoEnv, initPXE } from '../deploy/utils/aztecUtilsNoEnv';
+
 // evm 
 import { L2ScrollBridgeAdapter, GigaBridge__factory, L1AztecBridgeAdapter__factory, L1ScrollBridgeAdapter__factory, L2ScrollBridgeAdapter__factory, L2WarpToad as L2EvmWarpToad, L2WarpToad__factory, L1WarpToad__factory } from '../../typechain-types';
 
@@ -114,8 +116,8 @@ export async function getL2AZTECContracts(
     if (!isSandBox) {
 
         console.log("assuming ur not on sand box so registering the contracts with aztec testnet node")
-        const nodeClient = await initNodeClient()
-        const PXE = await initPXE(nodeClient);
+        const nodeClient = await initNodeClientNoEnv(aztecNodeUrl)
+        const PXE = await initPXE(nodeClient,l1ChainId);
 
         await PXE.registerContract({
             instance: WarpToadCoreContract as any,
@@ -131,10 +133,10 @@ export async function getL2AZTECContracts(
     }
 
 
-    const aztecWarpToadContractInstance = await getContractInstanceFromAddress(AztecAddress.fromString(AztecWarpToadAddress))
-    const l2AztecAdapterContractInstance = await getContractInstanceFromAddress(AztecAddress.fromString(L2AztecAdapterAddress))
+    const aztecWarpToadContractInstance = await getContractInstanceFromAddressNoEnv(AztecAddress.fromString(AztecWarpToadAddress),aztecNodeUrl)
+    const l2AztecAdapterContractInstance = await getContractInstanceFromAddressNoEnv(AztecAddress.fromString(L2AztecAdapterAddress), aztecNodeUrl)
 
-    const nodeClient = await initNodeClient()
+    const nodeClient = await initNodeClientNoEnv(aztecNodeUrl)
     const L2AztecAdapterContract = await nodeClient.getContract(L2AztecAdapterAddress)
 
     PXE.registerContract({
@@ -221,7 +223,7 @@ export async function getSponsoredFPCInstance(): Promise<ContractInstanceWithAdd
 
 
 // based of https://github.com/AztecProtocol/aztec-starter/blob/d9a8377aa240c4e75e3bf7912f3c58681927ba7e/scripts/deploy_contract.ts#L22
-async function getTestnetWallet(pxe: PXE) {
+async function getTestnetWallet(pxe: PXE, aztecNodeUrl:string) {
     const sponsoredFPC = await getSponsoredFPCInstance();
     //@ts-ignore
     await pxe.registerContract({ instance: sponsoredFPC, artifact: SponsoredFPCContract.artifact });
@@ -229,7 +231,7 @@ async function getTestnetWallet(pxe: PXE) {
 
     //let accountManager = await deploySchnorrAccount(pxe);
     //const wallet = await accountManager.getWallet();
-    const wallet = await getAztecTestAccount(2n)
+    const wallet = await getAztecTestAccountNoEnv(2n, aztecNodeUrl)
     return { wallet, sponsoredPaymentMethod }
 }
 
@@ -239,12 +241,12 @@ async function getTestnetWallet(pxe: PXE) {
  * @param chainId 
  * @returns 
  */
-export async function getAztecTestWallet(PXE: PXE, chainId: bigint) {
+export async function getAztecTestWallet(PXE: PXE, chainId: bigint, aztecNodeUrl:string) {
     if (chainId == 31337n) {
         console.warn("assuming ur on sandbox since chainId is 31337")
         return { wallet: (await getInitialTestAccountsData())[0], sponsoredPaymentMethod: undefined }
     } else {
         console.warn("assuming ur on testnet since chainId is NOT 31337")
-        return await getTestnetWallet(PXE)
+        return await getTestnetWallet(PXE, aztecNodeUrl)
     }
 }

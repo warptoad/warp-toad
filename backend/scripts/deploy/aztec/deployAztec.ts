@@ -9,7 +9,7 @@ import { checkFileExists, getAztecDeployedAddressesFilePath, getAztecDeployedAdd
 import fs from "fs/promises";
 import { deployAztecWarpToad } from "./aztecToadWarp";
 import { deployL2AztecBridgeAdapter } from "./L2AztecBridgeAdapter";
-import { getAztecTestAccount, getEnvArgs, initNodeClient, initPXE } from "../utils/aztecUtils";
+import { getAztecTestAccount, getEnvArgs, initNodeClient,  } from "../utils/aztecUtils";
 
 const { nativeTokenAddress } = getEnvArgs()
 

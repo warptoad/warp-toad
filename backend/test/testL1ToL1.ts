@@ -4,9 +4,8 @@ import { expect } from "chai";
 import { time, loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers.js";
 
 // aztec
-import {Contract, Wallet as AztecWallet } from "@aztec/aztec.js"
 import { ethers } from "ethers";
-//@ts-ignore
+
 import { sha256ToField } from "@aztec/foundation/crypto";
 
 //misc
@@ -20,20 +19,22 @@ import { EVM_TREE_DEPTH, gasCostPerChain } from "../scripts/lib/constants"//"@wa
 import { hashCommitment, hashPreCommitment } from "../scripts/lib/hashing"//"@warp-toad/backend/hashing";
 import { calculateFeeFactor, createProof, getMerkleData, getProofInputs } from "../scripts/lib/proving"//"@warp-toad/backend/proving";
 import { sendGigaRoot, bridgeAZTECLocalRootToL1, parseEventFromTx, updateGigaRoot, receiveGigaRootOnAztec, bridgeBetweenL1AndL2 } from "../scripts/lib/bridging"//"@warp-toad/backend/bridging";
+// import { Wallet as AztecWallet } from "@aztec/aztec.js/wallet";
+// import { Contract } from "@aztec/aztec.js/contracts";
 
 describe("AztecWarpToad", function () {
-    async function deployAztecWarpToad(nativeToken: USDcoin, deployerWallet:AztecWallet) {
-        const wrappedTokenSymbol = `wrpToad-${await nativeToken.symbol()}`
-        const wrappedTokenName = `wrpToad-${await nativeToken.name()}`
-        const decimals = 6n; // only 6 decimals what is this tether??
+    // async function deployAztecWarpToad(nativeToken: USDcoin, deployerWallet:AztecWallet) {
+    //     const wrappedTokenSymbol = `wrpToad-${await nativeToken.symbol()}`
+    //     const wrappedTokenName = `wrpToad-${await nativeToken.name()}`
+    //     const decimals = 6n; // only 6 decimals what is this tether??
 
-        const constructorArgs = [nativeToken.target, wrappedTokenName, wrappedTokenSymbol, decimals]
-        const AztecWarpToad = await Contract.deploy(deployerWallet, WarpToadCoreContractArtifact, constructorArgs)
-            .send()
-            .deployed() as AztecWarpToadCore;
+    //     const constructorArgs = [nativeToken.target, wrappedTokenName, wrappedTokenSymbol, decimals]
+    //     const AztecWarpToad = await Contract.deploy(deployerWallet, WarpToadCoreContractArtifact, constructorArgs)
+    //         .send()
+    //         .deployed() as AztecWarpToadCore;
 
-        return { AztecWarpToad};
-    }
+    //     return { AztecWarpToad};
+    // }
     async function deployL1Warptoad(nativeToken: USDcoin, LazyIMTLib: LazyIMT, PoseidonT3Lib: PoseidonT3) {
         const wrappedTokenSymbol = `wrpToad-${await nativeToken.symbol()}`
         const wrappedTokenName = `wrpToad-${await nativeToken.name()}`
@@ -62,10 +63,10 @@ describe("AztecWarpToad", function () {
 
     }
 
-    async function deployL2AztecBridgeAdapterContract(aztecDeployerWallet:AztecWallet,constructorArgs:ethers.BytesLike[]):Promise<L2AztecBridgeAdapterContract> {
-        return await Contract.deploy(aztecDeployerWallet, L2AztecBridgeAdapterContractArtifact, constructorArgs).send().deployed() as L2AztecBridgeAdapterContract;
+    // async function deployL2AztecBridgeAdapterContract(aztecDeployerWallet:AztecWallet,constructorArgs:ethers.BytesLike[]):Promise<L2AztecBridgeAdapterContract> {
+    //     return await Contract.deploy(aztecDeployerWallet, L2AztecBridgeAdapterContractArtifact, constructorArgs).send().deployed() as L2AztecBridgeAdapterContract;
         
-    }
+    // }
     async function deploy() {
         const evmWallets = await hre.ethers.getSigners()
         //const {PXE, wallets: aztecWallets} = await connectPXE()
@@ -217,6 +218,9 @@ describe("AztecWarpToad", function () {
                 await evmRecipient.getAddress(),
                 commitmentPreImg1.nullifier_preimg,
                 commitmentPreImg1.secret,
+                // undefined, //TODO make optional
+                // undefined,
+                // undefined
             )
             //await generateNoirTest(proofInputs);
 

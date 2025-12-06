@@ -14,7 +14,7 @@ const AZTEC_NODE_URL = "https://aztec-alpha-testnet-fullnode.zkv.xyz"
 async function connectAztec(PXE_URL: string, chainId: bigint) {
     const aztecNode = createAztecNodeClient(PXE_URL);
     const PXE = await initPXE(aztecNode, chainId)
-    const { wallet, sponsoredPaymentMethod } = await getAztecTestWallet(PXE, chainId)
+    const { wallet, sponsoredPaymentMethod } = await getAztecTestWallet(PXE, chainId,AZTEC_NODE_URL)
     return { PXE,aztecNode, aztecWallet: wallet, sponsoredPaymentMethod }
 
 }
