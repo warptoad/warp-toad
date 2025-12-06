@@ -1,6 +1,6 @@
 // initializing more than one contract? use try and catch!
 import { WarpToadCoreContract, WarpToadCoreContractArtifact } from "../../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore";
-import { getAztecTestAccounts, getContractInstanceFromAddress, initNodeClient, initPXE } from "../utils/aztecUtils";
+import { getAztecTestAccount, getContractInstanceFromAddress, initNodeClient, initPXE } from "../utils/aztecUtils";
 import * as hre from "hardhat";
 import { aztecDeployments, evmDeployments } from "../../dev_op/deployment";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
@@ -16,7 +16,7 @@ async function main() {
     const provider = hre.ethers.provider
     const chainId = (await provider.getNetwork()).chainId
 
-    const wallet = await getAztecTestAccounts(chainId)
+    const wallet = await getAztecTestAccount(chainId)
 
     const sponsoredPaymentMethod = undefined;
     const evmContractAddresses = evmDeployments[Number(chainId)]

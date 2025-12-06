@@ -4,17 +4,18 @@ import { ArgumentParser } from 'argparse';
 // local
 import { getL1Contracts, getL2Contracts, getAztecTestWallet } from "../dev_op/deployment"//'@warp-toad/backend/deployment';
 import { getLocalRootProviders, getPayableGigaRootRecipients, bridgeBetweenL1AndL2, sleep } from "../lib/bridging"//'@warp-toad/backend/bridging';
-import { initNodeClient, initPXE } from 'scripts/deploy/utils/aztecUtils';
 import { PXE } from '@aztec/pxe/server';
+import { createAztecNodeClient } from '@aztec/aztec.js/node';
+import { initPXE } from 'scripts/deploy/utils/aztecUtilsNoEnv';
 
 const AZTEC_NODE_URL = "https://aztec-alpha-testnet-fullnode.zkv.xyz"
 
 
 async function connectAztec(PXE_URL: string, chainId: bigint) {
-    const nodeClient = await initNodeClient()
-    const PXE = await initPXE(nodeClient)
+    const aztecNode = createAztecNodeClient(PXE_URL);
+    const PXE = await initPXE(aztecNode, chainId)
     const { wallet, sponsoredPaymentMethod } = await getAztecTestWallet(PXE, chainId)
-    return { PXE, aztecWallet: wallet, sponsoredPaymentMethod }
+    return { PXE,aztecNode, aztecWallet: wallet, sponsoredPaymentMethod }
 
 }
 
@@ -47,7 +48,7 @@ async function main() {
     // aztec is not evm!
     const l2Data = {} as any; //TODO 
     if (args.isAztec) {
-        const { PXE, aztecWallet, sponsoredPaymentMethod } = await connectAztec(args.L2Rpc, l1ChainId)
+        const { PXE, aztecWallet, sponsoredPaymentMethod, aztecNode } = await connectAztec(args.L2Rpc, l1ChainId)
         l2Data.l2Wallet = aztecWallet
         l2Data.PXE = PXE
         l2Data.sponsoredPaymentMethod = sponsoredPaymentMethod

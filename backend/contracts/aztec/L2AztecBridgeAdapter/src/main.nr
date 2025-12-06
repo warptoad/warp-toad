@@ -97,4 +97,19 @@ pub contract L2AztecBridgeAdapter {
         context.message_portal(l1BridgeAdapter, content_hash);
     }
 
+    #[external("utility")]
+    unconstrained fn get_content_hash(block_number: u32, root:Field) -> pub Field {
+        let mut hash_bytes = [0; 64];
+        let root_bytes: [u8; 32] = root.to_be_bytes();
+        let block_number_bytes: [u8; 32] = (block_number as Field).to_be_bytes();
+
+        for i in 0..32 {
+            hash_bytes[i] = root_bytes[i];
+            hash_bytes[i + 32] = block_number_bytes[i];
+        }
+
+        let content_hash = sha256_to_field(hash_bytes);
+        content_hash
+    }
+
 }

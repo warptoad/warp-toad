@@ -36,7 +36,7 @@ import { PXE } from '@aztec/pxe/server';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
-import { getAztecTestAccounts, getContractInstanceFromAddress, initNodeClient, initPXE } from '../deploy/utils/aztecUtils';
+
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 
 interface deployments {
@@ -229,7 +229,7 @@ async function getTestnetWallet(pxe: PXE) {
 
     //let accountManager = await deploySchnorrAccount(pxe);
     //const wallet = await accountManager.getWallet();
-    const wallet = await getAztecTestAccounts(2n)
+    const wallet = await getAztecTestAccount(2n)
     return { wallet, sponsoredPaymentMethod }
 }
 

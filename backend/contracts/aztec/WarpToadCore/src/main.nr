@@ -9,42 +9,31 @@ pub contract WarpToadCore {
 
     // local dep
     use crate::warptoad_note::WarpToadNote;
-    use hashing::{Evm_merkle_data, evm_merkle_verify};
     use dep::aztec::protocol_types::traits::{Serialize, ToField};
     use dep::std::hash::pedersen_hash;
     use constants::{EVM_TREE_DEPTH, GIGA_TREE_DEPTH};
-    use hashing::{hash_commitment};
+    use hashing::{Evm_merkle_data, evm_merkle_verify};
+    use hashing::hash_commitment;
 
     use aztec::event::event_emission::emit_event_in_public;
-    use compressed_string::{FieldCompressedString, CompressedString};
+    use compressed_string::{CompressedString, FieldCompressedString};
+    use easy_private_state::EasyPrivateUint;
     use poseidon::poseidon;
-    use easy_private_state::{EasyPrivateUint};
 
+    use aztec::context::{self, utility_context::UtilityContext};
     use aztec::{
+        event::event_emission::emit_event_in_private,
         history::public_storage::PublicStorageHistoricalRead,
-        macros::{
-            events::event,
-            functions::{initializer, external},
-            storage::storage,
-        },
-        event::event_emission::{emit_event_in_private},
-        messages::{
-            message_delivery::MessageDelivery
-        },
+        macros::{events::event, functions::{external, initializer}, storage::storage},
+        messages::message_delivery::MessageDelivery,
         oracle::get_membership_witness::{get_note_hash_membership_witness, MembershipWitness},
-        protocol_types::{
-            address::{AztecAddress, EthAddress},
-        },
+        protocol_types::{address::{AztecAddress, EthAddress}, constants::NOTE_HASH_TREE_HEIGHT},
         state_vars::{
-            map::Map,
-            private_set::PrivateSet, public_immutable::PublicImmutable, public_mutable::PublicMutable,
-        },
-        protocol_types::{
-            constants::NOTE_HASH_TREE_HEIGHT,
+            map::Map, private_set::PrivateSet, public_immutable::PublicImmutable,
+            public_mutable::PublicMutable,
         },
     };
-
-
+    use aztec::note::{note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions};
 
     // ---- Events yay! :D
     #[derive(Serialize)]
@@ -65,11 +54,10 @@ pub contract WarpToadCore {
 
     #[event]
     struct NewGigaRoot {
-        giga_root:Field,
-        block_number:u32, 
+        giga_root: Field,
+        block_number: u32,
         // TODO technically ^ this doesn't need to be here but aztec js doesn't include this info
     }
-
 
     // ---- Storage (AIP-20 style integrated) https://github.com/defi-wonderland/aztec-standards/tree/v2.0.3/src/token_contract
     #[storage]
@@ -107,9 +95,12 @@ pub contract WarpToadCore {
         storage.deployer.initialize(context.msg_sender().expect(f"Deployer must not be none!"));
     }
 
-     #[external("public")]
+    #[external("public")]
     fn initialize(_giga_root_provider: AztecAddress, _l1_bridge_adapter: EthAddress) {
-        assert(context.msg_sender().expect(f"msg sender must not be none!") == storage.deployer.read(), "not deployer");
+        assert(
+            context.msg_sender().expect(f"msg sender must not be none!") == storage.deployer.read(),
+            "not deployer",
+        );
         storage.giga_root_provider.initialize(_giga_root_provider);
         storage.l1_bridge_adapter.initialize(_l1_bridge_adapter);
     }
@@ -130,9 +121,16 @@ pub contract WarpToadCore {
 
     #[external("public")]
     fn receive_giga_root(giga_root: Field) {
-        assert(context.msg_sender().expect(f"Sender must not be none!") == storage.giga_root_provider.read(), "not giga_root_provider");
+        assert(
+            context.msg_sender().expect(f"Sender must not be none!")
+                == storage.giga_root_provider.read(),
+            "not giga_root_provider",
+        );
         storage.giga_root.write(giga_root);
-        emit_event_in_public(NewGigaRoot { giga_root, block_number: context.block_number() }, &mut context);
+        emit_event_in_public(
+            NewGigaRoot { giga_root, block_number: context.block_number() },
+            &mut context,
+        );
     }
 
     // a separate function for evm vs aztec since aztec uses poseidon2. But evm not yet
@@ -149,12 +147,15 @@ pub contract WarpToadCore {
         evm_merkle_data: Evm_merkle_data<EVM_TREE_DEPTH>,
     ) {
         let chain_id: Field = get_chain_id(context.version());
-        let giga_root_slot: Field = aztec::state_vars::storage::HasStorageSlot::get_storage_slot(storage.giga_root);
+        let giga_root_slot: Field =
+            aztec::state_vars::storage::HasStorageSlot::get_storage_slot(storage.giga_root);
         let contract_address: AztecAddress = context.this_address();
         let historical_header = context.get_block_header_at(block_number);
-        let giga_root: Field = historical_header.public_storage_historical_read(giga_root_slot, contract_address);
+        let giga_root: Field =
+            historical_header.public_storage_historical_read(giga_root_slot, contract_address);
 
-        let (commitment, nullifier) = hash_commitment(nullifier_preimage, secret, chain_id, (amount as Field));
+        let (commitment, nullifier) =
+            hash_commitment(nullifier_preimage, secret, chain_id, (amount as Field));
 
         // verify origin_local_root is part of giga_root
         evm_merkle_verify(giga_root, origin_local_root, giga_merkle_data);
@@ -248,7 +249,6 @@ pub contract WarpToadCore {
             MessageDelivery.UNCONSTRAINED_OFFCHAIN,
         );
     }
-    
 
     #[external("private")]
     fn transfer_from(owner: AztecAddress, to: AztecAddress, amount: u64) {
@@ -271,8 +271,8 @@ pub contract WarpToadCore {
     // utility
 
     #[external("utility")]
-    unconstrained fn get_giga_root() -> pub Field { 
-        storage.giga_root.read() 
+    unconstrained fn get_giga_root() -> pub Field {
+        storage.giga_root.read()
     }
 
     // it allows us to do a eth_getProof like thing for a commitment. Kinda cringe that i cant just call a api in js like on ethereum? Maybe you can?
@@ -285,40 +285,54 @@ pub contract WarpToadCore {
     }
 
     #[external("utility")]
-    unconstrained fn get_l1_bridge_adapter() -> pub EthAddress { storage.l1_bridge_adapter.read() }
+    unconstrained fn get_l1_bridge_adapter() -> pub EthAddress {
+        storage.l1_bridge_adapter.read()
+    }
 
     // we hallucinate our own chainId since we just need a unique identifier to identify the chain
     // maybe we can just use the context.version as our chainId since it looks like it doesn't collide with existing chainIds?
     // also is context.version even safe?? will it update with network upgrades??
     #[contract_library_method]
     fn get_chain_id(aztec_version: Field) -> Field {
-        let salt: CompressedString<32, 24> = CompressedString::from_string("aztecPlsJustPickAChainId");
+        let salt: CompressedString<32, 24> =
+            CompressedString::from_string("aztecPlsJustPickAChainId");
         poseidon::bn254::hash_2([salt.serialize()[0], aztec_version])
     }
 
     #[external("utility")]
-    unconstrained fn get_chain_id_unconstrained(aztec_version: Field) -> pub Field { 
-        get_chain_id(aztec_version) 
+    unconstrained fn get_chain_id_unconstrained(aztec_version: Field) -> pub Field {
+        get_chain_id(aztec_version)
     }
 
     #[external("utility")]
-    unconstrained fn get_version() -> Field { 
-        context.version() 
+    unconstrained fn get_version() -> Field {
+        context.version()
     }
 
     #[external("utility")]
-    unconstrained fn public_get_name() -> pub FieldCompressedString { 
-        storage.name.read() 
+    unconstrained fn public_get_name() -> pub FieldCompressedString {
+        storage.name.read()
     }
 
     #[external("utility")]
-    unconstrained fn public_get_symbol() -> pub FieldCompressedString { 
-        storage.symbol.read() 
+    unconstrained fn public_get_symbol() -> pub FieldCompressedString {
+        storage.symbol.read()
     }
 
     #[external("utility")]
-    unconstrained fn get_decimals() -> pub u8 { 
-        storage.decimals.read() 
+    unconstrained fn get_decimals() -> pub u8 {
+        storage.decimals.read()
+    }
+
+    #[external("utility")]
+    unconstrained fn balance_of(owner: AztecAddress) -> Field {
+        let balance: EasyPrivateUint<UtilityContext> = storage.balances.at(owner);
+        balance.get_value()
+    }
+
+    #[external("utility")]
+    unconstrained fn get_notes() -> pub BoundedVec<WarpToadNote, 10> {
+        storage.commitments.view_notes(NoteViewerOptions::new())
     }
 
 }

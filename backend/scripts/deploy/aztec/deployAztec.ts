@@ -9,7 +9,7 @@ import { checkFileExists, getAztecDeployedAddressesFilePath, getAztecDeployedAdd
 import fs from "fs/promises";
 import { deployAztecWarpToad } from "./aztecToadWarp";
 import { deployL2AztecBridgeAdapter } from "./L2AztecBridgeAdapter";
-import { getAztecTestAccounts, getEnvArgs, initNodeClient, initPXE } from "../utils/aztecUtils";
+import { getAztecTestAccount, getEnvArgs, initNodeClient, initPXE } from "../utils/aztecUtils";
 
 const { nativeTokenAddress } = getEnvArgs()
 
@@ -35,7 +35,7 @@ async function main() {
         }
     }
 
-    const wallet = await getAztecTestAccounts(chainId)
+    const wallet = await getAztecTestAccount(chainId)
 
     //------deploy-------------
     const { AztecWarpToad } = await deployAztecWarpToad(nativeToken, wallet, undefined)

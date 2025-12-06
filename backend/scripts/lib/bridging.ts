@@ -1,10 +1,10 @@
 //import { Fr, PXE, EthAddress, SponsoredFeePaymentMethod, FieldsOf, TxReceipt, ContractBase as AztecContract } from "@aztec/aztec.js"
 
-import { ethers } from "ethers";
+import { ethers, getBytes, hexlify, toBeHex, toUtf8Bytes } from "ethers";
 import { WarpToadCore as WarpToadEvm, USDcoin, PoseidonT3, LazyIMT, L1AztecBridgeAdapter, GigaBridge, L2ScrollBridgeAdapter, ILocalRootProvider__factory, IL1BridgeAdapter__factory, L1AztecBridgeAdapter__factory, IL1ScrollMessenger__factory, L1ScrollBridgeAdapter, L2WarpToad as L2WarpToadEVM } from "../../typechain-types";
 import { L2AztecBridgeAdapterContract } from '../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter'
 import { WarpToadCoreContract as L2WarpToadAZTEC } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
-//@ts-ignore
+
 import { sha256ToField } from "@aztec/foundation/crypto";
 import { evmDeployments } from "../dev_op/deployment";
 import { L1_SCROLL_MESSENGER_MAINNET, L1_SCROLL_MESSENGER_SEPOLIA } from "./constants";
@@ -12,8 +12,17 @@ import { PXE } from "@aztec/pxe/server";
 import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee";
 import { Fr } from "@aztec/foundation/fields";
 import { Contract } from "@aztec/aztec.js/contracts";
-import { initNodeClient } from "scripts/deploy/utils/aztecUtils";
+
 import { AztecNode } from "@aztec/aztec.js/node";
+import { Wallet as AztecWallet } from "@aztec/aztec.js/wallet";
+import { SiblingPath } from "@aztec/foundation/trees";
+
+import {
+  type L2ToL1MembershipWitness,
+  computeL2ToL1MembershipWitness,
+} from '@aztec/stdlib/messaging';
+
+
 export const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
 export type L1Adapter = L1AztecBridgeAdapter | L1ScrollBridgeAdapter;
@@ -119,6 +128,7 @@ export async function bridgeEVMLocalRootToL1(L2Adapter: L2ScrollBridgeAdapter, s
 }
 
 
+
 /**
  * continues in updateGigaRoot
  * 
@@ -136,19 +146,16 @@ export async function bridgeAZTECLocalRootToL1(
     L2AztecBridgeAdapter: L2AztecBridgeAdapterContract,
     L1AztecBridgeAdapter: L1AztecBridgeAdapter,
     provider: ethers.Provider,
-    sponsoredPaymentMethod?: SponsoredFeePaymentMethod | undefined
+    aztecWallet: AztecWallet,
+    sponsoredPaymentMethod?: SponsoredFeePaymentMethod | undefined,
 ) {
-
-    const nodeClient = await initNodeClient();
-
-    nodeClient.getL2ToL1Messages
-
     const blockNumberOfRoot = await aztecNode.getBlockNumber() //getBlockNumber();
     const PXE_L2Root = (await aztecNode.getBlock(blockNumberOfRoot))?.header.state.partial.noteHashTree.root as Fr
 
     // @danish oh o the aztec sdk changed again :(, it needs {from:wallet.account} or something like that
     // we prob need to find and replace every .send() with .send({from:wallet.account} ) (manually check if it is aztec ofc)
-    const sendRootToL1Tx = await L2AztecBridgeAdapter.methods.send_root_to_l1(blockNumberOfRoot).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait({ timeout: 60 * 60 * 12 });
+    const sendRootToL1Tx = await L2AztecBridgeAdapter.methods.send_root_to_l1(blockNumberOfRoot).send({ fee: { paymentMethod: sponsoredPaymentMethod }, from: (await aztecWallet.getAccounts())[0].item }).wait({ timeout: 60 * 60 * 12 });
+    sendRootToL1Tx.txHash
 
     const l1ChainId = (await provider.getNetwork()).chainId
     const messageContent = sha256ToField([ // does sha256(PXE_L2Root, blockNumberOfRoot) then removes the last byte and then adds byte(1) in front (to fit into a field)
@@ -157,17 +164,18 @@ export async function bridgeAZTECLocalRootToL1(
     ]);
 
     const isSandBox = l1ChainId === 31337n
-    if (!isSandBox) {
-        const blocksToWait = 10
-        await waitForBlocksAztec(blocksToWait, aztecNode)
-    }
+
+    const blocksToWait = isSandBox ? 2 : 10
+    await waitForBlocksAztec(blocksToWait, aztecNode, isSandBox, L2AztecBridgeAdapter, aztecWallet)
+
 
     const sendRootEffect = await aztecNode.getTxEffect(sendRootToL1Tx.txHash)
     const messageLeaf = sendRootEffect?.data.l2ToL1Msgs[0] as Fr ///sha256ToField([
 
-    const witnessBlocknumber = sendRootEffect?.l2BlockNumber as number//await PXE.getBlockNumber(); // the blockNumber of when send_root_to_l1 settled onchain
-    const [l2ToL1MessageIndex, siblingPath] = await aztecNode.getL2ToL1Messages(witnessBlocknumber);
-    const siblingPathArray = siblingPath.toFields().map((f: any) => f.toString())
+    const messageBlockNumber = sendRootEffect?.l2BlockNumber as number//await PXE.getBlockNumber(); // the blockNumber of when send_root_to_l1 settled onchain
+    const contentHash = messageLeaf //L2toL2Messages[0][0]
+    const messageWitness = await computeL2ToL1MembershipWitness(aztecNode, messageBlockNumber, contentHash) as L2ToL1MembershipWitness
+    const siblingPathArray = messageWitness.siblingPath.toFields().map((f: any) => f.toString())
 
     // console.log("got witness")
     // console.log("getNewRootFromL2", {
@@ -180,22 +188,22 @@ export async function bridgeAZTECLocalRootToL1(
     const args = [
         PXE_L2Root.toString(),
         BigInt(blockNumberOfRoot), // has to be the same block as when as the root bridged. since this function uses it to create the content_hash
-        BigInt(witnessBlocknumber), // hash to be the same block as the witness was retrieved since that is what the witness will be proved against
-        l2ToL1MessageIndex,
+        BigInt(messageBlockNumber), // hash to be the same block as the witness was retrieved since that is what the witness will be proved against
+        messageWitness.leafIndex,
         siblingPathArray
     ]
-    const waitFunc = async () => await waitForBlocksAztec(10, aztecNode)
+    const waitFunc = async () => await waitForBlocksAztec(blocksToWait, aztecNode, isSandBox, L2AztecBridgeAdapter, aztecWallet)
     const refreshRootTx = await (await tryUntilItWorks(
         L1AztecBridgeAdapter,
         "getNewRootFromL2",
         args,
         waitFunc
-    )).wait(3) as ethers.ContractTransactionReceipt
+    )).wait() as ethers.ContractTransactionReceipt
 
     return { refreshRootTx, sendRootToL1Tx, PXE_L2Root }
 }
 
-export async function bridgeLocalRootToL1(l1Wallet: ethers.Signer, gigaBridge: GigaBridge, L1Adapter: L1Adapter, L2Adapter: L2Adapter, isAztec?: boolean, aztecNode?: AztecNode, sponsoredPaymentMethodAZTEC?: SponsoredFeePaymentMethod) {
+export async function bridgeLocalRootToL1(l1Wallet: ethers.Signer, gigaBridge: GigaBridge, L1Adapter: L1Adapter, L2Adapter: L2Adapter, isAztec?: boolean, aztecNode?: AztecNode, sponsoredPaymentMethodAZTEC?: SponsoredFeePaymentMethod, aztecWallet?: AztecWallet) {
     const l1Provider = L1Adapter.runner?.provider as ethers.Provider
     const l1ChainId = (await (l1Wallet.provider?.getNetwork()))?.chainId
     const isSandBox = l1ChainId === 31337n
@@ -206,6 +214,7 @@ export async function bridgeLocalRootToL1(l1Wallet: ethers.Signer, gigaBridge: G
             L2Adapter as L2AztecBridgeAdapterContract,
             L1Adapter as L1AztecBridgeAdapter,
             l1Provider,
+            aztecWallet as AztecWallet,
             sponsoredPaymentMethodAZTEC
         )
         const gigaRootPreBridge = await gigaBridge.gigaRoot()
@@ -339,7 +348,8 @@ export async function receiveGigaRootOnAztec(
     sendGigaRootTx: ethers.TransactionReceipt, // either get it from sendGigaRoot. or event scan for a specific gigaRoot with "NewGigaRootSentToAztec"
     aztecNode: AztecNode,
     isSandBox?: boolean,
-    sponsoredPaymentMethod?: SponsoredFeePaymentMethod | undefined
+    sponsoredPaymentMethod?: SponsoredFeePaymentMethod | undefined,
+    aztecWallet?: AztecWallet
 
 ) {
     // auto detects based on chainId (they cant stop me from making cursed one liners >:) )
@@ -357,28 +367,38 @@ export async function receiveGigaRootOnAztec(
     if (isSandBox) {
         // this is to make the sandbox progress n blocks
 
-        await L2AztecBridgeAdapter.methods.count(0n).send({}).wait();
-        await L2AztecBridgeAdapter.methods.count(4n).send().wait();
+        await L2AztecBridgeAdapter.methods.count(0n).send({ from: (await (aztecWallet as AztecWallet).getAccounts())[0].item }).wait();
+        await L2AztecBridgeAdapter.methods.count(4n).send({ from: (await (aztecWallet as AztecWallet).getAccounts())[0].item }).wait();
     } else {
         console.warn("isSandBox is not set or detected. I hope ur indeed not on sandbox because it will break if u are!")
-        await waitForBlocksAztec(blocksToWait, aztecNode);
+        await waitForBlocksAztec(blocksToWait, aztecNode, isSandBox, L2AztecBridgeAdapter, aztecWallet);
     }
 
-    const receiveGigaRootTx = await L2AztecBridgeAdapter.methods.receive_giga_root(content_hash, index, AztecWarpToad.address).send({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait({ timeout: 60 * 60 * 12 });
+    const receiveGigaRootTx = await L2AztecBridgeAdapter.methods.receive_giga_root(content_hash, index, AztecWarpToad.address).send({ fee: { paymentMethod: sponsoredPaymentMethod }, from: (await (aztecWallet as AztecWallet).getAccounts())[0].item }).wait({ timeout: 60 * 60 * 12 });
     return { receiveGigaRootTx }
 }
 
-export async function waitForBlocksAztec(blocksToWait: number, aztecNode: AztecNode) {
+export async function waitForBlocksAztec(blocksToWait: number, aztecNode: AztecNode, isSandBox?: boolean, L2AztecBridgeAdapter?: L2AztecBridgeAdapterContract, aztecWallet?: AztecWallet) {
     const L1BlockTime = 12000
     const blockBeforeWaiting = await aztecNode.getBlockNumber()
     const waitTillBlock = blockBeforeWaiting + blocksToWait
     let waiting = true
     while (waiting) {
+        console.log({ waiting })
         const currentBlock = await aztecNode.getBlockNumber()
         waiting = currentBlock < waitTillBlock
-        //console.log(`waiting ${L1BlockTime / 2 * blocksToWait / 1000} seconds until ${blocksToWait} aztec blocks have passed. blocks passed: ${currentBlock - blockBeforeWaiting}`)
+        console.log(`waiting ${L1BlockTime / 2 * blocksToWait / 1000} seconds until ${blocksToWait} aztec blocks have passed. blocks passed: ${currentBlock - blockBeforeWaiting}`, { isSandBox })
         if (waiting) {
-            await new Promise((resolve) => setTimeout(resolve, L1BlockTime / 2 * blocksToWait))
+            if (isSandBox) {
+                if (L2AztecBridgeAdapter && aztecWallet) {
+                    await L2AztecBridgeAdapter.methods.count(0n).send({ from: (await (aztecWallet as AztecWallet).getAccounts())[0].item }).wait();
+                } else {
+                    throw new Error("L2AztecBridgeAdapter and/or aztecWallet is not set but isSandBox=true")
+                }
+
+            } else {
+                await new Promise((resolve) => setTimeout(resolve, L1BlockTime / 2 * blocksToWait))
+            }
         }
     }
 }
@@ -390,6 +410,7 @@ export async function tryUntilItWorks(contract: ethers.Contract | any, funcName:
             await contract[funcName].estimateGas(...funcArgs);
             works = true;
         } catch (error) {
+            console.log("didn't work", error)
             await waitFunc()
         }
     }
@@ -452,6 +473,7 @@ export async function receiveGigaRootOnL2(
 
     // aztec
     isAztec?: boolean,
+    aztecWallet?: AztecWallet,
     isSandBox?: boolean,
     aztecNode?: AztecNode,
     sponsoredPaymentMethod?: SponsoredFeePaymentMethod
@@ -465,9 +487,10 @@ export async function receiveGigaRootOnL2(
             sendGigaRootTx,
             aztecNode,
             isSandBox,
-            sponsoredPaymentMethod
+            sponsoredPaymentMethod,
+            aztecWallet
         )
-        const gigaRootOnAztec = await (L2WarpToad as L2WarpToadAZTEC)?.methods.get_giga_root().simulate()
+        const gigaRootOnAztec = await (L2WarpToad as L2WarpToadAZTEC)?.methods.get_giga_root().simulate({ from: (await (aztecWallet as AztecWallet).getAccounts())[0].item })
         return { receiveGigaRootTx, receiveGigaRootTxHash: receiveGigaRootTx.txHash.hash, gigaRootOnL2: gigaRootOnAztec }
     } else {
         //scroll
@@ -521,7 +544,9 @@ export async function bridgeBetweenL1AndL2(
     aztecInputs?: {
         isAztec?: boolean,
         aztecNode?: AztecNode,
-        sponsoredPaymentMethod?: SponsoredFeePaymentMethod
+        sponsoredPaymentMethod?: SponsoredFeePaymentMethod,
+        aztecWallet?: AztecWallet,
+        PXE?: PXE
     }
 
 ) {
@@ -557,7 +582,8 @@ export async function bridgeBetweenL1AndL2(
         // aztec inputs
         aztecInputs.isAztec,
         aztecInputs.aztecNode,
-        aztecInputs.sponsoredPaymentMethod
+        aztecInputs.sponsoredPaymentMethod,
+        aztecInputs.aztecWallet
     )
     console.log(`local root is bridged to L1! At tx hash: ${sendRootToL1TxHash}`)
     //--- collect localRoots from adapters and send a giga root back--------------
@@ -585,6 +611,7 @@ export async function bridgeBetweenL1AndL2(
         sendGigaRootTx,
         gigaRootSent,
         aztecInputs.isAztec,
+        aztecInputs.aztecWallet,
         isSandBox,
         aztecInputs.aztecNode,
         aztecInputs.sponsoredPaymentMethod,
