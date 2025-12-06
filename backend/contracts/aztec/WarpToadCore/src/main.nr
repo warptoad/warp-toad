@@ -20,6 +20,7 @@ pub contract WarpToadCore {
     use easy_private_state::EasyPrivateUint;
     use poseidon::poseidon;
 
+    use dep::aztec::note::note_getter::get_notes;
     use aztec::context::{self, utility_context::UtilityContext};
     use aztec::{
         event::event_emission::emit_event_in_private,
@@ -29,11 +30,19 @@ pub contract WarpToadCore {
         oracle::get_membership_witness::{get_note_hash_membership_witness, MembershipWitness},
         protocol_types::{address::{AztecAddress, EthAddress}, constants::NOTE_HASH_TREE_HEIGHT},
         state_vars::{
-            map::Map, private_set::PrivateSet, public_immutable::PublicImmutable,
+            map::Map,
+            private_set::{ PrivateSet},
+            public_immutable::PublicImmutable,
             public_mutable::PublicMutable,
         },
     };
-    use aztec::note::{note_getter_options::NoteGetterOptions, note_viewer_options::NoteViewerOptions};
+    use aztec::note::{
+        note_getter_options::{NoteGetterOptions, NoteStatus}, note_viewer_options::NoteViewerOptions,
+    };
+    //use aztec::note::note_getter_options::return_all_notes;
+    use aztec::note::retrieved_note::RetrievedNote;
+
+    use protocol_types::constants::MAX_NOTE_HASHES_PER_CALL;
 
     // ---- Events yay! :D
     #[derive(Serialize)]
@@ -281,7 +290,8 @@ pub contract WarpToadCore {
         block_number: u32,
         note_hash: Field,
     ) -> pub MembershipWitness<NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT + 1> {
-        get_note_hash_membership_witness(block_number, note_hash)
+        let witness = get_note_hash_membership_witness(block_number, note_hash);
+        witness
     }
 
     #[external("utility")]
@@ -330,9 +340,14 @@ pub contract WarpToadCore {
         balance.get_value()
     }
 
-    #[external("utility")]
-    unconstrained fn get_notes() -> pub BoundedVec<WarpToadNote, 10> {
-        storage.commitments.view_notes(NoteViewerOptions::new())
+    #[external("private")]
+    fn get_notes_util(slot: Field) -> BoundedVec<RetrievedNote<WarpToadNote>, 16> {
+        let (retrieved_notes, _) = get_notes::<WarpToadNote, 4, _,_ >(
+            &mut context,
+            slot,
+            NoteGetterOptions::<WarpToadNote, 4, _ , _>::new()
+        );
+        retrieved_notes
     }
 
 }

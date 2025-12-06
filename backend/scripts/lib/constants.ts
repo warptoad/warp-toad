@@ -2,7 +2,7 @@ import { ProofInputs, EvmMerkleData, AztecMerkleData, gasCosts} from "./types";
 import { ethers } from "ethers";
 // @ts-ignore
 import { AztecAddress } from "@aztec/aztec.js";
-export const AZTEC_TREE_DEPTH = 40;
+export const AZTEC_TREE_DEPTH = 42;
 export const EVM_TREE_DEPTH = 32;
 export const EVM_TREE_MAX_LEAVES = 2 ** EVM_TREE_DEPTH;
 export const GIGA_TREE_DEPTH = 5;
