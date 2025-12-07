@@ -19,8 +19,8 @@ backend/coverage
 backend/coverage.json
 
 # Hardhat Ignition default folder for deployments against a local node
-ignition/deployments/chain-31337
-backend/ignition/deployments/chain-31337
+# ignition/deployments/chain-31337
+# backend/ignition/deployments/chain-31337
 
 # aztec contracts
 backend/contracts/aztec/L2AztecBridgeAdapter/codegenCache.json
