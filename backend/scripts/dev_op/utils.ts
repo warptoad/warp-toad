@@ -49,9 +49,16 @@ export function getEvmDeployedAddressesFilePath(chainId: bigint) {
  * @returns 
  */
 export async function getContractAddressesAztec(chainId: bigint) {
+    // try {
     const deployedAddressesPath = getAztecDeployedAddressesFilePath(chainId)
     const json = (await fs.readFile(deployedAddressesPath)).toString()
     return JSON.parse(json)
+    // } catch (error) {
+    //     console.warn(`issue with getting contract addresses for chainId:${chainId.toString()}`)
+    //     console.log(error)
+    //     return undefined
+    // }
+
     //return aztecDeployments[Number(chainId)]
 }
 
@@ -61,7 +68,13 @@ export async function getContractAddressesAztec(chainId: bigint) {
  * @returns 
  */
 export async function getContractAddressesEvm(chainId: bigint) {
-    const deployedAddressesPath = getEvmDeployedAddressesFilePath(chainId)
-    const json = (await fs.readFile(deployedAddressesPath)).toString()
-    return JSON.parse(json)
+    try {
+        const deployedAddressesPath = getEvmDeployedAddressesFilePath(chainId)
+        const json = (await fs.readFile(deployedAddressesPath)).toString()
+        return JSON.parse(json)
+    } catch (error) {
+        console.warn(`issue with getting contract addresses for chainId:${chainId.toString()}`)
+        console.log(error)
+        return undefined
+    }
 }

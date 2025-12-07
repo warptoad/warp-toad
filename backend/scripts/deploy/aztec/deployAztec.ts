@@ -9,7 +9,7 @@ import { checkFileExists, getAztecDeployedAddressesFilePath, getAztecDeployedAdd
 import fs from "fs/promises";
 import { deployAztecWarpToad } from "./aztecToadWarp";
 import { deployL2AztecBridgeAdapter } from "./L2AztecBridgeAdapter";
-import { getAztecTestAccount, getEnvArgs, initNodeClient,  } from "../utils/aztecUtils";
+import { getAztecTestAccount, getEnvArgs, initNodeClient, } from "../utils/aztecUtils";
 
 const { nativeTokenAddress } = getEnvArgs()
 
@@ -38,12 +38,25 @@ async function main() {
     const wallet = await getAztecTestAccount(chainId)
 
     //------deploy-------------
-    const { AztecWarpToad } = await deployAztecWarpToad(nativeToken, wallet, undefined)
+    const { AztecWarpToad, constructorArgs: WarpToadContructArgs, contractAddressSalt: WarpToadSalt, deployer: warptoadDeployer } = await deployAztecWarpToad(nativeToken, wallet, undefined)
     console.log({ AztecWarpToad: AztecWarpToad.address })
 
-    const { L2AztecBridgeAdapter } = await deployL2AztecBridgeAdapter(L1AztecAdapterAddress, wallet, undefined)
+    const { L2AztecBridgeAdapter, constructorArgs: AdpterContructArgs, contractAddressSalt: AdpterSalt , deployer: adapterDeployer} = await deployL2AztecBridgeAdapter(L1AztecAdapterAddress, wallet, undefined)
     console.log({ L2AztecBridgeAdapter: L2AztecBridgeAdapter.address })
-    const deployments = { AztecWarpToad: AztecWarpToad.address, L2AztecBridgeAdapter: L2AztecBridgeAdapter.address }
+    const deployments = {
+        AztecWarpToad: {
+            address: AztecWarpToad.address,
+            constructorArgs: WarpToadContructArgs.map((v)=>v.toString()),
+            contractAddressSalt: WarpToadSalt,
+            deployer: warptoadDeployer
+        },
+        L2AztecBridgeAdapter: {
+            address: L2AztecBridgeAdapter.address,
+            constructorArgs: AdpterContructArgs.map((v)=>v.toString()),
+            contractAddressSalt: AdpterSalt,
+            deployer: adapterDeployer
+        }
+    }
 
     try { await fs.mkdir(folderPath) } catch { console.warn(`praying the folder already exist ${folderPath}`) }
     await fs.writeFile(deployedAddressesPath, JSON.stringify(deployments, null, 2));

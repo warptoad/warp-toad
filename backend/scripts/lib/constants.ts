@@ -1,7 +1,9 @@
+import {  Fr} from '@aztec/aztec.js/fields';
+
+
 import { ProofInputs, EvmMerkleData, AztecMerkleData, gasCosts} from "./types";
 import { ethers } from "ethers";
 // @ts-ignore
-import { AztecAddress } from "@aztec/aztec.js";
 export const AZTEC_TREE_DEPTH = 42;
 export const EVM_TREE_DEPTH = 32;
 export const EVM_TREE_MAX_LEAVES = 2 ** EVM_TREE_DEPTH;
@@ -26,6 +28,8 @@ export const DEPLOYMENT_BLOCK_PER_CHAINID:DeploymentBlockData = {
     }
 }
 
+// is fine for us to use static salt, Normally randomness good for privacy. But our contract is public!!
+// export const DEPLOYMENT_SALT = new Fr(0x465245455F414C4558595F414E445F524F4D414En)
 
 // this not a valid proof
 export const emptyEvmMerkleData: EvmMerkleData = {

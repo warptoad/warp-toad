@@ -35,7 +35,6 @@ import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { getAztecTestAccounts, initPXE } from "../scripts/deploy/utils/aztecUtilsNoEnv";
 import { EthAddressLike } from "@aztec/aztec.js/abi";
 
-console.log("aaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
 const AZTEC_NODE_URL = "http://localhost:8080"
 const AZTEC_NODE = createAztecNodeClient(AZTEC_NODE_URL);
 
@@ -142,10 +141,7 @@ describe("AztecWarpToad", function () {
         it("Should deploy warptoad for aztec and L1", async function () {
             const { L1WarpToad, nativeToken, LazyIMTLib, PoseidonT3Lib, AztecWarpToad, aztecWallets, evmWallets,L1AztecBridgeAdapter } = await deploy()
             //@TODO more things like this test!
-            const from = (await aztecWallets[0].getAccounts())[0].item
-            console.log({from})
             const rawL1AdapterAddress = await AztecWarpToad.methods.get_l1_bridge_adapter().simulate({from:(await aztecWallets[0].getAccounts())[0].item})
-            console.log({rawL1AdapterAddress})
             const aztecsL1Adapter = ethers.getAddress(ethers.toBeHex(rawL1AdapterAddress.inner)) // EthAddress type in noir is struct with .inner, which contains the address as a Field
             expect(aztecsL1Adapter).to.eq(L1AztecBridgeAdapter.target)
         })
@@ -172,7 +168,6 @@ describe("AztecWarpToad", function () {
             // free money!! 
             // TODO mint from USDcoin instead since that contract will not be in prod so we can then remove mint_for_testing
             const initialBalanceSender = 10n * 10n ** 18n
-            console.log("mintinnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnnng")
             await AztecWarpToad.methods.mint_for_testing(initialBalanceSender, aztecDeployerAddress).send({from:aztecDeployerAddress}).wait();
 
             // ------------------ burn -----------------------------------------
@@ -236,22 +231,22 @@ describe("AztecWarpToad", function () {
             //     localRootProviders,
             //     gigaRootRecipients
             // )
-            // await bridgeBetweenL1AndL2(
-            //     evmRelayer,
-            //     L1AztecBridgeAdapter,
-            //     gigaBridge,
-            //     L2AztecBridgeAdapter,
-            //     AztecWarpToad,
-            //     localRootProviders,
-            //     [], // no payable root providers (only aztec!)
-            //     {
-            //         isAztec: true,
-            //         PXE: PXE,
-            //         sponsoredPaymentMethod: undefined,
-            //         aztecNode:AZTEC_NODE,
-            //         aztecWallet:aztecDeployer
-            //     }
-            // )
+            await bridgeBetweenL1AndL2(
+                evmRelayer,
+                L1AztecBridgeAdapter,
+                gigaBridge,
+                L2AztecBridgeAdapter,
+                AztecWarpToad,
+                localRootProviders,
+                [], // no payable root providers (only aztec!)
+                {
+                    isAztec: true,
+                    PXE: PXE,
+                    sponsoredPaymentMethod: undefined,
+                    aztecNode:AZTEC_NODE,
+                    aztecWallet:aztecDeployer
+                }
+            )
         
             // check bridgeNoteHashTreeRoot()
             //const parsedRefreshRootEvent = parseEventFromTx(refreshRootTx, L1AztecBridgeAdapter, "ReceivedNewL2Root")

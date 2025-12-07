@@ -1,6 +1,6 @@
 //import { Fr, PXE, EthAddress, SponsoredFeePaymentMethod, FieldsOf, TxReceipt, ContractBase as AztecContract } from "@aztec/aztec.js"
 
-import { ethers, getBytes, hexlify, toBeHex, toUtf8Bytes } from "ethers";
+import { ethers, getBytes, hexlify, NonceManager, toBeHex, toUtf8Bytes } from "ethers";
 import { WarpToadCore as WarpToadEvm, USDcoin, PoseidonT3, LazyIMT, L1AztecBridgeAdapter, GigaBridge, L2ScrollBridgeAdapter, ILocalRootProvider__factory, IL1BridgeAdapter__factory, L1AztecBridgeAdapter__factory, IL1ScrollMessenger__factory, L1ScrollBridgeAdapter, L2WarpToad as L2WarpToadEVM } from "../../typechain-types";
 import { L2AztecBridgeAdapterContract } from '../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter'
 import { WarpToadCoreContract as L2WarpToadAZTEC } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
@@ -112,16 +112,16 @@ export async function claimL1WithdrawScroll(claimInfo: any, signer: ethers.Signe
     )
     return tx
 }
-export async function bridgeEVMLocalRootToL1(L2Adapter: L2ScrollBridgeAdapter, signer: ethers.Signer): Promise<ethers.TransactionReceipt> {
+export async function bridgeEVMLocalRootToL1(L2Adapter: L2ScrollBridgeAdapter, signer: ethers.Signer, confirmations=3): Promise<ethers.TransactionReceipt> {
     // TODO
     const provider = L2Adapter.runner?.provider
     const chainId = (await provider?.getNetwork())!.chainId
     switch (chainId) {
         case chainIds.scroll.testnet:
         case chainIds.scroll.mainnet:
-            const L2ToL1Tx = await (await L2Adapter["sentLocalRootToL1()"]()).wait(1)
+            const L2ToL1Tx = await (await L2Adapter["sentLocalRootToL1()"]()).wait(confirmations)
             const claimData = await getClaimDataScroll(L2Adapter.target, L2ToL1Tx?.hash)
-            const tx = await (await claimL1WithdrawScroll(claimData, signer)).wait(1)
+            const tx = await (await claimL1WithdrawScroll(claimData, signer)).wait(confirmations)
             return tx as ethers.ContractTransactionReceipt
         default:
             throw new Error(`unknown chainId: ${Number(chainId)}`);
@@ -149,6 +149,7 @@ export async function bridgeAZTECLocalRootToL1(
     provider: ethers.Provider,
     aztecWallet: AztecWallet,
     sponsoredPaymentMethod?: SponsoredFeePaymentMethod | undefined,
+    confirmations=1
 ) {
     const blockNumberOfRoot = await aztecNode.getBlockNumber() //getBlockNumber();
     const PXE_L2Root = (await aztecNode.getBlock(blockNumberOfRoot))?.header.state.partial.noteHashTree.root as Fr
@@ -199,12 +200,13 @@ export async function bridgeAZTECLocalRootToL1(
         "getNewRootFromL2",
         args,
         waitFunc
-    )).wait() as ethers.ContractTransactionReceipt
+    )).wait(confirmations) as ethers.ContractTransactionReceipt
+    console.log("landed this guy", refreshRootTx, {nonce: (await refreshRootTx.getTransaction()).nonce})
 
     return { refreshRootTx, sendRootToL1Tx, PXE_L2Root }
 }
 
-export async function bridgeLocalRootToL1(l1Wallet: ethers.Signer, gigaBridge: GigaBridge, L1Adapter: L1Adapter, L2Adapter: L2Adapter, isAztec?: boolean, aztecNode?: AztecNode, sponsoredPaymentMethodAZTEC?: SponsoredFeePaymentMethod, aztecWallet?: AztecWallet) {
+export async function bridgeLocalRootToL1(l1Wallet: ethers.Signer, gigaBridge: GigaBridge, L1Adapter: L1Adapter, L2Adapter: L2Adapter, isAztec?: boolean, aztecNode?: AztecNode, sponsoredPaymentMethodAZTEC?: SponsoredFeePaymentMethod, aztecWallet?: AztecWallet,confirmations=3) {
     const l1Provider = L1Adapter.runner?.provider as ethers.Provider
     const l1ChainId = (await (l1Wallet.provider?.getNetwork()))?.chainId
     const isSandBox = l1ChainId === 31337n
@@ -216,12 +218,13 @@ export async function bridgeLocalRootToL1(l1Wallet: ethers.Signer, gigaBridge: G
             L1Adapter as L1AztecBridgeAdapter,
             l1Provider,
             aztecWallet as AztecWallet,
-            sponsoredPaymentMethodAZTEC
+            sponsoredPaymentMethodAZTEC,
+            confirmations
         )
         const gigaRootPreBridge = await gigaBridge.gigaRoot()
         return { sendRootToL1Tx, sendRootToL1TxHash: sendRootToL1Tx.txHash }
     } else {
-        const sendRootToL1Tx = await bridgeEVMLocalRootToL1(L2Adapter as L2ScrollBridgeAdapter, l1Wallet)
+        const sendRootToL1Tx = await bridgeEVMLocalRootToL1(L2Adapter as L2ScrollBridgeAdapter, l1Wallet,confirmations)
         return { sendRootToL1Tx, sendRootToL1TxHash: sendRootToL1Tx.hash }
     }
 
@@ -239,7 +242,8 @@ export async function bridgeLocalRootToL1(l1Wallet: ethers.Signer, gigaBridge: G
  */
 export async function updateGigaRoot(
     gigaBridge: GigaBridge,
-    localRootProviders: ethers.AddressLike[]
+    localRootProviders: ethers.AddressLike[],
+    confirmations=1
 ) {
     const provider = gigaBridge.runner?.provider
     // things break if a localRootProvider does not have a root (localRoot = 0n)
@@ -263,9 +267,13 @@ export async function updateGigaRoot(
     }))
     const validLocalRootProviders = localRootProviders.filter((v, i) => isValidLocalRootProviders[i])
     console.log({ validLocalRootProviders, localRootProviders })
+    console.log("---------------gigaBridge.updateGigaRoot-----------------------")
+    const refreshedNonceManager = new NonceManager(gigaBridge.runner as ethers.Signer)
+    gigaBridge = gigaBridge.connect(refreshedNonceManager)
     const gigaRootUpdateTx = await (await gigaBridge.updateGigaRoot(
         validLocalRootProviders
-    )).wait(3) as ethers.ContractTransactionReceipt;
+    )).wait(confirmations) as ethers.ContractTransactionReceipt;
+     console.log("---------------done---gigaBridge.updateGigaRoot-----------------------")
     // todo check id tree reproduces by syncing events
     // TODO make sure the gigaBridge contract also emits events updatedLocalRoot(indexed index, localRoot
     return { gigaRootUpdateTx, gigaRootUpdateTxHash: gigaRootUpdateTx.hash }
@@ -286,7 +294,8 @@ export async function updateGigaRoot(
 export async function sendGigaRoot(
     gigaBridge: GigaBridge,
     gigaRootRecipients: ethers.AddressLike[],
-    allPayableGigaRootRecipients: ethers.AddressLike[]
+    allPayableGigaRootRecipients: ethers.AddressLike[],
+    confirmations=1
 ) {
     const defaultEthAmountGas = 5n * 10n ** 16n;
     const amounts = gigaRootRecipients.map((v: any) => {
@@ -298,7 +307,15 @@ export async function sendGigaRoot(
     })
     const totalEth = BigInt(allPayableGigaRootRecipients.length) * defaultEthAmountGas
     // sends the root to the L2AztecBridgeAdapter through the L1AztecBridgeAdapter
-    const sendGigaRootTx = await (await gigaBridge["sendGigaRoot(address[],uint256[])"](gigaRootRecipients, amounts, { value: totalEth })).wait(3) as ethers.ContractTransactionReceipt;
+    console.log({
+        gigaBridgeContractObject: gigaBridge.target,
+        gigaRootRecipients,
+        amounts,
+        totalEth,
+        confirmations
+    })
+    gigaBridge = gigaBridge.connect(new NonceManager(gigaBridge.runner as ethers.Signer))
+    const sendGigaRootTx = await (await gigaBridge["sendGigaRoot(address[],uint256[])"](gigaRootRecipients, amounts, { value: totalEth })).wait(confirmations) as ethers.ContractTransactionReceipt;
     const log = sendGigaRootTx.logs.map(log => gigaBridge.interface.parseLog(log)).find(log => log!.name === "SentGigaRoot");
     const gigaRootSent = log!.args.gigaRoot.toString();
 
@@ -553,6 +570,7 @@ export async function bridgeBetweenL1AndL2(
 ) {
     const l1ChainId = (await (l1Wallet.provider?.getNetwork()))?.chainId
     const isSandBox = l1ChainId === 31337n
+    const confirmations = isSandBox ? 1 : 3
     // check input aztecInputs
     if (aztecInputs && aztecInputs.isAztec && (aztecInputs.aztecNode === undefined)) {
         throw new Error(`aztecInputs.PXE needs to be set when isAztec = true`)
@@ -584,7 +602,8 @@ export async function bridgeBetweenL1AndL2(
         aztecInputs.isAztec,
         aztecInputs.aztecNode,
         aztecInputs.sponsoredPaymentMethod,
-        aztecInputs.aztecWallet
+        aztecInputs.aztecWallet,
+        confirmations
     )
     console.log(`local root is bridged to L1! At tx hash: ${sendRootToL1TxHash}`)
     //--- collect localRoots from adapters and send a giga root back--------------
@@ -592,6 +611,7 @@ export async function bridgeBetweenL1AndL2(
     const { gigaRootUpdateTx, gigaRootUpdateTxHash } = await updateGigaRoot(
         gigaBridge,
         localRootProviders,
+        confirmations
     )
     console.log(`GigaRoot is updated! At tx hash: ${gigaRootUpdateTxHash}`)
 
@@ -599,7 +619,8 @@ export async function bridgeBetweenL1AndL2(
     const { sendGigaRootTx, sendGigaRootTxHash, gigaRootSent } = await sendGigaRoot(
         gigaBridge,
         localRootProviders,
-        payableLocalRootProviders
+        payableLocalRootProviders,
+        confirmations
     )
     console.log(`gigaRoot bridging is initiated to the L2's! At tx hash: ${sendRootToL1TxHash}`)
 

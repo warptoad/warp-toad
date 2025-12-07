@@ -173,7 +173,7 @@ yarn workspace @warp-toad/backend hardhat ignition verify chain-534351 --include
 ## bridge
 #### sandbox 
 ```shell
-PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --isAztec
+PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --isAztec --localRootProviders 0xL1WarpToad 0xL1AztecAdapter
 ```
 #### aztec
 Takes about 0.5-1 hour to run

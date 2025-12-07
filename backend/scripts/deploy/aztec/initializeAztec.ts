@@ -26,8 +26,8 @@ async function main() {
 
     const L1AztecBridgeAdapter = evmContractAddresses["L1InfraModule#L1AztecBridgeAdapter"]
 
-    const AztecWarpToadAddress = aztecContractAddresses["AztecWarpToad"]
-    const L2AztecAdapterAddress = aztecContractAddresses["L2AztecBridgeAdapter"]
+    const {address: AztecWarpToadAddress} = aztecContractAddresses["AztecWarpToad"]
+    const {address: L2AztecAdapterAddress} = aztecContractAddresses["L2AztecBridgeAdapter"]
 
 
     if (chainId !== 31337n) {

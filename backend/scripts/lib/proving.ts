@@ -254,14 +254,14 @@ export async function getAztecMerkleData(WarpToad:WarpToadAztec, commitment:bigi
         contractAddress: WarpToad.address, 
         storageSlot: WarpToadAztec.storage.commitments.slot
     }
-    const notes = await PXE.getNotes(warpToadNoteFilter)
-    console.log({notes})
-    //await WarpToad.methods.sync_private_state().simulate({ from: (await aztecWallet.getAccounts())[0].item });
-    let noteNonce=0n;
-    if (notes.length) {
-        const currentNote = notes.find((n:any)=> hashCommitmentFromNoteItems(n.note.items) === commitment);
-        noteNonce = currentNote!.noteNonce.toBigInt()
-    } else {
+    // const notes = []//await PXE.getNotes(warpToadNoteFilter)
+    // console.log({notes})
+    // //await WarpToad.methods.sync_private_state().simulate({ from: (await aztecWallet.getAccounts())[0].item });
+    // let noteNonce=0n;
+    // if (notes.length) {
+    //     const currentNote = notes.find((n:any)=> hashCommitmentFromNoteItems(n.note.items) === commitment);
+    //     noteNonce = currentNote!.noteNonce.toBigInt()
+    // } else {
         console.warn("TODO @JIMJIM PXE.getNotes is still broken complain about it. Rn it uses the contract util 'get_notes_util' But afaik it only gets 16 notes not all!!! This is going to cause headaches!!!")
         // if it gets the nullified notes. we are in trouble. Then it will for sure end up in a state where we cant find a users note after the made too many bridge txs
         // if it doesn't it still sucks because a users might have initiated 17 bridge txs, but wants to withdraw the 17th first. But get_notes_util only returns the first 16
@@ -270,8 +270,8 @@ export async function getAztecMerkleData(WarpToad:WarpToadAztec, commitment:bigi
         const ourNote = contract_notes.storage.find((n:any)=> hashCommitmentFromNoteItems([n.note.nullifier_preimage, n.note.secret, n.note.chain_id, n.note.amount]) === commitment);
         console.log({ourNote})
         //maybe!?!?!?
-        noteNonce = ourNote.metadata.maybe_note_nonce
-    }
+        const noteNonce = ourNote.metadata.maybe_note_nonce
+    //}
     const siloedNoteHash = await hashSiloedNoteHash(WarpToad.address.toBigInt() ,commitment)
 
     const uniqueNoteHash = await hashUniqueNoteHash(noteNonce,siloedNoteHash)
