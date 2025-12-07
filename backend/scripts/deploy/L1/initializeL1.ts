@@ -99,13 +99,5 @@ async function main() {
         initializationSuccess?:     ${initializationStatus["L1WarpToad"]}
         args:                       ${JSON.stringify({ gigaBridgeAddress, L1WarpToad: L1WarpToad.target }, null, 2)}
     `)
-    /*
-    console.log(`
-        L1ScrollBridgeAdapter:      ${L1ScrollBridgeAdapter.target}
-        initializationSuccess?:     ${initializationStatus["L1ScrollBridgeAdapter"]}
-        args:                       ${JSON.stringify({ L2ScrollBridgeAdapterAddress, gigaBridgeAddress }, null, 2)}
-    `)
-    */
-
 }
 main()  

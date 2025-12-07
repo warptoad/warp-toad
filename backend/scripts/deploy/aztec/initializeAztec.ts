@@ -30,25 +30,25 @@ async function main() {
     const {address: L2AztecAdapterAddress} = aztecContractAddresses["L2AztecBridgeAdapter"]
 
 
-    if (chainId !== 31337n) {
+    // if (chainId !== 31337n) {
 
-        console.log("assuming ur not on sand box so registering the contracts with aztec testnet node")
-        const nodeClient = await initNodeClient()
-        const PXE = await initPXE(nodeClient, chainId);
+    //     console.log("assuming ur not on sand box so registering the contracts with aztec testnet node")
+    //     const nodeClient = await initNodeClient()
+    //     const PXE = await initPXE(nodeClient, chainId);
 
-        await PXE.registerContract({
-            instance: WarpToadCoreContract as any,
-            artifact: WarpToadCoreContractArtifact,
-        })
-        await delay(10000)
-        const L2AztecAdapterContract = await nodeClient.getContract(L2AztecAdapterAddress as any)
-        await PXE.registerContract({
-            instance: L2AztecAdapterContract as any,
-            artifact: L2AztecBridgeAdapterContractArtifact,
-        })
-        await delay(10000)
+    //     await PXE.registerContract({
+    //         instance: WarpToadCoreContract as any,
+    //         artifact: WarpToadCoreContractArtifact,
+    //     })
+    //     await delay(10000)
+    //     const L2AztecAdapterContract = await nodeClient.getContract(L2AztecAdapterAddress as any)
+    //     await PXE.registerContract({
+    //         instance: L2AztecAdapterContract as any,
+    //         artifact: L2AztecBridgeAdapterContractArtifact,
+    //     })
+    //     await delay(10000)
 
-    }
+    // }
 
 
     const aztecWarpToadContractInstance = await getContractInstanceFromAddress(AztecAddress.fromString(AztecWarpToadAddress))

@@ -9,9 +9,9 @@ import { ContractInstanceWithAddress } from "@aztec/aztec.js/contracts";
 export async function initPXE(node: AztecNode, chainId: bigint): Promise<PXE> {
     const isSandbox = chainId === 31337n
     if (isSandbox) {
-        console.log("enabeling prover since chainId is not 31337")
-    } else {
         console.log("WARNING DISABLING prover since chainId is 31337")
+    } else {
+       console.log("enabeling prover since chainId is not 31337")
     }
     const proverEnabled = isSandbox
     try {

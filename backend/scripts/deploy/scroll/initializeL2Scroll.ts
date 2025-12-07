@@ -18,7 +18,7 @@ import { getInitialTestAccountsWallets } from "@aztec/accounts/testing";
 import fs from "fs/promises";
 
 import { vars } from "hardhat/config.js";
-import { evmDeployments } from "scripts/dev_op/deployment";
+import { evmDeployments } from "../../dev_op/deployment";
 const SEPOLIA_URL = vars.get("SEPOLIA_URL")
 
 // function getArgs() {

@@ -70,18 +70,18 @@ const config = {
         network: 'scrollSepolia',
         chainId: 534351,
         urls: {
-          apiURL: 'https://api-sepolia.scrollscan.com/api',
+          apiURL: 'https://api.etherscan.io/v2/api?chainid=1',
           browserURL: 'https://sepolia.scrollscan.com/',
         },
       },
-      // {
-      //   network: 'sepolia',
-      //   chainId: 11155111,
-      //   urls: {
-      //     apiURL: 'https://api.etherscan.io/v2/api?chainid=11155111',
-      //     browserURL: 'https://sepolia.etherscan.io/',
-      //   },
-      // }
+      {
+        network: 'sepolia',
+        chainId: 11155111,
+        urls: {
+          apiURL: 'https://api.etherscan.io/v2/api?chainid=11155111',
+          browserURL: 'https://sepolia.etherscan.io/',
+        },
+      }
     ]
   },
 }

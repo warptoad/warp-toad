@@ -27,10 +27,11 @@ import { L2AztecBridgeAdapterContract, L2AztecBridgeAdapterContractArtifact } fr
 import aztecDeploymentsSepolia from "../deploy/aztec/aztecDeployments/11155111/deployed_addresses.json" with { type: 'json' };
 //@ts-ignore
 import aztecDeploymentsSandbox from "../deploy/aztec/aztecDeployments/31337/deployed_addresses.json" with { type: 'json' };
+
 //@ts-ignore
-//import scrollDeploymentsSepolia from "../../ignition/deployments/chain-534351/deployed_addresses.json" with { type: 'json' };
+import scrollDeploymentsSepolia from "../../ignition/deployments/chain-534351/deployed_addresses.json" with { type: 'json' };
 //@ts-ignore
-//import L1DeploymentsSepolia from "../../ignition/deployments/chain-11155111/deployed_addresses.json" with { type: 'json' };
+import L1DeploymentsSepolia from "../../ignition/deployments/chain-11155111/deployed_addresses.json" with { type: 'json' };
 //@ts-ignore
 import L1DeploymentsSandbox from "../../ignition/deployments/chain-31337/deployed_addresses.json" with { type: 'json' };
 import { AccountManager, Wallet } from '@aztec/aztec.js/wallet';
@@ -46,8 +47,8 @@ interface deployments {
 }
 
 export const evmDeployments: deployments = {
-    //534351: scrollDeploymentsSepolia,
-    //11155111: L1DeploymentsSepolia,
+    534351: scrollDeploymentsSepolia,
+    11155111: L1DeploymentsSepolia,
     31337: L1DeploymentsSandbox
 }
 
