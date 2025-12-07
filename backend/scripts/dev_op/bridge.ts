@@ -91,7 +91,7 @@ async function main() {
             try {
                 return await bridgeBetweenL1AndL2(...inputs)
             } catch (error) {
-                throw error
+                //throw error
                 errors.push(error)
                 console.log(`whoops an error. Total errors since running: ${errors.length}, error limit: ${errorsLimit} `, error)
             }

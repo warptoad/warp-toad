@@ -211,7 +211,9 @@ export async function bridgeLocalRootToL1(l1Wallet: ethers.Signer, gigaBridge: G
     const l1ChainId = (await (l1Wallet.provider?.getNetwork()))?.chainId
     const isSandBox = l1ChainId === 31337n
     if (isAztec) {
-        if (aztecNode === undefined || (isSandBox === false && sponsoredPaymentMethodAZTEC == undefined)) { throw new Error("PXE and sponsoredPaymentMethodAZTEC cant be undefined when isAztec = true") }
+        if (aztecNode === undefined) {throw new Error("aztecNode cant be undefined") }
+        // if (aztecNode === undefined || (isSandBox === false))// && sponsoredPaymentMethodAZTEC == undefined)) 
+        // { throw new Error("PXE and sponsoredPaymentMethodAZTEC cant be undefined when isAztec = true") }
         const { sendRootToL1Tx, refreshRootTx, PXE_L2Root } = await bridgeAZTECLocalRootToL1(
             aztecNode,
             L2Adapter as L2AztecBridgeAdapterContract,
@@ -497,7 +499,8 @@ export async function receiveGigaRootOnL2(
     sponsoredPaymentMethod?: SponsoredFeePaymentMethod
 ) {
     if (isAztec) {
-        if (isSandBox === undefined || aztecNode === undefined || (isSandBox === false && sponsoredPaymentMethod === undefined)) { throw new Error(`isSandBox, PXE and sponsoredPaymentMethod need to be set when isAztec = true`) }
+        if (aztecNode === undefined) {throw new Error("isSandBox cant be undefined")}
+        //if (isSandBox === undefined || aztecNode === undefined || (isSandBox === false && sponsoredPaymentMethod === undefined)) { throw new Error(`isSandBox, PXE and sponsoredPaymentMethod need to be set when isAztec = true`) }
         const { receiveGigaRootTx } = await receiveGigaRootOnAztec(
             L2Adapter as L2AztecBridgeAdapterContract,
             L1Adapter as L1AztecBridgeAdapter,
@@ -575,9 +578,9 @@ export async function bridgeBetweenL1AndL2(
     if (aztecInputs && aztecInputs.isAztec && (aztecInputs.aztecNode === undefined)) {
         throw new Error(`aztecInputs.PXE needs to be set when isAztec = true`)
     }
-    if (aztecInputs && aztecInputs.isAztec && isSandBox == false && aztecInputs.sponsoredPaymentMethod === undefined) {
-        throw new Error(`you need to set a sponsoredPaymentMethod when running outside of sandbox`)
-    }
+    // if (aztecInputs && aztecInputs.isAztec && isSandBox == false && aztecInputs.sponsoredPaymentMethod === undefined) {
+    //     throw new Error(`you need to set a sponsoredPaymentMethod when running outside of sandbox`)
+    // }
     if (aztecInputs === undefined) { aztecInputs = {} }
 
 
