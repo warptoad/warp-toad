@@ -1,5 +1,7 @@
-# Warptoad frontend Repo
-## using 
-- svelte (ts)
-- vitest
-- rive
+# Frontend
+
+cp template.env to .env in root and run:
+
+run ```
+yarn run dev
+```

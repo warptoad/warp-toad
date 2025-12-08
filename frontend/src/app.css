@@ -1,121 +1,121 @@
-
-@import url('https://fonts.googleapis.com/css2?family=Fredoka:wght@300..700&family=Quicksand:wght@300..700&display=swap');
 @import "tailwindcss";
 
+@import "tw-animate-css";
 
-@plugin "daisyui";
-@plugin "daisyui/theme" {
-  name: "warptoad";
-  default: false;
-  prefersdark: false;
-  color-scheme: "dark";
-  --color-base-100: #1e1e37;
-  --color-base-200: #26123b;
-  --color-base-300: #2e154e;
-  --color-base-content: #fef0a8;
-  --color-primary: #336ed5;
-  --color-primary-content: #fef0a8;
-  --color-secondary: #33d53e;
-  --color-secondary-content: #26123b;
-  --color-accent: #bc33d5;
-  --color-accent-content: #fef0a8;
-  --color-neutral: #1e1e37;
-  --color-neutral-content: #fef0a8;
-  --color-info: #33d5c9;
-  --color-info-content: #26123b;
-  --color-success: #75d533;
-  --color-success-content: #26123b;
-  --color-warning: #d57233;
-  --color-warning-content: #26123b;
-  --color-error: #d53335;
-  --color-error-content: #fef0a8;
-  --radius-selector: 0.5rem;
-  --radius-field: 0.5rem;
-  --radius-box: 0.5rem;
-  --size-selector: 0.25rem;
-  --size-field: 0.25rem;
-  --border: 1px;
-  --depth: 0;
-  --noise: 0;
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --radius: 0.625rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.145 0 0);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0 0);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0 0);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  --secondary: oklch(0.97 0 0);
+  --secondary-foreground: oklch(0.205 0 0);
+  --muted: oklch(0.97 0 0);
+  --muted-foreground: oklch(0.556 0 0);
+  --accent: oklch(0.97 0 0);
+  --accent-foreground: oklch(0.205 0 0);
+  --destructive: oklch(0.577 0.245 27.325);
+  --border: oklch(0.922 0 0);
+  --input: oklch(0.922 0 0);
+  --ring: oklch(0.708 0 0);
+  --chart-1: oklch(0.646 0.222 41.116);
+  --chart-2: oklch(0.6 0.118 184.704);
+  --chart-3: oklch(0.398 0.07 227.392);
+  --chart-4: oklch(0.828 0.189 84.429);
+  --chart-5: oklch(0.769 0.188 70.08);
+  --sidebar: oklch(0.985 0 0);
+  --sidebar-foreground: oklch(0.145 0 0);
+  --sidebar-primary: oklch(0.205 0 0);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.97 0 0);
+  --sidebar-accent-foreground: oklch(0.205 0 0);
+  --sidebar-border: oklch(0.922 0 0);
+  --sidebar-ring: oklch(0.708 0 0);
 }
 
-
-@font-face {
-  font-family: 'SheilaCrayon';
-  src: url('/fonts/SheilaCrayon.ttf') format('truetype');
-  font-weight: normal;
-  font-style: normal;
-
+.dark {
+  --background: oklch(0.145 0 0);
+  --foreground: oklch(0.985 0 0);
+  --card: oklch(0.205 0 0);
+  --card-foreground: oklch(0.985 0 0);
+  --popover: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.985 0 0);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.269 0 0);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.269 0 0);
+  --muted-foreground: oklch(0.708 0 0);
+  --accent: oklch(0.269 0 0);
+  --accent-foreground: oklch(0.985 0 0);
+  --destructive: oklch(0.704 0.191 22.216);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(1 0 0 / 15%);
+  --ring: oklch(0.556 0 0);
+  --chart-1: oklch(0.488 0.243 264.376);
+  --chart-2: oklch(0.696 0.17 162.48);
+  --chart-3: oklch(0.769 0.188 70.08);
+  --chart-4: oklch(0.627 0.265 303.9);
+  --chart-5: oklch(0.645 0.246 16.439);
+  --sidebar: oklch(0.205 0 0);
+  --sidebar-foreground: oklch(0.985 0 0);
+  --sidebar-primary: oklch(0.488 0.243 264.376);
+  --sidebar-primary-foreground: oklch(0.985 0 0);
+  --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-accent-foreground: oklch(0.985 0 0);
+  --sidebar-border: oklch(1 0 0 / 10%);
+  --sidebar-ring: oklch(0.556 0 0);
 }
 
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-chart-5: var(--chart-5);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+}
 
-  html{
-    background-color:  var(--color-base-200);
-    
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
   }
-  #app{
-    height: 100vh;
+  body {
+    @apply bg-background text-foreground;
   }
-  
-  @layer base {
-    body {
-      @apply text-base font-normal text-base-content;
-      font-family: 'SheilaCrayon', sans-serif;
-      letter-spacing: 2px
-    }
-  
-    h1 {
-      @apply text-4xl font-bold leading-tight text-primary;
-      font-family: 'SheilaCrayon', sans-serif;
-      letter-spacing: 2px
-    }
-  
-    h2 {
-      @apply text-3xl font-semibold leading-snug text-primary;
-      font-family: 'SheilaCrayon', sans-serif;
-      letter-spacing: 2px
-    }
-  
-    h3 {
-      @apply text-2xl font-medium leading-snug text-primary;
-      font-family: 'SheilaCrayon', sans-serif;
-      letter-spacing: 2px
-    }
-  
-    h4 {
-      @apply text-xl font-medium leading-snug text-primary;
-      font-family: 'SheilaCrayon', sans-serif;
-      letter-spacing: 2px
-    }
-  
-    h5 {
-      @apply text-lg font-medium text-base-content;
-      font-family: 'SheilaCrayon', sans-serif;
-      letter-spacing: 2px
-    }
-  
-    h6 {
-      @apply text-base font-medium text-base-content;
-      font-family: 'SheilaCrayon', sans-serif;
-      letter-spacing: 2px
-    }
-  
-    p, span, li, a, label {
-      @apply text-base font-normal leading-relaxed text-base-content;
-      font-family: 'SheilaCrayon', sans-serif;
-      letter-spacing: 2px
-    }
-  
-    small {
-      @apply text-sm text-neutral-content;
-      font-family: 'SheilaCrayon', sans-serif;
-      letter-spacing: 2px
-    }
-  
-    button, input, select, textarea {
-      @apply font-medium text-base;
-      font-family: 'SheilaCrayon', sans-serif;
-      letter-spacing: 2px
-    }
-  }
-  
+}
