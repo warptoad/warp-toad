@@ -158,10 +158,10 @@ async function main() {
         });
         await sleep(waitTimeBetweenVerify)
 
-        console.log(`verifying: withdrawVerifier: ${withdrawVerifier.target}`)
+        console.log(`verifying: WithdrawVerifier: ${withdrawVerifier.target}`)
         await hre.run("verify:verify", {
         address: withdrawVerifier.target,
-        contract: "contracts/evm/withdrawVerifier.sol:WithdrawVerifier",
+        contract: "contracts/evm/WithdrawVerifier.sol:WithdrawVerifier",
         constructorArguments: journalDataPerAddress[withdrawVerifier.target].constructorArgs,
         libraries: journalDataPerAddress[withdrawVerifier.target].libraries,
         });
