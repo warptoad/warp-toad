@@ -5,10 +5,11 @@ import path from 'path';
 
 // https://vite.dev/config/
 export default defineConfig({
-    plugins: [tailwindcss(), svelte()], 
+    plugins: [tailwindcss(), svelte()],
     resolve: {
         alias: {
             $lib: path.resolve("./src/lib"),
+            '@backend': path.resolve(__dirname, '../backend'),
             // Polyfills for Node.js modules in browser
             util: 'util',
             buffer: 'buffer',

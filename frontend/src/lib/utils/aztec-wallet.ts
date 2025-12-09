@@ -9,7 +9,7 @@ const AZTEC_NETWORK = isLocal ? 'sandbox' : 'devnet';
 // Dapp metadata for Azguard connection
 const DAPP_METADATA = {
 	name: 'Warptoad',
-	description: 'Cross-chain bridge between EVM and Aztec',
+	description: 'Cross-chain privacy bridge',
 	logo: '', // To be filled later
 	url: typeof window !== 'undefined' ? window.location.origin : ''
 };

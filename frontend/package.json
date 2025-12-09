@@ -41,7 +41,9 @@
   },
   "dependencies": {
     "@azguardwallet/aztec-wallet": "^3.0.0-devnet.5",
+    "@aztec/aztec.js": "^3.0.0-devnet.5",
     "@zkpassport/poseidon2": "^0.6.2",
+    "fixed-merkle-tree": "^0.7.3",
     "poseidon-lite": "^0.3.0",
     "viem": "^2.41.2"
   }

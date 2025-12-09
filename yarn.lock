@@ -615,7 +615,7 @@
     "@aztec/stdlib" "3.0.0-devnet.5"
     tslib "^2.4.0"
 
-"@aztec/aztec.js@3.0.0-devnet.5":
+"@aztec/aztec.js@^3.0.0-devnet.5", "@aztec/aztec.js@3.0.0-devnet.5":
   version "3.0.0-devnet.5"
   resolved "https://registry.npmjs.org/@aztec/aztec.js/-/aztec.js-3.0.0-devnet.5.tgz"
   integrity sha512-imufeCwtwMslvLa1oUgV/NpFUjqmb/mnGLNmXoHx0vSwPWG5SIyorxkzSvenuYeF3NVo++LJaW9Ng4lzRj0CiA==
@@ -5767,7 +5767,9 @@ fresh@~0.5.2:
   resolved "file:frontend"
   dependencies:
     "@azguardwallet/aztec-wallet" "^3.0.0-devnet.5"
+    "@aztec/aztec.js" "^3.0.0-devnet.5"
     "@zkpassport/poseidon2" "^0.6.2"
+    fixed-merkle-tree "^0.7.3"
     poseidon-lite "^0.3.0"
     viem "^2.41.2"
 
