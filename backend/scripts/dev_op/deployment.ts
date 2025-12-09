@@ -98,6 +98,32 @@ export async function getL2EvmContracts(l2ChainId: bigint, signer: ethers.Signer
     return { L2Adapter: L2Adapter as L2ScrollBridgeAdapter, L2WarpToad: L2WarpToad as L2EvmWarpToad }
 }
 
+export async function getAztecWarptoadInstance(l1ChainId:number) {
+    const deployParams = aztecDeployments[l1ChainId]["AztecWarpToad"]
+        const instance = await getContractInstanceFromInstantiationParams(
+        WarpToadCoreContractArtifact,
+        {
+            salt: Fr.fromHexString(deployParams.contractAddressSalt),
+            constructorArgs: deployParams.constructorArgs.map((v: string) => v.startsWith("0x") ? new Fr(BigInt(v)) : v),
+            deployer:AztecAddress.fromField(Fr.fromHexString(deployParams.deployer))
+        }
+    )
+    return instance
+}
+
+export async function getL2AztecAdapterInstance(l1ChainId:number) {
+    const deployParams = aztecDeployments[l1ChainId]["L2AztecBridgeAdapter"]
+        const instance = await getContractInstanceFromInstantiationParams(
+        L2AztecBridgeAdapterContractArtifact,
+        {
+            salt: Fr.fromHexString(deployParams.contractAddressSalt),
+            constructorArgs: deployParams.constructorArgs.map((v: string) => v.startsWith("0x") ? new Fr(BigInt(v)) : v),
+            deployer:AztecAddress.fromField(Fr.fromHexString(deployParams.deployer))
+        }
+    )
+    return instance
+}
+
 export async function getL2AZTECContracts(
     l1ChainId: bigint,
     l2Wallet: Wallet,

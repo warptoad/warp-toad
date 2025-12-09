@@ -50,6 +50,7 @@
     "@aztec/kv-store": "3.0.0-devnet.5",
     "@aztec/noir-contracts.js": "3.0.0-devnet.5",
     "@aztec/pxe": "3.0.0-devnet.5",
+    "@aztec/stdlib": "3.0.0-devnet.5",
     "@aztec/test-wallet": "3.0.0-devnet.5",
     "@noir-lang/noir_js": "1.0.0-beta.5",
     "@noir-lang/noir_wasm": "1.0.0-beta.5",
