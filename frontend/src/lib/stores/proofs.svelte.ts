@@ -1,22 +1,39 @@
-import { abi } from '$lib/contracts/abis/TestTokenAbi';
-import type { Proof, Token, Chain, MockTokenBalance, TokenContract } from '$lib/types/bridge.js';
+import { USDcoinAbi } from '$lib/contracts/abis';
+import type { Proof, Token, Chain, MockTokenBalance, TokenContract, CommitmentPreImage } from '$lib/types/bridge.js';
 import { createPublicClient, http } from 'viem';
 import { anvil } from 'viem/chains';
+import { walletStore } from './wallets.svelte';
+import { decodeNote } from '$lib/utils/evm-interactions';
 
 const STORAGE_KEY = 'warptoad:proofs';
 
 
 // Mock token balances
 const MOCK_BALANCES: MockTokenBalance[] = [
-	{ token: 'ETH', ethereum: '5.234', scroll: '2.500', aztec: '0.000' },
 	{ token: 'USDC', ethereum: '1000.00', scroll: '500.00', aztec: '0.00' },
 	{ token: 'DAI', ethereum: '500.00', scroll: '250.00', aztec: '0.00' },
 	{ token: 'WBTC', ethereum: '0.152', scroll: '0.075', aztec: '0.000' }
 ];
 
 export const TOKEN_CONTRACTS: TokenContract[] = [
-	{ token: 'ETH', ethereumAddress: '0x95401dc811bb5740090279Ba06cfA8fcF6113778' }
+	{ token: 'USDC', ethereumAddress: '0x95401dc811bb5740090279Ba06cfA8fcF6113778' }
 ]
+
+// Custom JSON serialization for BigInt
+function bigIntReplacer(key: string, value: any): any {
+	if (typeof value === 'bigint') {
+		return { __type: 'bigint', value: value.toString() };
+	}
+	return value;
+}
+
+// Custom JSON deserialization for BigInt
+function bigIntReviver(key: string, value: any): any {
+	if (value && typeof value === 'object' && value.__type === 'bigint') {
+		return BigInt(value.value);
+	}
+	return value;
+}
 
 // Load from localStorage
 function loadProofs(): Proof[] {
@@ -25,7 +42,7 @@ function loadProofs(): Proof[] {
 	const stored = localStorage.getItem(STORAGE_KEY);
 	if (stored) {
 		try {
-			return JSON.parse(stored);
+			return JSON.parse(stored, bigIntReviver);
 		} catch {
 			return [];
 		}
@@ -36,7 +53,7 @@ function loadProofs(): Proof[] {
 // Save to localStorage
 function saveProofs(proofs: Proof[]) {
 	if (typeof window === 'undefined') return;
-	localStorage.setItem(STORAGE_KEY, JSON.stringify(proofs));
+	localStorage.setItem(STORAGE_KEY, JSON.stringify(proofs, bigIntReplacer));
 }
 
 // Generate mock note (tornado-style secret)
@@ -74,9 +91,9 @@ class ProofStore {
 		return [...this._proofs].sort((a, b) => b.timestamp - a.timestamp);
 	}
 
-	async getBalance(token: Token, chain: Chain): Promise<string> {
-		const balance = TOKEN_CONTRACTS.find(b => b.token === token);
-		if (!balance) return '0.00';
+	async getBalance(tokenInput: Token, chain: Chain): Promise<string> {
+		const token = TOKEN_CONTRACTS.find(b => b.token === tokenInput);
+		if (!token) return '0.00';
 
 		// Map chain to address property
 		const chainKey = chain.toLowerCase() + "Address" as 'ethereumAddress' | 'scrollAddress' | 'aztecAddress';
@@ -86,14 +103,21 @@ class ProofStore {
 			chain: anvil,
 			transport: http()
 		})
-		const data = await publicClient.readContract({
-			address: balance[chainKey] as `0x${string}`,
-			abi: abi,
-			functionName: 'balanceOf',
-			args: ['0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266']
+
+		const decimals = await publicClient.readContract({
+			address: token[chainKey] as `0x${string}`,
+			abi: USDcoinAbi,
+			functionName: 'decimals'
 		})
 
-		console.log(data)
+		const data = await publicClient.readContract({
+			address: token[chainKey] as `0x${string}`,
+			abi: USDcoinAbi,
+			functionName: 'balanceOf',
+			args: [walletStore.wallets.evm as `0x${string}`]
+		})
+
+		const balance = Number(data) / 10 ** decimals
 
 		return String(balance) || '0.00';
 	}
@@ -102,7 +126,12 @@ class ProofStore {
 		amount: string,
 		token: Token,
 		sourceChain: Chain,
-		targetChain: Chain
+		targetChain: Chain,
+		note?: string,
+		commitmentData?: CommitmentPreImage,
+		preCommitment?: string,
+		commitment?: string,
+		burnTxHash?: string
 	): Proof {
 		const proof: Proof = {
 			id: generateProofId(),
@@ -110,9 +139,13 @@ class ProofStore {
 			token,
 			sourceChain,
 			targetChain,
-			note: generateNote(),
+			note: note || generateNote(),
 			used: false,
-			timestamp: Date.now()
+			timestamp: Date.now(),
+			commitmentData,
+			preCommitment,
+			commitment,
+			burnTxHash
 		};
 
 		this._proofs.push(proof);
@@ -165,10 +198,18 @@ Do not share this note with anyone!
 
 	// Parse uploaded proof file
 	parseProofFile(content: string): { note: string } | null {
+		// Try to match new warptoad note format
+		const warptoadNoteMatch = content.match(/warptoad-note-[A-Za-z0-9+/=]+/);
+		if (warptoadNoteMatch) {
+			return { note: warptoadNoteMatch[0] };
+		}
+		
+		// Fall back to legacy note format
 		const noteMatch = content.match(/note-0x[0-9a-f]{64}/);
 		if (noteMatch) {
 			return { note: noteMatch[0] };
 		}
+		
 		return null;
 	}
 }

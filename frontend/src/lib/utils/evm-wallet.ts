@@ -1,8 +1,6 @@
 import { createWalletClient, custom, type WalletClient, type Chain as ViemChain, http, createPublicClient } from 'viem';
 import { anvil, mainnet, scrollSepolia } from 'viem/chains';
-import type { Chain, Token } from '$lib/types/bridge.js';
-import { TOKEN_CONTRACTS } from '$lib/stores/proofs.svelte';
-import { abi } from '$lib/contracts/abis/TestTokenAbi';
+import type { Chain } from '$lib/types/bridge.js';
 
 const isTestnet = import.meta.env.VITE_LOCAL
 
@@ -212,29 +210,6 @@ export function createClient(chainId: number): WalletClient | null {
 		chain,
 		transport: custom(provider)
 	});
-}
-
-/**
- * TEST MINT FUNCTION FOR TEST TOKEN
- */
-export async function mintFreeTokens(token: Token, chain: Chain): Promise<void> {
-	const balance = TOKEN_CONTRACTS.find(b => b.token === token);
-	const chainId = await getChainId()
-	if (!balance || !chainId) return
-	const chainKey = chain.toLowerCase() + "Address" as 'ethereumAddress' | 'scrollAddress' | 'aztecAddress';
-
-	const client = createClient(chainId)
-	if (!client) return
-
-	const data = await client.writeContract({
-		address: balance[chainKey] as `0x${string}`,
-		chain: anvil,
-		account: (await client.getAddresses())[0],
-		abi: abi,
-		functionName: 'getFreeShit',
-		args: [2 * 4 ** 10]
-	})
-
 }
 
 

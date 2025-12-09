@@ -1,5 +1,5 @@
 export type Chain = 'Ethereum' | 'Scroll' | 'Aztec';
-export type Token = 'ETH' | 'USDC' | 'DAI' | 'WBTC';
+export type Token = 'USDC' | 'DAI' | 'WBTC';
 export type ChainType = 'EVM' | 'Aztec';
 
 export interface Wallets {
@@ -16,7 +16,6 @@ export const CHAIN_TYPES: Record<Chain, ChainType> = {
 
 // Token icon colors (placeholder circles)
 export const TOKEN_COLORS: Record<Token, string> = {
-	ETH: 'bg-blue-500',
 	USDC: 'bg-green-500',
 	DAI: 'bg-yellow-500',
 	WBTC: 'bg-orange-500'
@@ -31,7 +30,6 @@ export const CHAIN_COLORS: Record<Chain, string> = {
 
 // Token names for display
 export const TOKEN_NAMES: Record<Token, string> = {
-	ETH: 'Ethereum',
 	USDC: 'USD Coin',
 	DAI: 'Dai Stablecoin',
 	WBTC: 'Wrapped Bitcoin'
@@ -52,6 +50,13 @@ export interface TokenContract {
 }
 
 
+export interface CommitmentPreImage {
+	amount: bigint;
+	destination_chain_id: bigint;
+	secret: bigint;
+	nullifier_preimg: bigint;
+}
+
 export interface Proof {
 	id: string;
 	amount: string;
@@ -61,6 +66,11 @@ export interface Proof {
 	note: string;
 	used: boolean;
 	timestamp: number;
+	// Commitment data for bridging
+	commitmentData?: CommitmentPreImage;
+	preCommitment?: string;
+	commitment?: string;
+	burnTxHash?: string;
 }
 
 export interface ProofGenerationStatus {

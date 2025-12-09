@@ -17,7 +17,7 @@
 		CheckCircle2,
 	} from "@lucide/svelte";
 	import { walletStore } from "$lib/stores/wallets.svelte.js";
-	import { mintFreeTokens } from "$lib/utils/evm-wallet";
+	import { mintFreeTokens } from "$lib/utils/evm-interactions";
 
 	interface Props {
 		open?: boolean;
@@ -82,10 +82,10 @@
 						{/if}
 						<Button
 							onclick={() => {
-								mintFreeTokens("ETH", "Ethereum");
+								mintFreeTokens("USDC", "Ethereum", 100);
 							}}
 						>
-							mint free tokens
+							mint 100 test USDC
 						</Button>
 					</div>
 
