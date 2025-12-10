@@ -16,6 +16,7 @@
 	} from "@lucide/svelte";
 	import { walletStore } from "$lib/stores/wallets.svelte.js";
 	import { proofStore } from "$lib/stores/proofs.svelte.js";
+	import { balanceStore } from "$lib/stores/balances.svelte.js";
 	import TokenSelector from "./TokenSelector.svelte";
 	import ChainSelector from "./ChainSelector.svelte";
 	import {
@@ -113,38 +114,21 @@
 	let sourceChainOpen = $state(false);
 	let targetChainOpen = $state(false);
 
+	// Refresh balances when chain or token changes
 	$effect(() => {
-		const token = selectedToken;
 		const chain = sourceChain;
-
-		isBalanceLoading = true;
-		balanceError = null;
-
-		(async () => {
-			try {
-				const value = await proofStore.getBalance(token, chain);
-
-				// avoid race conditions when user switches token/chain quickly
-				if (token === selectedToken && chain === sourceChain) {
-					balance = value ?? "0.00";
-				}
-			} catch (err) {
-				console.error("Failed to fetch balance", err);
-				if (token === selectedToken && chain === sourceChain) {
-					balanceError = err as Error;
-					balance = "0.00";
-				}
-			} finally {
-				if (token === selectedToken && chain === sourceChain) {
-					isBalanceLoading = false;
-				}
-			}
-		})();
+		const token = selectedToken;
+		
+		// Update the store's token selection
+		balanceStore.setToken(token);
+		
+		// Trigger refresh when chain/token changes
+		balanceStore.refresh();
 	});
-
-	let balance = $state("0.00");
-	let isBalanceLoading = $state(false);
-	let balanceError = $state<Error | null>(null);
+	
+	// Derived balance from store based on source chain
+	let balance = $derived(balanceStore.getBalance(sourceChain));
+	let isBalanceLoading = $derived(balanceStore.isChainLoading(sourceChain));
 	let estimatedReceive = $derived(amount || "0.0");
 
 	let isSourceConnected = $derived(walletStore.isChainConnected(sourceChain));
@@ -214,6 +198,9 @@
 			// Step: Complete
 			generationStep = "complete";
 			generationMessage = "Bridge complete! Note generated successfully.";
+			
+			// Refresh balances after successful bridge
+			await balanceStore.refresh();
 
 			await new Promise((resolve) => setTimeout(resolve, 1500));
 

@@ -17,6 +17,7 @@
 		CheckCircle2,
 	} from "@lucide/svelte";
 	import { walletStore } from "$lib/stores/wallets.svelte.js";
+	import { balanceStore } from "$lib/stores/balances.svelte.js";
 	import { mintFreeTokens, triggerBridgeSync } from "$lib/utils/evm-interactions";
 	import { getChainId } from "$lib/utils/evm-wallet";
 	import { getAztecWarpToadBalance } from "$lib/utils/aztec-interactions";
@@ -122,8 +123,9 @@
 							</div>
 						{/if}
 						<Button
-							onclick={() => {
-								mintFreeTokens("USDC", "Ethereum", 100);
+							onclick={async () => {
+								await mintFreeTokens("USDC", "Ethereum", 100);
+								await balanceStore.refresh();
 							}}
 						>
 							mint 100 test USDC

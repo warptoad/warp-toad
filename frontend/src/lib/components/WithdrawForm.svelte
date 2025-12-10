@@ -7,6 +7,7 @@
 	import { Upload, CheckCircle2, Loader2 } from "@lucide/svelte";
 	import { walletStore } from "$lib/stores/wallets.svelte.js";
 	import { proofStore } from "$lib/stores/proofs.svelte.js";
+	import { balanceStore } from "$lib/stores/balances.svelte.js";
 	import ProofTable from "./ProofTable.svelte";
 	import type { Proof } from "$lib/types/bridge.js";
 	import { getWalletInstance } from "$lib/utils/aztec-wallet.js";
@@ -315,6 +316,9 @@
 		proofStore.markProofAsUsed(selectedProof.id);
 		successMessage = `Successfully withdrew ${selectedProof.amount} ${selectedProof.token}! Tx: ${txHash.slice(0, 16)}...`;
 		
+		// Refresh balances after successful withdraw
+		await balanceStore.refresh();
+		
 		// Reset after delay
 		setTimeout(() => {
 			selectedProof = null;
@@ -460,6 +464,9 @@
 		} else {
 			successMessage = `Withdrew ${selectedProof.amount} wrapped ${selectedProof.token}! Tx: ${mintTxHash.slice(0, 10)}...`;
 		}
+		
+		// Refresh balances after successful withdraw
+		await balanceStore.refresh();
 		
 		// Reset after delay
 		setTimeout(() => {
