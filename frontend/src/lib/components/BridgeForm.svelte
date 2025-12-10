@@ -25,6 +25,8 @@
 		type Token,
 	} from "$lib/types/bridge.js";
 	import { bridgeToChain } from "$lib/utils/evm-interactions.js";
+	import { getAztecChainId } from "$lib/utils/aztec-interactions.js";
+	import { getWalletInstance } from "$lib/utils/aztec-wallet.js";
 
 	let sourceChain = $state<Chain>("Ethereum");
 	let targetChain = $state<Chain>("Aztec");
@@ -44,6 +46,30 @@
 		wrapped?: boolean;
 		burned?: boolean;
 	}>({});
+
+	/**
+	 * Get the destination chain ID based on target chain
+	 * For Aztec: queries the contract for the correct chain ID (poseidon2 of version)
+	 * For EVM chains: uses the standard chain ID
+	 */
+	async function getDestinationChainId(): Promise<bigint> {
+		if (targetChain === "Aztec") {
+			const aztecWallet = getWalletInstance();
+			if (!aztecWallet) {
+				throw new Error("Aztec wallet not connected. Please connect Azguard wallet first.");
+			}
+			// Get the correct Aztec chain ID from the contract
+			// This is computed as poseidon2([salt, aztec_version])
+			return await getAztecChainId(aztecWallet);
+		} else if (targetChain === "Scroll") {
+			// Scroll Sepolia
+			return 534351n;
+		} else {
+			// Ethereum mainnet or localhost (anvil)
+			// For localhost, we use 31337
+			return 31337n;
+		}
+	}
 
 	// Dialog states
 	let sourceTokenOpen = $state(false);
@@ -126,14 +152,15 @@
 		lastError = null;
 
 		try {
-			// Step 1: Preparing
+			// Step 1: Preparing - get the correct destination chain ID
 			generationStep = "preparing";
-			generationMessage = "Preparing transaction...";
-			await new Promise((resolve) => setTimeout(resolve, 300));
+			generationMessage = "Fetching destination chain ID...";
 			
-			// For now, hardcode Aztec chain ID for localhost (31337)
-			// TODO: Query this from Aztec node
-			const destinationChainId = 31337n;
+			// Get the correct chain ID for the destination
+			// For Aztec: this queries the contract for poseidon2([salt, version])
+			// For EVM: this uses the standard chain ID
+			const destinationChainId = await getDestinationChainId();
+			console.log("Destination chain ID:", destinationChainId.toString());
 
 			// Step 2: Approving tokens
 			generationStep = "approving";
@@ -277,9 +304,13 @@
 							Max
 						</Button>
 					</div>
-					<div class="text-sm text-muted-foreground">
-						Balance: {balance}
-						{selectedToken}
+					<div class="text-sm text-muted-foreground flex items-center gap-1">
+						{#if isBalanceLoading}
+							<Loader2 class="size-3 animate-spin" />
+							<span>Fetching balance...</span>
+						{:else}
+							<span>Balance: {balance} {selectedToken}</span>
+						{/if}
 					</div>
 				</div>
 			</CardContent>

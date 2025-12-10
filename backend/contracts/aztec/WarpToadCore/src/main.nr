@@ -166,6 +166,7 @@ pub contract WarpToadCore {
         let (commitment, nullifier) =
             hash_commitment(nullifier_preimage, secret, chain_id, (amount as Field));
 
+
         // verify origin_local_root is part of giga_root
         evm_merkle_verify(giga_root, origin_local_root, giga_merkle_data);
         // verify commitment is part of origin_local_root
@@ -278,6 +279,21 @@ pub contract WarpToadCore {
     }
 
     // utility
+    #[external("private")]
+    fn get_root_from_block(block_number: u32) -> pub Field {
+        
+        let giga_root_slot: Field =
+            aztec::state_vars::storage::HasStorageSlot::get_storage_slot(storage.giga_root);
+
+        let contract_address: AztecAddress = context.this_address();
+
+        let historical_header = context.get_block_header_at(block_number);
+
+        historical_header.public_storage_historical_read(
+            giga_root_slot,
+            contract_address,
+        )
+    }
 
     #[external("utility")]
     unconstrained fn get_giga_root() -> pub Field {

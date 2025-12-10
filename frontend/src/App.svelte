@@ -10,6 +10,7 @@
 	import { walletStore } from "$lib/stores/wallets.svelte.js";
 	import { uiStore } from "$lib/stores/ui.svelte.js";
 	import { Menu, Wallet } from "@lucide/svelte";
+	import warptoadLogo from "$lib/../assets/warptoad-logo.svg";
 
 	let walletDialogOpen = $state(false);
 	let mobileMenuOpen = $state(false);
@@ -25,7 +26,10 @@
 	<header class="border-b">
 		<div class="container mx-auto px-4 py-3 md:py-4">
 			<div class="flex items-center justify-between">
-				<h1 class="text-xl md:text-2xl font-bold">Warptoad Bridge</h1>
+				<div class="flex items-center gap-2">
+					<img src={warptoadLogo} alt="Warptoad" class="h-10 w-10" />
+					<span class="text-xl md:text-2xl font-bold">Warptoad</span>
+				</div>
 				
 				<!-- Desktop: Wallet badges + button -->
 				<div class="hidden md:flex items-center gap-3">

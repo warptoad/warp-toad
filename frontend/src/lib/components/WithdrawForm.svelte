@@ -13,9 +13,10 @@
 	import { 
 		mintFromEVM, 
 		validateCommitmentExists, 
-		validateGigaRootSynced,
+		getAztecGigaRoot,
 		hashPreCommitment,
-		hashCommitment 
+		hashCommitment,
+		isNoteUsed
 	} from "$lib/utils/aztec-interactions.js";
 	import { decodeNote } from "$lib/utils/evm-interactions.js";
 
@@ -24,6 +25,7 @@
 	let uploadError = $state<string | null>(null);
 	let successMessage = $state<string | null>(null);
 	let isWithdrawing = $state(false);
+	let isCheckingNullifier = $state(false);
 	let withdrawStep = $state<'idle' | 'validating' | 'checking-bridge' | 'building-proofs' | 'minting' | 'complete'>('idle');
 	let withdrawMessage = $state('');
 
@@ -32,6 +34,25 @@
 	const SOURCE_CHAIN_ID = import.meta.env.VITE_SOURCE_CHAIN_ID 
 		? parseInt(import.meta.env.VITE_SOURCE_CHAIN_ID) 
 		: 31337;
+
+	// Map chain IDs to chain names
+	function getChainNameFromId(chainId: bigint): 'Ethereum' | 'Scroll' | 'Aztec' {
+		const id = Number(chainId);
+		// Standard EVM chain IDs
+		if (id === 1 || id === 31337 || id === 11155111) {
+			return 'Ethereum'; // Mainnet, Anvil/localhost, or Sepolia
+		}
+		if (id === 534351 || id === 534352) {
+			return 'Scroll'; // Scroll Sepolia or Mainnet
+		}
+		// If it's a large number (Aztec uses poseidon2 hash as chain ID), assume Aztec
+		// Aztec chain IDs are typically very large numbers from poseidon2([salt, version])
+		if (chainId > 1000000n) {
+			return 'Aztec';
+		}
+		// Default to Ethereum for unknown chains
+		return 'Ethereum';
+	}
 
 	let isTargetConnected = $derived(
 		selectedProof 
@@ -52,58 +73,100 @@
 		successMessage = null;
 	}
 
-	function handleFileUpload(event: Event) {
+	async function handleFileUpload(event: Event) {
 		const target = event.target as HTMLInputElement;
 		const file = target.files?.[0];
 		
 		if (!file) return;
 
-		const reader = new FileReader();
-		reader.onload = (e) => {
-			const content = e.target?.result as string;
-			const parsed = proofStore.parseProofFile(content);
-			
-			if (!parsed) {
-				uploadError = "Invalid proof file format";
+		// Read file content
+		const content = await file.text();
+		const parsed = proofStore.parseProofFile(content);
+		
+		if (!parsed) {
+			uploadError = "Invalid proof file format";
+			return;
+		}
+
+		// First check if proof exists in local storage
+		let proof = proofStore.findProofByNote(parsed.note);
+		let noteData: ReturnType<typeof decodeNote> | null = null;
+		
+		if (!proof) {
+			// Try to decode the note and create a new proof entry
+			try {
+				noteData = decodeNote(parsed.note);
+				
+				// Infer source and target chains from the note data
+				const sourceChain = getChainNameFromId(noteData.sourceChainId);
+				const targetChain = getChainNameFromId(noteData.destination_chain_id);
+				
+				// Use 6 decimals for now (USDC standard)
+				// TODO: could fetch from contract based on token
+				const decimals = 6;
+				const formattedAmount = (Number(noteData.amount) / 10 ** decimals).toString();
+				
+				// Create a new proof from the decoded note
+				proof = proofStore.addProof(
+					formattedAmount,
+					'USDC', // Default token - could be improved to detect from note
+					sourceChain,
+					targetChain,
+					parsed.note,
+					{
+						amount: noteData.amount,
+						destination_chain_id: noteData.destination_chain_id,
+						secret: noteData.secret,
+						nullifier_preimg: noteData.nullifier_preimg,
+					},
+					noteData.preCommitment.toString(),
+					noteData.commitment.toString()
+				);
+				
+				console.log(`Imported proof: ${sourceChain} -> ${targetChain}, amount: ${formattedAmount}`);
+			} catch (decodeError) {
+				console.error('Failed to decode note:', decodeError);
+				uploadError = "Could not decode note. Please ensure you bridged funds first.";
 				return;
 			}
+		}
 
-			// First check if proof exists in local storage
-			let proof = proofStore.findProofByNote(parsed.note);
+		// Check if the note has already been used on Aztec (nullifier check)
+		// Only check if targeting Aztec and not already marked as used
+		if (proof && proof.targetChain === 'Aztec' && !proof.used) {
+			const nullifierPreimg = proof.commitmentData?.nullifier_preimg || noteData?.nullifier_preimg;
 			
-			if (!proof) {
-				// Try to decode the note and create a new proof entry
-				try {
-					const noteData = decodeNote(parsed.note);
-					// Create a new proof from the decoded note
-					proof = proofStore.addProof(
-						(Number(noteData.amount) / 1e6).toString(), // Assuming 6 decimals
-						'USDC', // Default token
-						'Ethereum', // Source chain
-						'Aztec', // Target chain for L1->Aztec
-						parsed.note,
-						{
-							amount: noteData.amount,
-							destination_chain_id: noteData.destination_chain_id,
-							secret: noteData.secret,
-							nullifier_preimg: noteData.nullifier_preimg,
-						},
-						noteData.preCommitment.toString(),
-						noteData.commitment.toString()
-					);
-				} catch (decodeError) {
-					console.error('Failed to decode note:', decodeError);
-					uploadError = "Could not decode note. Please ensure you bridged funds first.";
-					return;
+			if (nullifierPreimg) {
+				isCheckingNullifier = true;
+				uploadError = null;
+				// Force Svelte to see the state change
+				await new Promise(resolve => setTimeout(resolve, 0));
+				
+				const result = await isNoteUsed(nullifierPreimg);
+				
+				isCheckingNullifier = false;
+				
+				if (!result.success) {
+					// Could not connect to Aztec node - show warning but allow user to proceed
+					uploadError = result.error || 'Could not verify note status. Aztec node may be unavailable.';
+					// Don't return - let user see the proof and try to withdraw anyway
+				} else if (result.isSpent) {
+					// Nullifier is spent - mark as used
+					proofStore.markProofAsUsed(proof.id);
+					proof = { ...proof, used: true };
+					successMessage = null;
+					uploadError = "This note has already been withdrawn on Aztec.";
 				}
 			}
+		}
 
-			selectedProof = proof;
+		selectedProof = proof;
+		if (!uploadError) {
 			uploadError = null;
+		}
+		if (!proof?.used) {
 			successMessage = null;
-		};
-
-		reader.readAsText(file);
+		}
 	}
 
 	async function withdraw() {
@@ -148,17 +211,18 @@
 				throw new Error('Aztec wallet not connected. Please connect your Azguard wallet.');
 			}
 
-			// Step 3: Check if GigaRoot has been synced to Aztec
+			// Step 3: Check if GigaRoot has been synced to Aztec and get its value
 			withdrawStep = 'checking-bridge';
 			withdrawMessage = 'Checking bridge sync status...';
 			
-			const gigaRootSynced = await validateGigaRootSynced(aztecWallet);
-			if (!gigaRootSynced) {
+			const gigaRoot = await getAztecGigaRoot(aztecWallet);
+			if (gigaRoot === null) {
 				throw new Error(
 					'GigaRoot has not been synced to Aztec yet. ' +
 					'Please wait for the bridge relayer to sync the root, or trigger a bridge sync manually.'
 				);
 			}
+			console.log('GigaRoot from Aztec:', gigaRoot.toString());
 
 			// Get recipient address from connected wallet
 			const accounts = await aztecWallet.getAccounts();
@@ -180,7 +244,8 @@
 				aztecWallet,
 				selectedProof.commitmentData,
 				SOURCE_CHAIN_ID,
-				recipientAddress
+				recipientAddress,
+				gigaRoot
 			);
 
 			// Step 6: Complete
@@ -254,15 +319,20 @@
 				onchange={handleFileUpload}
 				class="hidden"
 			/>
-			<Button variant="outline" onclick={triggerFileUpload} class="w-full">
+		<Button variant="outline" onclick={triggerFileUpload} class="w-full" disabled={isCheckingNullifier}>
+			{#if isCheckingNullifier}
+				<Loader2 class="size-4 mr-2 animate-spin" />
+				Checking note status...
+			{:else}
 				<Upload class="size-4 mr-2" />
 				Upload Proof (.txt)
-			</Button>
-			{#if uploadError}
-				<Alert variant="destructive">
-					<AlertDescription class="whitespace-pre-wrap">{uploadError}</AlertDescription>
-				</Alert>
 			{/if}
+		</Button>
+		{#if uploadError}
+			<Alert variant="destructive">
+				<AlertDescription class="whitespace-pre-wrap">{uploadError}</AlertDescription>
+			</Alert>
+		{/if}
 		</div>
 
 		<div class="text-center text-sm text-muted-foreground">

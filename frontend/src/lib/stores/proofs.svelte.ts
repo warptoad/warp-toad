@@ -4,6 +4,8 @@ import { createPublicClient, http } from 'viem';
 import { anvil } from 'viem/chains';
 import { walletStore } from './wallets.svelte';
 import { decodeNote } from '$lib/utils/evm-interactions';
+import { getWalletInstance } from '$lib/utils/aztec-wallet';
+import { getAztecWarpToadBalance, getAztecWarpToadDecimals } from '$lib/utils/aztec-interactions';
 
 const STORAGE_KEY = 'warptoad:proofs';
 
@@ -92,12 +94,29 @@ class ProofStore {
 	}
 
 	async getBalance(tokenInput: Token, chain: Chain): Promise<string> {
+		// Handle Aztec chain separately
+		if (chain === 'Aztec') {
+			return this.getAztecBalance();
+		}
+		
+		// EVM chains (Ethereum, Scroll)
 		const token = TOKEN_CONTRACTS.find(b => b.token === tokenInput);
 		if (!token) return '0.00';
 
 		// Map chain to address property
-		const chainKey = chain.toLowerCase() + "Address" as 'ethereumAddress' | 'scrollAddress' | 'aztecAddress';
-		// viem 
+		const chainKey = chain.toLowerCase() + "Address" as 'ethereumAddress' | 'scrollAddress';
+		const tokenAddress = token[chainKey];
+		
+		// Guard against missing address
+		if (!tokenAddress) {
+			console.log(`No token address configured for ${tokenInput} on ${chain}`);
+			return '0.00';
+		}
+		
+		// Check if EVM wallet is connected
+		if (!walletStore.wallets.evm) {
+			return 'Connect wallet';
+		}
 
 		const publicClient = createPublicClient({
 			chain: anvil,
@@ -105,13 +124,13 @@ class ProofStore {
 		})
 
 		const decimals = await publicClient.readContract({
-			address: token[chainKey] as `0x${string}`,
+			address: tokenAddress as `0x${string}`,
 			abi: USDcoinAbi,
 			functionName: 'decimals'
 		})
 
 		const data = await publicClient.readContract({
-			address: token[chainKey] as `0x${string}`,
+			address: tokenAddress as `0x${string}`,
 			abi: USDcoinAbi,
 			functionName: 'balanceOf',
 			args: [walletStore.wallets.evm as `0x${string}`]
@@ -120,6 +139,26 @@ class ProofStore {
 		const balance = Number(data) / 10 ** decimals
 
 		return String(balance) || '0.00';
+	}
+	
+	private async getAztecBalance(): Promise<string> {
+		const wallet = getWalletInstance();
+		if (!wallet) {
+			return 'Connect wallet';
+		}
+		
+		try {
+			const [balance, decimals] = await Promise.all([
+				getAztecWarpToadBalance(wallet),
+				getAztecWarpToadDecimals(wallet)
+			]);
+			
+			const formatted = Number(balance) / 10 ** decimals;
+			return formatted.toString();
+		} catch (error) {
+			console.error('Failed to get Aztec balance:', error);
+			return '0.00';
+		}
 	}
 
 	addProof(
@@ -163,6 +202,11 @@ class ProofStore {
 
 	findProofByNote(note: string): Proof | undefined {
 		return this._proofs.find(p => p.note === note);
+	}
+
+	deleteProof(proofId: string) {
+		this._proofs = this._proofs.filter(p => p.id !== proofId);
+		saveProofs(this._proofs);
 	}
 
 	// Download proof as .txt file

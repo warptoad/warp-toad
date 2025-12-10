@@ -17,13 +17,39 @@
 		CheckCircle2,
 	} from "@lucide/svelte";
 	import { walletStore } from "$lib/stores/wallets.svelte.js";
-	import { mintFreeTokens } from "$lib/utils/evm-interactions";
+	import { mintFreeTokens, triggerBridgeSync } from "$lib/utils/evm-interactions";
+	import { getChainId } from "$lib/utils/evm-wallet";
+	import { getAztecWarpToadBalance } from "$lib/utils/aztec-interactions";
+	import { getWalletInstance } from "$lib/utils/aztec-wallet";
 
 	interface Props {
 		open?: boolean;
 	}
 
 	let { open = $bindable(false) }: Props = $props();
+	
+	let isSyncing = $state(false);
+	let syncError = $state<string | null>(null);
+	let syncSuccess = $state<string | null>(null);
+	
+	async function handleTriggerBridgeSync() {
+		isSyncing = true;
+		syncError = null;
+		syncSuccess = null;
+		
+		try {
+			const chainId = await getChainId();
+			if (!chainId) throw new Error('Could not determine chain ID');
+			
+			const result = await triggerBridgeSync(chainId);
+			syncSuccess = `Bridge synced! GigaRoot updated: ${result.updateGigaRootTxHash.slice(0, 10)}...`;
+		} catch (error) {
+			console.error('Bridge sync error:', error);
+			syncError = error instanceof Error ? error.message : 'Failed to sync bridge';
+		} finally {
+			isSyncing = false;
+		}
+	}
 
 	async function handleConnectEVM() {
 		try {
@@ -49,6 +75,21 @@
 
 	async function handleDisconnectAztec() {
 		await walletStore.disconnectAztec();
+	}
+	
+	async function handleCheckAztecBalance() {
+		const wallet = getWalletInstance();
+		if (!wallet) {
+			console.error('Aztec wallet not connected');
+			return;
+		}
+		
+		try {
+			const balance = await getAztecWarpToadBalance(wallet);
+			console.log('Aztec WarpToad Balance:', balance.toString());
+		} catch (error) {
+			console.error('Failed to get Aztec balance:', error);
+		}
 	}
 </script>
 
@@ -86,6 +127,19 @@
 							}}
 						>
 							mint 100 test USDC
+						</Button>
+						
+						<Button
+							variant="secondary"
+							onclick={handleTriggerBridgeSync}
+							disabled={isSyncing}
+						>
+							{#if isSyncing}
+								<Loader2 class="size-4 mr-2 animate-spin" />
+								Syncing...
+							{:else}
+								Sync Bridge
+							{/if}
 						</Button>
 					</div>
 
@@ -142,6 +196,13 @@
 							<CheckCircle2 class="size-3" />
 							<span>Connected</span>
 						</div>
+						
+						<Button
+							variant="secondary"
+							onclick={handleCheckAztecBalance}
+						>
+							Check WarpToad Balance
+						</Button>
 					</div>
 
 					<Button
@@ -192,6 +253,24 @@
 				<AlertCircle class="size-4" />
 				<AlertDescription>
 					{walletStore.aztecError}
+				</AlertDescription>
+			</Alert>
+		{/if}
+		
+		{#if syncError}
+			<Alert variant="destructive">
+				<AlertCircle class="size-4" />
+				<AlertDescription>
+					{syncError}
+				</AlertDescription>
+			</Alert>
+		{/if}
+		
+		{#if syncSuccess}
+			<Alert>
+				<CheckCircle2 class="size-4" />
+				<AlertDescription>
+					{syncSuccess}
 				</AlertDescription>
 			</Alert>
 		{/if}

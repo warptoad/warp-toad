@@ -10,10 +10,11 @@
  */
 
 import type { CommitmentPreImage } from '$lib/types/bridge';
-import { createPublicClient, http, walletActions, type PublicClient } from 'viem';
+import { createPublicClient, http, keccak256, toHex, type PublicClient } from 'viem';
 import { getContractAddresses } from '$lib/contracts/addresses';
 import { GigaBridgeAbi } from '$lib/contracts/abis';
-import { poseidon2, poseidon3 } from 'poseidon-lite';
+import { poseidon1, poseidon2, poseidon3 } from 'poseidon-lite';
+import { MerkleTree, type Element } from 'fixed-merkle-tree';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { AztecNode } from '@aztec/aztec.js/node';
@@ -23,6 +24,8 @@ import { loadContractArtifact } from '@aztec/aztec.js/abi';
 import { getContractInstanceFromInstantiationParams, type ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
 import { AztecWarpToad } from '../../../../backend/scripts/deploy/aztec/aztecDeployments/31337/deployed_addresses.json'
 import { Fr } from '@aztec/aztec.js/fields';
+import { MerkleTreeId } from '@aztec/stdlib/trees';
+import { siloNullifier } from '@aztec/stdlib/hash';
 
 
 // =============================================================================
@@ -144,6 +147,14 @@ export function hashCommitment(preCommitment: bigint, amount: bigint): bigint {
 	return poseidon2([preCommitment, amount]);
 }
 
+/**
+ * Hash nullifier: poseidon1(nullifier_preimage)
+ * This matches the Noir circuit: poseidon::bn254::hash_1([nullifier_preimage])
+ */
+export function hashNullifier(nullifierPreimage: bigint): bigint {
+	return poseidon1([nullifierPreimage]);
+}
+
 // =============================================================================
 // EVM CLIENT HELPERS
 // =============================================================================
@@ -173,84 +184,39 @@ function createEvmClient(chainId: number, rpcUrl?: string): PublicClient {
 }
 
 // =============================================================================
-// MERKLE TREE IMPLEMENTATION
+// MERKLE TREE HELPERS
 // =============================================================================
 
 /**
- * Simple Merkle Tree using poseidon2 hash
- * Used to reconstruct trees from events and generate proofs
+ * Poseidon2 hash function wrapper for fixed-merkle-tree
+ * The library expects (left, right) => hash
  */
-class PoseidonMerkleTree {
-	private depth: number;
-	private leaves: bigint[];
-	private tree: bigint[][];
+const poseidonHashFunction = (left: Element, right: Element): string => {
+	const result = poseidon2([BigInt(left.toString()), BigInt(right.toString())]);
+	return result.toString();
+};
 
-	constructor(depth: number, leaves: bigint[]) {
-		this.depth = depth;
-		this.leaves = [...leaves];
-		this.tree = this.buildTree();
-	}
+/**
+ * Create a Poseidon merkle tree using fixed-merkle-tree library
+ * This handles sparse trees efficiently without allocating 2^depth elements
+ */
+function createPoseidonMerkleTree(depth: number, leaves: bigint[]): MerkleTree {
+	// Convert bigints to strings for the library
+	const leavesAsStrings = leaves.map(l => l.toString());
+	return new MerkleTree(depth, leavesAsStrings, { hashFunction: poseidonHashFunction });
+}
 
-	private buildTree(): bigint[][] {
-		const tree: bigint[][] = [];
+/**
+ * Get merkle proof from a tree
+ * Returns the path elements and leaf index in the format expected by the contract
+ */
+function getMerkleProof(tree: MerkleTree, leafValue: bigint): { pathElements: bigint[]; leafIndex: number } {
+	const proof = tree.proof(leafValue.toString() as Element);
 
-		// Level 0: leaves padded to full tree size
-		const fullSize = 2 ** this.depth;
-		tree[0] = [...this.leaves];
-		while (tree[0].length < fullSize) {
-			tree[0].push(0n);
-		}
-
-		// Build parent levels
-		for (let level = 0; level < this.depth; level++) {
-			const currentLevel = tree[level];
-			const nextLevel: bigint[] = [];
-
-			for (let i = 0; i < currentLevel.length; i += 2) {
-				const left = currentLevel[i] || 0n;
-				const right = currentLevel[i + 1] || 0n;
-				nextLevel.push(poseidon2([left, right]));
-			}
-
-			tree[level + 1] = nextLevel;
-		}
-
-		return tree;
-	}
-
-	getRoot(): bigint {
-		return this.tree[this.depth][0];
-	}
-
-	getProof(leafValue: bigint): { pathElements: bigint[]; leafIndex: number } {
-		// Find leaf index
-		let leafIndex = -1;
-		for (let i = 0; i < this.leaves.length; i++) {
-			if (this.leaves[i] === leafValue) {
-				leafIndex = i;
-				break;
-			}
-		}
-
-		if (leafIndex === -1) {
-			throw new Error(`Leaf ${leafValue} not found in tree`);
-		}
-
-		const pathElements: bigint[] = [];
-		let currentIndex = leafIndex;
-
-		for (let level = 0; level < this.depth; level++) {
-			const isLeft = currentIndex % 2 === 0;
-			const siblingIndex = isLeft ? currentIndex + 1 : currentIndex - 1;
-
-			const sibling = this.tree[level][siblingIndex] || 0n;
-			pathElements.push(sibling);
-
-			currentIndex = Math.floor(currentIndex / 2);
-		}
-
-		return { pathElements, leafIndex };
-	}
+	return {
+		pathElements: proof.pathElements.map(e => BigInt(e.toString())),
+		leafIndex: proof.pathIndices.reduce((acc, bit, i) => acc + (bit ? Math.pow(2, i) : 0), 0),
+	};
 }
 
 // =============================================================================
@@ -289,6 +255,8 @@ async function getBurnEvents(
 
 /**
  * Query ReceivedNewLocalRoot events from GigaBridge
+ * 
+ * Event signature: ReceivedNewLocalRoot(uint256 indexed newLocalRoot, uint40 indexed localRootIndex, uint256 localRootBlockNumber)
  */
 async function getLocalRootEvents(
 	publicClient: PublicClient,
@@ -301,9 +269,9 @@ async function getLocalRootEvents(
 			type: 'event',
 			name: 'ReceivedNewLocalRoot',
 			inputs: [
-				{ type: 'uint256', name: 'localRoot', indexed: false },
-				{ type: 'uint256', name: 'index', indexed: false },
-				{ type: 'uint256', name: 'blockNumber', indexed: false },
+				{ type: 'uint256', name: 'newLocalRoot', indexed: true },
+				{ type: 'uint40', name: 'localRootIndex', indexed: true },
+				{ type: 'uint256', name: 'localRootBlockNumber', indexed: false },
 			],
 		},
 		fromBlock: 0n,
@@ -311,19 +279,21 @@ async function getLocalRootEvents(
 	});
 
 	return logs.map((log) => ({
-		localRoot: log.args.localRoot as bigint,
-		index: Number(log.args.index),
-		blockNumber: Number(log.args.blockNumber),
+		localRoot: log.args.newLocalRoot as bigint,
+		index: Number(log.args.localRootIndex),
+		blockNumber: Number(log.args.localRootBlockNumber),
 		eventBlockNumber: log.blockNumber,
 	}));
 }
 
 /**
  * Query ConstructedNewGigaRoot events from GigaBridge
+ * @param filterGigaRoot - If provided, only returns events for this specific gigaRoot value
  */
 async function getGigaRootEvents(
 	publicClient: PublicClient,
-	gigaBridgeAddress: string
+	gigaBridgeAddress: string,
+	filterGigaRoot?: bigint
 ): Promise<Array<{ gigaRoot: bigint; blockNumber: bigint; transactionHash: `0x${string}` }>> {
 	const logs = await publicClient.getLogs({
 		address: gigaBridgeAddress as `0x${string}`,
@@ -331,15 +301,17 @@ async function getGigaRootEvents(
 			type: 'event',
 			name: 'ConstructedNewGigaRoot',
 			inputs: [
-				{ type: 'uint256', name: 'gigaRoot', indexed: true },
+				{ type: 'uint256', name: 'newGigaRoot', indexed: true },
 			],
 		},
+		// Filter by specific gigaRoot if provided (indexed parameter)
+		args: filterGigaRoot ? { newGigaRoot: filterGigaRoot } : undefined,
 		fromBlock: 0n,
 		toBlock: 'latest',
 	});
 
 	return logs.map((log) => ({
-		gigaRoot: log.args.gigaRoot as bigint,
+		gigaRoot: log.args.newGigaRoot as bigint,
 		blockNumber: log.blockNumber,
 		transactionHash: log.transactionHash,
 	}));
@@ -356,7 +328,8 @@ async function getEvmMerkleData(
 	publicClient: PublicClient,
 	warpToadAddress: string,
 	commitment: bigint,
-	localRootBlockNumber: number
+	localRootBlockNumber: number,
+	expectedLocalRoot: bigint
 ): Promise<EvmMerkleData> {
 	// Get all burn events up to the local root block
 	const burnEvents = await getBurnEvents(
@@ -394,9 +367,23 @@ async function getEvmMerkleData(
 		}
 	}
 
-	// Build merkle tree and get proof
-	const tree = new PoseidonMerkleTree(EVM_TREE_DEPTH, sortedLeaves);
-	const proof = tree.getProof(commitment);
+	// Build merkle tree and get proof using fixed-merkle-tree
+	const tree = createPoseidonMerkleTree(EVM_TREE_DEPTH, sortedLeaves);
+	
+	// Validate the recreated tree root matches the expected local root
+	const computedRoot = BigInt(tree.root);
+	console.log('EVM tree - computed root:', computedRoot.toString());
+	console.log('EVM tree - expected local root:', expectedLocalRoot.toString());
+	
+	if (computedRoot !== expectedLocalRoot) {
+		throw new Error(
+			`Could not recreate the localRoot with events. ` +
+			`Computed: ${computedRoot}, Expected: ${expectedLocalRoot}. ` +
+			`This may indicate missing burn events or an incorrect block number.`
+		);
+	}
+	
+	const proof = getMerkleProof(tree, commitment);
 
 	return {
 		leaf_index: BigInt(proof.leafIndex),
@@ -412,7 +399,8 @@ async function getGigaMerkleData(
 	gigaBridgeAddress: string,
 	localRoot: bigint,
 	localRootIndex: number,
-	gigaRootBlockNumber: number
+	gigaRootBlockNumber: number,
+	expectedGigaRoot: bigint
 ): Promise<EvmMerkleData> {
 	// Get all local root events up to the giga root block
 	const localRootEvents = await getLocalRootEvents(
@@ -458,9 +446,24 @@ async function getGigaMerkleData(
 		);
 	}
 
-	// Build merkle tree and get proof
-	const tree = new PoseidonMerkleTree(GIGA_TREE_DEPTH, sortedLeaves);
-	const proof = tree.getProof(localRoot);
+	// Build merkle tree and get proof using fixed-merkle-tree
+	const tree = createPoseidonMerkleTree(GIGA_TREE_DEPTH, sortedLeaves);
+	
+	// Validate the recreated giga tree root matches the expected gigaRoot
+	const computedGigaRoot = BigInt(tree.root);
+	console.log('Giga tree - computed root:', computedGigaRoot.toString());
+	console.log('Giga tree - expected gigaRoot:', expectedGigaRoot.toString());
+	console.log('Giga tree - sorted leaves:', sortedLeaves.map(l => l.toString()));
+	
+	if (computedGigaRoot !== expectedGigaRoot) {
+		throw new Error(
+			`Could not recreate the gigaRoot with events. ` +
+			`Computed: ${computedGigaRoot}, Expected: ${expectedGigaRoot}. ` +
+			`This may indicate missing local root events or an incorrect block number.`
+		);
+	}
+	
+	const proof = getMerkleProof(tree, localRoot);
 
 	return {
 		leaf_index: BigInt(localRootIndex),
@@ -469,64 +472,79 @@ async function getGigaMerkleData(
 }
 
 /**
- * Get local root data from GigaBridge events
+ * Get local root data from GigaBridge events for a specific gigaRoot
+ * 
+ * This function finds the transaction where the specific gigaRoot was constructed,
+ * then extracts the local root data from the ReceivedNewLocalRoot events in that transaction.
+ * 
+ * @param gigaRoot - The specific gigaRoot value to find (from the Aztec contract)
  */
 async function getLocalRootData(
 	publicClient: PublicClient,
 	gigaBridgeAddress: string,
-	warpToadL1Address: string
+	warpToadL1Address: string,
+	gigaRoot: bigint
 ): Promise<LocalRootData> {
 	// Get local root index for L1WarpToad
 	const localRootIndexRaw = await publicClient.readContract({
 		address: gigaBridgeAddress as `0x${string}`,
 		abi: GigaBridgeAbi,
 		functionName: 'getLocalRootProvidersIndex',
-		args: [warpToadL1Address as `0x${string}`],
+		args: [warpToadL1Address as `0x${string}`], //@TODO warpToadL1Address change to be more ambigious for all potential evm chains.
 	});
 	const localRootIndex = Number(localRootIndexRaw);
+	console.log('L1WarpToad local root index:', localRootIndex);
 
-	// Get latest GigaRoot event
-	const gigaRootEvents = await getGigaRootEvents(publicClient, gigaBridgeAddress);
+	// Get GigaRoot event for THIS SPECIFIC gigaRoot value
+	// This ensures we find the exact transaction that created the gigaRoot stored on Aztec
+	const gigaRootEvents = await getGigaRootEvents(publicClient, gigaBridgeAddress, gigaRoot);
 
 	if (gigaRootEvents.length === 0) {
+		console.error(`No ConstructedNewGigaRoot event found for gigaRoot: ${gigaRoot}`);
 		throw new Error(
-			'No giga root events found. The bridge may not have been synced yet. ' +
-			'Please ensure the bridging process has completed.'
+			`GigaRoot ${gigaRoot} not found in L1 events. ` +
+			'The bridge state may be inconsistent, or the gigaRoot was constructed on a different chain.'
 		);
 	}
 
-	// Get most recent giga root event
-	const latestGigaRootEvent = gigaRootEvents[gigaRootEvents.length - 1];
-	const gigaRootBlockNumber = Number(latestGigaRootEvent.blockNumber);
+	// Get the event for this gigaRoot (should be the most recent one if there are duplicates)
+	const gigaRootEvent = gigaRootEvents[gigaRootEvents.length - 1];
+	const gigaRootBlockNumber = Number(gigaRootEvent.blockNumber);
+	console.log(`Found ConstructedNewGigaRoot event at L1 block ${gigaRootBlockNumber}, tx: ${gigaRootEvent.transactionHash}`);
 
 	// Get transaction receipt to find local root events in the same tx
 	const receipt = await publicClient.getTransactionReceipt({
-		hash: latestGigaRootEvent.transactionHash,
+		hash: gigaRootEvent.transactionHash,
 	});
 
 	// Parse ReceivedNewLocalRoot events from the same transaction
+	// Event: ReceivedNewLocalRoot(uint256 indexed newLocalRoot, uint40 indexed localRootIndex, uint256 localRootBlockNumber)
+	// - topics[0]: event signature hash
+	// - topics[1]: newLocalRoot (indexed, padded to 32 bytes)
+	// - topics[2]: localRootIndex (indexed, uint40 padded to 32 bytes)
+	// - data: localRootBlockNumber (not indexed)
 	let localRoot: bigint | null = null;
 	let localRootL2BlockNumber = 0;
 
+	// Calculate event signature: keccak256("ReceivedNewLocalRoot(uint256,uint40,uint256)")
+	const eventSignature = keccak256(toHex('ReceivedNewLocalRoot(uint256,uint40,uint256)'));
+
 	for (const log of receipt.logs) {
 		try {
-			// Check if this is a ReceivedNewLocalRoot event
-			if (log.topics[0] === '0x' + 'ReceivedNewLocalRoot event signature') {
-				// Manual decoding since we can't use parseLog easily
-				continue;
-			}
+			// Check if this is a ReceivedNewLocalRoot event by matching signature
+			if (log.topics[0] === eventSignature && log.topics.length >= 3 && log.topics[1] && log.topics[2]) {
+				// Indexed parameters are in topics (padded to 32 bytes)
+				const decodedLocalRoot = BigInt(log.topics[1]);
+				const decodedIndex = Number(BigInt(log.topics[2]));
+				// Non-indexed parameter is in data
+				const decodedBlockNumber = log.data ? BigInt(log.data) : 0n;
 
-			// Try to match by checking if log has the right structure
-			// ReceivedNewLocalRoot(uint256 localRoot, uint256 index, uint256 blockNumber)
-			if (log.data && log.data.length >= 194) { // 0x + 3 * 64 hex chars
-				const data = log.data.slice(2); // Remove 0x
-				const decodedLocalRoot = BigInt('0x' + data.slice(0, 64));
-				const decodedIndex = BigInt('0x' + data.slice(64, 128));
-				const decodedBlockNumber = BigInt('0x' + data.slice(128, 192));
+				console.log(`Found ReceivedNewLocalRoot: index=${decodedIndex}, localRoot=${decodedLocalRoot}, blockNumber=${decodedBlockNumber}`);
 
-				if (Number(decodedIndex) === localRootIndex) {
+				if (decodedIndex === localRootIndex) {
 					localRoot = decodedLocalRoot;
 					localRootL2BlockNumber = Number(decodedBlockNumber);
+					console.log(`Matched local root for L1WarpToad (index ${localRootIndex}): ${localRoot}`);
 					break;
 				}
 			}
@@ -535,8 +553,9 @@ async function getLocalRootData(
 		}
 	}
 
-	// If we couldn't find it in the transaction, query events directly
+	// If we couldn't find it in the transaction, query events directly as fallback
 	if (!localRoot) {
+		console.log('Local root not found in transaction logs, querying events directly...');
 		const localRootEvents = await getLocalRootEvents(
 			publicClient,
 			gigaBridgeAddress,
@@ -547,10 +566,12 @@ async function getLocalRootData(
 		if (matchingEvent) {
 			localRoot = matchingEvent.localRoot;
 			localRootL2BlockNumber = matchingEvent.blockNumber;
+			console.log(`Found local root from events: ${localRoot} at block ${localRootL2BlockNumber}`);
 		}
 	}
 
 	if (!localRoot) {
+		console.error(`Local root for L1WarpToad (index ${localRootIndex}) not found in gigaRoot construction tx`);
 		throw new Error(
 			`Local root for L1WarpToad (index ${localRootIndex}) not found in giga root construction. ` +
 			'The L1 local root may not have been included in this giga root.'
@@ -574,13 +595,13 @@ async function getLocalRootData(
  * 
  * @param sourceChainId - The chain ID where the burn happened (e.g., 31337 for anvil)
  * @param commitment - The commitment hash from the burn
- * @param aztecWallet - Connected Aztec wallet
+ * @param gigaRoot - The specific gigaRoot value from the Aztec contract (ensures consistency)
  * @returns Merkle data for the mint transaction
  */
 export async function getMerkleData(
 	sourceChainId: number,
 	commitment: bigint,
-	_aztecWallet: Wallet // Currently unused, but kept for future Aztec-specific merkle data
+	gigaRoot: bigint
 ): Promise<MerkleDataResult> {
 	const addresses = getContractAddresses(sourceChainId);
 
@@ -593,12 +614,14 @@ export async function getMerkleData(
 
 	const publicClient = createEvmClient(sourceChainId);
 
-	// Step 1: Get local root data from GigaBridge
-	console.log('Getting local root data from GigaBridge...');
+	// Step 1: Get local root data from GigaBridge for THIS SPECIFIC gigaRoot
+	// This ensures we build proofs against the exact gigaRoot stored on Aztec
+	console.log('Getting local root data from GigaBridge for gigaRoot:', gigaRoot.toString());
 	const localRootData = await getLocalRootData(
 		publicClient,
 		addresses.GigaBridge,
-		addresses.L1WarpToad
+		addresses.L1WarpToad,
+		gigaRoot
 	);
 	console.log('Local root data:', localRootData);
 
@@ -608,7 +631,8 @@ export async function getMerkleData(
 		publicClient,
 		addresses.L1WarpToad,
 		commitment,
-		localRootData.localRootBlockNumber
+		localRootData.localRootBlockNumber,
+		localRootData.localRoot
 	);
 	console.log('EVM merkle proof built');
 
@@ -619,13 +643,18 @@ export async function getMerkleData(
 		addresses.GigaBridge,
 		localRootData.localRoot,
 		localRootData.localRootIndex,
-		localRootData.gigaRootBlockNumber
+		localRootData.gigaRootBlockNumber,
+		gigaRoot
 	);
 	console.log('Giga merkle proof built');
 
-	// Step 4: Get current Aztec block number for historical state read
+	// Step 4: Get Aztec block number for historical state read
+	// Use current block number - the backend does this and it works
+	// The gigaRoot should already be stored at or before this block
 	const aztecNode = await getAztecNode();
 	const blockNumber = await aztecNode.getBlockNumber();
+
+	console.log(`Using Aztec block ${blockNumber} for historical read`);
 
 	return {
 		blockNumber,
@@ -633,6 +662,37 @@ export async function getMerkleData(
 		gigaMerkleData,
 		evmMerkleData,
 	};
+}
+
+// =============================================================================
+// AZTEC BALANCE
+// =============================================================================
+
+/**
+ * Get the WarpToad token balance for the connected Aztec wallet
+ */
+export async function getAztecWarpToadBalance(wallet: Wallet): Promise<bigint> {
+	const contract = await getWarpToadContract(wallet);
+	const accounts = await wallet.getAccounts();
+	const ownerAddress = accounts[0].item;
+
+	// Call the unconstrained balance_of function
+	const balance = await contract.methods.balance_of(ownerAddress).simulate({ from: ownerAddress });
+
+	console.log('Aztec WarpToad Balance:', balance.toString());
+	return BigInt(balance.toString());
+}
+
+/**
+ * Get the WarpToad token decimals from the Aztec contract
+ */
+export async function getAztecWarpToadDecimals(wallet: Wallet): Promise<number> {
+	const contract = await getWarpToadContract(wallet);
+	const accounts = await wallet.getAccounts();
+	const from = accounts[0].item;
+
+	const decimals = await contract.methods.get_decimals().simulate({ from });
+	return Number(decimals);
 }
 
 // =============================================================================
@@ -703,21 +763,153 @@ export async function validateCommitmentExists(
 }
 
 /**
- * Check if the GigaRoot has been synced to Aztec
+ * Check if the GigaRoot has been synced to Aztec and return its value
+ * @returns The gigaRoot value if synced (non-zero), null if not synced or error
  */
-export async function validateGigaRootSynced(aztecWallet: Wallet): Promise<boolean> {
+export async function getAztecGigaRoot(aztecWallet: Wallet): Promise<bigint | null> {
 	try {
 		const contract = await getWarpToadContract(aztecWallet);
 		const accounts = await aztecWallet.getAccounts();
 		const from = accounts[0].item;
 
-		console.log(accounts)
-
 		const gigaRoot = await contract.methods.get_giga_root().simulate({ from });
-		return gigaRoot !== 0n;
+
+		// Convert Fr/Field object to bigint for proper comparison
+		// Fr objects have a toBigInt() method or can be converted via toString()
+		const gigaRootValue = typeof gigaRoot === 'bigint'
+			? gigaRoot
+			: BigInt(gigaRoot.toString());
+
+		console.log('GigaRoot from Aztec contract:', gigaRootValue.toString());
+
+		// Return null if gigaRoot is 0 (not synced)
+		if (gigaRootValue === 0n) {
+			return null;
+		}
+
+		return gigaRootValue;
 	} catch (error) {
-		console.error('Error checking giga root:', error);
-		return false;
+		console.error('Error getting giga root from Aztec:', error);
+		return null;
+	}
+}
+
+/**
+ * Check if the GigaRoot has been synced to Aztec (convenience wrapper)
+ */
+export async function validateGigaRootSynced(aztecWallet: Wallet): Promise<boolean> {
+	const gigaRoot = await getAztecGigaRoot(aztecWallet);
+	return gigaRoot !== null;
+}
+
+/**
+ * Result of nullifier check
+ */
+export interface NullifierCheckResult {
+	/** Whether the nullifier has been spent */
+	isSpent: boolean;
+	/** Whether the check was successful (could connect to node) */
+	success: boolean;
+	/** Error message if check failed */
+	error?: string;
+}
+
+/**
+ * Check if a nullifier has been spent on Aztec
+ * 
+ * This queries the Aztec node's nullifier tree to check if a nullifier exists.
+ * If the nullifier exists in the tree, it means the note has already been withdrawn.
+ * 
+ * IMPORTANT: Aztec siloes nullifiers before storing them in the tree.
+ * The siloed nullifier = poseidon2([contract_address, inner_nullifier], GENERATOR_INDEX.OUTER_NULLIFIER)
+ * 
+ * @param siloedNullifier - The siloed nullifier (already processed with contract address)
+ * @returns NullifierCheckResult with isSpent status and success/error info
+ */
+export async function isNullifierSpent(siloedNullifier: Fr): Promise<NullifierCheckResult> {
+	try {
+		const aztecNode = await getAztecNode();
+		
+		// Query the nullifier tree to check if this nullifier exists
+		// Using findLeavesIndexes with NULLIFIER_TREE is the correct way to check existence
+		// If the nullifier is found (index !== undefined), it has been spent
+		const [nullifierIndex] = await aztecNode.findLeavesIndexes(
+			'latest',
+			MerkleTreeId.NULLIFIER_TREE,
+			[siloedNullifier]
+		);
+		
+		const isSpent = nullifierIndex !== undefined;
+		console.log(`Siloed nullifier ${siloedNullifier.toString().slice(0, 20)}... spent: ${isSpent}`);
+		
+		return { isSpent, success: true };
+	} catch (error) {
+		console.error('Error checking nullifier status:', error);
+		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+		
+		// Check if it's a connection error
+		if (errorMessage.includes('connect') || errorMessage.includes('ECONNREFUSED') || errorMessage.includes('fetch')) {
+			return { 
+				isSpent: false, 
+				success: false, 
+				error: 'Could not connect to Aztec node. Make sure the sandbox is running.' 
+			};
+		}
+		
+		return { 
+			isSpent: false, 
+			success: false, 
+			error: `Failed to check nullifier: ${errorMessage}` 
+		};
+	}
+}
+
+/**
+ * Check if a note has already been used/withdrawn on Aztec
+ * 
+ * This function:
+ * 1. Computes the inner nullifier from the preimage: poseidon1([nullifier_preimage])
+ * 2. Siloes it with the WarpToad contract address: poseidon2([contract, nullifier], OUTER_NULLIFIER)
+ * 3. Looks up the siloed nullifier in the Aztec nullifier tree
+ * 
+ * @param nullifierPreimage - The nullifier preimage from the note data
+ * @returns NullifierCheckResult with isSpent status and success/error info
+ */
+export async function isNoteUsed(nullifierPreimage: bigint): Promise<NullifierCheckResult> {
+	try {
+		// Step 1: Compute inner nullifier (same as Noir circuit)
+		const innerNullifier = hashNullifier(nullifierPreimage);
+		const innerNullifierFr = Fr.fromString(innerNullifier.toString());
+		
+		// Step 2: Get the WarpToad contract address
+		const warpToadAddressStr = AztecWarpToad.address;
+		if (!warpToadAddressStr) {
+			return {
+				isSpent: false,
+				success: false,
+				error: 'WarpToad contract address not configured'
+			};
+		}
+		const warpToadAddress = AztecAddress.fromString(warpToadAddressStr);
+		
+		// Step 3: Silo the nullifier with the contract address
+		// This matches what Aztec does internally when context.push_nullifier() is called
+		const siloedNullifier = await siloNullifier(warpToadAddress, innerNullifierFr);
+		
+		console.log(`Inner nullifier: ${innerNullifier.toString().slice(0, 20)}...`);
+		console.log(`WarpToad address: ${warpToadAddress.toString()}`);
+		console.log(`Siloed nullifier: ${siloedNullifier.toString().slice(0, 20)}...`);
+		
+		// Step 4: Check if siloed nullifier exists in the tree
+		return isNullifierSpent(siloedNullifier);
+	} catch (error) {
+		console.error('Error in isNoteUsed:', error);
+		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+		return {
+			isSpent: false,
+			success: false,
+			error: `Failed to check note status: ${errorMessage}`
+		};
 	}
 }
 
@@ -725,31 +917,63 @@ export async function validateGigaRootSynced(aztecWallet: Wallet): Promise<boole
 // MINT FROM EVM (MAIN WITHDRAW FUNCTION)
 // =============================================================================
 
+
+/**
+ * Little sanity check for merkle root compute
+ */
+function computeMerkleRootFromPath(
+	leaf: bigint,
+	leafIndex: bigint,
+	hashPath: bigint[],
+): bigint {
+	let acc = leaf;
+	let index = leafIndex;
+
+	for (const sibling of hashPath) {
+		if ((index & 1n) === 0n) {
+			// leaf is on the left
+
+			acc = poseidon2([acc, sibling]); // same hash + ordering as Noir
+		} else {
+			// leaf is on the right
+			acc = poseidon2([sibling, acc]);
+		}
+		index >>= 1n;
+	}
+
+	return acc;
+}
+
+
+
 /**
  * Mint tokens on Aztec from an L1 burn commitment
  * 
  * This is the main withdraw function that:
- * 1. Validates the commitment exists on L1
- * 2. Builds merkle proofs for the commitment
+ * 1. Gets the current gigaRoot from Aztec to ensure proof consistency
+ * 2. Builds merkle proofs for the commitment against that specific gigaRoot
  * 3. Calls mint_giga_root_evm on the Aztec WarpToad contract
  * 
  * @param wallet - Connected Aztec wallet (from Azguard)
  * @param commitmentData - The commitment pre-image (secret, nullifier_preimg, amount, chain_id)
  * @param sourceChainId - The L1 chain ID where the burn happened
  * @param recipientAddress - Aztec address to receive the tokens
+ * @param gigaRoot - The gigaRoot value from Aztec contract (from getAztecGigaRoot)
  * @returns Transaction hash
  */
 export async function mintFromEVM(
 	wallet: Wallet,
 	commitmentData: CommitmentPreImage,
 	sourceChainId: number,
-	recipientAddress: string
+	recipientAddress: string,
+	gigaRoot: bigint
 ): Promise<string> {
 	console.log('Starting mintFromEVM...');
 	console.log('Commitment data:', {
 		amount: commitmentData.amount.toString(),
 		destination_chain_id: commitmentData.destination_chain_id.toString(),
 	});
+	console.log('Using gigaRoot from Aztec:', gigaRoot.toString());
 
 	// Get the WarpToad contract
 	const contract = await getWarpToadContract(wallet);
@@ -765,12 +989,39 @@ export async function mintFromEVM(
 	const commitment = hashCommitment(preCommitment, commitmentData.amount);
 	console.log('Calculated commitment:', commitment.toString());
 
-	// Step 2: Get merkle data
+	// Step 2: Get merkle data using the specific gigaRoot from Aztec
+	// This ensures the proofs are built against the exact gigaRoot stored on Aztec
 	console.log('Getting merkle data...');
-	const merkleData = await getMerkleData(sourceChainId, commitment, wallet);
-	console.log('Merkle data retrieved:', {
+	const merkleData = await getMerkleData(sourceChainId, commitment, gigaRoot);
+	console.log('Merkle data retrieved:', merkleData);
+
+	const evmRootFromPath = computeMerkleRootFromPath(
+		commitment,
+		BigInt(merkleData.evmMerkleData.leaf_index),
+		merkleData.evmMerkleData.hash_path.map(BigInt),
+	);
+
+	console.log('[mintFromEVM] EVM path recomputed root matches? :', evmRootFromPath.toString() === merkleData.originLocalRoot.toString());
+
+	const gigaRootFromPath = computeMerkleRootFromPath(
+		merkleData.originLocalRoot,
+		BigInt(merkleData.gigaMerkleData.leaf_index),
+		merkleData.gigaMerkleData.hash_path.map(BigInt),
+	);
+
+	console.log('[mintFromEVM] Giga path recomputed root matches? :', gigaRootFromPath.toString() === gigaRoot.toString());
+
+	console.log('[mintFromEVM] Raw merkleData:', {
 		blockNumber: merkleData.blockNumber,
 		originLocalRoot: merkleData.originLocalRoot.toString(),
+		gigaMerkleData: {
+			leaf_index: merkleData.gigaMerkleData.leaf_index.toString(),
+			hash_path: merkleData.gigaMerkleData.hash_path.map(x => x.toString()),
+		},
+		evmMerkleData: {
+			leaf_index: merkleData.evmMerkleData.leaf_index.toString(),
+			hash_path: merkleData.evmMerkleData.hash_path.map(x => x.toString()),
+		},
 	});
 
 	// Step 3: Prepare recipient address
@@ -797,6 +1048,23 @@ export async function mintFromEVM(
 		block_number: merkleData.blockNumber,
 		origin_local_root: merkleData.originLocalRoot.toString(),
 	});
+
+	console.log('[mintFromEVM] Expected relationships:', {
+		// Noir checks: commit -> originLocalRoot
+		commitment: commitment.toString(),
+		originLocalRoot: merkleData.originLocalRoot.toString(),
+
+		// Noir checks: originLocalRoot -> gigaRoot
+		gigaRoot: gigaRoot.toString(),
+
+		// Historical read in Noir:
+		aztecBlockNumber: merkleData.blockNumber,
+	});
+
+
+	const blockTx = await contract.methods.get_root_from_block(merkleData.blockNumber).simulate({ from })
+
+	console.log("\n")
 
 	// Step 5: Call mint_giga_root_evm
 	// Function signature from Noir:

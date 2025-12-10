@@ -442,3 +442,105 @@ export async function mintFreeTokens(tokenInput: Token, chain: Chain, amount: nu
     }
 
 }
+
+/**
+ * BRIDGE SYNC FUNCTIONS
+ * These functions trigger the bridge sync process (updateGigaRoot + sendGigaRoot)
+ * This is typically done by a relayer, but can be triggered manually by a user with an L1 wallet
+ */
+
+import { GigaBridgeAbi, L1WarpToadAbi as WarpToadAbi } from '$lib/contracts/abis';
+
+/**
+ * Trigger a bridge sync: updates the gigaRoot and sends it to all recipients
+ * This calls:
+ * 1. L1WarpToad.storeLocalRootInHistory() - to cache the current local root
+ * 2. GigaBridge.updateGigaRoot() - to collect local roots and compute new gigaRoot  
+ * 3. GigaBridge.sendGigaRoot() - to send the gigaRoot to all recipients
+ * 
+ * @param chainId - The L1 chain ID
+ * @returns Transaction hashes for each step
+ */
+export async function triggerBridgeSync(chainId: number): Promise<{
+	storeRootTxHash?: string;
+	updateGigaRootTxHash: string;
+	sendGigaRootTxHash: string;
+}> {
+	const client = createClient(chainId);
+	if (!client) throw new Error('Failed to create wallet client');
+	
+	const publicClient = createPublicClient({
+		chain: client.chain,
+		transport: http()
+	});
+	
+	const addresses = getContractAddresses(chainId);
+	if (!addresses.GigaBridge) throw new Error('GigaBridge address not found');
+	if (!addresses.L1WarpToad) throw new Error('L1WarpToad address not found');
+	
+	const userAddress = (await client.getAddresses())[0];
+	
+	// Step 1: Store local root in history (for L1WarpToad)
+	console.log('Step 1: Storing local root in history...');
+	let storeRootTxHash: string | undefined;
+	try {
+		const { request: storeRequest } = await publicClient.simulateContract({
+			address: addresses.L1WarpToad as `0x${string}`,
+			abi: WarpToadAbi,
+			account: userAddress,
+			functionName: 'storeLocalRootInHistory',
+		});
+		
+		const storeHash = await client.writeContract(storeRequest);
+		await publicClient.waitForTransactionReceipt({ hash: storeHash });
+		storeRootTxHash = storeHash;
+		console.log('Local root stored:', storeRootTxHash);
+	} catch (error) {
+		// This might fail if no new burns since last store, which is OK
+		console.log('storeLocalRootInHistory skipped (no new burns or already stored)');
+	}
+	
+	// Step 2: Update gigaRoot - collect local roots from all providers
+	console.log('Step 2: Updating gigaRoot...');
+	
+	// Get local root providers - for now just L1WarpToad
+	// In production, this would include L1AztecBridgeAdapter, L1ScrollBridgeAdapter, etc.
+	const localRootProviders = [addresses.L1WarpToad];
+	
+	const { request: updateRequest } = await publicClient.simulateContract({
+		address: addresses.GigaBridge as `0x${string}`,
+		abi: GigaBridgeAbi,
+		account: userAddress,
+		functionName: 'updateGigaRoot',
+		args: [localRootProviders as `0x${string}`[]],
+	});
+	
+	const updateHash = await client.writeContract(updateRequest);
+	await publicClient.waitForTransactionReceipt({ hash: updateHash });
+	console.log('GigaRoot updated:', updateHash);
+	
+	// Step 3: Send gigaRoot to all recipients
+	console.log('Step 3: Sending gigaRoot to recipients...');
+	
+	// Recipients are the same as providers for simplicity
+	// amounts are 0 for non-payable recipients (L1WarpToad)
+	const amounts = localRootProviders.map(() => 0n);
+	
+	const { request: sendRequest } = await publicClient.simulateContract({
+		address: addresses.GigaBridge as `0x${string}`,
+		abi: GigaBridgeAbi,
+		account: userAddress,
+		functionName: 'sendGigaRoot',
+		args: [localRootProviders as `0x${string}`[], amounts],
+	});
+	
+	const sendHash = await client.writeContract(sendRequest);
+	await publicClient.waitForTransactionReceipt({ hash: sendHash });
+	console.log('GigaRoot sent:', sendHash);
+	
+	return {
+		storeRootTxHash,
+		updateGigaRootTxHash: updateHash,
+		sendGigaRootTxHash: sendHash,
+	};
+}
