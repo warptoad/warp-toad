@@ -25,7 +25,12 @@
 		type Token,
 	} from "$lib/types/bridge.js";
 	import { bridgeToChain } from "$lib/utils/evm-interactions.js";
-	import { getAztecChainId } from "$lib/utils/aztec-interactions.js";
+	import { 
+		getAztecChainId, 
+		burnOnAztec, 
+		encodeAztecNote,
+		getAztecWarpToadDecimals 
+	} from "$lib/utils/aztec-interactions.js";
 	import { getWalletInstance } from "$lib/utils/aztec-wallet.js";
 
 	let sourceChain = $state<Chain>("Ethereum");
@@ -48,11 +53,25 @@
 	}>({});
 
 	/**
-	 * Get the destination chain ID based on target chain
-	 * For Aztec: queries the contract for the correct chain ID (poseidon2 of version)
-	 * For EVM chains: uses the standard chain ID
+	 * Get the destination chain ID based on source and target chain
+	 * 
+	 * When bridging FROM Aztec: returns the EVM target chain ID
+	 * When bridging TO Aztec: queries the contract for poseidon2([salt, version])
+	 * For EVM-to-EVM: returns the target chain's standard ID
 	 */
 	async function getDestinationChainId(): Promise<bigint> {
+		// Bridging FROM Aztec to L1
+		if (sourceChain === "Aztec") {
+			if (targetChain === "Ethereum") {
+				// Localhost or mainnet
+				return 31337n; // TODO: detect mainnet vs localhost
+			} else if (targetChain === "Scroll") {
+				return 534351n;
+			}
+			throw new Error(`Unsupported target chain: ${targetChain}`);
+		}
+		
+		// Bridging TO Aztec (from EVM)
 		if (targetChain === "Aztec") {
 			const aztecWallet = getWalletInstance();
 			if (!aztecWallet) {
@@ -66,7 +85,25 @@
 			return 534351n;
 		} else {
 			// Ethereum mainnet or localhost (anvil)
-			// For localhost, we use 31337
+			return 31337n;
+		}
+	}
+	
+	/**
+	 * Get the source chain ID for encoding in the note
+	 * Used to track where the burn originated from
+	 */
+	async function getSourceChainId(): Promise<bigint> {
+		if (sourceChain === "Aztec") {
+			const aztecWallet = getWalletInstance();
+			if (!aztecWallet) {
+				throw new Error("Aztec wallet not connected");
+			}
+			return await getAztecChainId(aztecWallet);
+		} else if (sourceChain === "Scroll") {
+			return 534351n;
+		} else {
+			// Ethereum
 			return 31337n;
 		}
 	}
@@ -152,53 +189,31 @@
 		lastError = null;
 
 		try {
-			// Step 1: Preparing - get the correct destination chain ID
+			// Step 1: Preparing - get chain IDs
 			generationStep = "preparing";
-			generationMessage = "Fetching destination chain ID...";
+			generationMessage = "Fetching chain IDs...";
 			
-			// Get the correct chain ID for the destination
-			// For Aztec: this queries the contract for poseidon2([salt, version])
-			// For EVM: this uses the standard chain ID
 			const destinationChainId = await getDestinationChainId();
+			const sourceChainId = await getSourceChainId();
+			console.log("Source chain ID:", sourceChainId.toString());
 			console.log("Destination chain ID:", destinationChainId.toString());
 
-			// Step 2: Approving tokens
-			generationStep = "approving";
-			generationMessage = "Approving tokens...";
-			
-			// Step 3: Wrapping tokens
-			generationStep = "wrapping";
-			generationMessage = "Wrapping tokens...";
-			
-			// Step 4: Burning and creating commitment
-			generationStep = "burning";
-			generationMessage = "Burning tokens and creating commitment...";
-			
-			const bridgeResult = await bridgeToChain(
-				selectedToken,
-				sourceChain,
-				targetChain,
-				amount,
-				destinationChainId
-			);
+			// Branch based on source chain type
+			if (sourceChain === "Aztec") {
+				// ==========================================
+				// AZTEC -> L1 FLOW
+				// ==========================================
+				await bridgeFromAztec(sourceChainId, destinationChainId);
+			} else {
+				// ==========================================
+				// EVM -> AZTEC/EVM FLOW (existing logic)
+				// ==========================================
+				await bridgeFromEvm(destinationChainId);
+			}
 
-			// Step 5: Complete
+			// Step: Complete
 			generationStep = "complete";
 			generationMessage = "Bridge complete! Note generated successfully.";
-
-			// Add proof and download
-			const proof = proofStore.addProof(
-				amount,
-				selectedToken,
-				sourceChain,
-				targetChain,
-				bridgeResult.note,
-				bridgeResult.commitmentPreImg,
-				bridgeResult.preCommitment,
-				bridgeResult.commitment,
-				bridgeResult.burnTxHash
-			);
-			proofStore.downloadProof(proof);
 
 			await new Promise((resolve) => setTimeout(resolve, 1500));
 
@@ -214,10 +229,102 @@
 			lastError = errorMessage;
 			generationMessage = `Error: ${errorMessage}`;
 			isGenerating = false;
-			
-			// Don't reset generationStep so user can see where it failed
-			// User can try again if they want
 		}
+	}
+	
+	/**
+	 * Bridge from Aztec to L1 (EVM)
+	 * Burns tokens on Aztec and creates a note for L1 withdrawal
+	 */
+	async function bridgeFromAztec(sourceChainId: bigint, destinationChainId: bigint) {
+		const aztecWallet = getWalletInstance();
+		if (!aztecWallet) {
+			throw new Error("Aztec wallet not connected. Please connect Azguard wallet first.");
+		}
+		
+		// Get decimals from Aztec contract
+		generationMessage = "Getting token decimals...";
+		const decimals = await getAztecWarpToadDecimals(aztecWallet);
+		const amountBigInt = BigInt(Math.floor(parseFloat(amount) * 10 ** decimals));
+		
+		// Burn on Aztec
+		generationStep = "burning";
+		generationMessage = "Burning tokens on Aztec...";
+		
+		const burnResult = await burnOnAztec(
+			aztecWallet,
+			amountBigInt,
+			destinationChainId
+		);
+		
+		// Create note with Aztec-specific data
+		const note = encodeAztecNote(
+			burnResult,
+			sourceChainId,
+			destinationChainId,
+			amountBigInt
+		);
+		
+		// Create commitment pre-image for storage
+		const commitmentPreImg = {
+			amount: amountBigInt,
+			destination_chain_id: destinationChainId,
+			secret: burnResult.secret,
+			nullifier_preimg: burnResult.nullifierPreimage,
+		};
+		
+		// Add proof and download
+		const proof = proofStore.addProof(
+			amount,
+			selectedToken,
+			sourceChain,
+			targetChain,
+			note,
+			commitmentPreImg,
+			burnResult.preCommitment.toString(),
+			burnResult.commitment.toString(),
+			burnResult.burnTxHash
+		);
+		proofStore.downloadProof(proof);
+	}
+	
+	/**
+	 * Bridge from EVM to Aztec/EVM (existing flow)
+	 */
+	async function bridgeFromEvm(destinationChainId: bigint) {
+		// Step 2: Approving tokens
+		generationStep = "approving";
+		generationMessage = "Approving tokens...";
+		
+		// Step 3: Wrapping tokens
+		generationStep = "wrapping";
+		generationMessage = "Wrapping tokens...";
+		
+		// Step 4: Burning and creating commitment
+		generationStep = "burning";
+		generationMessage = "Burning tokens and creating commitment...";
+		
+		const bridgeResult = await bridgeToChain(
+			selectedToken,
+			sourceChain,
+			targetChain,
+			amount,
+			destinationChainId
+		);
+
+		// Add proof and download
+		const proof = proofStore.addProof(
+			amount,
+			selectedToken,
+			sourceChain,
+			targetChain,
+			bridgeResult.note,
+			bridgeResult.commitmentPreImg,
+			bridgeResult.preCommitment,
+			bridgeResult.commitment,
+			bridgeResult.burnTxHash
+		);
+		proofStore.downloadProof(proof);
 	}
 
 	function handleSourceTokenSelect(token: Token) {

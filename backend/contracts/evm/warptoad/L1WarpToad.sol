@@ -18,9 +18,13 @@ contract L1WarpToad is WarpToadCore {
         // TODO event?
     }
 
+    /**
+     * @notice Unwrap wrapped tokens back to native tokens
+     * @param _amount Amount of wrapped tokens to unwrap
+     */
     function unwrap(uint256 _amount) public {
+        _burn(msg.sender, _amount);
         IERC20(nativeToken).transfer(msg.sender, _amount);
-        _burn(address(this), _amount);
         // TODO event?
     }
 }

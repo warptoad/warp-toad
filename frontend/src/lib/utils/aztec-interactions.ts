@@ -1,12 +1,19 @@
 /**
- * Aztec interactions for L1 -> Aztec withdraw flow
+ * Aztec interactions for cross-chain bridging
  * 
- * This module handles the withdrawal of tokens from L1 (EVM) to Aztec L2.
- * The flow is:
+ * This module handles bidirectional bridging between L1 (EVM) and Aztec L2.
+ * 
+ * L1 -> Aztec flow:
  * 1. User burns tokens on L1 with a commitment
  * 2. Relayer bridges the local root to GigaBridge, which creates a gigaRoot
  * 3. GigaRoot is sent to Aztec WarpToad contract
  * 4. User can withdraw on Aztec by proving their commitment is in the tree
+ * 
+ * Aztec -> L1 flow:
+ * 1. User burns tokens on Aztec with a commitment (stored as WarpToadNote)
+ * 2. Relayer bridges the Aztec note hash tree root to L1 GigaBridge
+ * 3. GigaRoot is updated on L1
+ * 4. User generates ZK proof and claims on L1 (with optional auto-unwrap)
  */
 
 import type { CommitmentPreImage } from '$lib/types/bridge';
@@ -60,6 +67,37 @@ interface LocalRootData {
 	localRootBlockNumber: number;
 	gigaRootBlockNumber: number;
 }
+
+/**
+ * Aztec merkle data for proving commitment inclusion in note hash tree
+ * Used for Aztec -> L1 withdrawals
+ */
+export interface AztecMerkleData {
+	leaf_index: bigint;
+	hash_path: bigint[];
+	leaf_nonce: bigint;
+	contract_address: bigint;
+}
+
+/**
+ * Result of burning tokens on Aztec
+ */
+export interface AztecBurnResult {
+	secret: bigint;
+	nullifierPreimage: bigint;
+	preCommitment: bigint;
+	commitment: bigint;
+	burnTxHash: string;
+	blockNumber: number;
+}
+
+// Aztec tree depth for note hash tree
+const AZTEC_TREE_DEPTH = 42;
+
+// Generator indexes for Aztec note hashing (from Aztec protocol constants)
+const GENERATOR_INDEX__NOTE_HASH_NONCE = 2n;
+const GENERATOR_INDEX__UNIQUE_NOTE_HASH = 3n;
+const GENERATOR_INDEX__SILOED_NOTE_HASH = 4n;
 
 // =============================================================================
 // AZTEC NODE CLIENT
@@ -1115,4 +1153,618 @@ export async function getAztecBalance(
 	// Note: balance_of is an unconstrained function, uses 'from' for simulation context
 	const balance = await contract.methods.balance_of(owner).simulate({ from });
 	return BigInt(balance.toString());
+}
+
+// =============================================================================
+// AZTEC -> L1 BRIDGING (BURN ON AZTEC)
+// =============================================================================
+
+// Field size for BN254 curve (used by Aztec)
+const FIELD_MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
+
+/**
+ * Generate cryptographically secure random field element
+ */
+function generateRandomField(): bigint {
+	const randomBytes = new Uint8Array(32);
+	crypto.getRandomValues(randomBytes);
+	
+	let value = 0n;
+	for (let i = 0; i < randomBytes.length; i++) {
+		value = (value << 8n) | BigInt(randomBytes[i]);
+	}
+	
+	return value % FIELD_MODULUS;
+}
+
+/**
+ * Burn tokens on Aztec to initiate a withdrawal to L1
+ * 
+ * This function:
+ * 1. Generates random secret and nullifier preimage
+ * 2. Computes the commitment hash
+ * 3. Calls the Aztec WarpToadCore.burn() function
+ * 4. Returns the commitment data needed for L1 withdrawal
+ * 
+ * @param wallet - Connected Aztec wallet
+ * @param amount - Amount to burn (in token's smallest units)
+ * @param destinationChainId - The L1 chain ID where tokens will be claimed
+ * @returns Burn result with commitment data
+ */
+export async function burnOnAztec(
+	wallet: Wallet,
+	amount: bigint,
+	destinationChainId: bigint
+): Promise<AztecBurnResult> {
+	console.log('Starting burnOnAztec...');
+	console.log('Amount:', amount.toString());
+	console.log('Destination chain ID:', destinationChainId.toString());
+
+	const contract = await getWarpToadContract(wallet);
+	const accounts = await wallet.getAccounts();
+	const from = accounts[0].item;
+
+	// Step 1: Generate random secret and nullifier preimage
+	const secret = generateRandomField();
+	const nullifierPreimage = generateRandomField();
+	console.log('Generated secret and nullifier preimage');
+
+	// Step 2: Compute pre-commitment hash
+	// preCommitment = poseidon3([nullifier_preimage, secret, destination_chain_id])
+	const preCommitment = hashPreCommitment(nullifierPreimage, secret, destinationChainId);
+	console.log('Pre-commitment:', preCommitment.toString().slice(0, 20) + '...');
+
+	// Step 3: Compute full commitment hash
+	// commitment = poseidon2([pre_commitment, amount])
+	const commitment = hashCommitment(preCommitment, amount);
+	console.log('Commitment:', commitment.toString().slice(0, 20) + '...');
+
+	// Step 4: Call Aztec burn function
+	// fn burn(amount: u64, destination_chain_id: Field, secret: Field, nullifier_preimage: Field)
+	console.log('Calling WarpToadCore.burn()...');
+	const tx = await contract.methods.burn(
+		amount,                    // amount: u64
+		destinationChainId,        // destination_chain_id: Field
+		secret,                    // secret: Field
+		nullifierPreimage          // nullifier_preimage: Field
+	).send({ from }).wait();
+
+	console.log('Burn transaction completed:', tx.txHash.toString());
+
+	// Get the block number when the burn was included
+	const aztecNode = await getAztecNode();
+	const blockNumber = await aztecNode.getBlockNumber();
+	console.log('Burn included at Aztec block:', blockNumber);
+
+	return {
+		secret,
+		nullifierPreimage,
+		preCommitment,
+		commitment,
+		burnTxHash: tx.txHash.toString(),
+		blockNumber,
+	};
+}
+
+/**
+ * Encode note for Aztec -> L1 bridge
+ * Includes Aztec-specific metadata (blockNumber) for merkle proof generation
+ */
+export function encodeAztecNote(
+	burnResult: AztecBurnResult,
+	sourceChainId: bigint,
+	destinationChainId: bigint,
+	amount: bigint
+): string {
+	const noteData = {
+		version: '1.0',
+		protocol: 'warptoad',
+		sourceChainId: sourceChainId.toString(),
+		destinationChainId: destinationChainId.toString(),
+		amount: amount.toString(),
+		secret: burnResult.secret.toString(),
+		nullifier_preimg: burnResult.nullifierPreimage.toString(),
+		preCommitment: burnResult.preCommitment.toString(),
+		commitment: burnResult.commitment.toString(),
+		// Aztec-specific fields
+		aztecBlockNumber: burnResult.blockNumber,
+		burnTxHash: burnResult.burnTxHash,
+	};
+
+	const jsonStr = JSON.stringify(noteData);
+	const base64 = btoa(jsonStr);
+
+	return `warptoad-note-${base64}`;
+}
+
+// =============================================================================
+// AZTEC MERKLE PROOF GENERATION (FOR AZTEC -> L1)
+// =============================================================================
+
+/**
+ * Poseidon2 hash with separator (for Aztec note hashing)
+ * Uses @zkpassport/poseidon2 which is compatible with Aztec's poseidon2
+ */
+async function poseidon2HashWithSeparator(inputs: bigint[], separator: bigint): Promise<bigint> {
+	// Import dynamically since it's an async module
+	const { poseidon2Hash } = await import('@zkpassport/poseidon2');
+	const inputsWithSeparator = [separator, ...inputs];
+	return poseidon2Hash(inputsWithSeparator);
+}
+
+/**
+ * Compute note hash nonce (for Aztec note siloing)
+ */
+async function hashNoteHashNonce(firstNullifierInTx: bigint, noteIndexInTx: bigint): Promise<bigint> {
+	return poseidon2HashWithSeparator([firstNullifierInTx, noteIndexInTx], GENERATOR_INDEX__NOTE_HASH_NONCE);
+}
+
+/**
+ * Compute siloed note hash (contract address + plain note hash)
+ */
+async function hashSiloedNoteHash(contractAddress: bigint, plainNoteHash: bigint): Promise<bigint> {
+	return poseidon2HashWithSeparator([contractAddress, plainNoteHash], GENERATOR_INDEX__SILOED_NOTE_HASH);
+}
+
+/**
+ * Compute unique note hash (nonce + siloed note hash)
+ */
+async function hashUniqueNoteHash(nonce: bigint, siloedNoteHash: bigint): Promise<bigint> {
+	return poseidon2HashWithSeparator([nonce, siloedNoteHash], GENERATOR_INDEX__UNIQUE_NOTE_HASH);
+}
+
+/**
+ * Get Aztec merkle data for a commitment
+ * 
+ * This is needed for Aztec -> L1 withdrawals. The function:
+ * 1. Queries the contract to find the note with matching commitment
+ * 2. Gets the note's nonce from metadata
+ * 3. Computes the siloed and unique note hash (as Aztec does)
+ * 4. Gets the merkle proof from the note hash tree
+ * 
+ * @param wallet - Connected Aztec wallet
+ * @param commitment - The commitment hash (plain note hash before siloing)
+ * @param blockNumber - Aztec block number when the commitment was created
+ * @returns Merkle data for the withdraw circuit
+ */
+export async function getAztecMerkleData(
+	wallet: Wallet,
+	commitment: bigint,
+	blockNumber: number
+): Promise<AztecMerkleData> {
+	console.log('Getting Aztec merkle data for commitment:', commitment.toString().slice(0, 20) + '...');
+	console.log('Block number:', blockNumber);
+
+	const contract = await getWarpToadContract(wallet);
+	const accounts = await wallet.getAccounts();
+	const from = accounts[0].item;
+
+	// Step 1: Get notes from the contract to find the note nonce
+	// The contract has a utility function that returns notes from the commitments storage
+	console.log('Fetching notes from contract...');
+	const contractNotes = await contract.methods
+		.get_notes_util(contract.artifact.storageLayout.commitments.slot)
+		.simulate({ from });
+
+	console.log('Retrieved', contractNotes.storage.length, 'notes');
+
+	// Step 2: Find the note with matching commitment
+	// Notes contain: nullifier_preimage, secret, chain_id, amount
+	// We need to hash these to find the matching commitment
+	let noteNonce: bigint | null = null;
+
+	for (const note of contractNotes.storage) {
+		const noteCommitment = hashCommitment(
+			hashPreCommitment(
+				BigInt(note.note.nullifier_preimage.toString()),
+				BigInt(note.note.secret.toString()),
+				BigInt(note.note.chain_id.toString())
+			),
+			BigInt(note.note.amount.toString())
+		);
+
+		if (noteCommitment === commitment) {
+			// Found matching note - get its nonce from metadata
+			noteNonce = BigInt(note.metadata.maybe_note_nonce.toString());
+			console.log('Found matching note with nonce:', noteNonce.toString().slice(0, 20) + '...');
+			break;
+		}
+	}
+
+	if (noteNonce === null) {
+		throw new Error(
+			`Could not find note with commitment ${commitment.toString().slice(0, 20)}... ` +
+			'The note may not be synced to this wallet yet, or the commitment data is incorrect.'
+		);
+	}
+
+	// Step 3: Compute the siloed and unique note hash
+	const warpToadAddressStr = AztecWarpToad.address;
+	const contractAddressBigInt = BigInt(AztecAddress.fromString(warpToadAddressStr).toBigInt());
+
+	const siloedNoteHash = await hashSiloedNoteHash(contractAddressBigInt, commitment);
+	console.log('Siloed note hash:', siloedNoteHash.toString().slice(0, 20) + '...');
+
+	const uniqueNoteHash = await hashUniqueNoteHash(noteNonce, siloedNoteHash);
+	console.log('Unique note hash:', uniqueNoteHash.toString().slice(0, 20) + '...');
+
+	// Step 4: Get merkle proof from the contract
+	// The contract has a utility function: get_note_proof(block_number, note_hash) -> MembershipWitness
+	console.log('Fetching merkle proof from contract...');
+	const witness = await contract.methods
+		.get_note_proof(blockNumber, uniqueNoteHash)
+		.simulate({ from });
+
+	console.log('Retrieved merkle witness with index:', witness.index.toString());
+
+	// Step 5: Format the merkle data for the circuit
+	const merkleData: AztecMerkleData = {
+		leaf_index: BigInt(witness.index.toString()),
+		hash_path: witness.path.map((h: bigint) => BigInt(h.toString())),
+		leaf_nonce: noteNonce,
+		contract_address: contractAddressBigInt,
+	};
+
+	console.log('Aztec merkle data generated successfully');
+	return merkleData;
+}
+
+/**
+ * Get empty Aztec merkle data (used when bridging FROM EVM, not from Aztec)
+ */
+export function getEmptyAztecMerkleData(): AztecMerkleData {
+	return {
+		leaf_index: 0n,
+		hash_path: new Array(AZTEC_TREE_DEPTH).fill(0n),
+		leaf_nonce: 0n,
+		contract_address: 0n,
+	};
+}
+
+/**
+ * Get empty EVM merkle data (used when bridging FROM Aztec, not from EVM)
+ */
+export function getEmptyEvmMerkleData(): EvmMerkleData {
+	return {
+		leaf_index: 0n,
+		hash_path: new Array(EVM_TREE_DEPTH).fill(0n),
+	};
+}
+
+/**
+ * Get empty Giga merkle data (used when withdrawing on same chain as deposit)
+ */
+export function getEmptyGigaMerkleData(): EvmMerkleData {
+	return {
+		leaf_index: 0n,
+		hash_path: new Array(GIGA_TREE_DEPTH).fill(0n),
+	};
+}
+
+// =============================================================================
+// AZTEC -> L1 MERKLE DATA
+// =============================================================================
+
+/**
+ * Result of getting merkle data for Aztec -> L1 withdrawal
+ */
+export interface AztecToL1MerkleDataResult {
+	/** The Aztec note hash tree root that was included in the gigaRoot */
+	aztecLocalRoot: bigint;
+	/** The Aztec block number this root came from */
+	aztecLocalRootBlockNumber: number;
+	/** L1AztecBridgeAdapter's index in the GigaBridge tree */
+	aztecLocalRootIndex: number;
+	/** Merkle proof that aztecLocalRoot is in gigaRoot */
+	gigaMerkleData: EvmMerkleData;
+	/** The L1 block where the gigaRoot was constructed */
+	gigaRootBlockNumber: number;
+}
+
+/**
+ * Get Aztec's local root data from GigaBridge events for a specific gigaRoot
+ * 
+ * This is similar to getLocalRootData but specifically for the L1AztecBridgeAdapter.
+ * It finds the transaction where the specific gigaRoot was constructed,
+ * then extracts the Aztec local root from the ReceivedNewLocalRoot events.
+ * 
+ * @param publicClient - Viem public client for L1
+ * @param gigaBridgeAddress - GigaBridge contract address
+ * @param aztecBridgeAdapterAddress - L1AztecBridgeAdapter contract address
+ * @param gigaRoot - The specific gigaRoot value to find
+ */
+async function getAztecLocalRootData(
+	publicClient: PublicClient,
+	gigaBridgeAddress: string,
+	aztecBridgeAdapterAddress: string,
+	gigaRoot: bigint
+): Promise<{
+	aztecLocalRoot: bigint;
+	aztecLocalRootBlockNumber: number;
+	aztecLocalRootIndex: number;
+	gigaRootBlockNumber: number;
+}> {
+	// Get local root index for L1AztecBridgeAdapter
+	const localRootIndexRaw = await publicClient.readContract({
+		address: gigaBridgeAddress as `0x${string}`,
+		abi: GigaBridgeAbi,
+		functionName: 'getLocalRootProvidersIndex',
+		args: [aztecBridgeAdapterAddress as `0x${string}`],
+	});
+	const aztecLocalRootIndex = Number(localRootIndexRaw);
+	console.log('L1AztecBridgeAdapter local root index:', aztecLocalRootIndex);
+
+	// Get GigaRoot event for THIS SPECIFIC gigaRoot value
+	const gigaRootEvents = await getGigaRootEvents(publicClient, gigaBridgeAddress, gigaRoot);
+
+	if (gigaRootEvents.length === 0) {
+		console.error(`No ConstructedNewGigaRoot event found for gigaRoot: ${gigaRoot}`);
+		throw new Error(
+			`GigaRoot ${gigaRoot} not found in L1 events. ` +
+			'The bridge state may be inconsistent, or the gigaRoot was constructed on a different chain.'
+		);
+	}
+
+	// Get the most recent event for this gigaRoot
+	const gigaRootEvent = gigaRootEvents[gigaRootEvents.length - 1];
+	const gigaRootBlockNumber = Number(gigaRootEvent.blockNumber);
+	console.log(`Found ConstructedNewGigaRoot event at L1 block ${gigaRootBlockNumber}, tx: ${gigaRootEvent.transactionHash}`);
+
+	// Get transaction receipt to find local root events in the same tx
+	const receipt = await publicClient.getTransactionReceipt({
+		hash: gigaRootEvent.transactionHash,
+	});
+
+	// Parse ReceivedNewLocalRoot events from the same transaction
+	let aztecLocalRoot: bigint | null = null;
+	let aztecLocalRootBlockNumber = 0;
+
+	// Calculate event signature: keccak256("ReceivedNewLocalRoot(uint256,uint40,uint256)")
+	const eventSignature = keccak256(toHex('ReceivedNewLocalRoot(uint256,uint40,uint256)'));
+
+	for (const log of receipt.logs) {
+		try {
+			if (log.topics[0] === eventSignature && log.topics.length >= 3 && log.topics[1] && log.topics[2]) {
+				const decodedLocalRoot = BigInt(log.topics[1]);
+				const decodedIndex = Number(BigInt(log.topics[2]));
+				const decodedBlockNumber = log.data ? BigInt(log.data) : 0n;
+
+				console.log(`Found ReceivedNewLocalRoot: index=${decodedIndex}, localRoot=${decodedLocalRoot.toString().slice(0, 20)}..., blockNumber=${decodedBlockNumber}`);
+
+				if (decodedIndex === aztecLocalRootIndex) {
+					aztecLocalRoot = decodedLocalRoot;
+					aztecLocalRootBlockNumber = Number(decodedBlockNumber);
+					console.log(`Matched Aztec local root (index ${aztecLocalRootIndex}): ${aztecLocalRoot.toString().slice(0, 20)}...`);
+					break;
+				}
+			}
+		} catch {
+			continue;
+		}
+	}
+
+	// Fallback: query events directly if not found in transaction logs
+	if (!aztecLocalRoot) {
+		console.log('Aztec local root not found in transaction logs, querying events directly...');
+		const localRootEvents = await getLocalRootEvents(
+			publicClient,
+			gigaBridgeAddress,
+			BigInt(gigaRootBlockNumber)
+		);
+
+		const matchingEvent = localRootEvents.find((e) => e.index === aztecLocalRootIndex);
+		if (matchingEvent) {
+			aztecLocalRoot = matchingEvent.localRoot;
+			aztecLocalRootBlockNumber = matchingEvent.blockNumber;
+			console.log(`Found Aztec local root from events: ${aztecLocalRoot.toString().slice(0, 20)}... at block ${aztecLocalRootBlockNumber}`);
+		}
+	}
+
+	if (!aztecLocalRoot) {
+		throw new Error(
+			`Aztec local root (index ${aztecLocalRootIndex}) not found in giga root construction. ` +
+			'The Aztec state may not have been bridged to L1 for this gigaRoot, or L1AztecBridgeAdapter is not registered.'
+		);
+	}
+
+	return {
+		aztecLocalRoot,
+		aztecLocalRootBlockNumber,
+		aztecLocalRootIndex,
+		gigaRootBlockNumber,
+	};
+}
+
+/**
+ * Build Giga merkle proof for Aztec -> L1 withdrawal
+ * 
+ * This function builds a merkle proof that the Aztec local root is included
+ * in the GigaBridge tree that produced the given gigaRoot.
+ * 
+ * Based on backend/scripts/lib/proving.ts getGigaMerkleData()
+ * 
+ * @param publicClient - Viem public client for L1
+ * @param gigaBridgeAddress - GigaBridge contract address
+ * @param aztecLocalRoot - The Aztec note hash tree root to prove
+ * @param aztecLocalRootIndex - L1AztecBridgeAdapter's index in GigaBridge
+ * @param gigaRootBlockNumber - L1 block where gigaRoot was constructed
+ * @param expectedGigaRoot - The expected gigaRoot (for validation)
+ */
+async function buildGigaMerkleProofForAztec(
+	publicClient: PublicClient,
+	gigaBridgeAddress: string,
+	aztecLocalRoot: bigint,
+	aztecLocalRootIndex: number,
+	gigaRootBlockNumber: number,
+	expectedGigaRoot: bigint
+): Promise<EvmMerkleData> {
+	// Get the number of local root providers from GigaBridge
+	const amountOfLocalRoots = await publicClient.readContract({
+		address: gigaBridgeAddress as `0x${string}`,
+		abi: GigaBridgeAbi,
+		functionName: 'amountOfLocalRoots',
+	});
+	console.log('Amount of local roots in GigaBridge:', amountOfLocalRoots);
+
+	// Get all local root events up to the giga root block
+	const localRootEvents = await getLocalRootEvents(
+		publicClient,
+		gigaBridgeAddress,
+		BigInt(gigaRootBlockNumber)
+	);
+
+	if (localRootEvents.length === 0) {
+		throw new Error('No local root events found in GigaBridge');
+	}
+
+	// Group events by index and get the latest for each
+	const eventsPerIndex: Record<number, typeof localRootEvents> = {};
+	const allIndexes = new Set<number>();
+
+	for (const event of localRootEvents) {
+		allIndexes.add(event.index);
+		if (!eventsPerIndex[event.index]) {
+			eventsPerIndex[event.index] = [];
+		}
+		eventsPerIndex[event.index].push(event);
+	}
+
+	// Build sorted leaves with latest root for each index
+	// This matches the backend logic in getGigaMerkleData
+	const sortedLeaves: bigint[] = [];
+	for (let i = 0; i < Number(amountOfLocalRoots); i++) {
+		if (eventsPerIndex[i] && eventsPerIndex[i].length > 0) {
+			// Get latest event for this index (by event block number)
+			const latestEvent = eventsPerIndex[i].reduce((latest, ev) =>
+				ev.eventBlockNumber > latest.eventBlockNumber ? ev : latest
+			);
+			sortedLeaves[i] = latestEvent.localRoot;
+		} else {
+			// No events for this index - use 0 (default value in tree)
+			sortedLeaves[i] = 0n;
+		}
+	}
+
+	console.log('Giga tree sorted leaves:', sortedLeaves.map((l, i) => `[${i}]: ${l.toString().slice(0, 15)}...`));
+
+	// Verify Aztec local root is in tree at the expected index
+	if (sortedLeaves[aztecLocalRootIndex] !== aztecLocalRoot) {
+		console.error('Mismatch:', {
+			expected: aztecLocalRoot.toString(),
+			actual: sortedLeaves[aztecLocalRootIndex]?.toString() || 'undefined',
+			index: aztecLocalRootIndex
+		});
+		throw new Error(
+			`Aztec local root at index ${aztecLocalRootIndex} does not match expected value. ` +
+			`Expected: ${aztecLocalRoot.toString().slice(0, 20)}..., ` +
+			`Got: ${sortedLeaves[aztecLocalRootIndex]?.toString().slice(0, 20) || 'undefined'}...`
+		);
+	}
+
+	// Build merkle tree and get proof using fixed-merkle-tree
+	const tree = createPoseidonMerkleTree(GIGA_TREE_DEPTH, sortedLeaves);
+
+	// Validate the recreated giga tree root matches the expected gigaRoot
+	const computedGigaRoot = BigInt(tree.root);
+	console.log('Giga tree - computed root:', computedGigaRoot.toString());
+	console.log('Giga tree - expected gigaRoot:', expectedGigaRoot.toString());
+
+	if (computedGigaRoot !== expectedGigaRoot) {
+		throw new Error(
+			`Could not recreate the gigaRoot with events. ` +
+			`Computed: ${computedGigaRoot}, Expected: ${expectedGigaRoot}. ` +
+			`This may indicate missing local root events or timing issues.`
+		);
+	}
+
+	const proof = getMerkleProof(tree, aztecLocalRoot);
+
+	return {
+		leaf_index: BigInt(aztecLocalRootIndex),
+		hash_path: proof.pathElements,
+	};
+}
+
+/**
+ * Get all merkle data needed for Aztec -> L1 withdrawal
+ * 
+ * This function retrieves:
+ * 1. The Aztec local root (note hash tree root) that was bridged to L1
+ * 2. The Aztec block number this root came from (needed for getAztecMerkleData)
+ * 3. The Giga merkle proof (proof that Aztec local root is in gigaRoot)
+ * 
+ * Usage:
+ * ```typescript
+ * const { aztecLocalRoot, aztecLocalRootBlockNumber, gigaMerkleData } = 
+ *   await getMerkleDataForAztecToL1(chainId, gigaRoot);
+ * 
+ * // Then get Aztec merkle data using the correct block number
+ * const aztecMerkleData = await getAztecMerkleData(wallet, commitment, aztecLocalRootBlockNumber);
+ * ```
+ * 
+ * @param destinationChainId - The L1 chain ID (e.g., 31337 for localhost, 1 for mainnet)
+ * @param gigaRoot - The gigaRoot from L1 WarpToad contract
+ * @returns Aztec local root data and Giga merkle proof
+ */
+export async function getMerkleDataForAztecToL1(
+	destinationChainId: number,
+	gigaRoot: bigint
+): Promise<AztecToL1MerkleDataResult> {
+	console.log('Getting merkle data for Aztec -> L1 withdrawal');
+	console.log('Destination chain ID:', destinationChainId);
+	console.log('GigaRoot:', gigaRoot.toString().slice(0, 20) + '...');
+
+	// Get contract addresses
+	const addresses = getContractAddresses(destinationChainId);
+	if (!addresses.GigaBridge) {
+		throw new Error(`GigaBridge address not found for chain ${destinationChainId}`);
+	}
+	if (!addresses.L1AztecBridgeAdapter) {
+		throw new Error(`L1AztecBridgeAdapter address not found for chain ${destinationChainId}`);
+	}
+
+	console.log('GigaBridge:', addresses.GigaBridge);
+	console.log('L1AztecBridgeAdapter:', addresses.L1AztecBridgeAdapter);
+
+	// Create public client for L1
+	const publicClient = createEvmClient(destinationChainId);
+
+	// Step 1: Get Aztec's local root data from the gigaRoot construction event
+	const {
+		aztecLocalRoot,
+		aztecLocalRootBlockNumber,
+		aztecLocalRootIndex,
+		gigaRootBlockNumber,
+	} = await getAztecLocalRootData(
+		publicClient,
+		addresses.GigaBridge,
+		addresses.L1AztecBridgeAdapter,
+		gigaRoot
+	);
+
+	console.log('Aztec local root:', aztecLocalRoot.toString().slice(0, 20) + '...');
+	console.log('Aztec local root block number:', aztecLocalRootBlockNumber);
+	console.log('Aztec local root index in GigaBridge:', aztecLocalRootIndex);
+
+	// Step 2: Build Giga merkle proof
+	const gigaMerkleData = await buildGigaMerkleProofForAztec(
+		publicClient,
+		addresses.GigaBridge,
+		aztecLocalRoot,
+		aztecLocalRootIndex,
+		gigaRootBlockNumber,
+		gigaRoot
+	);
+
+	console.log('Giga merkle proof generated successfully');
+	console.log('Leaf index:', gigaMerkleData.leaf_index.toString());
+	console.log('Hash path length:', gigaMerkleData.hash_path.length);
+
+	return {
+		aztecLocalRoot,
+		aztecLocalRootBlockNumber,
+		aztecLocalRootIndex,
+		gigaMerkleData,
+		gigaRootBlockNumber,
+	};
 }

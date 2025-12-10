@@ -16,9 +16,27 @@
 		getAztecGigaRoot,
 		hashPreCommitment,
 		hashCommitment,
-		isNoteUsed
+		isNoteUsed,
+		getAztecMerkleData,
+		getMerkleData as getEvmMerkleData,
+		getEmptyAztecMerkleData,
+		getEmptyEvmMerkleData,
+		getMerkleDataForAztecToL1,
 	} from "$lib/utils/aztec-interactions.js";
-	import { decodeNote } from "$lib/utils/evm-interactions.js";
+	import { 
+		decodeNote,
+		getL1GigaRoot,
+		getL1LocalRoot,
+		claimFromAztec,
+		claimAndUnwrapFromAztec,
+	} from "$lib/utils/evm-interactions.js";
+	import {
+		prepareProofInputsForAztecToL1,
+		generateWithdrawProof,
+		formatProofForL1,
+	} from "$lib/utils/proof-generation.js";
+
+	import { getChainId as getEvmChainId } from "$lib/utils/evm-wallet.js";
 
 	let selectedProof = $state<Proof | null>(null);
 	let fileInput: HTMLInputElement;
@@ -26,8 +44,11 @@
 	let successMessage = $state<string | null>(null);
 	let isWithdrawing = $state(false);
 	let isCheckingNullifier = $state(false);
-	let withdrawStep = $state<'idle' | 'validating' | 'checking-bridge' | 'building-proofs' | 'minting' | 'complete'>('idle');
+	let withdrawStep = $state<'idle' | 'validating' | 'checking-bridge' | 'building-proofs' | 'generating-proof' | 'minting' | 'unwrapping' | 'complete'>('idle');
 	let withdrawMessage = $state('');
+	
+	// Auto-unwrap toggle (default ON) - only shown for Aztec -> L1 flow
+	let autoUnwrap = $state(true);
 
 	// Source chain ID - defaults to localhost (anvil)
 	// In production, this should be detected from the proof/note
@@ -169,6 +190,9 @@
 		}
 	}
 
+	/**
+	 * Main withdraw function - routes to appropriate handler based on flow
+	 */
 	async function withdraw() {
 		if (!selectedProof || !canWithdraw) return;
 
@@ -177,96 +201,15 @@
 		successMessage = null;
 
 		try {
-			// Step 1: Validate commitment data exists
-			withdrawStep = 'validating';
-			withdrawMessage = 'Validating commitment data...';
-			
-			if (!selectedProof.commitmentData) {
-				throw new Error('Proof missing commitment data. Please re-bridge or upload a valid note file.');
+			// Route based on source chain
+			if (selectedProof.sourceChain === 'Aztec') {
+				await withdrawToL1();
+			} else {
+				await withdrawToAztec();
 			}
-
-			// Calculate commitment hash
-			const preCommitment = hashPreCommitment(
-				selectedProof.commitmentData.nullifier_preimg,
-				selectedProof.commitmentData.secret,
-				selectedProof.commitmentData.destination_chain_id
-			);
-			const commitment = hashCommitment(preCommitment, selectedProof.commitmentData.amount);
-			
-			console.log('Validating commitment:', commitment.toString());
-			
-			// Validate commitment exists on L1
-			withdrawMessage = 'Checking commitment on L1...';
-			const exists = await validateCommitmentExists(commitment, SOURCE_CHAIN_ID);
-			if (!exists) {
-				throw new Error(
-					'Commitment not found on source chain. ' +
-					'Please ensure the burn transaction completed successfully.'
-				);
-			}
-
-			// Step 2: Get Aztec wallet
-			const aztecWallet = getWalletInstance();
-			if (!aztecWallet) {
-				throw new Error('Aztec wallet not connected. Please connect your Azguard wallet.');
-			}
-
-			// Step 3: Check if GigaRoot has been synced to Aztec and get its value
-			withdrawStep = 'checking-bridge';
-			withdrawMessage = 'Checking bridge sync status...';
-			
-			const gigaRoot = await getAztecGigaRoot(aztecWallet);
-			if (gigaRoot === null) {
-				throw new Error(
-					'GigaRoot has not been synced to Aztec yet. ' +
-					'Please wait for the bridge relayer to sync the root, or trigger a bridge sync manually.'
-				);
-			}
-			console.log('GigaRoot from Aztec:', gigaRoot.toString());
-
-			// Get recipient address from connected wallet
-			const accounts = await aztecWallet.getAccounts();
-			if (!accounts || accounts.length === 0) {
-				throw new Error('No Aztec accounts found. Please ensure your wallet is properly connected.');
-			}
-			const recipientAddress = accounts[0].item.toString();
-			console.log('Recipient address:', recipientAddress);
-
-			// Step 4: Build merkle proofs
-			withdrawStep = 'building-proofs';
-			withdrawMessage = 'Building merkle proofs (this may take a moment)...';
-
-			// Step 5: Call mint on Aztec
-			withdrawStep = 'minting';
-			withdrawMessage = 'Minting tokens on Aztec...';
-			
-			const txHash = await mintFromEVM(
-				aztecWallet,
-				selectedProof.commitmentData,
-				SOURCE_CHAIN_ID,
-				recipientAddress,
-				gigaRoot
-			);
-
-			// Step 6: Complete
-			withdrawStep = 'complete';
-			withdrawMessage = 'Withdraw complete!';
-			
-			proofStore.markProofAsUsed(selectedProof.id);
-			successMessage = `Successfully withdrew ${selectedProof.amount} ${selectedProof.token}! Tx: ${txHash.slice(0, 16)}...`;
-			
-			// Reset after delay
-			setTimeout(() => {
-				selectedProof = null;
-				isWithdrawing = false;
-				withdrawStep = 'idle';
-				withdrawMessage = '';
-			}, 5000);
-
 		} catch (error) {
 			console.error('Withdraw error:', error);
 			
-			// Provide more helpful error messages
 			let errorMessage = 'Withdraw failed';
 			if (error instanceof Error) {
 				errorMessage = error.message;
@@ -278,6 +221,8 @@
 					errorMessage += '\n\nHint: Make sure the Aztec sandbox is running (aztec start --sandbox).';
 				} else if (errorMessage.includes('not found in burn events')) {
 					errorMessage += '\n\nHint: The commitment may not have been bridged yet. Wait for the next bridge sync.';
+				} else if (errorMessage.includes('proof generation')) {
+					errorMessage += '\n\nHint: ZK proof generation can take 30-60 seconds. Please be patient.';
 				}
 			}
 			
@@ -288,19 +233,264 @@
 		}
 	}
 
+	/**
+	 * Withdraw from EVM (L1/L2) to Aztec
+	 */
+	async function withdrawToAztec() {
+		if (!selectedProof?.commitmentData) {
+			throw new Error('Proof missing commitment data. Please re-bridge or upload a valid note file.');
+		}
+
+		// Step 1: Validate commitment data exists
+		withdrawStep = 'validating';
+		withdrawMessage = 'Validating commitment data...';
+
+		// Calculate commitment hash
+		const preCommitment = hashPreCommitment(
+			selectedProof.commitmentData.nullifier_preimg,
+			selectedProof.commitmentData.secret,
+			selectedProof.commitmentData.destination_chain_id
+		);
+		const commitment = hashCommitment(preCommitment, selectedProof.commitmentData.amount);
+		
+		console.log('Validating commitment:', commitment.toString());
+		
+		// Validate commitment exists on L1
+		withdrawMessage = 'Checking commitment on L1...';
+		const exists = await validateCommitmentExists(commitment, SOURCE_CHAIN_ID);
+		if (!exists) {
+			throw new Error(
+				'Commitment not found on source chain. ' +
+				'Please ensure the burn transaction completed successfully.'
+			);
+		}
+
+		// Step 2: Get Aztec wallet
+		const aztecWallet = getWalletInstance();
+		if (!aztecWallet) {
+			throw new Error('Aztec wallet not connected. Please connect your Azguard wallet.');
+		}
+
+		// Step 3: Check if GigaRoot has been synced to Aztec and get its value
+		withdrawStep = 'checking-bridge';
+		withdrawMessage = 'Checking bridge sync status...';
+		
+		const gigaRoot = await getAztecGigaRoot(aztecWallet);
+		if (gigaRoot === null) {
+			throw new Error(
+				'GigaRoot has not been synced to Aztec yet. ' +
+				'Please wait for the bridge relayer to sync the root, or trigger a bridge sync manually.'
+			);
+		}
+		console.log('GigaRoot from Aztec:', gigaRoot.toString());
+
+		// Get recipient address from connected wallet
+		const accounts = await aztecWallet.getAccounts();
+		if (!accounts || accounts.length === 0) {
+			throw new Error('No Aztec accounts found. Please ensure your wallet is properly connected.');
+		}
+		const recipientAddress = accounts[0].item.toString();
+		console.log('Recipient address:', recipientAddress);
+
+		// Step 4: Build merkle proofs
+		withdrawStep = 'building-proofs';
+		withdrawMessage = 'Building merkle proofs (this may take a moment)...';
+
+		// Step 5: Call mint on Aztec
+		withdrawStep = 'minting';
+		withdrawMessage = 'Minting tokens on Aztec...';
+		
+		const txHash = await mintFromEVM(
+			aztecWallet,
+			selectedProof.commitmentData,
+			SOURCE_CHAIN_ID,
+			recipientAddress,
+			gigaRoot
+		);
+
+		// Step 6: Complete
+		withdrawStep = 'complete';
+		withdrawMessage = 'Withdraw complete!';
+		
+		proofStore.markProofAsUsed(selectedProof.id);
+		successMessage = `Successfully withdrew ${selectedProof.amount} ${selectedProof.token}! Tx: ${txHash.slice(0, 16)}...`;
+		
+		// Reset after delay
+		setTimeout(() => {
+			selectedProof = null;
+			isWithdrawing = false;
+			withdrawStep = 'idle';
+			withdrawMessage = '';
+		}, 5000);
+	}
+
+	/**
+	 * Withdraw from Aztec to L1 (EVM)
+	 * This generates a ZK proof in-browser and calls the L1 mint function
+	 */
+	async function withdrawToL1() {
+		if (!selectedProof?.commitmentData) {
+			throw new Error('Proof missing commitment data. Please re-bridge or upload a valid note file.');
+		}
+
+		// Step 1: Validate commitment data
+		withdrawStep = 'validating';
+		withdrawMessage = 'Validating commitment data...';
+
+		const { nullifier_preimg, secret, destination_chain_id, amount } = selectedProof.commitmentData;
+		
+		// Calculate commitment hash for lookups
+		const preCommitment = hashPreCommitment(nullifier_preimg, secret, destination_chain_id);
+		const commitment = hashCommitment(preCommitment, amount);
+		console.log('Commitment:', commitment.toString());
+
+		// Step 2: Get L1 chain ID and gigaRoot
+		withdrawStep = 'checking-bridge';
+		withdrawMessage = 'Checking L1 bridge state...';
+		
+		const chainId = await getEvmChainId();
+		if (!chainId) {
+			throw new Error('EVM wallet not connected. Please connect your Ethereum wallet.');
+		}
+		console.log('L1 Chain ID:', chainId);
+		
+		const gigaRoot = await getL1GigaRoot(chainId);
+		console.log('L1 GigaRoot:', gigaRoot.toString());
+		
+		const localRoot = await getL1LocalRoot(chainId);
+		console.log('L1 LocalRoot:', localRoot.toString());
+
+		// Step 3: Get Giga merkle data (Aztec local root in gigaRoot)
+		withdrawStep = 'building-proofs';
+		withdrawMessage = 'Getting Aztec local root from GigaBridge...';
+		
+		// Get the Aztec local root that was bridged into this gigaRoot
+		// This also gives us the Aztec block number when the root was bridged
+		const {
+			aztecLocalRoot,
+			aztecLocalRootBlockNumber,
+			gigaMerkleData,
+		} = await getMerkleDataForAztecToL1(chainId, gigaRoot);
+		
+		console.log('Aztec local root:', aztecLocalRoot.toString());
+		console.log('Aztec local root block number:', aztecLocalRootBlockNumber);
+		console.log('Giga merkle data:', gigaMerkleData);
+
+		// Step 4: Get Aztec wallet and merkle data
+		withdrawMessage = 'Fetching Aztec merkle proof...';
+		
+		const aztecWallet = getWalletInstance();
+		if (!aztecWallet) {
+			throw new Error('Aztec wallet not connected. Please connect your Azguard wallet to fetch your note.');
+		}
+		
+		// Get Aztec merkle data using the block number from when the root was bridged
+		// This ensures our commitment exists in the tree at that snapshot
+		const aztecMerkleData = await getAztecMerkleData(aztecWallet, commitment, aztecLocalRootBlockNumber);
+		console.log('Aztec merkle data:', aztecMerkleData);
+		
+		// The origin local root is the Aztec note hash tree root that was bridged
+		const originLocalRoot = aztecLocalRoot;
+		console.log('Origin local root (Aztec note tree root):', originLocalRoot.toString());
+
+		// Step 5: Prepare proof inputs
+		withdrawMessage = 'Preparing proof inputs...';
+		
+		// Get recipient address from connected EVM wallet
+		// (could also get from Aztec wallet if needed)
+		const proofInputs = prepareProofInputsForAztecToL1(
+			selectedProof.commitmentData,
+			aztecMerkleData,
+			gigaMerkleData,
+			gigaRoot,
+			localRoot, // destination local root (L1)
+			originLocalRoot, // origin local root (Aztec)
+			BigInt(chainId),
+			walletStore.wallets.evm || '0x0000000000000000000000000000000000000000'
+		);
+		console.log('Proof inputs prepared');
+
+		// Step 6: Generate ZK proof in browser
+		withdrawStep = 'generating-proof';
+		withdrawMessage = 'Generating ZK proof (this may take 30-60 seconds)...';
+		
+		const { proof, publicInputs } = await generateWithdrawProof(
+			proofInputs,
+			(msg) => { withdrawMessage = msg; }
+		);
+		console.log('Proof generated, public inputs:', publicInputs.length);
+		
+		// Format proof for L1 submission
+		const proofHex = formatProofForL1(proof);
+		console.log('Proof hex length:', proofHex.length);
+
+		// Step 7: Call mint on L1
+		withdrawStep = 'minting';
+		withdrawMessage = 'Minting wrapped tokens on L1...';
+		
+		let mintTxHash: string;
+		let unwrapTxHash: string | null = null;
+		
+		if (autoUnwrap) {
+			// Mint and unwrap in sequence
+			const result = await claimAndUnwrapFromAztec(proofInputs, proofHex, chainId);
+			mintTxHash = result.mintTxHash;
+			unwrapTxHash = result.unwrapTxHash || null;
+			
+			if (unwrapTxHash) {
+				withdrawStep = 'unwrapping';
+				withdrawMessage = 'Unwrapping to native tokens...';
+			}
+		} else {
+			// Just mint wrapped tokens
+			const result = await claimFromAztec(proofInputs, proofHex, chainId);
+			mintTxHash = result.txHash;
+		}
+
+		// Step 8: Complete
+		withdrawStep = 'complete';
+		withdrawMessage = 'Withdraw complete!';
+		
+		proofStore.markProofAsUsed(selectedProof.id);
+		
+		if (autoUnwrap && !unwrapTxHash) {
+			successMessage = `Withdrew ${selectedProof.amount} ${selectedProof.token}! Mint tx: ${mintTxHash.slice(0, 10)}... (unwrap skipped - contract bug)`;
+		} else if (autoUnwrap && unwrapTxHash) {
+			successMessage = `Withdrew ${selectedProof.amount} ${selectedProof.token}! Unwrap tx: ${unwrapTxHash.slice(0, 10)}...`;
+		} else {
+			successMessage = `Withdrew ${selectedProof.amount} wrapped ${selectedProof.token}! Tx: ${mintTxHash.slice(0, 10)}...`;
+		}
+		
+		// Reset after delay
+		setTimeout(() => {
+			selectedProof = null;
+			isWithdrawing = false;
+			withdrawStep = 'idle';
+			withdrawMessage = '';
+		}, 5000);
+	}
+	
 	function triggerFileUpload() {
 		fileInput?.click();
 	}
 
 	function getStepNumber(step: typeof withdrawStep): string {
 		switch (step) {
-			case 'validating': return '1/5';
-			case 'checking-bridge': return '2/5';
-			case 'building-proofs': return '3/5';
-			case 'minting': return '4/5';
-			case 'complete': return '5/5';
+			case 'validating': return '1/6';
+			case 'checking-bridge': return '2/6';
+			case 'building-proofs': return '3/6';
+			case 'generating-proof': return '4/6';
+			case 'minting': return '5/6';
+			case 'unwrapping': return '6/6';
+			case 'complete': return '6/6';
 			default: return '';
 		}
+	}
+	
+	// Check if this is an Aztec -> L1 withdrawal
+	function isAztecToL1(): boolean {
+		if (!selectedProof) return false;
+		return selectedProof.sourceChain === 'Aztec' && selectedProof.targetChain === 'Ethereum';
 	}
 </script>
 
@@ -411,6 +601,31 @@
 				</Alert>
 			{/if}
 
+			<!-- Auto-unwrap toggle (only for Aztec -> L1) -->
+			{#if isAztecToL1()}
+				<div class="flex items-center justify-between p-3 rounded-lg border">
+					<div class="space-y-0.5">
+						<Label for="auto-unwrap" class="cursor-pointer">Auto-unwrap to native token</Label>
+						<p class="text-xs text-muted-foreground">
+							Receive native {selectedProof.token} instead of wrapped tokens
+						</p>
+					</div>
+					<input
+						id="auto-unwrap"
+						type="checkbox"
+						bind:checked={autoUnwrap}
+						class="h-4 w-4 rounded border-gray-300"
+					/>
+				</div>
+				{#if autoUnwrap}
+					<Alert>
+						<AlertDescription class="text-xs">
+							Note: Auto-unwrap may fail due to a known contract bug. You will receive wrapped tokens that can be unwrapped later.
+						</AlertDescription>
+					</Alert>
+				{/if}
+			{/if}
+
 			<!-- Withdraw Progress -->
 			{#if isWithdrawing}
 				<Alert>
@@ -438,7 +653,13 @@
 				disabled={!canWithdraw}
 				onclick={withdraw}
 			>
-				{isWithdrawing ? 'Processing...' : 'Withdraw to Aztec'}
+				{#if isWithdrawing}
+					Processing...
+				{:else if isAztecToL1()}
+					{autoUnwrap ? 'Withdraw to Ethereum' : 'Withdraw (Wrapped)'}
+				{:else}
+					Withdraw to {selectedProof.targetChain}
+				{/if}
 			</Button>
 		{/if}
 

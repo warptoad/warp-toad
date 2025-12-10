@@ -544,3 +544,245 @@ export async function triggerBridgeSync(chainId: number): Promise<{
 		sendGigaRootTxHash: sendHash,
 	};
 }
+
+// =============================================================================
+// CLAIM FROM AZTEC (L1 WITHDRAWAL)
+// =============================================================================
+
+/**
+ * Get the current gigaRoot from L1 WarpToad contract
+ */
+export async function getL1GigaRoot(chainId: number): Promise<bigint> {
+	const client = createClient(chainId);
+	if (!client) throw new Error('Failed to create client');
+	
+	const publicClient = createPublicClient({
+		chain: client.chain,
+		transport: http()
+	});
+	
+	const addresses = getContractAddresses(chainId);
+	if (!addresses.L1WarpToad) throw new Error('L1WarpToad address not found');
+	
+	const gigaRoot = await publicClient.readContract({
+		address: addresses.L1WarpToad as `0x${string}`,
+		abi: L1WarpToadAbi,
+		functionName: 'gigaRoot',
+	});
+	
+	return gigaRoot;
+}
+
+/**
+ * Get the current local root from L1 WarpToad contract
+ */
+export async function getL1LocalRoot(chainId: number): Promise<bigint> {
+	const client = createClient(chainId);
+	if (!client) throw new Error('Failed to create client');
+	
+	const publicClient = createPublicClient({
+		chain: client.chain,
+		transport: http()
+	});
+	
+	const addresses = getContractAddresses(chainId);
+	if (!addresses.L1WarpToad) throw new Error('L1WarpToad address not found');
+	
+	const localRoot = await publicClient.readContract({
+		address: addresses.L1WarpToad as `0x${string}`,
+		abi: L1WarpToadAbi,
+		functionName: 'cachedLocalRoot',
+	});
+	
+	return localRoot;
+}
+
+/**
+ * Convert a 32-byte padded hex string to a proper 20-byte Ethereum address
+ * 
+ * The ZK circuit uses 32-byte (Field) representation for addresses,
+ * but viem requires proper 20-byte addresses. This extracts the last
+ * 20 bytes (40 hex chars) from the padded representation.
+ * 
+ * @param paddedHex - 32-byte hex string (64 chars + 0x prefix)
+ * @returns 20-byte Ethereum address
+ */
+function paddedHexToAddress(paddedHex: string): `0x${string}` {
+	// Remove 0x prefix if present
+	const clean = paddedHex.startsWith('0x') ? paddedHex.slice(2) : paddedHex;
+	// Take last 40 hex chars (20 bytes) - addresses are right-aligned in 32-byte fields
+	const addressHex = clean.slice(-40);
+	return `0x${addressHex}` as `0x${string}`;
+}
+
+/**
+ * Claim tokens on L1 from an Aztec burn
+ * 
+ * This is the main withdrawal function for Aztec -> L1 flow.
+ * It calls the L1WarpToad.mint() function with the ZK proof.
+ * 
+ * @param proofInputs - The proof inputs (public inputs)
+ * @param proof - The ZK proof bytes (hex encoded)
+ * @param chainId - The L1 chain ID
+ * @returns Transaction hash
+ */
+export async function claimFromAztec(
+	proofInputs: {
+		nullifier: string;
+		amount: string;
+		giga_root: string;
+		destination_local_root: string;
+		fee_factor: string;
+		priority_fee: string;
+		max_fee: string;
+		relayer_address: string;
+		recipient_address: string;
+	},
+	proof: string,
+	chainId: number
+): Promise<{ txHash: string }> {
+	const client = createClient(chainId);
+	if (!client) throw new Error('Failed to create client');
+	
+	const publicClient = createPublicClient({
+		chain: client.chain,
+		transport: http()
+	});
+	
+	const addresses = getContractAddresses(chainId);
+	if (!addresses.L1WarpToad) throw new Error('L1WarpToad address not found');
+	
+	const userAddress = (await client.getAddresses())[0];
+	
+	console.log('Claiming from Aztec on L1...');
+	console.log('Nullifier:', proofInputs.nullifier);
+	console.log('Amount:', proofInputs.amount);
+	console.log('Recipient:', proofInputs.recipient_address);
+	
+	// Call mint function on L1WarpToad
+	// function mint(
+	//     uint256 _nullifier,
+	//     uint256 _amount,
+	//     uint256 _gigaRoot,
+	//     uint256 _localRoot,
+	//     uint256 _feeFactor,
+	//     uint256 _priorityFee,
+	//     uint256 _maxFee,
+	//     address _relayer,
+	//     address _recipient,
+	//     bytes memory _proof
+	// )
+	const { request } = await publicClient.simulateContract({
+		address: addresses.L1WarpToad as `0x${string}`,
+		abi: L1WarpToadAbi,
+		account: userAddress,
+		functionName: 'mint',
+		args: [
+			BigInt(proofInputs.nullifier),
+			BigInt(proofInputs.amount),
+			BigInt(proofInputs.giga_root),
+			BigInt(proofInputs.destination_local_root),
+			BigInt(proofInputs.fee_factor),
+			BigInt(proofInputs.priority_fee),
+			BigInt(proofInputs.max_fee),
+			paddedHexToAddress(proofInputs.relayer_address),
+			paddedHexToAddress(proofInputs.recipient_address),
+			proof as `0x${string}`,
+		],
+		// Set gas price parameters to match proof's priority fee
+		maxPriorityFeePerGas: BigInt(proofInputs.priority_fee),
+		maxFeePerGas: BigInt(proofInputs.priority_fee) * 100n, // Allow higher base fee
+	});
+	
+	const txHash = await client.writeContract(request);
+	await publicClient.waitForTransactionReceipt({ hash: txHash });
+	
+	console.log('Claim transaction completed:', txHash);
+	return { txHash };
+}
+
+/**
+ * Claim tokens on L1 from Aztec and automatically unwrap to native token
+ * 
+ * This combines mint + unwrap in two transactions.
+ * Note: Once L1WarpToad.mintAndUnwrap() is implemented, this can be done in one tx.
+ * 
+ * @param proofInputs - The proof inputs
+ * @param proof - The ZK proof bytes (hex encoded)
+ * @param chainId - The L1 chain ID
+ * @returns Transaction hashes
+ */
+export async function claimAndUnwrapFromAztec(
+	proofInputs: {
+		nullifier: string;
+		amount: string;
+		giga_root: string;
+		destination_local_root: string;
+		fee_factor: string;
+		priority_fee: string;
+		max_fee: string;
+		relayer_address: string;
+		recipient_address: string;
+	},
+	proof: string,
+	chainId: number
+): Promise<{ mintTxHash: string; unwrapTxHash: string }> {
+	// First, mint the wrapped tokens
+	const { txHash: mintTxHash } = await claimFromAztec(proofInputs, proof, chainId);
+	
+	// Calculate the amount received (after relayer fee)
+	const amount = BigInt(proofInputs.amount);
+	const feeFactor = BigInt(proofInputs.fee_factor);
+	let amountToUnwrap = amount;
+	
+	if (feeFactor !== 0n) {
+		// Fee is calculated as: feeFactor * (baseFee + priorityFee)
+		// For simplicity, we'll just use max_fee as upper bound
+		// The actual fee will be less, but we can't know the exact baseFee here
+		// TODO: This should be improved to get the actual fee from the mint tx receipt
+		const maxFee = BigInt(proofInputs.max_fee);
+		amountToUnwrap = amount - maxFee;
+	}
+	
+	// Then unwrap to native token
+	const client = createClient(chainId);
+	if (!client) throw new Error('Failed to create client');
+	
+	const publicClient = createPublicClient({
+		chain: client.chain,
+		transport: http()
+	});
+	
+	const addresses = getContractAddresses(chainId);
+	if (!addresses.L1WarpToad) throw new Error('L1WarpToad address not found');
+	
+	const userAddress = (await client.getAddresses())[0];
+	
+	console.log('Unwrapping tokens...');
+	console.log('Amount to unwrap:', amountToUnwrap.toString());
+	
+	// NOTE: The current unwrap function has a bug - it burns from address(this) instead of msg.sender
+	// This will fail until the bug is fixed. For now, user keeps wrapped tokens.
+	// TODO: Remove this comment once L1WarpToad.unwrap() is fixed
+	
+	try {
+		const { request } = await publicClient.simulateContract({
+			address: addresses.L1WarpToad as `0x${string}`,
+			abi: L1WarpToadAbi,
+			account: userAddress,
+			functionName: 'unwrap',
+			args: [amountToUnwrap],
+		});
+		
+		const unwrapTxHash = await client.writeContract(request);
+		await publicClient.waitForTransactionReceipt({ hash: unwrapTxHash });
+		
+		console.log('Unwrap transaction completed:', unwrapTxHash);
+		return { mintTxHash, unwrapTxHash };
+	} catch (error) {
+		console.error('Unwrap failed (likely due to contract bug):', error);
+		// Return mint tx only - user will have wrapped tokens
+		// They can manually unwrap later when bug is fixed
+		return { mintTxHash, unwrapTxHash: '' };
+	}
+}
