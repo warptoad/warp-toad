@@ -29,7 +29,7 @@ import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { WarpToadCoreContract, WarpToadCoreContractArtifact } from '../../../../backend/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore';
 import { loadContractArtifact } from '@aztec/aztec.js/abi';
 import { getContractInstanceFromInstantiationParams, type ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
-import { AztecWarpToad } from '../../../../backend/scripts/deploy/aztec/aztecDeployments/31337/deployed_addresses.json'
+import { AZTEC_CONTRACTS, AZTEC_CONFIG, L1_CONFIG } from '$lib/config/environment.js';
 import { Fr } from '@aztec/aztec.js/fields';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { siloNullifier } from '@aztec/stdlib/hash';
@@ -43,7 +43,7 @@ const EVM_TREE_DEPTH = 32;
 const GIGA_TREE_DEPTH = 5;
 
 // Environment configuration
-const getAztecNodeUrl = () => import.meta.env.VITE_AZTEC_NODE_URL || 'http://localhost:8080';
+const getAztecNodeUrl = () => AZTEC_CONFIG.nodeUrl;
 
 // =============================================================================
 // TYPES
@@ -145,9 +145,9 @@ export async function getWarpToadContract(wallet: Wallet): Promise<WarpToadCoreC
 	const contract = await getContractInstanceFromInstantiationParams(
 		WarpToadCoreContractArtifact,
 		{
-			constructorArgs: AztecWarpToad.constructorArgs,
-			deployer: AztecAddress.fromString(AztecWarpToad.deployer),
-			salt: Fr.fromHexString(AztecWarpToad.contractAddressSalt),
+			constructorArgs: AZTEC_CONTRACTS.AztecWarpToad.constructorArgs,
+			deployer: AztecAddress.fromString(AZTEC_CONTRACTS.AztecWarpToad.deployer),
+			salt: Fr.fromHexString(AZTEC_CONTRACTS.AztecWarpToad.contractAddressSalt),
 		}
 	);
 
@@ -201,16 +201,22 @@ export function hashNullifier(nullifierPreimage: bigint): bigint {
  * Create a public client for the given chain
  */
 function createEvmClient(chainId: number, rpcUrl?: string): PublicClient {
-	const defaultRpcUrl = chainId === 31337
-		? 'http://localhost:8545'
-		: chainId === 11155111
-			? 'https://sepolia.infura.io/v3/YOUR_KEY'
-			: 'http://localhost:8545';
+	// Use environment config for RPC URLs
+	let defaultRpcUrl: string;
+	if (chainId === L1_CONFIG.chainId || chainId === 31337) {
+		defaultRpcUrl = L1_CONFIG.rpcUrl;
+	} else if (chainId === 11155111) {
+		defaultRpcUrl = 'https://rpc.sepolia.org';
+	} else if (chainId === 534351) {
+		defaultRpcUrl = 'https://sepolia-rpc.scroll.io';
+	} else {
+		defaultRpcUrl = 'http://localhost:8545';
+	}
 
 	return createPublicClient({
 		chain: {
 			id: chainId,
-			name: chainId === 31337 ? 'Localhost' : `Chain ${chainId}`,
+			name: chainId === 31337 ? 'Localhost' : chainId === 11155111 ? 'Sepolia' : `Chain ${chainId}`,
 			nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
 			rpcUrls: {
 				default: { http: [rpcUrl || defaultRpcUrl] },
@@ -920,7 +926,7 @@ export async function isNoteUsed(nullifierPreimage: bigint): Promise<NullifierCh
 		const innerNullifierFr = Fr.fromString(innerNullifier.toString());
 		
 		// Step 2: Get the WarpToad contract address
-		const warpToadAddressStr = AztecWarpToad.address;
+		const warpToadAddressStr = AZTEC_CONTRACTS.AztecWarpToad.address;
 		if (!warpToadAddressStr) {
 			return {
 				isSpent: false,
@@ -1379,7 +1385,7 @@ export async function getAztecMerkleData(
 	}
 
 	// Step 3: Compute the siloed and unique note hash
-	const warpToadAddressStr = AztecWarpToad.address;
+	const warpToadAddressStr = AZTEC_CONTRACTS.AztecWarpToad.address;
 	const contractAddressBigInt = BigInt(AztecAddress.fromString(warpToadAddressStr).toBigInt());
 
 	const siloedNoteHash = await hashSiloedNoteHash(contractAddressBigInt, commitment);

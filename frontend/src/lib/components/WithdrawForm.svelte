@@ -1,5 +1,10 @@
 <script lang="ts">
-	import { Card, CardContent, CardHeader, CardTitle } from "$lib/components/ui/card/index.js";
+	import {
+		Card,
+		CardContent,
+		CardHeader,
+		CardTitle,
+	} from "$lib/components/ui/card/index.js";
 	import { Button } from "$lib/components/ui/button/index.js";
 	import { Alert, AlertDescription } from "$lib/components/ui/alert/index.js";
 	import { Separator } from "$lib/components/ui/separator/index.js";
@@ -11,9 +16,9 @@
 	import ProofTable from "./ProofTable.svelte";
 	import type { Proof } from "$lib/types/bridge.js";
 	import { getWalletInstance } from "$lib/utils/aztec-wallet.js";
-	import { 
-		mintFromEVM, 
-		validateCommitmentExists, 
+	import {
+		mintFromEVM,
+		validateCommitmentExists,
 		getAztecGigaRoot,
 		hashPreCommitment,
 		hashCommitment,
@@ -24,7 +29,7 @@
 		getEmptyEvmMerkleData,
 		getMerkleDataForAztecToL1,
 	} from "$lib/utils/aztec-interactions.js";
-	import { 
+	import {
 		decodeNote,
 		getL1GigaRoot,
 		getL1LocalRoot,
@@ -38,6 +43,7 @@
 	} from "$lib/utils/proof-generation.js";
 
 	import { getChainId as getEvmChainId } from "$lib/utils/evm-wallet.js";
+	import { L1_CONFIG } from "$lib/config/environment.js";
 
 	let selectedProof = $state<Proof | null>(null);
 	let fileInput: HTMLInputElement;
@@ -45,48 +51,56 @@
 	let successMessage = $state<string | null>(null);
 	let isWithdrawing = $state(false);
 	let isCheckingNullifier = $state(false);
-	let withdrawStep = $state<'idle' | 'validating' | 'checking-bridge' | 'building-proofs' | 'generating-proof' | 'minting' | 'unwrapping' | 'complete'>('idle');
-	let withdrawMessage = $state('');
-	
+	let withdrawStep = $state<
+		| "idle"
+		| "validating"
+		| "checking-bridge"
+		| "building-proofs"
+		| "generating-proof"
+		| "minting"
+		| "unwrapping"
+		| "complete"
+	>("idle");
+	let withdrawMessage = $state("");
+
 	// Auto-unwrap toggle (default ON) - only shown for Aztec -> L1 flow
 	let autoUnwrap = $state(true);
 
-	// Source chain ID - defaults to localhost (anvil)
-	// In production, this should be detected from the proof/note
-	const SOURCE_CHAIN_ID = import.meta.env.VITE_SOURCE_CHAIN_ID 
-		? parseInt(import.meta.env.VITE_SOURCE_CHAIN_ID) 
-		: 31337;
+	// Source chain ID - now uses environment config
+	const SOURCE_CHAIN_ID = L1_CONFIG.chainId;
 
 	// Map chain IDs to chain names
-	function getChainNameFromId(chainId: bigint): 'Ethereum' | 'Scroll' | 'Aztec' {
+	function getChainNameFromId(
+		chainId: bigint,
+	): "Ethereum" | "Scroll" | "Aztec" {
 		const id = Number(chainId);
 		// Standard EVM chain IDs
 		if (id === 1 || id === 31337 || id === 11155111) {
-			return 'Ethereum'; // Mainnet, Anvil/localhost, or Sepolia
+			return "Ethereum"; // Mainnet, Anvil/localhost, or Sepolia
 		}
 		if (id === 534351 || id === 534352) {
-			return 'Scroll'; // Scroll Sepolia or Mainnet
+			return "Scroll"; // Scroll Sepolia or Mainnet
 		}
 		// If it's a large number (Aztec uses poseidon2 hash as chain ID), assume Aztec
 		// Aztec chain IDs are typically very large numbers from poseidon2([salt, version])
 		if (chainId > 1000000n) {
-			return 'Aztec';
+			return "Aztec";
 		}
 		// Default to Ethereum for unknown chains
-		return 'Ethereum';
+		return "Ethereum";
 	}
 
 	let isTargetConnected = $derived(
-		selectedProof 
+		selectedProof
 			? walletStore.isChainConnected(selectedProof.targetChain)
-			: false
+			: false,
 	);
 
 	let canWithdraw = $derived(
-		selectedProof !== null && 
-		!selectedProof.used && 
-		isTargetConnected &&
-		!isWithdrawing
+		selectedProof !== null &&
+			!selectedProof.used &&
+			isTargetConnected &&
+			!isWithdrawing,
 	);
 
 	function handleProofSelect(proof: Proof) {
@@ -98,13 +112,13 @@
 	async function handleFileUpload(event: Event) {
 		const target = event.target as HTMLInputElement;
 		const file = target.files?.[0];
-		
+
 		if (!file) return;
 
 		// Read file content
 		const content = await file.text();
 		const parsed = proofStore.parseProofFile(content);
-		
+
 		if (!parsed) {
 			uploadError = "Invalid proof file format";
 			return;
@@ -113,25 +127,30 @@
 		// First check if proof exists in local storage
 		let proof = proofStore.findProofByNote(parsed.note);
 		let noteData: ReturnType<typeof decodeNote> | null = null;
-		
+
 		if (!proof) {
 			// Try to decode the note and create a new proof entry
 			try {
 				noteData = decodeNote(parsed.note);
-				
+
 				// Infer source and target chains from the note data
 				const sourceChain = getChainNameFromId(noteData.sourceChainId);
-				const targetChain = getChainNameFromId(noteData.destination_chain_id);
-				
+				const targetChain = getChainNameFromId(
+					noteData.destination_chain_id,
+				);
+
 				// Use 6 decimals for now (USDC standard)
 				// TODO: could fetch from contract based on token
 				const decimals = 6;
-				const formattedAmount = (Number(noteData.amount) / 10 ** decimals).toString();
-				
+				const formattedAmount = (
+					Number(noteData.amount) /
+					10 ** decimals
+				).toString();
+
 				// Create a new proof from the decoded note
 				proof = proofStore.addProof(
 					formattedAmount,
-					'USDC', // Default token - could be improved to detect from note
+					"USDC", // Default token - could be improved to detect from note
 					sourceChain,
 					targetChain,
 					parsed.note,
@@ -142,42 +161,50 @@
 						nullifier_preimg: noteData.nullifier_preimg,
 					},
 					noteData.preCommitment.toString(),
-					noteData.commitment.toString()
+					noteData.commitment.toString(),
 				);
-				
-				console.log(`Imported proof: ${sourceChain} -> ${targetChain}, amount: ${formattedAmount}`);
+
+				console.log(
+					`Imported proof: ${sourceChain} -> ${targetChain}, amount: ${formattedAmount}`,
+				);
 			} catch (decodeError) {
-				console.error('Failed to decode note:', decodeError);
-				uploadError = "Could not decode note. Please ensure you bridged funds first.";
+				console.error("Failed to decode note:", decodeError);
+				uploadError =
+					"Could not decode note. Please ensure you bridged funds first.";
 				return;
 			}
 		}
 
 		// Check if the note has already been used on Aztec (nullifier check)
 		// Only check if targeting Aztec and not already marked as used
-		if (proof && proof.targetChain === 'Aztec' && !proof.used) {
-			const nullifierPreimg = proof.commitmentData?.nullifier_preimg || noteData?.nullifier_preimg;
-			
+		if (proof && proof.targetChain === "Aztec" && !proof.used) {
+			const nullifierPreimg =
+				proof.commitmentData?.nullifier_preimg ||
+				noteData?.nullifier_preimg;
+
 			if (nullifierPreimg) {
 				isCheckingNullifier = true;
 				uploadError = null;
 				// Force Svelte to see the state change
-				await new Promise(resolve => setTimeout(resolve, 0));
-				
+				await new Promise((resolve) => setTimeout(resolve, 0));
+
 				const result = await isNoteUsed(nullifierPreimg);
-				
+
 				isCheckingNullifier = false;
-				
+
 				if (!result.success) {
 					// Could not connect to Aztec node - show warning but allow user to proceed
-					uploadError = result.error || 'Could not verify note status. Aztec node may be unavailable.';
+					uploadError =
+						result.error ||
+						"Could not verify note status. Aztec node may be unavailable.";
 					// Don't return - let user see the proof and try to withdraw anyway
 				} else if (result.isSpent) {
 					// Nullifier is spent - mark as used
 					proofStore.markProofAsUsed(proof.id);
 					proof = { ...proof, used: true };
 					successMessage = null;
-					uploadError = "This note has already been withdrawn on Aztec.";
+					uploadError =
+						"This note has already been withdrawn on Aztec.";
 				}
 			}
 		}
@@ -203,34 +230,35 @@
 
 		try {
 			// Route based on source chain
-			if (selectedProof.sourceChain === 'Aztec') {
+			if (selectedProof.sourceChain === "Aztec") {
 				await withdrawToL1();
 			} else {
 				await withdrawToAztec();
 			}
 		} catch (error) {
-			console.error('Withdraw error:', error);
-			
-			let errorMessage = 'Withdraw failed';
+			console.error("Withdraw error:", error);
+
+			let errorMessage = "Withdraw failed";
 			if (error instanceof Error) {
 				errorMessage = error.message;
-				
+
 				// Add hints for common errors
-				if (errorMessage.includes('VITE_AZTEC_WARPTOAD_ADDRESS')) {
-					errorMessage += '\n\nHint: Set VITE_AZTEC_WARPTOAD_ADDRESS in your .env file.';
-				} else if (errorMessage.includes('connect to Aztec')) {
-					errorMessage += '\n\nHint: Make sure the Aztec sandbox is running (aztec start --sandbox).';
-				} else if (errorMessage.includes('not found in burn events')) {
-					errorMessage += '\n\nHint: The commitment may not have been bridged yet. Wait for the next bridge sync.';
-				} else if (errorMessage.includes('proof generation')) {
-					errorMessage += '\n\nHint: ZK proof generation can take 30-60 seconds. Please be patient.';
+				if (errorMessage.includes("connect to Aztec")) {
+					errorMessage +=
+						"\n\nHint: Make sure the Aztec sandbox is running (aztec start --sandbox).";
+				} else if (errorMessage.includes("not found in burn events")) {
+					errorMessage +=
+						"\n\nHint: The commitment may not have been bridged yet. Wait for the next bridge sync.";
+				} else if (errorMessage.includes("proof generation")) {
+					errorMessage +=
+						"\n\nHint: ZK proof generation can take 30-60 seconds. Please be patient.";
 				}
 			}
-			
+
 			uploadError = errorMessage;
 			isWithdrawing = false;
-			withdrawStep = 'idle';
-			withdrawMessage = '';
+			withdrawStep = "idle";
+			withdrawMessage = "";
 		}
 	}
 
@@ -239,92 +267,104 @@
 	 */
 	async function withdrawToAztec() {
 		if (!selectedProof?.commitmentData) {
-			throw new Error('Proof missing commitment data. Please re-bridge or upload a valid note file.');
+			throw new Error(
+				"Proof missing commitment data. Please re-bridge or upload a valid note file.",
+			);
 		}
 
 		// Step 1: Validate commitment data exists
-		withdrawStep = 'validating';
-		withdrawMessage = 'Validating commitment data...';
+		withdrawStep = "validating";
+		withdrawMessage = "Validating commitment data...";
 
 		// Calculate commitment hash
 		const preCommitment = hashPreCommitment(
 			selectedProof.commitmentData.nullifier_preimg,
 			selectedProof.commitmentData.secret,
-			selectedProof.commitmentData.destination_chain_id
+			selectedProof.commitmentData.destination_chain_id,
 		);
-		const commitment = hashCommitment(preCommitment, selectedProof.commitmentData.amount);
-		
-		console.log('Validating commitment:', commitment.toString());
-		
+		const commitment = hashCommitment(
+			preCommitment,
+			selectedProof.commitmentData.amount,
+		);
+
+		console.log("Validating commitment:", commitment.toString());
+
 		// Validate commitment exists on L1
-		withdrawMessage = 'Checking commitment on L1...';
-		const exists = await validateCommitmentExists(commitment, SOURCE_CHAIN_ID);
+		withdrawMessage = "Checking commitment on L1...";
+		const exists = await validateCommitmentExists(
+			commitment,
+			SOURCE_CHAIN_ID,
+		);
 		if (!exists) {
 			throw new Error(
-				'Commitment not found on source chain. ' +
-				'Please ensure the burn transaction completed successfully.'
+				"Commitment not found on source chain. " +
+					"Please ensure the burn transaction completed successfully.",
 			);
 		}
 
 		// Step 2: Get Aztec wallet
 		const aztecWallet = getWalletInstance();
 		if (!aztecWallet) {
-			throw new Error('Aztec wallet not connected. Please connect your Azguard wallet.');
+			throw new Error(
+				"Aztec wallet not connected. Please connect your Azguard wallet.",
+			);
 		}
 
 		// Step 3: Check if GigaRoot has been synced to Aztec and get its value
-		withdrawStep = 'checking-bridge';
-		withdrawMessage = 'Checking bridge sync status...';
-		
+		withdrawStep = "checking-bridge";
+		withdrawMessage = "Checking bridge sync status...";
+
 		const gigaRoot = await getAztecGigaRoot(aztecWallet);
 		if (gigaRoot === null) {
 			throw new Error(
-				'GigaRoot has not been synced to Aztec yet. ' +
-				'Please wait for the bridge relayer to sync the root, or trigger a bridge sync manually.'
+				"GigaRoot has not been synced to Aztec yet. " +
+					"Please wait for the bridge relayer to sync the root, or trigger a bridge sync manually.",
 			);
 		}
-		console.log('GigaRoot from Aztec:', gigaRoot.toString());
+		console.log("GigaRoot from Aztec:", gigaRoot.toString());
 
 		// Get recipient address from connected wallet
 		const accounts = await aztecWallet.getAccounts();
 		if (!accounts || accounts.length === 0) {
-			throw new Error('No Aztec accounts found. Please ensure your wallet is properly connected.');
+			throw new Error(
+				"No Aztec accounts found. Please ensure your wallet is properly connected.",
+			);
 		}
 		const recipientAddress = accounts[0].item.toString();
-		console.log('Recipient address:', recipientAddress);
+		console.log("Recipient address:", recipientAddress);
 
 		// Step 4: Build merkle proofs
-		withdrawStep = 'building-proofs';
-		withdrawMessage = 'Building merkle proofs (this may take a moment)...';
+		withdrawStep = "building-proofs";
+		withdrawMessage = "Building merkle proofs (this may take a moment)...";
 
 		// Step 5: Call mint on Aztec
-		withdrawStep = 'minting';
-		withdrawMessage = 'Minting tokens on Aztec...';
-		
+		withdrawStep = "minting";
+		withdrawMessage = "Minting tokens on Aztec...";
+
 		const txHash = await mintFromEVM(
 			aztecWallet,
 			selectedProof.commitmentData,
 			SOURCE_CHAIN_ID,
 			recipientAddress,
-			gigaRoot
+			gigaRoot,
 		);
 
 		// Step 6: Complete
-		withdrawStep = 'complete';
-		withdrawMessage = 'Withdraw complete!';
-		
+		withdrawStep = "complete";
+		withdrawMessage = "Withdraw complete!";
+
 		proofStore.markProofAsUsed(selectedProof.id);
 		successMessage = `Successfully withdrew ${selectedProof.amount} ${selectedProof.token}! Tx: ${txHash.slice(0, 16)}...`;
-		
+
 		// Refresh balances after successful withdraw
 		await balanceStore.refresh();
-		
+
 		// Reset after delay
 		setTimeout(() => {
 			selectedProof = null;
 			isWithdrawing = false;
-			withdrawStep = 'idle';
-			withdrawMessage = '';
+			withdrawStep = "idle";
+			withdrawMessage = "";
 		}, 5000);
 	}
 
@@ -334,72 +374,90 @@
 	 */
 	async function withdrawToL1() {
 		if (!selectedProof?.commitmentData) {
-			throw new Error('Proof missing commitment data. Please re-bridge or upload a valid note file.');
+			throw new Error(
+				"Proof missing commitment data. Please re-bridge or upload a valid note file.",
+			);
 		}
 
 		// Step 1: Validate commitment data
-		withdrawStep = 'validating';
-		withdrawMessage = 'Validating commitment data...';
+		withdrawStep = "validating";
+		withdrawMessage = "Validating commitment data...";
 
-		const { nullifier_preimg, secret, destination_chain_id, amount } = selectedProof.commitmentData;
-		
+		const { nullifier_preimg, secret, destination_chain_id, amount } =
+			selectedProof.commitmentData;
+
 		// Calculate commitment hash for lookups
-		const preCommitment = hashPreCommitment(nullifier_preimg, secret, destination_chain_id);
+		const preCommitment = hashPreCommitment(
+			nullifier_preimg,
+			secret,
+			destination_chain_id,
+		);
 		const commitment = hashCommitment(preCommitment, amount);
-		console.log('Commitment:', commitment.toString());
+		console.log("Commitment:", commitment.toString());
 
 		// Step 2: Get L1 chain ID and gigaRoot
-		withdrawStep = 'checking-bridge';
-		withdrawMessage = 'Checking L1 bridge state...';
-		
+		withdrawStep = "checking-bridge";
+		withdrawMessage = "Checking L1 bridge state...";
+
 		const chainId = await getEvmChainId();
 		if (!chainId) {
-			throw new Error('EVM wallet not connected. Please connect your Ethereum wallet.');
+			throw new Error(
+				"EVM wallet not connected. Please connect your Ethereum wallet.",
+			);
 		}
-		console.log('L1 Chain ID:', chainId);
-		
+		console.log("L1 Chain ID:", chainId);
+
 		const gigaRoot = await getL1GigaRoot(chainId);
-		console.log('L1 GigaRoot:', gigaRoot.toString());
-		
+		console.log("L1 GigaRoot:", gigaRoot.toString());
+
 		const localRoot = await getL1LocalRoot(chainId);
-		console.log('L1 LocalRoot:', localRoot.toString());
+		console.log("L1 LocalRoot:", localRoot.toString());
 
 		// Step 3: Get Giga merkle data (Aztec local root in gigaRoot)
-		withdrawStep = 'building-proofs';
-		withdrawMessage = 'Getting Aztec local root from GigaBridge...';
-		
+		withdrawStep = "building-proofs";
+		withdrawMessage = "Getting Aztec local root from GigaBridge...";
+
 		// Get the Aztec local root that was bridged into this gigaRoot
 		// This also gives us the Aztec block number when the root was bridged
-		const {
-			aztecLocalRoot,
+		const { aztecLocalRoot, aztecLocalRootBlockNumber, gigaMerkleData } =
+			await getMerkleDataForAztecToL1(chainId, gigaRoot);
+
+		console.log("Aztec local root:", aztecLocalRoot.toString());
+		console.log(
+			"Aztec local root block number:",
 			aztecLocalRootBlockNumber,
-			gigaMerkleData,
-		} = await getMerkleDataForAztecToL1(chainId, gigaRoot);
-		
-		console.log('Aztec local root:', aztecLocalRoot.toString());
-		console.log('Aztec local root block number:', aztecLocalRootBlockNumber);
-		console.log('Giga merkle data:', gigaMerkleData);
+		);
+		console.log("Giga merkle data:", gigaMerkleData);
 
 		// Step 4: Get Aztec wallet and merkle data
-		withdrawMessage = 'Fetching Aztec merkle proof...';
-		
+		withdrawMessage = "Fetching Aztec merkle proof...";
+
 		const aztecWallet = getWalletInstance();
 		if (!aztecWallet) {
-			throw new Error('Aztec wallet not connected. Please connect your Azguard wallet to fetch your note.');
+			throw new Error(
+				"Aztec wallet not connected. Please connect your Azguard wallet to fetch your note.",
+			);
 		}
-		
+
 		// Get Aztec merkle data using the block number from when the root was bridged
 		// This ensures our commitment exists in the tree at that snapshot
-		const aztecMerkleData = await getAztecMerkleData(aztecWallet, commitment, aztecLocalRootBlockNumber);
-		console.log('Aztec merkle data:', aztecMerkleData);
-		
+		const aztecMerkleData = await getAztecMerkleData(
+			aztecWallet,
+			commitment,
+			aztecLocalRootBlockNumber,
+		);
+		console.log("Aztec merkle data:", aztecMerkleData);
+
 		// The origin local root is the Aztec note hash tree root that was bridged
 		const originLocalRoot = aztecLocalRoot;
-		console.log('Origin local root (Aztec note tree root):', originLocalRoot.toString());
+		console.log(
+			"Origin local root (Aztec note tree root):",
+			originLocalRoot.toString(),
+		);
 
 		// Step 5: Prepare proof inputs
-		withdrawMessage = 'Preparing proof inputs...';
-		
+		withdrawMessage = "Preparing proof inputs...";
+
 		// Get recipient address from connected EVM wallet
 		// (could also get from Aztec wallet if needed)
 		const proofInputs = prepareProofInputsForAztecToL1(
@@ -410,40 +468,48 @@
 			localRoot, // destination local root (L1)
 			originLocalRoot, // origin local root (Aztec)
 			BigInt(chainId),
-			walletStore.wallets.evm || '0x0000000000000000000000000000000000000000'
+			walletStore.wallets.evm ||
+				"0x0000000000000000000000000000000000000000",
 		);
-		console.log('Proof inputs prepared');
+		console.log("Proof inputs prepared");
 
 		// Step 6: Generate ZK proof in browser
-		withdrawStep = 'generating-proof';
-		withdrawMessage = 'Generating ZK proof (this may take 30-60 seconds)...';
-		
+		withdrawStep = "generating-proof";
+		withdrawMessage =
+			"Generating ZK proof (this may take 30-60 seconds)...";
+
 		const { proof, publicInputs } = await generateWithdrawProof(
 			proofInputs,
-			(msg) => { withdrawMessage = msg; }
+			(msg) => {
+				withdrawMessage = msg;
+			},
 		);
-		console.log('Proof generated, public inputs:', publicInputs.length);
-		
+		console.log("Proof generated, public inputs:", publicInputs.length);
+
 		// Format proof for L1 submission
 		const proofHex = formatProofForL1(proof);
-		console.log('Proof hex length:', proofHex.length);
+		console.log("Proof hex length:", proofHex.length);
 
 		// Step 7: Call mint on L1
-		withdrawStep = 'minting';
-		withdrawMessage = 'Minting wrapped tokens on L1...';
-		
+		withdrawStep = "minting";
+		withdrawMessage = "Minting wrapped tokens on L1...";
+
 		let mintTxHash: string;
 		let unwrapTxHash: string | null = null;
-		
+
 		if (autoUnwrap) {
 			// Mint and unwrap in sequence
-			const result = await claimAndUnwrapFromAztec(proofInputs, proofHex, chainId);
+			const result = await claimAndUnwrapFromAztec(
+				proofInputs,
+				proofHex,
+				chainId,
+			);
 			mintTxHash = result.mintTxHash;
 			unwrapTxHash = result.unwrapTxHash || null;
-			
+
 			if (unwrapTxHash) {
-				withdrawStep = 'unwrapping';
-				withdrawMessage = 'Unwrapping to native tokens...';
+				withdrawStep = "unwrapping";
+				withdrawMessage = "Unwrapping to native tokens...";
 			}
 		} else {
 			// Just mint wrapped tokens
@@ -452,11 +518,11 @@
 		}
 
 		// Step 8: Complete
-		withdrawStep = 'complete';
-		withdrawMessage = 'Withdraw complete!';
-		
+		withdrawStep = "complete";
+		withdrawMessage = "Withdraw complete!";
+
 		proofStore.markProofAsUsed(selectedProof.id);
-		
+
 		if (autoUnwrap && !unwrapTxHash) {
 			successMessage = `Withdrew ${selectedProof.amount} ${selectedProof.token}! Mint tx: ${mintTxHash.slice(0, 10)}... (unwrap skipped - contract bug)`;
 		} else if (autoUnwrap && unwrapTxHash) {
@@ -464,40 +530,51 @@
 		} else {
 			successMessage = `Withdrew ${selectedProof.amount} wrapped ${selectedProof.token}! Tx: ${mintTxHash.slice(0, 10)}...`;
 		}
-		
+
 		// Refresh balances after successful withdraw
 		await balanceStore.refresh();
-		
+
 		// Reset after delay
 		setTimeout(() => {
 			selectedProof = null;
 			isWithdrawing = false;
-			withdrawStep = 'idle';
-			withdrawMessage = '';
+			withdrawStep = "idle";
+			withdrawMessage = "";
 		}, 5000);
 	}
-	
+
 	function triggerFileUpload() {
 		fileInput?.click();
 	}
 
 	function getStepNumber(step: typeof withdrawStep): string {
 		switch (step) {
-			case 'validating': return '1/6';
-			case 'checking-bridge': return '2/6';
-			case 'building-proofs': return '3/6';
-			case 'generating-proof': return '4/6';
-			case 'minting': return '5/6';
-			case 'unwrapping': return '6/6';
-			case 'complete': return '6/6';
-			default: return '';
+			case "validating":
+				return "1/6";
+			case "checking-bridge":
+				return "2/6";
+			case "building-proofs":
+				return "3/6";
+			case "generating-proof":
+				return "4/6";
+			case "minting":
+				return "5/6";
+			case "unwrapping":
+				return "6/6";
+			case "complete":
+				return "6/6";
+			default:
+				return "";
 		}
 	}
-	
+
 	// Check if this is an Aztec -> L1 withdrawal
 	function isAztecToL1(): boolean {
 		if (!selectedProof) return false;
-		return selectedProof.sourceChain === 'Aztec' && selectedProof.targetChain === 'Ethereum';
+		return (
+			selectedProof.sourceChain === "Aztec" &&
+			selectedProof.targetChain === "Ethereum"
+		);
 	}
 </script>
 
@@ -516,25 +593,30 @@
 				onchange={handleFileUpload}
 				class="hidden"
 			/>
-		<Button variant="outline" onclick={triggerFileUpload} class="w-full" disabled={isCheckingNullifier}>
-			{#if isCheckingNullifier}
-				<Loader2 class="size-4 mr-2 animate-spin" />
-				Checking note status...
-			{:else}
-				<Upload class="size-4 mr-2" />
-				Upload Proof (.txt)
+			<Button
+				variant="outline"
+				onclick={triggerFileUpload}
+				class="w-full"
+				disabled={isCheckingNullifier}
+			>
+				{#if isCheckingNullifier}
+					<Loader2 class="size-4 mr-2 animate-spin" />
+					Checking note status...
+				{:else}
+					<Upload class="size-4 mr-2" />
+					Upload Proof (.txt)
+				{/if}
+			</Button>
+			{#if uploadError}
+				<Alert variant="destructive">
+					<AlertDescription class="whitespace-pre-wrap"
+						>{uploadError}</AlertDescription
+					>
+				</Alert>
 			{/if}
-		</Button>
-		{#if uploadError}
-			<Alert variant="destructive">
-				<AlertDescription class="whitespace-pre-wrap">{uploadError}</AlertDescription>
-			</Alert>
-		{/if}
 		</div>
 
-		<div class="text-center text-sm text-muted-foreground">
-			— or —
-		</div>
+		<div class="text-center text-sm text-muted-foreground">— or —</div>
 
 		<!-- Proof Table -->
 		<div class="space-y-2">
@@ -552,36 +634,53 @@
 					<CardContent class="pt-6 space-y-2">
 						<div class="flex justify-between text-sm">
 							<span class="text-muted-foreground">Amount:</span>
-							<span class="font-semibold">{selectedProof.amount} {selectedProof.token}</span>
+							<span class="font-semibold"
+								>{selectedProof.amount}
+								{selectedProof.token}</span
+							>
 						</div>
 						<div class="flex justify-between text-sm">
 							<span class="text-muted-foreground">Route:</span>
-							<span>{selectedProof.sourceChain} → {selectedProof.targetChain}</span>
+							<span
+								>{selectedProof.sourceChain} → {selectedProof.targetChain}</span
+							>
 						</div>
 						<div class="flex justify-between text-sm">
-							<span class="text-muted-foreground">Source Chain ID:</span>
+							<span class="text-muted-foreground"
+								>Source Chain ID:</span
+							>
 							<span>{SOURCE_CHAIN_ID}</span>
 						</div>
 						<div class="flex justify-between text-sm">
-							<span class="text-muted-foreground">Target Wallet:</span>
+							<span class="text-muted-foreground"
+								>Target Wallet:</span
+							>
 							<span class="flex items-center gap-1">
 								{#if isTargetConnected}
-									<CheckCircle2 class="size-4 text-green-500" />
-									<span class="text-green-500">Connected</span>
+									<CheckCircle2
+										class="size-4 text-green-500"
+									/>
+									<span class="text-green-500">Connected</span
+									>
 								{:else}
-									<span class="text-destructive">Not Connected</span>
+									<span class="text-destructive"
+										>Not Connected</span
+									>
 								{/if}
 							</span>
 						</div>
 						{#if selectedProof.commitmentData}
 							<div class="flex justify-between text-sm">
-								<span class="text-muted-foreground">Has Commitment:</span>
+								<span class="text-muted-foreground"
+									>Has Commitment:</span
+								>
 								<CheckCircle2 class="size-4 text-green-500" />
 							</div>
 						{:else}
 							<Alert variant="destructive">
 								<AlertDescription>
-									Missing commitment data. Upload note file to restore.
+									Missing commitment data. Upload note file to
+									restore.
 								</AlertDescription>
 							</Alert>
 						{/if}
@@ -600,9 +699,12 @@
 			{#if !isTargetConnected}
 				<Alert>
 					<AlertDescription>
-						Please connect your {selectedProof.targetChain} wallet to withdraw.
-						{#if selectedProof.targetChain === 'Aztec'}
-							<br /><span class="text-xs text-muted-foreground">Use the Azguard wallet extension.</span>
+						Please connect your {selectedProof.targetChain} wallet to
+						withdraw.
+						{#if selectedProof.targetChain === "Aztec"}
+							<br /><span class="text-xs text-muted-foreground"
+								>Use the Azguard wallet extension.</span
+							>
 						{/if}
 					</AlertDescription>
 				</Alert>
@@ -610,11 +712,16 @@
 
 			<!-- Auto-unwrap toggle (only for Aztec -> L1) -->
 			{#if isAztecToL1()}
-				<div class="flex items-center justify-between p-3 rounded-lg border">
+				<div
+					class="flex items-center justify-between p-3 rounded-lg border"
+				>
 					<div class="space-y-0.5">
-						<Label for="auto-unwrap" class="cursor-pointer">Auto-unwrap to native token</Label>
+						<Label for="auto-unwrap" class="cursor-pointer"
+							>Auto-unwrap to native token</Label
+						>
 						<p class="text-xs text-muted-foreground">
-							Receive native {selectedProof.token} instead of wrapped tokens
+							Receive native {selectedProof.token} instead of wrapped
+							tokens
 						</p>
 					</div>
 					<input
@@ -627,7 +734,9 @@
 				{#if autoUnwrap}
 					<Alert>
 						<AlertDescription class="text-xs">
-							Note: Auto-unwrap may fail due to a known contract bug. You will receive wrapped tokens that can be unwrapped later.
+							Note: Auto-unwrap may fail due to a known contract
+							bug. You will receive wrapped tokens that can be
+							unwrapped later.
 						</AlertDescription>
 					</Alert>
 				{/if}
@@ -637,16 +746,19 @@
 			{#if isWithdrawing}
 				<Alert>
 					<AlertDescription class="flex items-center gap-2">
-						{#if withdrawStep === 'complete'}
+						{#if withdrawStep === "complete"}
 							<CheckCircle2 class="size-4 text-green-500" />
 						{:else}
 							<Loader2 class="size-4 animate-spin" />
 						{/if}
 						<div class="flex-1">
 							<div>{withdrawMessage}</div>
-							{#if withdrawStep !== 'idle' && withdrawStep !== 'complete'}
+							{#if withdrawStep !== "idle" && withdrawStep !== "complete"}
 								<div class="text-xs text-muted-foreground mt-1">
-									Step {getStepNumber(withdrawStep)}: {withdrawStep.replace('-', ' ')}
+									Step {getStepNumber(withdrawStep)}: {withdrawStep.replace(
+										"-",
+										" ",
+									)}
 								</div>
 							{/if}
 						</div>
@@ -655,15 +767,11 @@
 			{/if}
 
 			<!-- Withdraw Button -->
-			<Button 
-				class="w-full" 
-				disabled={!canWithdraw}
-				onclick={withdraw}
-			>
+			<Button class="w-full" disabled={!canWithdraw} onclick={withdraw}>
 				{#if isWithdrawing}
 					Processing...
 				{:else if isAztecToL1()}
-					{autoUnwrap ? 'Withdraw to Ethereum' : 'Withdraw (Wrapped)'}
+					{autoUnwrap ? "Withdraw to Ethereum" : "Withdraw (Wrapped)"}
 				{:else}
 					Withdraw to {selectedProof.targetChain}
 				{/if}

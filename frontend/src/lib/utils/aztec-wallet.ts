@@ -1,10 +1,6 @@
 import { AztecWallet } from '@azguardwallet/aztec-wallet';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-
-const isLocal = import.meta.env.VITE_LOCAL;
-
-// Determine network based on environment
-const AZTEC_NETWORK = isLocal ? 'sandbox' : 'devnet';
+import { AZTEC_CONFIG } from '$lib/config/environment.js';
 
 // Dapp metadata for Azguard connection
 const DAPP_METADATA = {
@@ -32,8 +28,8 @@ export function isAzguardAvailable(): boolean {
  */
 export async function connectAzguardWallet(): Promise<{ wallet: Wallet; address: string }> {
 	try {
-		// Connect with metadata and network
-		const wallet = await AztecWallet.connect(DAPP_METADATA, AZTEC_NETWORK);
+		// Connect with metadata and network from environment config
+		const wallet = await AztecWallet.connect(DAPP_METADATA, AZTEC_CONFIG.network);
 		
 		// Store the wallet instance for later use
 		walletInstance = wallet;
@@ -143,7 +139,7 @@ export async function autoReconnect(): Promise<{ wallet: Wallet; address: string
 
 	try {
 		// Try to connect (Azguard handles session persistence internally)
-		const wallet = await AztecWallet.connect(DAPP_METADATA, AZTEC_NETWORK);
+		const wallet = await AztecWallet.connect(DAPP_METADATA, AZTEC_CONFIG.network);
 		
 		// Check if already connected
 		const azguardWallet = wallet as unknown as { connected?: boolean };

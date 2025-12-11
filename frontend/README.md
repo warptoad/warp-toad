@@ -22,13 +22,9 @@ cp template.env .env
 ```bash
 # Aztec Configuration
 VITE_AZTEC_NODE_URL=http://localhost:8080        # Aztec sandbox URL
-VITE_AZTEC_WARPTOAD_ADDRESS=0x...                # Deployed WarpToad contract on Aztec
-
-# Optional: Source chain configuration
-VITE_SOURCE_CHAIN_ID=31337                       # L1 chain ID (31337 for anvil, 11155111 for Sepolia)
 
 # Local development (set to 'true' for sandbox, leave empty for devnet)
-VITE_LOCAL=true
+VITE_TEST_MODE=true
 ```
 
 3. Install dependencies:
@@ -49,17 +45,8 @@ yarn run pull:addresses
 ## Development
 
 ```bash
-yarn run dev
+yarn run f:dev
 ```
-
-## Environment Variables Reference
-
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `VITE_AZTEC_NODE_URL` | Yes | `http://localhost:8080` | URL of the Aztec node/sandbox |
-| `VITE_AZTEC_WARPTOAD_ADDRESS` | Yes | - | Address of the WarpToad contract on Aztec |
-| `VITE_SOURCE_CHAIN_ID` | No | `31337` | L1 chain ID for withdraw validation |
-| `VITE_LOCAL` | No | - | Set to `true` for sandbox mode |
 
 ## Withdraw Flow (L1 -> Aztec)
 
@@ -76,52 +63,3 @@ The withdraw flow requires:
 3. Upload your proof/note file or select from saved proofs
 4. Click "Withdraw to Aztec"
 5. Wait for the transaction to complete
-
-### Troubleshooting
-
-**"GigaRoot has not been synced to Aztec yet"**
-- The bridge relayer needs to sync the root. This happens periodically.
-- For local development, manually trigger the bridge sync from the backend scripts.
-
-**"Commitment not found on source chain"**
-- Ensure the burn transaction completed on L1
-- Check that you're using the correct source chain ID
-
-**"Cannot connect to Aztec node"**
-- Ensure the Aztec sandbox is running: `aztec start --sandbox`
-- Check the `VITE_AZTEC_NODE_URL` environment variable
-
-**"VITE_AZTEC_WARPTOAD_ADDRESS not set"**
-- Deploy the WarpToad contract to Aztec and set the address in `.env`
-
-## Architecture
-
-```
-src/
-├── lib/
-│   ├── components/        # Svelte components
-│   │   ├── BridgeForm.svelte     # L1 burn/bridge UI
-│   │   └── WithdrawForm.svelte   # Aztec mint/withdraw UI
-│   ├── contracts/         # Contract ABIs and addresses
-│   ├── stores/            # Svelte stores (wallets, proofs)
-│   ├── types/             # TypeScript types
-│   └── utils/
-│       ├── aztec-interactions.ts  # Aztec mint/withdraw logic
-│       ├── aztec-wallet.ts        # Azguard wallet connection
-│       ├── evm-interactions.ts    # L1 burn/bridge logic
-│       └── evm-wallet.ts          # MetaMask connection
-├── App.svelte             # Main application
-└── main.ts                # Entry point
-```
-
-## Key Files
-
-- `aztec-interactions.ts`: Contains the core withdraw logic including:
-  - Merkle tree construction from L1 events
-  - Merkle proof generation
-  - `mintFromEVM()` function to call Aztec contract
-
-- `evm-interactions.ts`: Contains the bridge logic including:
-  - Token approval and wrapping
-  - Burn with commitment creation
-  - Note encoding/decoding

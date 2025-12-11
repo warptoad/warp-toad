@@ -33,6 +33,7 @@
 		getAztecWarpToadDecimals 
 	} from "$lib/utils/aztec-interactions.js";
 	import { getWalletInstance } from "$lib/utils/aztec-wallet.js";
+	import { L1_CONFIG, L2_SCROLL_CONFIG, getChainId as getEnvChainId } from "$lib/config/environment.js";
 
 	let sourceChain = $state<Chain>("Ethereum");
 	let targetChain = $state<Chain>("Aztec");
@@ -64,10 +65,10 @@
 		// Bridging FROM Aztec to L1
 		if (sourceChain === "Aztec") {
 			if (targetChain === "Ethereum") {
-				// Localhost or mainnet
-				return 31337n; // TODO: detect mainnet vs localhost
+				return BigInt(L1_CONFIG.chainId);
 			} else if (targetChain === "Scroll") {
-				return 534351n;
+				if (!L2_SCROLL_CONFIG) throw new Error("Scroll not available in current environment");
+				return BigInt(L2_SCROLL_CONFIG.chainId);
 			}
 			throw new Error(`Unsupported target chain: ${targetChain}`);
 		}
@@ -82,11 +83,11 @@
 			// This is computed as poseidon2([salt, aztec_version])
 			return await getAztecChainId(aztecWallet);
 		} else if (targetChain === "Scroll") {
-			// Scroll Sepolia
-			return 534351n;
+			if (!L2_SCROLL_CONFIG) throw new Error("Scroll not available in current environment");
+			return BigInt(L2_SCROLL_CONFIG.chainId);
 		} else {
-			// Ethereum mainnet or localhost (anvil)
-			return 31337n;
+			// Ethereum (L1)
+			return BigInt(L1_CONFIG.chainId);
 		}
 	}
 	
@@ -102,10 +103,11 @@
 			}
 			return await getAztecChainId(aztecWallet);
 		} else if (sourceChain === "Scroll") {
-			return 534351n;
+			if (!L2_SCROLL_CONFIG) throw new Error("Scroll not available in current environment");
+			return BigInt(L2_SCROLL_CONFIG.chainId);
 		} else {
-			// Ethereum
-			return 31337n;
+			// Ethereum (L1)
+			return BigInt(L1_CONFIG.chainId);
 		}
 	}
 

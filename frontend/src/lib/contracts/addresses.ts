@@ -3,7 +3,7 @@
  * Auto-generated from Ignition deployments
  * DO NOT EDIT MANUALLY
  * 
- * Generated: 2025-12-10T20:48:59.041Z
+ * Generated: 2025-12-11T10:50:27.142Z
  * Run 'npm run pull:addresses' to update
  */
 

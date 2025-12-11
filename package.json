@@ -7,7 +7,7 @@
     "nohoist": ["backend","frontend"]
   },
   "scripts": {
-    "f:dev": "cd frontend && yarn dev",
+    "f:dev": "cd frontend && yarn build && yarn preview",
     "b:warptoad:compile": "cd backend/contracts/aztec/WarpToadCore && aztec-nargo compile && aztec codegen -o src/artifacts target",
     "b:rootbridge:compile": "cd backend/contracts/aztec/L2AztecRootBridgeAdapter && aztec-nargo compile && aztec codegen -o src/artifacts target",
     "b:aztec": "yarn b:warptoad:compile && yarn b:rootbridge:compile",

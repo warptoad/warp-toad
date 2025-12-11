@@ -7,41 +7,30 @@
 
 import type { Chain, Token } from '$lib/types/bridge.js';
 import { createPublicClient, http, type Chain as ViemChain } from 'viem';
-import { anvil, sepolia, scroll, scrollSepolia } from 'viem/chains';
 import { walletStore } from './wallets.svelte';
 import { getWalletInstance } from '$lib/utils/aztec-wallet';
 import { getAztecWarpToadBalance, getAztecWarpToadDecimals } from '$lib/utils/aztec-interactions';
 import { USDcoinAbi } from '$lib/contracts/abis';
-
-// Token contract addresses per chain
-const TOKEN_ADDRESSES: Record<string, Record<number, string>> = {
-	USDC: {
-		31337: '0x95401dc811bb5740090279Ba06cfA8fcF6113778', // Anvil/localhost
-		11155111: '0xe899983Ff2C81E1c64d8a4Ac22AeE873A2382413', // Sepolia
-	}
-};
-
-// Chain configs for viem
-const CHAIN_CONFIGS: Record<number, ViemChain> = {
-	31337: anvil,
-	1: anvil, // Mainnet - fallback to anvil config for now
-	11155111: sepolia,
-	534351: scrollSepolia,
-	534352: scroll,
-};
+import { 
+	L1_CONFIG, 
+	L2_SCROLL_CONFIG, 
+	getViemChain, 
+	getTokenAddress as getTokenAddressFromConfig 
+} from '$lib/config/environment.js';
 
 /**
  * Get the appropriate viem chain config for a chain ID
  */
 function getChainConfig(chainId: number): ViemChain {
-	return CHAIN_CONFIGS[chainId] || anvil;
+	const chain = getViemChain(chainId);
+	return chain || L1_CONFIG.viemChain;
 }
 
 /**
  * Get token address for a chain
  */
 function getTokenAddress(token: Token, chainId: number): string | null {
-	return TOKEN_ADDRESSES[token]?.[chainId] || null;
+	return getTokenAddressFromConfig(token, chainId);
 }
 
 class BalanceStore {
