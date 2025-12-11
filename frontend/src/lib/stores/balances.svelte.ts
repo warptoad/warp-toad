@@ -1,8 +1,13 @@
 /**
  * Balance Store
- * 
- * Manages token balances for EVM and Aztec chains with manual refresh capability.
+ *
+ * Manages token balances for all supported chains with manual refresh capability.
  * Call `balanceStore.refresh()` after transactions to update displayed balances.
+ *
+ * Supports:
+ * - Ethereum L1 (native token balance)
+ * - Scroll L2 (wrapped token balance from L2WarpToad)
+ * - Aztec (wrapped token balance from AztecWarpToad)
  */
 
 import type { Chain, Token } from '$lib/types/bridge.js';
@@ -10,57 +15,67 @@ import { createPublicClient, http, type Chain as ViemChain } from 'viem';
 import { walletStore } from './wallets.svelte';
 import { getWalletInstance } from '$lib/utils/aztec-wallet';
 import { getAztecWarpToadBalance, getAztecWarpToadDecimals } from '$lib/utils/aztec-interactions';
-import { USDcoinAbi } from '$lib/contracts/abis';
-import { 
-	L1_CONFIG, 
-	L2_SCROLL_CONFIG, 
-	getViemChain, 
-	getTokenAddress as getTokenAddressFromConfig 
-} from '$lib/config/environment.js';
-
-/**
- * Get the appropriate viem chain config for a chain ID
- */
-function getChainConfig(chainId: number): ViemChain {
-	const chain = getViemChain(chainId);
-	return chain || L1_CONFIG.viemChain;
-}
-
-/**
- * Get token address for a chain
- */
-function getTokenAddress(token: Token, chainId: number): string | null {
-	return getTokenAddressFromConfig(token, chainId);
-}
+import { L2WarpToadAbi, USDcoinAbi } from '$lib/contracts/abis';
+import { getEVMChain, isChainEnabled } from '$lib/config/chains.js';
 
 class BalanceStore {
-	// Reactive state
-	private _evmBalance = $state<string>('0.00');
+	// Reactive state - separate balance for each chain type
+	private _ethereumBalance = $state<string>('0.00');
+	private _scrollBalance = $state<string>('0.00');
 	private _aztecBalance = $state<string>('0.00');
-	private _isLoadingEvm = $state<boolean>(false);
+
+	private _isLoadingEthereum = $state<boolean>(false);
+	private _isLoadingScroll = $state<boolean>(false);
 	private _isLoadingAztec = $state<boolean>(false);
+
 	private _lastRefresh = $state<number>(0);
 	private _selectedToken = $state<Token>('USDC');
 
 	// Getters
-	get evmBalance(): string {
-		return this._evmBalance;
+	get ethereumBalance(): string {
+		return this._ethereumBalance;
+	}
+
+	get scrollBalance(): string {
+		return this._scrollBalance;
 	}
 
 	get aztecBalance(): string {
 		return this._aztecBalance;
 	}
 
-	get isLoadingEvm(): boolean {
-		return this._isLoadingEvm;
+	// Legacy getter for backwards compatibility
+	get evmBalance(): string {
+		// Return balance based on current connected chain
+		const chainId = walletStore.chainId;
+		if (!chainId) return this._ethereumBalance;
+
+		const scrollChain = getEVMChain('Scroll');
+		if (scrollChain?.enabled && chainId === scrollChain.chainId) {
+			return this._scrollBalance;
+		}
+		return this._ethereumBalance;
+	}
+
+	get isLoadingEthereum(): boolean {
+		return this._isLoadingEthereum;
+	}
+
+	get isLoadingScroll(): boolean {
+		return this._isLoadingScroll;
 	}
 
 	get isLoadingAztec(): boolean {
 		return this._isLoadingAztec;
 	}
 
+	// Legacy getter
+	get isLoadingEvm(): boolean {
+		return this._isLoadingEthereum || this._isLoadingScroll;
+	}
+
 	get isLoading(): boolean {
-		return this._isLoadingEvm || this._isLoadingAztec;
+		return this._isLoadingEthereum || this._isLoadingScroll || this._isLoadingAztec;
 	}
 
 	get lastRefresh(): number {
@@ -71,20 +86,30 @@ class BalanceStore {
 	 * Get balance for a specific chain
 	 */
 	getBalance(chain: Chain): string {
-		if (chain === 'Aztec') {
-			return this._aztecBalance;
+		switch (chain) {
+			case 'Aztec':
+				return this._aztecBalance;
+			case 'Scroll':
+				return this._scrollBalance;
+			case 'Ethereum':
+			default:
+				return this._ethereumBalance;
 		}
-		return this._evmBalance;
 	}
 
 	/**
 	 * Check if loading for a specific chain
 	 */
 	isChainLoading(chain: Chain): boolean {
-		if (chain === 'Aztec') {
-			return this._isLoadingAztec;
+		switch (chain) {
+			case 'Aztec':
+				return this._isLoadingAztec;
+			case 'Scroll':
+				return this._isLoadingScroll;
+			case 'Ethereum':
+			default:
+				return this._isLoadingEthereum;
 		}
-		return this._isLoadingEvm;
 	}
 
 	/**
@@ -99,74 +124,130 @@ class BalanceStore {
 	 */
 	async refresh(): Promise<void> {
 		console.log('[BalanceStore] Refreshing all balances...');
-		await Promise.all([
-			this.refreshEvmBalance(),
-			this.refreshAztecBalance()
-		]);
+
+		const refreshTasks: Promise<void>[] = [this.refreshEthereumBalance(), this.refreshAztecBalance()];
+
+		// Only refresh Scroll if enabled
+		if (isChainEnabled('Scroll')) {
+			refreshTasks.push(this.refreshScrollBalance());
+		}
+
+		await Promise.all(refreshTasks);
 		this._lastRefresh = Date.now();
 		console.log('[BalanceStore] Refresh complete');
 	}
 
 	/**
-	 * Refresh EVM balance only
+	 * Refresh Ethereum L1 balance
 	 */
-	async refreshEvmBalance(): Promise<void> {
+	async refreshEthereumBalance(): Promise<void> {
 		const evmAddress = walletStore.wallets.evm;
-		const chainId = walletStore.chainId;
 
 		if (!evmAddress) {
-			this._evmBalance = 'Connect wallet';
+			this._ethereumBalance = 'Connect wallet';
 			return;
 		}
 
-		if (!chainId) {
-			this._evmBalance = '0.00';
+		const ethereumChain = getEVMChain('Ethereum');
+		if (!ethereumChain) {
+			this._ethereumBalance = '0.00';
 			return;
 		}
 
-		const tokenAddress = getTokenAddress(this._selectedToken, chainId);
+		const tokenAddress = ethereumChain.contracts.nativeToken;
 		if (!tokenAddress) {
-			console.log(`[BalanceStore] No token address for ${this._selectedToken} on chain ${chainId}`);
-			this._evmBalance = '0.00';
+			console.log(`[BalanceStore] No token address for ${this._selectedToken} on Ethereum`);
+			this._ethereumBalance = '0.00';
 			return;
 		}
 
-		this._isLoadingEvm = true;
+		this._isLoadingEthereum = true;
 
 		try {
-			const chainConfig = getChainConfig(chainId);
 			const publicClient = createPublicClient({
-				chain: chainConfig,
-				transport: http()
+				chain: ethereumChain.viemChain,
+				transport: http(ethereumChain.rpcUrl),
 			});
 
 			const [decimals, rawBalance] = await Promise.all([
 				publicClient.readContract({
 					address: tokenAddress as `0x${string}`,
 					abi: USDcoinAbi,
-					functionName: 'decimals'
+					functionName: 'decimals',
 				}),
 				publicClient.readContract({
 					address: tokenAddress as `0x${string}`,
 					abi: USDcoinAbi,
 					functionName: 'balanceOf',
-					args: [evmAddress as `0x${string}`]
-				})
+					args: [evmAddress as `0x${string}`],
+				}),
 			]);
 
 			const balance = Number(rawBalance) / 10 ** Number(decimals);
-			this._evmBalance = balance.toString();
-			console.log(`[BalanceStore] EVM balance: ${this._evmBalance}`);
+			this._ethereumBalance = balance.toString();
+			console.log(`[BalanceStore] Ethereum balance: ${this._ethereumBalance}`);
 		} catch (error) {
-			console.error('[BalanceStore] Failed to fetch EVM balance:', error);
-			// Keep previous balance on error
+			console.error('[BalanceStore] Failed to fetch Ethereum balance:', error);
 		} finally {
-			this._isLoadingEvm = false;
+			this._isLoadingEthereum = false;
 		}
 	}
 
 	/**
-	 * Refresh Aztec balance only
+	 * Refresh Scroll L2 balance
+	 * On Scroll, users hold wrapped tokens from L2WarpToad
+	 */
+	async refreshScrollBalance(): Promise<void> {
+		const evmAddress = walletStore.wallets.evm;
+
+		if (!evmAddress) {
+			this._scrollBalance = 'Connect wallet';
+			return;
+		}
+
+		const scrollChain = getEVMChain('Scroll');
+		if (!scrollChain || !scrollChain.enabled) {
+			this._scrollBalance = 'N/A';
+			return;
+		}
+
+		this._isLoadingScroll = true;
+
+		try {
+			const publicClient = createPublicClient({
+				chain: scrollChain.viemChain,
+				transport: http(scrollChain.rpcUrl),
+			});
+
+			// On Scroll, query the L2WarpToad contract for balance
+			// L2WarpToad is itself an ERC20 token
+			const [decimals, rawBalance] = await Promise.all([
+				publicClient.readContract({
+					address: scrollChain.contracts.warpToad as `0x${string}`,
+					abi: L2WarpToadAbi,
+					functionName: 'decimals',
+				}),
+				publicClient.readContract({
+					address: scrollChain.contracts.warpToad as `0x${string}`,
+					abi: L2WarpToadAbi,
+					functionName: 'balanceOf',
+					args: [evmAddress as `0x${string}`],
+				}),
+			]);
+
+			const balance = Number(rawBalance) / 10 ** Number(decimals);
+			this._scrollBalance = balance.toString();
+			console.log(`[BalanceStore] Scroll balance: ${this._scrollBalance}`);
+		} catch (error) {
+			console.error('[BalanceStore] Failed to fetch Scroll balance:', error);
+			// Don't reset balance on error - keep previous value
+		} finally {
+			this._isLoadingScroll = false;
+		}
+	}
+
+	/**
+	 * Refresh Aztec balance
 	 */
 	async refreshAztecBalance(): Promise<void> {
 		const aztecWallet = getWalletInstance();
@@ -181,7 +262,7 @@ class BalanceStore {
 		try {
 			const [balance, decimals] = await Promise.all([
 				getAztecWarpToadBalance(aztecWallet),
-				getAztecWarpToadDecimals(aztecWallet)
+				getAztecWarpToadDecimals(aztecWallet),
 			]);
 
 			const formatted = Number(balance) / 10 ** decimals;
@@ -189,10 +270,14 @@ class BalanceStore {
 			console.log(`[BalanceStore] Aztec balance: ${this._aztecBalance}`);
 		} catch (error) {
 			console.error('[BalanceStore] Failed to fetch Aztec balance:', error);
-			// Keep previous balance on error
 		} finally {
 			this._isLoadingAztec = false;
 		}
+	}
+
+	// Legacy method for backwards compatibility
+	async refreshEvmBalance(): Promise<void> {
+		await Promise.all([this.refreshEthereumBalance(), this.refreshScrollBalance()]);
 	}
 
 	/**

@@ -213,12 +213,27 @@ export function prepareProofInputsForAztecToL1(
 /**
  * Prepare proof inputs for same-chain withdrawal (origin == destination)
  * This is used when withdrawing on the same chain where the burn occurred
+ * 
+ * Note: Even for same-chain withdrawals, the contract still validates that gigaRoot
+ * is known/valid. The gigaRoot must exist in the contract's history, but we use
+ * empty giga merkle data since we don't need to prove cross-chain inclusion.
+ * 
+ * @param commitmentData - The commitment pre-image from the burn
+ * @param aztecMerkleData - Aztec merkle data (null for EVM same-chain)
+ * @param evmMerkleData - EVM merkle data (null for Aztec same-chain)
+ * @param localRoot - The local root containing the commitment
+ * @param gigaRoot - The current gigaRoot from the contract (must be valid/known)
+ * @param chainId - The chain ID
+ * @param recipientAddress - The recipient's address
+ * @param isFromAztec - Whether the burn originated from Aztec
+ * @param maxFee - Maximum fee willing to pay
  */
 export function prepareProofInputsForSameChain(
 	commitmentData: CommitmentPreImage,
 	aztecMerkleData: AztecMerkleData | null,
 	evmMerkleData: EvmMerkleData | null,
 	localRoot: bigint,
+	gigaRoot: bigint,
 	chainId: bigint,
 	recipientAddress: string,
 	isFromAztec: boolean,
@@ -233,14 +248,14 @@ export function prepareProofInputsForSameChain(
 		nullifier: toHex(nullifier),
 		chain_id: toHex(chainId),
 		amount: toHex(commitmentData.amount),
-		giga_root: toHex(0n), // Not needed for same-chain
+		giga_root: toHex(gigaRoot), // Must be a valid gigaRoot known to the contract
 		destination_local_root: toHex(localRoot),
 		fee_factor: toHex(feeFactor),
 		priority_fee: toHex(priorityFee),
 		max_fee: toHex(actualMaxFee),
 		relayer_address: addressToHex(DEFAULT_RELAYER_ADDRESS),
 		recipient_address: addressToHex(recipientAddress),
-		origin_local_root: toHex(localRoot), // Same as destination
+		origin_local_root: toHex(localRoot), // Same as destination for same-chain
 		is_from_aztec: isFromAztec,
 		nullifier_preimage: toHex(commitmentData.nullifier_preimg),
 		secret: toHex(commitmentData.secret),
@@ -258,7 +273,7 @@ export function prepareProofInputsForSameChain(
 				hash_path: evmMerkleData.hash_path.map(h => toHex(h)),
 			}
 			: createEmptyEvmMerkleData(),
-		giga_merkle_data: createEmptyGigaMerkleData(), // Not needed for same-chain
+		giga_merkle_data: createEmptyGigaMerkleData(), // Empty for same-chain (no cross-chain proof needed)
 	};
 }
 

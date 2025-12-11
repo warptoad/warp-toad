@@ -32,8 +32,13 @@
 		encodeAztecNote,
 		getAztecWarpToadDecimals 
 	} from "$lib/utils/aztec-interactions.js";
+	import { 
+		bridgeFromScroll, 
+		getScrollTokenDecimals,
+		getScrollChainId 
+	} from "$lib/utils/scroll-interactions.js";
 	import { getWalletInstance } from "$lib/utils/aztec-wallet.js";
-	import { L1_CONFIG, L2_SCROLL_CONFIG, getChainId as getEnvChainId } from "$lib/config/environment.js";
+	import { getEVMChain, isChainEnabled } from "$lib/config/chains.js";
 
 	let sourceChain = $state<Chain>("Ethereum");
 	let targetChain = $state<Chain>("Aztec");
@@ -55,6 +60,16 @@
 	}>({});
 
 	/**
+	 * Get the EVM chain ID for a chain name
+	 */
+	function getChainIdForChain(chain: Chain): number {
+		const chainDef = getEVMChain(chain);
+		if (!chainDef) throw new Error(`${chain} is not an EVM chain`);
+		if (!chainDef.enabled) throw new Error(`${chain} is not available in current environment`);
+		return chainDef.chainId;
+	}
+
+	/**
 	 * Get the destination chain ID based on source and target chain
 	 * 
 	 * When bridging FROM Aztec: returns the EVM target chain ID
@@ -62,13 +77,10 @@
 	 * For EVM-to-EVM: returns the target chain's standard ID
 	 */
 	async function getDestinationChainId(): Promise<bigint> {
-		// Bridging FROM Aztec to L1
+		// Bridging FROM Aztec to EVM
 		if (sourceChain === "Aztec") {
-			if (targetChain === "Ethereum") {
-				return BigInt(L1_CONFIG.chainId);
-			} else if (targetChain === "Scroll") {
-				if (!L2_SCROLL_CONFIG) throw new Error("Scroll not available in current environment");
-				return BigInt(L2_SCROLL_CONFIG.chainId);
+			if (targetChain === "Ethereum" || targetChain === "Scroll") {
+				return BigInt(getChainIdForChain(targetChain));
 			}
 			throw new Error(`Unsupported target chain: ${targetChain}`);
 		}
@@ -82,13 +94,12 @@
 			// Get the correct Aztec chain ID from the contract
 			// This is computed as poseidon2([salt, aztec_version])
 			return await getAztecChainId(aztecWallet);
-		} else if (targetChain === "Scroll") {
-			if (!L2_SCROLL_CONFIG) throw new Error("Scroll not available in current environment");
-			return BigInt(L2_SCROLL_CONFIG.chainId);
-		} else {
-			// Ethereum (L1)
-			return BigInt(L1_CONFIG.chainId);
+		} else if (targetChain === "Scroll" || targetChain === "Ethereum") {
+			// EVM target chain
+			return BigInt(getChainIdForChain(targetChain));
 		}
+		
+		throw new Error(`Unsupported target chain: ${targetChain}`);
 	}
 	
 	/**
@@ -102,13 +113,12 @@
 				throw new Error("Aztec wallet not connected");
 			}
 			return await getAztecChainId(aztecWallet);
-		} else if (sourceChain === "Scroll") {
-			if (!L2_SCROLL_CONFIG) throw new Error("Scroll not available in current environment");
-			return BigInt(L2_SCROLL_CONFIG.chainId);
-		} else {
-			// Ethereum (L1)
-			return BigInt(L1_CONFIG.chainId);
+		} else if (sourceChain === "Scroll" || sourceChain === "Ethereum") {
+			// EVM source chain
+			return BigInt(getChainIdForChain(sourceChain));
 		}
+		
+		throw new Error(`Unsupported source chain: ${sourceChain}`);
 	}
 
 	// Dialog states
@@ -187,12 +197,17 @@
 			// Branch based on source chain type
 			if (sourceChain === "Aztec") {
 				// ==========================================
-				// AZTEC -> L1 FLOW
+				// AZTEC -> EVM FLOW
 				// ==========================================
-				await bridgeFromAztec(sourceChainId, destinationChainId);
+				await bridgeFromAztecUI(sourceChainId, destinationChainId);
+			} else if (sourceChain === "Scroll") {
+				// ==========================================
+				// SCROLL -> AZTEC/L1 FLOW
+				// ==========================================
+				await bridgeFromScrollUI(destinationChainId);
 			} else {
 				// ==========================================
-				// EVM -> AZTEC/EVM FLOW (existing logic)
+				// ETHEREUM L1 -> AZTEC/SCROLL FLOW
 				// ==========================================
 				await bridgeFromEvm(destinationChainId);
 			}
@@ -222,10 +237,10 @@
 	}
 	
 	/**
-	 * Bridge from Aztec to L1 (EVM)
-	 * Burns tokens on Aztec and creates a note for L1 withdrawal
+	 * Bridge from Aztec to EVM (L1 or Scroll)
+	 * Burns tokens on Aztec and creates a note for EVM withdrawal
 	 */
-	async function bridgeFromAztec(sourceChainId: bigint, destinationChainId: bigint) {
+	async function bridgeFromAztecUI(sourceChainId: bigint, destinationChainId: bigint) {
 		const aztecWallet = getWalletInstance();
 		if (!aztecWallet) {
 			throw new Error("Aztec wallet not connected. Please connect Azguard wallet first.");
@@ -278,7 +293,35 @@
 	}
 	
 	/**
-	 * Bridge from EVM to Aztec/EVM (existing flow)
+	 * Bridge from Scroll L2 to Aztec/L1
+	 * Burns tokens on Scroll and creates a note for withdrawal
+	 */
+	async function bridgeFromScrollUI(destinationChainId: bigint) {
+		// On Scroll, users already have wrapped tokens (from L2WarpToad)
+		// No need to approve/wrap - just burn directly
+		
+		generationStep = "burning";
+		generationMessage = "Burning tokens on Scroll L2...";
+		
+		const bridgeResult = await bridgeFromScroll(amount, destinationChainId);
+		
+		// Add proof and download
+		const proof = proofStore.addProof(
+			amount,
+			selectedToken,
+			sourceChain,
+			targetChain,
+			bridgeResult.note,
+			bridgeResult.commitmentPreImg,
+			bridgeResult.preCommitment,
+			bridgeResult.commitment,
+			bridgeResult.burnTxHash
+		);
+		proofStore.downloadProof(proof);
+	}
+
+	/**
+	 * Bridge from EVM (Ethereum L1) to Aztec/Scroll
 	 */
 	async function bridgeFromEvm(destinationChainId: bigint) {
 		// Step 2: Approving tokens
@@ -413,11 +456,11 @@
 		</Card>
 
 		<!-- Swap Button -->
-		<div class="flex justify-center -my-2 relative z-10">
+		<div class="flex justify-center relative z-10">
 			<Button
 				size="icon"
 				variant="outline"
-				class="rounded-full size-10 border-2 bg-background hover:bg-accent"
+				class="rounded-full size-10 border-2 bg-background hover:bg-accent w-full"
 				onclick={switchChains}
 			>
 				<ArrowDownUp class="size-4" />

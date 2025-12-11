@@ -1,102 +1,165 @@
 /**
  * Environment Configuration
- * 
- * Central configuration file for environment-dependent settings.
- * 
+ *
+ * This file provides backwards-compatible exports from the chain registry.
+ * New code should import directly from '$lib/config/chains.js' instead.
+ *
  * VITE_TEST_MODE=true  -> Local development (Anvil + Aztec Sandbox)
  * VITE_TEST_MODE=false -> Testnet (Sepolia + Scroll Sepolia + Aztec Devnet)
  */
 
-import { anvil, sepolia, scrollSepolia, type Chain as ViemChain } from 'viem/chains';
+import { anvil } from 'viem/chains';
+import type { Chain as ViemChain } from 'viem/chains';
 import type { Chain, Token } from '$lib/types/bridge.js';
 
-// For test mode, import directly from deployed JSON files (always up-to-date after redeploys)
-import LocalAztecDeployments from '../../../../backend/scripts/deploy/aztec/aztecDeployments/31337/deployed_addresses.json';
+// Re-export everything from chains.ts
+export {
+	isTestMode,
+	CHAIN_REGISTRY,
+	getChain,
+	getChainByChainId,
+	getEnabledChains,
+	getDisabledChains,
+	isChainEnabled,
+	isEVMChain,
+	isAztecChain,
+	getEVMChain,
+	getAztecChain,
+	getViemChain as getViemChainByName,
+	getViemChainById,
+	getEVMChains,
+	getNetworkConfigs,
+	getWarpToadAddress,
+	getNativeTokenAddress,
+	getBridgeAdapterAddress,
+	getGigaBridgeAddress,
+	SUPPORTED_TOKENS,
+	getTokenConfig,
+	type ChainRole,
+	type EVMChainContracts,
+	type AztecChainContracts,
+	type EVMChainDefinition,
+	type AztecChainDefinition,
+	type ChainDefinition,
+	type TokenConfig,
+} from './chains.js';
+
+import {
+	isTestMode,
+	CHAIN_REGISTRY,
+	getEnabledChains,
+	getEVMChain,
+	getAztecChain,
+	getViemChainById,
+	getTokenConfig as getTokenConfigFromChains,
+	SUPPORTED_TOKENS,
+} from './chains.js';
 
 // ============================================================================
-// Environment Detection
+// Legacy Compatibility Exports
 // ============================================================================
 
 /**
- * Test mode flag - determines which environment configuration to use
- * true = local development (anvil + aztec sandbox)
- * false = testnet (sepolia + scroll sepolia + aztec devnet)
+ * @deprecated Use CHAIN_REGISTRY['Ethereum'] or getEVMChain('Ethereum') instead
  */
-export const isTestMode = import.meta.env.VITE_TEST_MODE === 'true';
-
-// ============================================================================
-// Chain Configuration
-// ============================================================================
-
 export interface ChainConfig {
 	chainId: number;
 	name: string;
 	viemChain: ViemChain;
 	rpcUrl: string;
-	available: boolean; // Whether this chain is available in current mode
+	available: boolean;
 }
 
 /**
- * L1 chain configuration
+ * @deprecated Use CHAIN_REGISTRY['Ethereum'] instead
  */
-export const L1_CONFIG: ChainConfig = isTestMode
-	? {
-		chainId: 31337,
-		name: 'Localhost (Anvil)',
-		viemChain: anvil,
-		rpcUrl: 'http://localhost:8545',
-		available: true,
-	}
-	: {
-		chainId: 11155111,
-		name: 'Sepolia Testnet',
-		viemChain: sepolia,
-		rpcUrl: import.meta.env.VITE_SEPOLIA_RPC_URL || 'https://rpc.sepolia.org',
-		available: true,
+export const L1_CONFIG: ChainConfig = (() => {
+	const chain = getEVMChain('Ethereum')!;
+	return {
+		chainId: chain.chainId,
+		name: chain.name,
+		viemChain: chain.viemChain,
+		rpcUrl: chain.rpcUrl,
+		available: chain.enabled,
 	};
+})();
 
 /**
- * L2 (Scroll) chain configuration
- * Only available in testnet mode
+ * @deprecated Use CHAIN_REGISTRY['Scroll'] instead
  */
-export const L2_SCROLL_CONFIG: ChainConfig | null = isTestMode
-	? null // Scroll not available in test mode
-	: {
-		chainId: 534351,
-		name: 'Scroll Sepolia',
-		viemChain: scrollSepolia,
-		rpcUrl: 'https://sepolia-rpc.scroll.io',
-		available: true,
+export const L2_SCROLL_CONFIG: ChainConfig | null = (() => {
+	const chain = getEVMChain('Scroll');
+	if (!chain || !chain.enabled) return null;
+	return {
+		chainId: chain.chainId,
+		name: chain.name,
+		viemChain: chain.viemChain,
+		rpcUrl: chain.rpcUrl,
+		available: chain.enabled,
 	};
+})();
 
 /**
- * Aztec network configuration
+ * @deprecated Use getAztecChain('Aztec') instead
  */
-export const AZTEC_CONFIG = {
-	network: isTestMode ? 'sandbox' : 'devnet',
-	nodeUrl: isTestMode
-		? (import.meta.env.VITE_AZTEC_NODE_URL || 'http://localhost:8080')
-		: 'https://devnet.aztec-labs.com',
-} as const;
+export const AZTEC_CONFIG = (() => {
+	const chain = getAztecChain('Aztec')!;
+	return {
+		network: chain.network,
+		nodeUrl: chain.nodeUrl,
+	} as const;
+})();
 
 // ============================================================================
-// Contract Addresses
+// Legacy Contract Address Exports
 // ============================================================================
 
+/**
+ * @deprecated Use CHAIN_REGISTRY['Ethereum'].contracts instead
+ */
 export interface ContractAddresses {
-	// L1 Contracts
 	USDcoin: string;
 	L1WarpToad: string;
 	L1AztecBridgeAdapter: string;
 	L1ScrollBridgeAdapter: string;
 	GigaBridge: string;
-	// L2 Scroll Contracts (testnet only)
 	L2WarpToad?: string;
 	L2ScrollBridgeAdapter?: string;
 }
 
 /**
- * Full Aztec contract deployment info (needed for contract instantiation)
+ * @deprecated Use getEVMChain('Ethereum').contracts instead
+ */
+export const L1_CONTRACTS: ContractAddresses = (() => {
+	const chain = getEVMChain('Ethereum')!;
+	return {
+		USDcoin: chain.contracts.nativeToken,
+		L1WarpToad: chain.contracts.warpToad,
+		L1AztecBridgeAdapter: chain.contracts.bridgeAdapter || '',
+		L1ScrollBridgeAdapter: '', // Not directly tracked in new system
+		GigaBridge: chain.contracts.gigaBridge || '',
+	};
+})();
+
+/**
+ * @deprecated Use getEVMChain('Scroll').contracts instead
+ */
+export const L2_SCROLL_CONTRACTS: ContractAddresses | null = (() => {
+	const chain = getEVMChain('Scroll');
+	if (!chain || !chain.enabled) return null;
+	return {
+		USDcoin: chain.contracts.nativeToken,
+		L1WarpToad: '',
+		L1AztecBridgeAdapter: '',
+		L1ScrollBridgeAdapter: '',
+		GigaBridge: '',
+		L2WarpToad: chain.contracts.warpToad,
+		L2ScrollBridgeAdapter: chain.contracts.bridgeAdapter,
+	};
+})();
+
+/**
+ * @deprecated Use getAztecChain('Aztec').contracts instead
  */
 export interface AztecContractDeployment {
 	address: string;
@@ -111,256 +174,135 @@ export interface AztecContractAddresses {
 }
 
 /**
- * L1 contract addresses based on environment
+ * @deprecated Use getAztecChain('Aztec').contracts instead
  */
-export const L1_CONTRACTS: ContractAddresses = isTestMode
-	? {
-		// Anvil (localhost) - chain 31337
-		USDcoin: '0x95401dc811bb5740090279Ba06cfA8fcF6113778',
-		L1WarpToad: '0x99bbA657f2BbC93c02D617f8bA121cB8Fc104Acf',
-		L1AztecBridgeAdapter: '0x0E801D84Fa97b50751Dbf25036d067dCf18858bF',
-		L1ScrollBridgeAdapter: '0x8f86403A4DE0BB5791fa46B8e795C547942fE4Cf',
-		GigaBridge: '0x9d4454B023096f34B160D6B654540c56A1F81688',
-	}
-	: {
-		// Sepolia Testnet - chain 11155111
-		USDcoin: '0xe899983Ff2C81E1c64d8a4Ac22AeE873A2382413',
-		L1WarpToad: '0x5BFA9A4f358470774eC2997623efA97ecbf32263',
-		L1AztecBridgeAdapter: '0x056B0485c1A76bf0A158e7DCd3D19e4d31f0CC5b',
-		L1ScrollBridgeAdapter: '0x1c9b9Fdfb57fDdF18588e0247F7Dc786d9eA3D92',
-		GigaBridge: '0xeae835289f34dE789C370929d33458919c106a22',
+export const AZTEC_CONTRACTS: AztecContractAddresses = (() => {
+	const chain = getAztecChain('Aztec')!;
+	return {
+		AztecWarpToad: chain.contracts.warpToad,
+		L2AztecBridgeAdapter: chain.contracts.bridgeAdapter,
 	};
-
-/**
- * L2 Scroll contract addresses (testnet only)
- */
-export const L2_SCROLL_CONTRACTS: ContractAddresses | null = isTestMode
-	? null
-	: {
-		USDcoin: '', // No USDcoin directly on Scroll (bridged via WarpToad)
-		L1WarpToad: '', // Reference to L1
-		L1AztecBridgeAdapter: '', // Reference to L1
-		L1ScrollBridgeAdapter: '0x1c9b9Fdfb57fDdF18588e0247F7Dc786d9eA3D92',
-		GigaBridge: '', // Reference to L1
-		L2WarpToad: '0x0f7776D959e3B410eb84736527F863c631259C9F',
-		L2ScrollBridgeAdapter: '0x15d38553738792B6E97Dc06E4eCf9f335C9cDD80',
-	};
-
-/**
- * Aztec contract deployment info based on environment
- * 
- * For TEST MODE: Dynamically imported from deployed_addresses.json
- *   - This ensures addresses are always up-to-date after local redeployments
- * 
- * For TESTNET MODE: Hardcoded addresses (more stable, less frequent changes)
- */
-export const AZTEC_CONTRACTS: AztecContractAddresses = isTestMode
-	? {
-		// Aztec Sandbox (local) - DYNAMIC from JSON file
-		AztecWarpToad: {
-			address: LocalAztecDeployments.AztecWarpToad.address,
-			constructorArgs: LocalAztecDeployments.AztecWarpToad.constructorArgs,
-			contractAddressSalt: LocalAztecDeployments.AztecWarpToad.contractAddressSalt,
-			deployer: LocalAztecDeployments.AztecWarpToad.deployer,
-		},
-		L2AztecBridgeAdapter: {
-			address: LocalAztecDeployments.L2AztecBridgeAdapter.address,
-			constructorArgs: LocalAztecDeployments.L2AztecBridgeAdapter.constructorArgs,
-			contractAddressSalt: LocalAztecDeployments.L2AztecBridgeAdapter.contractAddressSalt,
-			deployer: LocalAztecDeployments.L2AztecBridgeAdapter.deployer,
-		},
-	}
-	: {
-		// Aztec Devnet - HARDCODED (linked to Sepolia, chain 11155111)
-		AztecWarpToad: {
-			address: '0x2938a934bac6c4705ab0ac7fe3be249f5bd7a0feb92368b3773a02295022b6d1',
-			constructorArgs: [
-				'0xe899983Ff2C81E1c64d8a4Ac22AeE873A2382413',
-				'wrapped-warptoad-USD Coin',
-				'wrptd-USDC',
-				'6'
-			],
-			contractAddressSalt: '0x07aa40a60174428b7d2acc4041f21d4aeddfa1dac11df78e6a7dec187ed963df',
-			deployer: '0x11deabd59b872d17c737b66f61d332230f341e774c6b5d3762f46a74536f947f',
-		},
-		L2AztecBridgeAdapter: {
-			address: '0x16f90325fa9e9445cdd52dc910724ee2ffe3fd2ce0852ea3d680d0f5e2d22f90',
-			constructorArgs: ['0x056B0485c1A76bf0A158e7DCd3D19e4d31f0CC5b'],
-			contractAddressSalt: '0x25205f537d449e052dbaa15b7916c7bc8355735c5759e99dbcbeaa358c43d2fc',
-			deployer: '0x11deabd59b872d17c737b66f61d332230f341e774c6b5d3762f46a74536f947f',
-		},
-	};
+})();
 
 // ============================================================================
-// Token Configuration
-// ============================================================================
-
-export interface TokenConfig {
-	symbol: Token;
-	name: string;
-	decimals: number;
-	addresses: {
-		l1: string;
-		scrollL2?: string;
-		aztec?: string; // Aztec uses wrapped version
-	};
-}
-
-/**
- * Supported tokens
- * Currently only USDC is supported
- */
-export const SUPPORTED_TOKENS: TokenConfig[] = [
-	{
-		symbol: 'USDC',
-		name: 'USD Coin',
-		decimals: 6,
-		addresses: {
-			l1: L1_CONTRACTS.USDcoin,
-			// Note: On Aztec, users receive wrapped USDC via the WarpToad contract
-		},
-	},
-];
-
-/**
- * Get token config by symbol
- */
-export function getTokenConfig(symbol: Token): TokenConfig | undefined {
-	return SUPPORTED_TOKENS.find((t) => t.symbol === symbol);
-}
-
-// ============================================================================
-// Chain Availability
+// Legacy Chain Availability
 // ============================================================================
 
 /**
- * All possible chains in the app
+ * @deprecated Use getEnabledChains() instead
  */
 export const ALL_CHAINS: Chain[] = ['Ethereum', 'Scroll', 'Aztec'];
 
 /**
- * Chains available in current environment mode
+ * @deprecated Use getEnabledChains() instead
  */
-export const AVAILABLE_CHAINS: Chain[] = isTestMode
-	? ['Ethereum', 'Aztec']
-	: ['Ethereum', 'Scroll', 'Aztec'];
+export const AVAILABLE_CHAINS: Chain[] = getEnabledChains();
 
 /**
- * Check if a chain is available in current mode
+ * @deprecated Use isChainEnabled() instead
  */
 export function isChainAvailable(chain: Chain): boolean {
-	return AVAILABLE_CHAINS.includes(chain);
+	return CHAIN_REGISTRY[chain]?.enabled ?? false;
 }
 
 /**
- * Check if a chain is disabled (exists but not available in current mode)
+ * @deprecated Use !isChainEnabled() instead
  */
 export function isChainDisabled(chain: Chain): boolean {
-	return ALL_CHAINS.includes(chain) && !AVAILABLE_CHAINS.includes(chain);
+	const def = CHAIN_REGISTRY[chain];
+	return def !== undefined && !def.enabled;
 }
 
 // ============================================================================
-// Chain ID Mappings
+// Legacy Chain ID Mappings
 // ============================================================================
 
 /**
- * Get chain ID for a given Chain type
+ * @deprecated Use getChainByChainId() instead
  */
 export function getChainId(chain: Chain): number | null {
-	switch (chain) {
-		case 'Ethereum':
-			return L1_CONFIG.chainId;
-		case 'Scroll':
-			return L2_SCROLL_CONFIG?.chainId ?? null;
-		case 'Aztec':
-			// Aztec doesn't have a standard chain ID - handled separately
-			return null;
-		default:
-			return null;
-	}
+	const def = CHAIN_REGISTRY[chain];
+	if (!def) return null;
+	if (def.type === 'EVM') return def.chainId;
+	return null; // Aztec doesn't have a standard chain ID
 }
 
 /**
- * Get Chain name from chain ID
+ * @deprecated Use getChainByChainId() instead
  */
 export function getChainFromId(chainId: number): Chain | null {
-	if (chainId === L1_CONFIG.chainId) return 'Ethereum';
-	if (L2_SCROLL_CONFIG && chainId === L2_SCROLL_CONFIG.chainId) return 'Scroll';
+	for (const [name, def] of Object.entries(CHAIN_REGISTRY)) {
+		if (def.type === 'EVM' && def.chainId === chainId) {
+			return name as Chain;
+		}
+	}
 	// Legacy anvil ID mapping
 	if (chainId === 31337) return 'Ethereum';
 	return null;
 }
 
 /**
- * Get viem chain config for a chain ID
+ * @deprecated Use getViemChainById() instead
  */
 export function getViemChain(chainId: number): ViemChain | null {
-	if (chainId === L1_CONFIG.chainId) return L1_CONFIG.viemChain;
-	if (L2_SCROLL_CONFIG && chainId === L2_SCROLL_CONFIG.chainId) return L2_SCROLL_CONFIG.viemChain;
+	const chain = getViemChainById(chainId);
+	if (chain) return chain;
 	// Fallback for anvil
 	if (chainId === 31337) return anvil;
 	return null;
 }
 
 // ============================================================================
-// Network Configuration for Viem
+// Legacy Contract Address Helpers
 // ============================================================================
 
 /**
- * Get viem chain configs for EVM networks
- */
-export function getNetworkConfigs(): Record<string, ViemChain> {
-	const configs: Record<string, ViemChain> = {
-		Ethereum: L1_CONFIG.viemChain,
-	};
-
-	if (L2_SCROLL_CONFIG) {
-		configs.Scroll = L2_SCROLL_CONFIG.viemChain;
-	}
-
-	return configs;
-}
-
-// ============================================================================
-// Contract Address Helpers
-// ============================================================================
-
-/**
- * Get contract addresses for a chain ID
+ * @deprecated Use getEVMChain(getChainByChainId(chainId)).contracts instead
  */
 export function getContractAddresses(chainId: number): ContractAddresses | null {
-	if (chainId === L1_CONFIG.chainId || chainId === 31337) {
+	// Check L1
+	const l1 = getEVMChain('Ethereum');
+	if (l1 && (l1.chainId === chainId || chainId === 31337)) {
 		return L1_CONTRACTS;
 	}
-	if (L2_SCROLL_CONFIG && chainId === L2_SCROLL_CONFIG.chainId) {
+
+	// Check Scroll
+	const scroll = getEVMChain('Scroll');
+	if (scroll && scroll.enabled && scroll.chainId === chainId) {
 		return L2_SCROLL_CONTRACTS;
 	}
+
 	return null;
 }
 
 /**
- * Get token address for a chain
+ * @deprecated Use getNativeTokenAddress() instead
  */
 export function getTokenAddress(token: Token, chainId: number): string | null {
-	const tokenConfig = getTokenConfig(token);
+	const tokenConfig = getTokenConfigFromChains(token);
 	if (!tokenConfig) return null;
 
-	if (chainId === L1_CONFIG.chainId || chainId === 31337) {
-		return tokenConfig.addresses.l1;
+	// Check L1
+	const l1 = getEVMChain('Ethereum');
+	if (l1 && (l1.chainId === chainId || chainId === 31337)) {
+		return l1.contracts.nativeToken;
 	}
-	if (L2_SCROLL_CONFIG && chainId === L2_SCROLL_CONFIG.chainId) {
-		return tokenConfig.addresses.scrollL2 ?? null;
+
+	// Check Scroll
+	const scroll = getEVMChain('Scroll');
+	if (scroll && scroll.enabled && scroll.chainId === chainId) {
+		return scroll.contracts.nativeToken || null;
 	}
+
 	return null;
 }
 
 // ============================================================================
-// Exports Summary
+// Legacy Environment Config Object
 // ============================================================================
 
 /**
- * Main environment configuration object
- * Use this for quick access to all config values
+ * @deprecated Use CHAIN_REGISTRY instead
  */
 export const ENV_CONFIG = {
 	isTestMode,

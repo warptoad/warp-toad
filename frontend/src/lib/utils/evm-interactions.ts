@@ -616,30 +616,39 @@ function paddedHexToAddress(paddedHex: string): `0x${string}` {
 }
 
 /**
- * Claim tokens on L1 from an Aztec burn
+ * Proof inputs type for L1 claim operations
+ */
+export interface ClaimProofInputs {
+	nullifier: string;
+	amount: string;
+	giga_root: string;
+	destination_local_root: string;
+	fee_factor: string;
+	priority_fee: string;
+	max_fee: string;
+	relayer_address: string;
+	recipient_address: string;
+}
+
+/**
+ * Claim tokens on L1 by calling the mint function with a ZK proof
  * 
- * This is the main withdrawal function for Aztec -> L1 flow.
- * It calls the L1WarpToad.mint() function with the ZK proof.
+ * This is the core withdrawal function for L1. It can be used for:
+ * - Aztec -> L1 withdrawals
+ * - Scroll -> L1 withdrawals  
+ * - L1 -> L1 same-chain private transfers
  * 
  * @param proofInputs - The proof inputs (public inputs)
  * @param proof - The ZK proof bytes (hex encoded)
  * @param chainId - The L1 chain ID
+ * @param logPrefix - Optional prefix for log messages (e.g., "Aztec -> L1", "L1 -> L1")
  * @returns Transaction hash
  */
-export async function claimFromAztec(
-	proofInputs: {
-		nullifier: string;
-		amount: string;
-		giga_root: string;
-		destination_local_root: string;
-		fee_factor: string;
-		priority_fee: string;
-		max_fee: string;
-		relayer_address: string;
-		recipient_address: string;
-	},
+export async function claimOnL1(
+	proofInputs: ClaimProofInputs,
 	proof: string,
-	chainId: number
+	chainId: number,
+	logPrefix: string = 'L1'
 ): Promise<{ txHash: string }> {
 	const client = createClient(chainId);
 	if (!client) throw new Error('Failed to create client');
@@ -654,24 +663,13 @@ export async function claimFromAztec(
 	
 	const userAddress = (await client.getAddresses())[0];
 	
-	console.log('Claiming from Aztec on L1...');
+	console.log(`Claiming on L1 (${logPrefix})...`);
 	console.log('Nullifier:', proofInputs.nullifier);
 	console.log('Amount:', proofInputs.amount);
+	console.log('GigaRoot:', proofInputs.giga_root);
 	console.log('Recipient:', proofInputs.recipient_address);
 	
 	// Call mint function on L1WarpToad
-	// function mint(
-	//     uint256 _nullifier,
-	//     uint256 _amount,
-	//     uint256 _gigaRoot,
-	//     uint256 _localRoot,
-	//     uint256 _feeFactor,
-	//     uint256 _priorityFee,
-	//     uint256 _maxFee,
-	//     address _relayer,
-	//     address _recipient,
-	//     bytes memory _proof
-	// )
 	const { request } = await publicClient.simulateContract({
 		address: addresses.L1WarpToad as `0x${string}`,
 		abi: L1WarpToadAbi,
@@ -702,7 +700,25 @@ export async function claimFromAztec(
 }
 
 /**
- * Claim tokens on L1 from Aztec and automatically unwrap to native token
+ * Claim tokens on L1 from an Aztec burn
+ * 
+ * This is a convenience wrapper around claimOnL1 for the Aztec -> L1 flow.
+ * 
+ * @param proofInputs - The proof inputs (public inputs)
+ * @param proof - The ZK proof bytes (hex encoded)
+ * @param chainId - The L1 chain ID
+ * @returns Transaction hash
+ */
+export async function claimFromAztec(
+	proofInputs: ClaimProofInputs,
+	proof: string,
+	chainId: number
+): Promise<{ txHash: string }> {
+	return claimOnL1(proofInputs, proof, chainId, 'Aztec -> L1');
+}
+
+/**
+ * Claim tokens on L1 and automatically unwrap to native token
  * 
  * This combines mint + unwrap in two transactions.
  * Note: Once L1WarpToad.mintAndUnwrap() is implemented, this can be done in one tx.
@@ -710,25 +726,17 @@ export async function claimFromAztec(
  * @param proofInputs - The proof inputs
  * @param proof - The ZK proof bytes (hex encoded)
  * @param chainId - The L1 chain ID
+ * @param logPrefix - Optional prefix for log messages
  * @returns Transaction hashes
  */
-export async function claimAndUnwrapFromAztec(
-	proofInputs: {
-		nullifier: string;
-		amount: string;
-		giga_root: string;
-		destination_local_root: string;
-		fee_factor: string;
-		priority_fee: string;
-		max_fee: string;
-		relayer_address: string;
-		recipient_address: string;
-	},
+export async function claimAndUnwrapOnL1(
+	proofInputs: ClaimProofInputs,
 	proof: string,
-	chainId: number
+	chainId: number,
+	logPrefix: string = 'L1'
 ): Promise<{ mintTxHash: string; unwrapTxHash: string }> {
 	// First, mint the wrapped tokens
-	const { txHash: mintTxHash } = await claimFromAztec(proofInputs, proof, chainId);
+	const { txHash: mintTxHash } = await claimOnL1(proofInputs, proof, chainId, logPrefix);
 	
 	// Calculate the amount received (after relayer fee)
 	const amount = BigInt(proofInputs.amount);
@@ -785,4 +793,223 @@ export async function claimAndUnwrapFromAztec(
 		// They can manually unwrap later when bug is fixed
 		return { mintTxHash, unwrapTxHash: '' };
 	}
+}
+
+/**
+ * Claim tokens on L1 from Aztec and automatically unwrap to native token
+ * 
+ * This is a convenience wrapper around claimAndUnwrapOnL1 for the Aztec -> L1 flow.
+ * 
+ * @param proofInputs - The proof inputs
+ * @param proof - The ZK proof bytes (hex encoded)
+ * @param chainId - The L1 chain ID
+ * @returns Transaction hashes
+ */
+export async function claimAndUnwrapFromAztec(
+	proofInputs: ClaimProofInputs,
+	proof: string,
+	chainId: number
+): Promise<{ mintTxHash: string; unwrapTxHash: string }> {
+	return claimAndUnwrapOnL1(proofInputs, proof, chainId, 'Aztec -> L1');
+}
+
+// =============================================================================
+// EVM MERKLE DATA FOR SAME-CHAIN WITHDRAWALS
+// =============================================================================
+
+import { MerkleTree, type Element } from 'fixed-merkle-tree';
+
+// EVM tree depth constant (matches backend)
+const EVM_TREE_DEPTH = 32;
+
+/**
+ * EVM Merkle data structure for proof generation
+ */
+export interface EvmMerkleData {
+	leaf_index: bigint;
+	hash_path: bigint[];
+}
+
+/**
+ * Query Burn events from L1WarpToad contract in chunks
+ * Handles large event ranges by querying in batches
+ */
+async function queryBurnEventsInChunks(
+	publicClient: ReturnType<typeof createPublicClient>,
+	warpToadAddress: `0x${string}`,
+	fromBlock: bigint,
+	toBlock: bigint,
+	chunkSize = 499n
+): Promise<{ commitment: bigint; amount: bigint; index: bigint }[]> {
+	const allEvents: { commitment: bigint; amount: bigint; index: bigint }[] = [];
+	
+	let currentFrom = fromBlock;
+	while (currentFrom <= toBlock) {
+		const currentTo = currentFrom + chunkSize > toBlock ? toBlock : currentFrom + chunkSize;
+		
+		const logs = await publicClient.getLogs({
+			address: warpToadAddress,
+			event: {
+				type: 'event',
+				name: 'Burn',
+				inputs: [
+					{ type: 'uint256', name: 'commitment', indexed: true },
+					{ type: 'uint256', name: 'amount', indexed: false },
+					{ type: 'uint256', name: 'index', indexed: false },
+				],
+			},
+			fromBlock: currentFrom,
+			toBlock: currentTo,
+		});
+		
+		for (const log of logs) {
+			allEvents.push({
+				commitment: log.args.commitment as bigint,
+				amount: log.args.amount as bigint,
+				index: log.args.index as bigint,
+			});
+		}
+		
+		currentFrom = currentTo + 1n;
+	}
+	
+	return allEvents;
+}
+
+/**
+ * Check if a local root exists in history
+ */
+export async function isValidL1LocalRoot(chainId: number, localRoot: bigint): Promise<boolean> {
+	const client = createClient(chainId);
+	if (!client) throw new Error('Failed to create client');
+	
+	const publicClient = createPublicClient({
+		chain: client.chain,
+		transport: http()
+	});
+	
+	const addresses = getContractAddresses(chainId);
+	if (!addresses.L1WarpToad) throw new Error('L1WarpToad address not found');
+	
+	const isValid = await publicClient.readContract({
+		address: addresses.L1WarpToad as `0x${string}`,
+		abi: L1WarpToadAbi,
+		functionName: 'localRootHistory',
+		args: [localRoot],
+	});
+	
+	return isValid;
+}
+
+/**
+ * Get EVM merkle data for a commitment on L1
+ * Used for same-chain withdrawals (L1 -> L1 or Scroll -> Scroll)
+ * 
+ * This function:
+ * 1. Queries Burn events from the WarpToad contract
+ * 2. Builds a merkle tree from the commitments using poseidon2
+ * 3. Generates the merkle proof path for the given commitment
+ * 
+ * @param chainId - The chain ID
+ * @param commitment - The commitment to get merkle data for
+ * @param localRootBlockNumber - Optional block number to limit event query
+ * @returns EVM merkle data with leaf index and hash path
+ */
+export async function getEvmMerkleDataForL1(
+	chainId: number,
+	commitment: bigint,
+	localRootBlockNumber?: number
+): Promise<EvmMerkleData> {
+	const client = createClient(chainId);
+	if (!client) throw new Error('Failed to create client');
+	
+	const publicClient = createPublicClient({
+		chain: client.chain,
+		transport: http()
+	});
+	
+	const addresses = getContractAddresses(chainId);
+	if (!addresses.L1WarpToad) throw new Error('L1WarpToad address not found');
+	
+	// Get current block number if not specified
+	const toBlock = localRootBlockNumber 
+		? BigInt(localRootBlockNumber) 
+		: await publicClient.getBlockNumber();
+	
+	// Query from block 0 or deployment block (could be optimized with deployment block config)
+	const fromBlock = 0n;
+	
+	console.log(`Querying Burn events from block ${fromBlock} to ${toBlock}...`);
+	
+	// Query all Burn events
+	const burnEvents = await queryBurnEventsInChunks(
+		publicClient,
+		addresses.L1WarpToad as `0x${string}`,
+		fromBlock,
+		toBlock
+	);
+	
+	console.log(`Found ${burnEvents.length} Burn events`);
+	
+	// Sort events by index to ensure correct tree construction
+	burnEvents.sort((a, b) => Number(a.index - b.index));
+	
+	// Extract commitments as leaves
+	const leaves = burnEvents.map(e => e.commitment);
+	
+	// Find our commitment's index
+	const leafIndex = burnEvents.findIndex(e => e.commitment === commitment);
+	if (leafIndex === -1) {
+		throw new Error(
+			`Commitment not found in burn events. ` +
+			`Make sure the burn transaction was confirmed and the local root has been stored.`
+		);
+	}
+	
+	console.log(`Commitment found at index ${leafIndex}`);
+	
+	// Build merkle tree using poseidon2 hash function
+	// Note: fixed-merkle-tree expects string returns but works with bigint internally
+	const hashFunc = (left: Element, right: Element): string => {
+		const result = poseidon2([BigInt(left.toString()), BigInt(right.toString())]);
+		return result.toString();
+	};
+	
+	const tree = new MerkleTree(EVM_TREE_DEPTH, leaves.map(l => l.toString()), { 
+		hashFunction: hashFunc,
+		zeroElement: '0'
+	});
+	
+	// Verify the tree root matches what's stored on-chain
+	const treeRoot = BigInt(tree.root.toString());
+	const isValidRoot = await isValidL1LocalRoot(chainId, treeRoot);
+	
+	if (!isValidRoot) {
+		console.warn(
+			`Warning: Computed tree root ${treeRoot} is not in local root history. ` +
+			`The local root may not have been stored yet. Call storeLocalRootInHistory() first.`
+		);
+	}
+	
+	// Get merkle proof
+	const proof = tree.proof(commitment.toString());
+	const hashPath = proof.pathElements.map(e => BigInt(e.toString()));
+	
+	return {
+		leaf_index: BigInt(leafIndex),
+		hash_path: hashPath,
+	};
+}
+
+/**
+ * Get the current local root and verify it exists in history
+ * Returns both the root and its validity status
+ */
+export async function getL1LocalRootWithValidity(chainId: number): Promise<{
+	localRoot: bigint;
+	isValid: boolean;
+}> {
+	const localRoot = await getL1LocalRoot(chainId);
+	const isValid = await isValidL1LocalRoot(chainId, localRoot);
+	return { localRoot, isValid };
 }

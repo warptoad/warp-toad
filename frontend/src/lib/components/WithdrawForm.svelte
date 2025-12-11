@@ -35,15 +35,25 @@
 		getL1LocalRoot,
 		claimFromAztec,
 		claimAndUnwrapFromAztec,
+		claimOnL1,
+		claimAndUnwrapOnL1,
+		getEvmMerkleDataForL1,
+		isValidL1LocalRoot,
 	} from "$lib/utils/evm-interactions.js";
 	import {
+		getScrollGigaRoot,
+		getScrollLocalRoot,
+		claimOnScroll,
+	} from "$lib/utils/scroll-interactions.js";
+	import {
 		prepareProofInputsForAztecToL1,
+		prepareProofInputsForSameChain,
 		generateWithdrawProof,
 		formatProofForL1,
 	} from "$lib/utils/proof-generation.js";
 
 	import { getChainId as getEvmChainId } from "$lib/utils/evm-wallet.js";
-	import { L1_CONFIG } from "$lib/config/environment.js";
+	import { getEVMChain, isChainEnabled } from "$lib/config/chains.js";
 
 	let selectedProof = $state<Proof | null>(null);
 	let fileInput: HTMLInputElement;
@@ -66,8 +76,11 @@
 	// Auto-unwrap toggle (default ON) - only shown for Aztec -> L1 flow
 	let autoUnwrap = $state(true);
 
-	// Source chain ID - now uses environment config
-	const SOURCE_CHAIN_ID = L1_CONFIG.chainId;
+	// Get source chain ID dynamically based on source chain
+	function getSourceChainId(): number {
+		const ethereumChain = getEVMChain('Ethereum');
+		return ethereumChain?.chainId ?? 31337;
+	}
 
 	// Map chain IDs to chain names
 	function getChainNameFromId(
@@ -229,11 +242,42 @@
 		successMessage = null;
 
 		try {
-			// Route based on source chain
-			if (selectedProof.sourceChain === "Aztec") {
-				await withdrawToL1();
+			// Route based on source and target chain combination
+			const { sourceChain, targetChain } = selectedProof;
+			
+			// Check for same-chain transfer first
+			if (sourceChain === targetChain) {
+				// Same-chain private transfer (L1 -> L1 or Scroll -> Scroll)
+				if (sourceChain === "Ethereum") {
+					await withdrawSameChainL1();
+				} else if (sourceChain === "Scroll") {
+					await withdrawSameChainScroll();
+				} else {
+					throw new Error("Same-chain transfers are only supported on EVM chains (Ethereum, Scroll)");
+				}
+			} else if (sourceChain === "Aztec") {
+				// Aztec -> EVM (L1 or Scroll)
+				if (targetChain === "Scroll") {
+					await withdrawToScroll();
+				} else {
+					// Aztec -> Ethereum L1
+					await withdrawToL1();
+				}
+			} else if (sourceChain === "Scroll") {
+				// Scroll -> Aztec or L1
+				if (targetChain === "Aztec") {
+					await withdrawToAztec();
+				} else {
+					// Scroll -> L1 (requires ZK proof)
+					await withdrawFromScrollToL1();
+				}
 			} else {
-				await withdrawToAztec();
+				// Ethereum L1 -> Aztec or Scroll
+				if (targetChain === "Aztec") {
+					await withdrawToAztec();
+				} else if (targetChain === "Scroll") {
+					await withdrawToScroll();
+				}
 			}
 		} catch (error) {
 			console.error("Withdraw error:", error);
@@ -293,7 +337,7 @@
 		withdrawMessage = "Checking commitment on L1...";
 		const exists = await validateCommitmentExists(
 			commitment,
-			SOURCE_CHAIN_ID,
+			getSourceChainId(),
 		);
 		if (!exists) {
 			throw new Error(
@@ -344,7 +388,7 @@
 		const txHash = await mintFromEVM(
 			aztecWallet,
 			selectedProof.commitmentData,
-			SOURCE_CHAIN_ID,
+			getSourceChainId(),
 			recipientAddress,
 			gigaRoot,
 		);
@@ -366,6 +410,344 @@
 			withdrawStep = "idle";
 			withdrawMessage = "";
 		}, 5000);
+	}
+
+	/**
+	 * Withdraw from Aztec to Scroll L2
+	 * This generates a ZK proof and calls the L2WarpToad.mint() on Scroll
+	 */
+	async function withdrawToScroll() {
+		if (!selectedProof?.commitmentData) {
+			throw new Error(
+				"Proof missing commitment data. Please re-bridge or upload a valid note file.",
+			);
+		}
+
+		// Check if source is Aztec
+		if (selectedProof.sourceChain !== "Aztec") {
+			// For L1 -> Scroll, we need different merkle data handling
+			// This is not yet fully implemented
+			throw new Error(
+				"L1 -> Scroll withdrawal is not yet implemented. " +
+				"Currently only Aztec -> Scroll is supported."
+			);
+		}
+
+		// Step 1: Validate commitment data
+		withdrawStep = "validating";
+		withdrawMessage = "Validating commitment data...";
+
+		const { nullifier_preimg, secret, destination_chain_id, amount } =
+			selectedProof.commitmentData;
+
+		// Calculate commitment hash for lookups
+		const preCommitment = hashPreCommitment(
+			nullifier_preimg,
+			secret,
+			destination_chain_id,
+		);
+		const commitment = hashCommitment(preCommitment, amount);
+		console.log("Commitment:", commitment.toString());
+
+		// Step 2: Get Scroll chain state
+		withdrawStep = "checking-bridge";
+		withdrawMessage = "Checking Scroll bridge state...";
+
+		const scrollChain = getEVMChain('Scroll');
+		if (!scrollChain || !scrollChain.enabled) {
+			throw new Error("Scroll is not available in the current environment");
+		}
+
+		const chainId = await getEvmChainId();
+		if (!chainId || chainId !== scrollChain.chainId) {
+			throw new Error(
+				`Please switch to Scroll Sepolia network (chain ID: ${scrollChain.chainId})`,
+			);
+		}
+
+		const gigaRoot = await getScrollGigaRoot();
+		console.log("Scroll GigaRoot:", gigaRoot.toString());
+
+		const localRoot = await getScrollLocalRoot();
+		console.log("Scroll LocalRoot:", localRoot.toString());
+
+		// Step 3: Get Aztec merkle data
+		withdrawStep = "building-proofs";
+		withdrawMessage = "Getting Aztec merkle data...";
+
+		const aztecWallet = getWalletInstance();
+		if (!aztecWallet) {
+			throw new Error(
+				"Aztec wallet not connected. Please connect your Azguard wallet.",
+			);
+		}
+
+		// Get the Aztec local root from GigaBridge on Scroll
+		// Note: This reuses the L1 function but with Scroll chain ID
+		const { aztecLocalRoot, aztecLocalRootBlockNumber, gigaMerkleData } =
+			await getMerkleDataForAztecToL1(scrollChain.chainId, gigaRoot);
+		
+		const aztecMerkleData = await getAztecMerkleData(
+			aztecWallet,
+			commitment,
+			aztecLocalRootBlockNumber,
+		);
+		
+		console.log("Aztec merkle data:", aztecMerkleData);
+		console.log("Origin local root (Aztec):", aztecLocalRoot.toString());
+
+		// Step 4: Prepare proof inputs
+		withdrawMessage = "Preparing proof inputs...";
+
+		const proofInputs = prepareProofInputsForAztecToL1(
+			selectedProof.commitmentData,
+			aztecMerkleData,
+			gigaMerkleData,
+			gigaRoot,
+			localRoot, // destination local root (Scroll)
+			aztecLocalRoot, // origin local root (Aztec)
+			BigInt(scrollChain.chainId),
+			walletStore.wallets.evm ||
+				"0x0000000000000000000000000000000000000000",
+		);
+		console.log("Proof inputs prepared");
+
+		// Step 5: Generate ZK proof
+		withdrawStep = "generating-proof";
+		withdrawMessage =
+			"Generating ZK proof (this may take 30-60 seconds)...";
+
+		const { proof, publicInputs } = await generateWithdrawProof(
+			proofInputs,
+			(msg) => {
+				withdrawMessage = msg;
+			},
+		);
+		console.log("Proof generated, public inputs:", publicInputs.length);
+
+		// Format proof for submission
+		const proofHex = formatProofForL1(proof);
+		console.log("Proof hex length:", proofHex.length);
+
+		// Step 6: Claim on Scroll
+		withdrawStep = "minting";
+		withdrawMessage = "Minting wrapped tokens on Scroll L2...";
+
+		const result = await claimOnScroll(proofInputs, proofHex);
+		const mintTxHash = result.txHash;
+
+		// Step 7: Complete
+		withdrawStep = "complete";
+		withdrawMessage = "Withdraw to Scroll complete!";
+
+		proofStore.markProofAsUsed(selectedProof.id);
+		successMessage = `Withdrew ${selectedProof.amount} ${selectedProof.token} to Scroll! Tx: ${mintTxHash.slice(0, 10)}...`;
+
+		// Refresh balances
+		await balanceStore.refresh();
+
+		// Reset after delay
+		setTimeout(() => {
+			selectedProof = null;
+			isWithdrawing = false;
+			withdrawStep = "idle";
+			withdrawMessage = "";
+		}, 5000);
+	}
+
+	/**
+	 * Withdraw from Scroll to L1
+	 * This generates a ZK proof and calls the L1WarpToad.mint()
+	 * 
+	 * NOTE: This requires EVM merkle data format which is different from Aztec
+	 * The proof generation needs to use is_from_aztec = false
+	 */
+	async function withdrawFromScrollToL1() {
+		// Scroll -> L1 withdrawal is more complex because:
+		// 1. We need to build EVM-style merkle proofs from Scroll's LazyIMT
+		// 2. The proof generation needs to handle the EVM path (is_from_aztec = false)
+		// 3. This requires proper LazyIMT proof generation
+		throw new Error(
+			"Scroll -> L1 withdrawal is not yet implemented. " +
+			"This requires EVM merkle proof generation from Scroll's LazyIMT tree."
+		);
+	}
+
+	/**
+	 * Withdraw from same-chain transfer on Ethereum L1
+	 * Used for L1 -> L1 private transfers
+	 * 
+	 * Flow:
+	 * 1. Get local root and gigaRoot from L1WarpToad
+	 * 2. Build EVM merkle proof for the commitment
+	 * 3. Generate ZK proof with is_from_aztec = false
+	 * 4. Call mint() on L1WarpToad
+	 * 5. Optionally auto-unwrap
+	 */
+	async function withdrawSameChainL1() {
+		if (!selectedProof?.commitmentData) {
+			throw new Error(
+				"Proof missing commitment data. Please re-bridge or upload a valid note file.",
+			);
+		}
+
+		// Step 1: Validate commitment data
+		withdrawStep = "validating";
+		withdrawMessage = "Validating commitment data...";
+
+		const { nullifier_preimg, secret, destination_chain_id, amount } =
+			selectedProof.commitmentData;
+
+		// Calculate commitment hash for lookups
+		const preCommitment = hashPreCommitment(
+			nullifier_preimg,
+			secret,
+			destination_chain_id,
+		);
+		const commitment = hashCommitment(preCommitment, amount);
+		console.log("Commitment:", commitment.toString());
+
+		// Step 2: Get L1 chain state
+		withdrawStep = "checking-bridge";
+		withdrawMessage = "Checking L1 bridge state...";
+
+		const chainId = await getEvmChainId();
+		if (!chainId) {
+			throw new Error(
+				"EVM wallet not connected. Please connect your Ethereum wallet.",
+			);
+		}
+		console.log("L1 Chain ID:", chainId);
+
+		const gigaRoot = await getL1GigaRoot(chainId);
+		console.log("L1 GigaRoot:", gigaRoot.toString());
+
+		const localRoot = await getL1LocalRoot(chainId);
+		console.log("L1 LocalRoot:", localRoot.toString());
+
+		// Verify local root is valid (has been stored in history)
+		const isLocalRootValid = await isValidL1LocalRoot(chainId, localRoot);
+		if (!isLocalRootValid) {
+			throw new Error(
+				"Local root has not been stored yet. " +
+				"A bridge sync is required before withdrawal. " +
+				"Please wait for the relayer to call storeLocalRootInHistory() and sendGigaRoot()."
+			);
+		}
+
+		// Step 3: Build EVM merkle proof
+		withdrawStep = "building-proofs";
+		withdrawMessage = "Building EVM merkle proof...";
+
+		const evmMerkleData = await getEvmMerkleDataForL1(chainId, commitment);
+		console.log("EVM merkle data:", evmMerkleData);
+
+		// Step 4: Prepare proof inputs for same-chain withdrawal
+		withdrawMessage = "Preparing proof inputs...";
+
+		// For same-chain, we still need a valid gigaRoot (contract validates it),
+		// but we use empty giga merkle data since we're not proving cross-chain inclusion
+		const proofInputs = prepareProofInputsForSameChain(
+			selectedProof.commitmentData,
+			null, // No Aztec merkle data
+			{
+				leaf_index: evmMerkleData.leaf_index,
+				hash_path: evmMerkleData.hash_path,
+			},
+			localRoot,
+			gigaRoot, // Pass the actual gigaRoot from the contract
+			BigInt(chainId),
+			walletStore.wallets.evm || "0x0000000000000000000000000000000000000000",
+			false, // is_from_aztec = false for EVM
+		);
+		console.log("Proof inputs prepared");
+
+		// Step 5: Generate ZK proof
+		withdrawStep = "generating-proof";
+		withdrawMessage = "Generating ZK proof (this may take 30-60 seconds)...";
+
+		const { proof, publicInputs } = await generateWithdrawProof(
+			proofInputs,
+			(msg) => {
+				withdrawMessage = msg;
+			},
+		);
+		console.log("Proof generated, public inputs:", publicInputs.length);
+
+		// Format proof for submission
+		const proofHex = formatProofForL1(proof);
+		console.log("Proof hex length:", proofHex.length);
+
+		// Step 6: Call mint on L1 (same-chain transfer)
+		withdrawStep = "minting";
+		withdrawMessage = "Minting tokens on L1...";
+
+		let mintTxHash: string;
+		let unwrapTxHash: string | null = null;
+
+		if (autoUnwrap) {
+			// Mint and unwrap in sequence (use L1 -> L1 logging)
+			const result = await claimAndUnwrapOnL1(
+				proofInputs,
+				proofHex,
+				chainId,
+				'L1 -> L1 same-chain'
+			);
+			mintTxHash = result.mintTxHash;
+			unwrapTxHash = result.unwrapTxHash || null;
+
+			if (unwrapTxHash) {
+				withdrawStep = "unwrapping";
+				withdrawMessage = "Unwrapping to native tokens...";
+			}
+		} else {
+			// Just mint wrapped tokens (use L1 -> L1 logging)
+			const result = await claimOnL1(proofInputs, proofHex, chainId, 'L1 -> L1 same-chain');
+			mintTxHash = result.txHash;
+		}
+
+		// Step 7: Complete
+		withdrawStep = "complete";
+		withdrawMessage = "Withdrawal complete!";
+
+		proofStore.markProofAsUsed(selectedProof.id);
+
+		if (autoUnwrap && !unwrapTxHash) {
+			successMessage = `Withdrew ${selectedProof.amount} ${selectedProof.token}! Mint tx: ${mintTxHash.slice(0, 10)}... (unwrap skipped - contract bug)`;
+		} else if (autoUnwrap && unwrapTxHash) {
+			successMessage = `Withdrew ${selectedProof.amount} ${selectedProof.token}! Unwrap tx: ${unwrapTxHash.slice(0, 10)}...`;
+		} else {
+			successMessage = `Withdrew ${selectedProof.amount} wrapped ${selectedProof.token}! Tx: ${mintTxHash.slice(0, 10)}...`;
+		}
+
+		// Refresh balances
+		await balanceStore.refresh();
+
+		// Reset after delay
+		setTimeout(() => {
+			selectedProof = null;
+			isWithdrawing = false;
+			withdrawStep = "idle";
+			withdrawMessage = "";
+		}, 5000);
+	}
+
+	/**
+	 * Withdraw from same-chain transfer on Scroll L2
+	 * Used for Scroll -> Scroll private transfers
+	 * 
+	 * NOTE: This is similar to L1 same-chain but uses Scroll contracts
+	 * Currently not fully implemented - requires Scroll merkle data generation
+	 */
+	async function withdrawSameChainScroll() {
+		// Scroll same-chain withdrawal requires:
+		// 1. Building EVM merkle proof from Scroll's LazyIMT
+		// 2. The proof generation uses is_from_aztec = false
+		// 3. Call mint() on L2WarpToad
+		throw new Error(
+			"Scroll -> Scroll same-chain withdrawal is not yet implemented. " +
+			"This requires EVM merkle proof generation from Scroll's LazyIMT tree."
+		);
 	}
 
 	/**
@@ -568,13 +950,38 @@
 		}
 	}
 
-	// Check if this is an Aztec -> L1 withdrawal
-	function isAztecToL1(): boolean {
+	// Check if this is an Aztec -> EVM withdrawal (L1 or Scroll)
+	function isAztecToEVM(): boolean {
 		if (!selectedProof) return false;
 		return (
 			selectedProof.sourceChain === "Aztec" &&
+			(selectedProof.targetChain === "Ethereum" || selectedProof.targetChain === "Scroll")
+		);
+	}
+	
+	// Legacy alias for backwards compatibility
+	function isAztecToL1(): boolean {
+		return isAztecToEVM() && selectedProof?.targetChain === "Ethereum";
+	}
+
+	// Check if this is a same-chain L1 transfer
+	function isSameChainL1(): boolean {
+		if (!selectedProof) return false;
+		return (
+			selectedProof.sourceChain === "Ethereum" &&
 			selectedProof.targetChain === "Ethereum"
 		);
+	}
+
+	// Check if this is a same-chain transfer (any EVM chain)
+	function isSameChainTransfer(): boolean {
+		if (!selectedProof) return false;
+		return selectedProof.sourceChain === selectedProof.targetChain;
+	}
+
+	// Check if auto-unwrap should be shown (L1 withdrawals with wrap/unwrap support)
+	function showAutoUnwrap(): boolean {
+		return isAztecToL1() || isSameChainL1();
 	}
 </script>
 
@@ -649,7 +1056,7 @@
 							<span class="text-muted-foreground"
 								>Source Chain ID:</span
 							>
-							<span>{SOURCE_CHAIN_ID}</span>
+							<span>{getSourceChainId()}</span>
 						</div>
 						<div class="flex justify-between text-sm">
 							<span class="text-muted-foreground"
@@ -710,8 +1117,8 @@
 				</Alert>
 			{/if}
 
-			<!-- Auto-unwrap toggle (only for Aztec -> L1) -->
-			{#if isAztecToL1()}
+			<!-- Auto-unwrap toggle (for L1 withdrawals) -->
+			{#if showAutoUnwrap()}
 				<div
 					class="flex items-center justify-between p-3 rounded-lg border"
 				>
@@ -740,6 +1147,16 @@
 						</AlertDescription>
 					</Alert>
 				{/if}
+			{/if}
+
+			<!-- Same-chain transfer info -->
+			{#if isSameChainTransfer()}
+				<Alert>
+					<AlertDescription class="text-sm">
+						<strong>Same-chain transfer:</strong> This is a private transfer on {selectedProof.sourceChain}.
+						A bridge sync must have occurred after your burn transaction.
+					</AlertDescription>
+				</Alert>
 			{/if}
 
 			<!-- Withdraw Progress -->
