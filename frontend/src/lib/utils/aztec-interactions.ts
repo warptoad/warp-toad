@@ -206,7 +206,7 @@ function createEvmClient(chainId: number, rpcUrl?: string): PublicClient {
 	if (chainId === L1_CONFIG.chainId || chainId === 31337) {
 		defaultRpcUrl = L1_CONFIG.rpcUrl;
 	} else if (chainId === 11155111) {
-		defaultRpcUrl = 'https://rpc.sepolia.org';
+		defaultRpcUrl = 'https://sepolia.drpc.org';
 	} else if (chainId === 534351) {
 		defaultRpcUrl = 'https://sepolia-rpc.scroll.io';
 	} else {

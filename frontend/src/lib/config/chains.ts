@@ -117,12 +117,12 @@ const ETHEREUM_CHAIN: EVMChainDefinition = isTestMode
 			role: 'L1',
 			chainId: 11155111,
 			viemChain: sepolia,
-			rpcUrl: import.meta.env.VITE_SEPOLIA_RPC_URL || 'https://rpc.sepolia.org',
+			rpcUrl: import.meta.env.VITE_SEPOLIA_RPC_URL || 'https://sepolia.drpc.org',
 			contracts: {
-				warpToad: SepoliaDeployments['L1WarpToadModule#L1WarpToad'],
-				nativeToken: SepoliaDeployments['TestToken#USDcoin'],
-				bridgeAdapter: SepoliaDeployments['L1InfraModule#L1AztecBridgeAdapter'],
-				gigaBridge: SepoliaDeployments['L1InfraModule#GigaBridge'],
+				warpToad: (SepoliaDeployments as Record<string, string>)['L1WarpToadModule#L1WarpToad'],
+				nativeToken: (SepoliaDeployments as Record<string, string>)['TestToken#USDcoin'],
+				bridgeAdapter: (SepoliaDeployments as Record<string, string>)['L1InfraModule#L1AztecBridgeAdapter'],
+				gigaBridge: (SepoliaDeployments as Record<string, string>)['L1InfraModule#GigaBridge'],
 			},
 			enabled: true,
 		};
@@ -140,9 +140,9 @@ const SCROLL_CHAIN: EVMChainDefinition = {
 	viemChain: scrollSepolia,
 	rpcUrl: 'https://sepolia-rpc.scroll.io',
 	contracts: {
-		warpToad: ScrollSepoliaDeployments['L2ScrollModule#L2WarpToad'],
-		nativeToken: '', // Will be set from L2WarpToad.nativeToken() or similar deployment
-		bridgeAdapter: ScrollSepoliaDeployments['L2ScrollModule#L2ScrollBridgeAdapter'],
+		warpToad: (ScrollSepoliaDeployments as Record<string, string>)['L2ScrollModule#L2WarpToad'],
+		nativeToken: (ScrollSepoliaDeployments as Record<string, string>)['TestToken#USDcoin'],
+		bridgeAdapter: (ScrollSepoliaDeployments as Record<string, string>)['L2ScrollModule#L2ScrollBridgeAdapter'],
 	},
 	enabled: !isTestMode, // Only available in testnet mode
 };
@@ -179,7 +179,7 @@ const AZTEC_CHAIN: AztecChainDefinition = isTestMode
 			name: 'Devnet',
 			type: 'Aztec',
 			role: 'Privacy',
-			nodeUrl: 'https://api.aztec.network/aztec-devnet/aztec-node-1',
+			nodeUrl: 'https://aztec-alpha-testnet-fullnode.zkv.xyz',
 			network: 'devnet',
 			contracts: {
 				warpToad: {

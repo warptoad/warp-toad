@@ -61,28 +61,20 @@ const config = {
   },
 
   etherscan: {
-    apiKey: {
-      sepolia: ETHERSCAN_KEY,
-      scrollSepolia: ETHERSCAN_KEY_SCROLL
-    },
+    apiKey: ETHERSCAN_KEY,
     customChains: [
       {
         network: 'scrollSepolia',
         chainId: 534351,
         urls: {
-          apiURL: 'https://api.etherscan.io/v2/api?chainid=1',
+          apiURL: 'https://api-sepolia.scrollscan.com/api',
           browserURL: 'https://sepolia.scrollscan.com/',
         },
       },
-      {
-        network: 'sepolia',
-        chainId: 11155111,
-        urls: {
-          apiURL: 'https://api.etherscan.io/v2/api?chainid=11155111',
-          browserURL: 'https://sepolia.etherscan.io/',
-        },
-      }
     ]
+  },
+  sourcify: {
+    enabled: false
   },
 }
 //cjs shit

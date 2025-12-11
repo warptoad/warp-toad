@@ -18,7 +18,11 @@ const MOCK_BALANCES: MockTokenBalance[] = [
 ];
 
 export const TOKEN_CONTRACTS: TokenContract[] = [
-	{ token: 'USDC', ethereumAddress: '0x95401dc811bb5740090279Ba06cfA8fcF6113778' }
+	{ 
+		token: 'USDC', 
+		ethereumAddress: '0xF1756846EFEE2944378d82bd9D0996387DA0c781',
+		scrollAddress: '0xe899983Ff2C81E1c64d8a4Ac22AeE873A2382413'
+	}
 ]
 
 // Custom JSON serialization for BigInt
