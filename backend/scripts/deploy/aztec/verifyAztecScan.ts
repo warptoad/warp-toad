@@ -1,14 +1,9 @@
-import { WarpToadCoreContract as AztecWarpToad, WarpToadCoreContractArtifact } from "contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore";
-
 import testnetDeployments from "../aztec/aztecDeployments/11155111/deployed_addresses.json"
+import { WarpToadCoreContract as AztecWarpToad, WarpToadCoreContractArtifact } from "contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore";
 import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { AztecAddress } from "@aztec/stdlib/aztec-address";
-import { getAztecTestAccountNoEnv, initPXE } from "../utils/aztecUtilsNoEnv";
-import { createPXE, getPXEConfig } from "@aztec/pxe/server";
-import { TestWallet } from "@aztec/test-wallet/server";
+import { getAztecTestAccountNoEnv } from "../utils/aztecUtilsNoEnv";
 import { ContractArtifact } from "@aztec/stdlib/abi";
-import { ContractBase } from "@aztec/aztec.js/contracts";
-import { Fr } from "@aztec/foundation/fields";
 import { aztecDeployments, getAztecWarptoadInstance, getL2AztecAdapterInstance } from "scripts/dev_op/deployment";
 import { L2AztecBridgeAdapterContract, L2AztecBridgeAdapterContractArtifact } from "contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter";
 import { toBeHex } from "ethers";
@@ -30,12 +25,12 @@ async function verifyAztecScan(address: AztecAddress, salt: bigint, deployer: Az
         // body: '{\n  "deployerMetadata": {\n    "contractIdentifier": "string",\n    "details": "string",\n    "creatorName": "string",\n    "creatorContact": "string",\n    "appUrl": "string",\n    "repoUrl": "string",\n    "contractType": null\n  },\n  "verifiedDeploymentArguments": {\n    "salt": "0xdd8F1f41dDf3E5b0xdd8F1f41dDf3E5b0xdd8F1f41dDf3E5b0xdd8F1f41dDf3E",\n    "deployer": "0xE3eD29A1071EbCa1feA03BEbF09Edfdd3b5AC6B26F61b5DE5fb37bbDF27FEDCe",\n    "publicKeysString": "string",\n    "constructorArgs": [\n      "string"\n    ],\n    "stringifiedArtifactJson": "string"\n  }\n}',
         body: JSON.stringify({
             'deployerMetadata': {
-                'contractIdentifier': 'TODO',
-                'details': 'TODO',
-                'creatorName': 'TODO',
-                'creatorContact': 'TODO',
-                'appUrl': 'TODO',
-                'repoUrl': 'TODO',
+                'contractIdentifier': 'GigaBridgeL2AztecAdapter',
+                'details': 'GigaBridgeL2AztecAdapter',
+                'creatorName': 'JimJimAndDanish',
+                'creatorContact': 'TBD',
+                'appUrl': 'https://warptoad.eth.limo',
+                'repoUrl': 'https://github.com/warptoad/warp-toad',
                 'contractType': null
             },
             'verifiedDeploymentArguments': {
@@ -48,9 +43,9 @@ async function verifyAztecScan(address: AztecAddress, salt: bigint, deployer: Az
         })
     });
     console.log(res)
-    const resJson = await res.json()
-    console.log(resJson)
-    return resJson
+    // const resJson = await res.json()
+    // console.log(resJson)
+    return res
 
 }
 
