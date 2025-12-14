@@ -39,6 +39,7 @@
 		claimAndUnwrapOnL1,
 		getEvmMerkleDataForL1,
 		isValidL1LocalRoot,
+		storeL1LocalRootInHistory,
 	} from "$lib/utils/evm-interactions.js";
 	import {
 		getScrollGigaRoot,
@@ -625,14 +626,14 @@
 		const localRoot = await getL1LocalRoot(chainId);
 		console.log("L1 LocalRoot:", localRoot.toString());
 
-		// Verify local root is valid (has been stored in history)
+		// For same-chain transfers, we need to ensure the localRoot is stored in history
+		// This allows immediate withdrawals after burn without full bridge sync
 		const isLocalRootValid = await isValidL1LocalRoot(chainId, localRoot);
 		if (!isLocalRootValid) {
-			throw new Error(
-				"Local root has not been stored yet. " +
-				"A bridge sync is required before withdrawal. " +
-				"Please wait for the relayer to call storeLocalRootInHistory() and sendGigaRoot()."
-			);
+			withdrawMessage = "Storing local root in history...";
+			console.log("Local root not in history, storing it now...");
+			await storeL1LocalRootInHistory(chainId);
+			console.log("Local root stored successfully");
 		}
 
 		// Step 3: Build EVM merkle proof
@@ -645,8 +646,11 @@
 		// Step 4: Prepare proof inputs for same-chain withdrawal
 		withdrawMessage = "Preparing proof inputs...";
 
-		// For same-chain, we still need a valid gigaRoot (contract validates it),
-		// but we use empty giga merkle data since we're not proving cross-chain inclusion
+		// For same-chain transfers:
+		// - origin_local_root == destination_local_root (same chain)
+		// - Circuit skips giga root verification when roots are equal
+		// - We pass actual gigaRoot (contract validates it exists in history)
+		// - Empty giga merkle data (no cross-chain proof needed)
 		const proofInputs = prepareProofInputsForSameChain(
 			selectedProof.commitmentData,
 			null, // No Aztec merkle data

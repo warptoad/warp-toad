@@ -3,11 +3,12 @@
  * Auto-generated from Ignition deployments
  * DO NOT EDIT MANUALLY
  * 
- * Generated: 2025-12-11T22:21:18.558Z
+ * Generated: 2025-12-12T22:56:54.706Z
  * Run 'npm run pull:addresses' to update
  */
 
 export interface ContractAddresses {
+	deploymentBlock?: number;
 	USDcoin?: string;
 	L1WarpToad?: string;
 	L2WarpToad?: string;
@@ -25,23 +26,32 @@ export interface ChainConfig {
 // Contract addresses by chain ID
 export const CONTRACT_ADDRESSES: Record<string, ContractAddresses> = {
   "31337": {
-    "L1WarpToad": "0x0000000000000000000000000000000000000000",
-    "L1AztecBridgeAdapter": "0x0000000000000000000000000000000000000000",
-    "GigaBridge": "0x0000000000000000000000000000000000000000",
-    "USDcoin": "0x0000000000000000000000000000000000000000"
+    "deploymentBlock": 9827262,
+    "L1WarpToad": "0x5Af41899Fa54Db59fD8ea1Ea0DdB3f833660eFFf",
+    "L1AztecBridgeAdapter": "0xFACA2e4AF1cAE0B96c1eF303442C4118A6E8E145",
+    "L1ScrollBridgeAdapter": "0xD4641657D1d5944Abc9E59f73dd3Eee1014eBF27",
+    "GigaBridge": "0xEc7F7cFAa21abF4005A61f6FeA3289b1650D991C"
+  },
+  "131337": {
+    "deploymentBlock": 9827262,
+    "L1WarpToad": "0x5Af41899Fa54Db59fD8ea1Ea0DdB3f833660eFFf",
+    "L1AztecBridgeAdapter": "0xFACA2e4AF1cAE0B96c1eF303442C4118A6E8E145",
+    "L1ScrollBridgeAdapter": "0xD4641657D1d5944Abc9E59f73dd3Eee1014eBF27",
+    "GigaBridge": "0xEc7F7cFAa21abF4005A61f6FeA3289b1650D991C"
   },
   "534351": {
-    "L1ScrollBridgeAdapter": "0x660d24d5dc16F50f41ACfF3be33cb49428dC14d4",
-    "L2WarpToad": "0x2530724Ecbd6eeE58Ee8E80283Bd1AfbFd3C6980",
-    "L2ScrollBridgeAdapter": "0xe0B43D99584500fD963F066De99d29992727ec41",
-    "USDcoin": "0xe899983Ff2C81E1c64d8a4Ac22AeE873A2382413"
+    "deploymentBlock": 15458917,
+    "L1ScrollBridgeAdapter": "0xD4641657D1d5944Abc9E59f73dd3Eee1014eBF27",
+    "L2WarpToad": "0xaab7Ade1Fb19B9cdb6cc22b9Da623F0cd645e157",
+    "L2ScrollBridgeAdapter": "0x4FB96E963Fb5070a88fB543Cabc423b56101304a"
   },
   "11155111": {
-    "L1WarpToad": "0xdFe8a918B6F4ED3DEB5f6AF5e5e5B74f61758d4D",
-    "L1AztecBridgeAdapter": "0x0ca130ad1015768ab36f0fabf48ace00d0a096ab",
-    "L1ScrollBridgeAdapter": "0x660d24d5dc16F50f41ACfF3be33cb49428dC14d4",
-    "GigaBridge": "0xEccB9A0D202338114BAe6CcfF416d28d4EdFFBe3",
-    "USDcoin": "0xF1756846EFEE2944378d82bd9D0996387DA0c781"
+    "deploymentBlock": 9827262,
+    "USDcoin": "0xc74F692152C5f2cC695b14cec86B729ff8b03168",
+    "L1WarpToad": "0x5Af41899Fa54Db59fD8ea1Ea0DdB3f833660eFFf",
+    "L1AztecBridgeAdapter": "0xFACA2e4AF1cAE0B96c1eF303442C4118A6E8E145",
+    "L1ScrollBridgeAdapter": "0xD4641657D1d5944Abc9E59f73dd3Eee1014eBF27",
+    "GigaBridge": "0xEc7F7cFAa21abF4005A61f6FeA3289b1650D991C"
   }
 };
 

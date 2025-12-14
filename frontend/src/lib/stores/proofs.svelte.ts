@@ -20,8 +20,8 @@ const MOCK_BALANCES: MockTokenBalance[] = [
 export const TOKEN_CONTRACTS: TokenContract[] = [
 	{ 
 		token: 'USDC', 
-		ethereumAddress: '0xF1756846EFEE2944378d82bd9D0996387DA0c781',
-		scrollAddress: '0xe899983Ff2C81E1c64d8a4Ac22AeE873A2382413'
+		ethereumAddress: '0xc74F692152C5f2cC695b14cec86B729ff8b03168',
+		scrollAddress: '0xaab7Ade1Fb19B9cdb6cc22b9Da623F0cd645e157'
 	}
 ]
 

@@ -1,6 +1,4 @@
-const hre = require("hardhat");
-// import hre from "hardhat"
-import { ethers } from "ethers";
+
 import { deployPoseidon } from "../poseidon";
 
 import L1WarpToadModule from "../../../ignition/modules/L1WarpToad"
@@ -13,6 +11,10 @@ import er20Abi from "../../dev_op/erc20ABI.json"  with { type: 'json' }
 import { L1_SCROLL_MESSENGER_MAINNET, L1_SCROLL_MESSENGER_SEPOLIA } from "../../lib/constants";
 import fs from "fs/promises";
 import {  checkFileExists, getContractAddressesAztec, getContractAddressesEvm, getEvmDeployedAddressesFilePath, getEvmDeployedAddressesFolderPath, promptBool } from "../../dev_op/utils";
+import hre from "hardhat";
+import { ethers } from "hardhat";
+const provider = ethers.provider;
+
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
@@ -26,7 +28,7 @@ async function main() {
     }
 
     const nativeTokenAddress = ethers.getAddress(process.env.NATIVE_TOKEN_ADDRESS as string);
-    const provider = hre.ethers.provider as ethers.Provider
+    
     const chainId = (await provider.getNetwork()).chainId
 
     const deployedAddressesPath = getEvmDeployedAddressesFilePath(chainId)

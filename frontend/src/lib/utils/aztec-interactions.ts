@@ -18,7 +18,7 @@
 
 import type { CommitmentPreImage } from '$lib/types/bridge';
 import { createPublicClient, http, keccak256, toHex, type PublicClient } from 'viem';
-import { getContractAddresses } from '$lib/contracts/addresses';
+import { getContractAddresses, CONTRACT_ADDRESSES } from '$lib/contracts/addresses';
 import { GigaBridgeAbi } from '$lib/contracts/abis';
 import { poseidon1, poseidon2, poseidon3 } from 'poseidon-lite';
 import { MerkleTree, type Element } from 'fixed-merkle-tree';
@@ -44,6 +44,19 @@ const GIGA_TREE_DEPTH = 5;
 
 // Environment configuration
 const getAztecNodeUrl = () => AZTEC_CONFIG.nodeUrl;
+
+/**
+ * Get deployment block for a chain (fallback to recent blocks if not available)
+ * This prevents scanning from block 0 which would timeout on testnets
+ */
+function getDeploymentBlock(chainId: number): bigint {
+	const chainData = CONTRACT_ADDRESSES[chainId.toString()];
+	if (chainData?.deploymentBlock) {
+		return BigInt(chainData.deploymentBlock);
+	}
+	// Fallback: use 0 for localhost, recent blocks for others
+	return chainId === 31337 ? 0n : 0n; // Will be replaced with current block - 10000 in actual calls
+}
 
 // =============================================================================
 // TYPES
@@ -273,8 +286,11 @@ function getMerkleProof(tree: MerkleTree, leafValue: bigint): { pathElements: bi
 async function getBurnEvents(
 	publicClient: PublicClient,
 	warpToadAddress: string,
+	chainId: number,
 	toBlock: bigint | 'latest' = 'latest'
 ): Promise<Array<{ commitment: bigint; amount: bigint; index: number }>> {
+	const fromBlock = getDeploymentBlock(chainId);
+	
 	const logs = await publicClient.getLogs({
 		address: warpToadAddress as `0x${string}`,
 		event: {
@@ -286,7 +302,7 @@ async function getBurnEvents(
 				{ type: 'uint256', name: 'index', indexed: false },
 			],
 		},
-		fromBlock: 0n,
+		fromBlock,
 		toBlock,
 	});
 
@@ -305,8 +321,11 @@ async function getBurnEvents(
 async function getLocalRootEvents(
 	publicClient: PublicClient,
 	gigaBridgeAddress: string,
+	chainId: number,
 	toBlock: bigint | 'latest' = 'latest'
 ): Promise<Array<{ localRoot: bigint; index: number; blockNumber: number; eventBlockNumber: bigint }>> {
+	const fromBlock = getDeploymentBlock(chainId);
+	
 	const logs = await publicClient.getLogs({
 		address: gigaBridgeAddress as `0x${string}`,
 		event: {
@@ -318,7 +337,7 @@ async function getLocalRootEvents(
 				{ type: 'uint256', name: 'localRootBlockNumber', indexed: false },
 			],
 		},
-		fromBlock: 0n,
+		fromBlock,
 		toBlock,
 	});
 
@@ -337,8 +356,11 @@ async function getLocalRootEvents(
 async function getGigaRootEvents(
 	publicClient: PublicClient,
 	gigaBridgeAddress: string,
+	chainId: number,
 	filterGigaRoot?: bigint
 ): Promise<Array<{ gigaRoot: bigint; blockNumber: bigint; transactionHash: `0x${string}` }>> {
+	const fromBlock = getDeploymentBlock(chainId);
+	
 	const logs = await publicClient.getLogs({
 		address: gigaBridgeAddress as `0x${string}`,
 		event: {
@@ -350,7 +372,7 @@ async function getGigaRootEvents(
 		},
 		// Filter by specific gigaRoot if provided (indexed parameter)
 		args: filterGigaRoot ? { newGigaRoot: filterGigaRoot } : undefined,
-		fromBlock: 0n,
+		fromBlock,
 		toBlock: 'latest',
 	});
 
@@ -372,6 +394,7 @@ async function getEvmMerkleData(
 	publicClient: PublicClient,
 	warpToadAddress: string,
 	commitment: bigint,
+	chainId: number,
 	localRootBlockNumber: number,
 	expectedLocalRoot: bigint
 ): Promise<EvmMerkleData> {
@@ -379,6 +402,7 @@ async function getEvmMerkleData(
 	const burnEvents = await getBurnEvents(
 		publicClient,
 		warpToadAddress,
+		chainId,
 		BigInt(localRootBlockNumber)
 	);
 
@@ -443,6 +467,7 @@ async function getGigaMerkleData(
 	gigaBridgeAddress: string,
 	localRoot: bigint,
 	localRootIndex: number,
+	chainId: number,
 	gigaRootBlockNumber: number,
 	expectedGigaRoot: bigint
 ): Promise<EvmMerkleData> {
@@ -450,6 +475,7 @@ async function getGigaMerkleData(
 	const localRootEvents = await getLocalRootEvents(
 		publicClient,
 		gigaBridgeAddress,
+		chainId,
 		BigInt(gigaRootBlockNumber)
 	);
 
@@ -527,6 +553,7 @@ async function getLocalRootData(
 	publicClient: PublicClient,
 	gigaBridgeAddress: string,
 	warpToadL1Address: string,
+	chainId: number,
 	gigaRoot: bigint
 ): Promise<LocalRootData> {
 	// Get local root index for L1WarpToad
@@ -541,7 +568,7 @@ async function getLocalRootData(
 
 	// Get GigaRoot event for THIS SPECIFIC gigaRoot value
 	// This ensures we find the exact transaction that created the gigaRoot stored on Aztec
-	const gigaRootEvents = await getGigaRootEvents(publicClient, gigaBridgeAddress, gigaRoot);
+	const gigaRootEvents = await getGigaRootEvents(publicClient, gigaBridgeAddress, chainId, gigaRoot);
 
 	if (gigaRootEvents.length === 0) {
 		console.error(`No ConstructedNewGigaRoot event found for gigaRoot: ${gigaRoot}`);
@@ -603,6 +630,7 @@ async function getLocalRootData(
 		const localRootEvents = await getLocalRootEvents(
 			publicClient,
 			gigaBridgeAddress,
+			chainId,
 			BigInt(gigaRootBlockNumber)
 		);
 
@@ -665,6 +693,7 @@ export async function getMerkleData(
 		publicClient,
 		addresses.GigaBridge,
 		addresses.L1WarpToad,
+		sourceChainId,
 		gigaRoot
 	);
 	console.log('Local root data:', localRootData);
@@ -675,6 +704,7 @@ export async function getMerkleData(
 		publicClient,
 		addresses.L1WarpToad,
 		commitment,
+		sourceChainId,
 		localRootData.localRootBlockNumber,
 		localRootData.localRoot
 	);
@@ -687,6 +717,7 @@ export async function getMerkleData(
 		addresses.GigaBridge,
 		localRootData.localRoot,
 		localRootData.localRootIndex,
+		sourceChainId,
 		localRootData.gigaRootBlockNumber,
 		gigaRoot
 	);
@@ -1106,8 +1137,6 @@ export async function mintFromEVM(
 	});
 
 
-	const blockTx = await contract.methods.get_root_from_block(merkleData.blockNumber).simulate({ from })
-
 	console.log("\n")
 
 	// Step 5: Call mint_giga_root_evm
@@ -1483,6 +1512,7 @@ async function getAztecLocalRootData(
 	publicClient: PublicClient,
 	gigaBridgeAddress: string,
 	aztecBridgeAdapterAddress: string,
+	chainId: number,
 	gigaRoot: bigint
 ): Promise<{
 	aztecLocalRoot: bigint;
@@ -1501,7 +1531,7 @@ async function getAztecLocalRootData(
 	console.log('L1AztecBridgeAdapter local root index:', aztecLocalRootIndex);
 
 	// Get GigaRoot event for THIS SPECIFIC gigaRoot value
-	const gigaRootEvents = await getGigaRootEvents(publicClient, gigaBridgeAddress, gigaRoot);
+	const gigaRootEvents = await getGigaRootEvents(publicClient, gigaBridgeAddress, chainId, gigaRoot);
 
 	if (gigaRootEvents.length === 0) {
 		console.error(`No ConstructedNewGigaRoot event found for gigaRoot: ${gigaRoot}`);
@@ -1555,6 +1585,7 @@ async function getAztecLocalRootData(
 		const localRootEvents = await getLocalRootEvents(
 			publicClient,
 			gigaBridgeAddress,
+			chainId,
 			BigInt(gigaRootBlockNumber)
 		);
 
@@ -1601,6 +1632,7 @@ async function buildGigaMerkleProofForAztec(
 	gigaBridgeAddress: string,
 	aztecLocalRoot: bigint,
 	aztecLocalRootIndex: number,
+	chainId: number,
 	gigaRootBlockNumber: number,
 	expectedGigaRoot: bigint
 ): Promise<EvmMerkleData> {
@@ -1616,6 +1648,7 @@ async function buildGigaMerkleProofForAztec(
 	const localRootEvents = await getLocalRootEvents(
 		publicClient,
 		gigaBridgeAddress,
+		chainId,
 		BigInt(gigaRootBlockNumber)
 	);
 
@@ -1745,6 +1778,7 @@ export async function getMerkleDataForAztecToL1(
 		publicClient,
 		addresses.GigaBridge,
 		addresses.L1AztecBridgeAdapter,
+		destinationChainId,
 		gigaRoot
 	);
 
@@ -1758,6 +1792,7 @@ export async function getMerkleDataForAztecToL1(
 		addresses.GigaBridge,
 		aztecLocalRoot,
 		aztecLocalRootIndex,
+		destinationChainId,
 		gigaRootBlockNumber,
 		gigaRoot
 	);

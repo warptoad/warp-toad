@@ -21,6 +21,7 @@ interface DeployedAddresses {
 
 interface ChainAddresses {
 	chainId: string;
+	deploymentBlock?: number;
 	USDcoin?: string;
 	L1WarpToad?: string;
 	L2WarpToad?: string;
@@ -77,6 +78,36 @@ function getChainName(chainId: string): string {
 	return chainIdMap[chainId] || `chain_${chainId}`;
 }
 
+function extractDeploymentBlock(chainDir: string): number | undefined {
+	const journalFile = path.join(chainDir, 'journal.jsonl');
+	
+	if (!fs.existsSync(journalFile)) {
+		return undefined;
+	}
+
+	try {
+		const journalContent = fs.readFileSync(journalFile, 'utf-8');
+		const lines = journalContent.split('\n').filter(line => line.trim());
+		
+		// Find the first transaction confirmation with a blockNumber
+		for (const line of lines) {
+			try {
+				const entry = JSON.parse(line);
+				if (entry.type === 'TRANSACTION_CONFIRM' && entry.receipt?.blockNumber) {
+					return entry.receipt.blockNumber;
+				}
+			} catch {
+				// Skip malformed lines
+				continue;
+			}
+		}
+	} catch (error) {
+		console.warn(`Could not read journal file: ${journalFile}`);
+	}
+
+	return undefined;
+}
+
 async function main() {
 	console.log('🔍 Scanning for Ignition deployments...');
 
@@ -86,6 +117,7 @@ async function main() {
 		.filter((dir) => dir.startsWith('chain-'))
 		.map((dir) => ({
 			chainId: dir.replace('chain-', ''),
+			dir: path.join(backendDeploymentsDir, dir),
 			path: path.join(backendDeploymentsDir, dir, 'deployed_addresses.json'),
 		}));
 
@@ -97,7 +129,7 @@ async function main() {
 	const allChainAddresses: ChainAddresses[] = [];
 
 	// Read addresses from each chain
-	for (const { chainId, path: addressFile } of chainDirs) {
+	for (const { chainId, dir, path: addressFile } of chainDirs) {
 		if (!fs.existsSync(addressFile)) {
 			console.warn(`No deployed_addresses.json found for chain ${chainId}`);
 			continue;
@@ -108,13 +140,18 @@ async function main() {
 		);
 
 		const addresses = extractContractAddresses(deployedAddresses);
+		const deploymentBlock = extractDeploymentBlock(dir);
 
 		allChainAddresses.push({
 			chainId,
+			deploymentBlock,
 			...addresses,
 		});
 
-		console.log(`Loaded addresses for chain ${chainId} (${getChainName(chainId)})`);
+		console.log(`✅ Chain ${chainId} (${getChainName(chainId)})`);
+		if (deploymentBlock) {
+			console.log(`   Deployment block: ${deploymentBlock}`);
+		}
 	}
 
 	// Generate TypeScript file
@@ -129,6 +166,7 @@ async function main() {
  */
 
 export interface ContractAddresses {
+	deploymentBlock?: number;
 	USDcoin?: string;
 	L1WarpToad?: string;
 	L2WarpToad?: string;
@@ -187,10 +225,11 @@ export function getChainName(chainId: number | string): string {
 	// Write the file
 	fs.writeFileSync(outputFile, tsContent);
 
-	console.log(`\n Contract addresses written to: ${path.relative(process.cwd(), outputFile)}`);
-	console.log(`\nSummary:`);
+	console.log(`\n✅ Contract addresses written to: ${path.relative(process.cwd(), outputFile)}`);
+	console.log(`\n📋 Summary:`);
 	for (const chain of allChainAddresses) {
 		console.log(`   Chain ${chain.chainId} (${getChainName(chain.chainId)}):`);
+		console.log(`      Deployment Block: ${chain.deploymentBlock || 'N/A'}`);
 		console.log(`      L1WarpToad: ${chain.L1WarpToad || 'N/A'}`);
 		console.log(`      L2WarpToad: ${chain.L2WarpToad || 'N/A'}`);
 		console.log(`      GigaBridge: ${chain.GigaBridge || 'N/A'}`);

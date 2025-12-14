@@ -22,9 +22,10 @@
 		mintFreeTokens,
 		triggerBridgeSync,
 	} from "$lib/utils/evm-interactions";
-	import { getChainId } from "$lib/utils/evm-wallet";
+	import { getChainId, NETWORKS } from "$lib/utils/evm-wallet";
 	import { getAztecWarpToadBalance } from "$lib/utils/aztec-interactions";
 	import { getWalletInstance } from "$lib/utils/aztec-wallet";
+	import type { Chain } from "$lib/types/bridge";
 
 	interface Props {
 		open?: boolean;
@@ -35,6 +36,21 @@
 	let isSyncing = $state(false);
 	let syncError = $state<string | null>(null);
 	let syncSuccess = $state<string | null>(null);
+
+	// Compute if user is on an unsupported network
+	let isOnUnsupportedNetwork = $derived.by(() => {
+		if (!walletStore.isEVMConnected || walletStore.chainName === null) return false;
+		// If chainName is null but we're connected, we're on an unsupported network
+		return walletStore.wallets.evm !== null && walletStore.chainName === null;
+	});
+
+	// Get list of supported networks for quick switching
+	let supportedNetworks = $derived.by(() => {
+		const networks: Chain[] = [];
+		if (NETWORKS['Ethereum']) networks.push('Ethereum');
+		if (NETWORKS['Scroll']) networks.push('Scroll');
+		return networks;
+	});
 
 	async function handleTriggerBridgeSync() {
 		isSyncing = true;
@@ -98,6 +114,14 @@
 			console.error("Failed to get Aztec balance:", error);
 		}
 	}
+
+	async function handleSwitchNetwork(chain: Chain) {
+		try {
+			await walletStore.switchToChain(chain);
+		} catch (error) {
+			console.error("Failed to switch network:", error);
+		}
+	}
 </script>
 
 <Dialog bind:open>
@@ -120,27 +144,28 @@
 							{walletStore.formatAddress(walletStore.wallets.evm)}
 						</Badge>
 
-						{#if walletStore.chainName}
-							<div
-								class="flex items-center gap-1 text-xs text-muted-foreground"
-							>
-								<CheckCircle2 class="size-3" />
-								<span>{walletStore.chainName}</span>
-							</div>
-						{/if}
+					{#if walletStore.chainName}
+						<div
+							class="flex items-center gap-1 text-xs text-muted-foreground"
+						>
+							<CheckCircle2 class="size-3" />
+							<span>{walletStore.chainName}</span>
+						</div>
+					{/if}
+					{#if walletStore.chainName && walletStore.chainName !== 'Aztec' && walletStore.chainName !== 'Scroll'}
 						<Button
 							onclick={async () => {
 								const currentChain = walletStore.chainName;
-								if (currentChain && currentChain !== 'Aztec') {
+								if (currentChain) {
 									await mintFreeTokens("USDC", currentChain, 100);
 									await balanceStore.refresh();
 								}
 							}}
-							disabled={!walletStore.chainName || walletStore.chainName === 'Aztec'}
 						>
 							mint 100 test USDC
 						</Button>
-					</div>
+					{/if}
+				</div>
 
 					<Button
 						variant="outline"
@@ -265,6 +290,47 @@
 					{syncSuccess}
 				</AlertDescription>
 			</Alert>
+		{/if}
+
+		<!-- Network Management Section -->
+		{#if walletStore.isEVMConnected}
+			<Separator />
+			
+			<div class="space-y-3">
+				<h4 class="text-sm font-semibold">Network Management</h4>
+				
+				{#if isOnUnsupportedNetwork}
+					<Alert variant="destructive">
+						<AlertCircle class="size-4" />
+						<AlertDescription>
+							<div class="space-y-2">
+								<p>You are connected to an unsupported network.</p>
+								<p class="text-xs">Please switch to a supported network to use the bridge.</p>
+							</div>
+						</AlertDescription>
+					</Alert>
+				{/if}
+
+				<div class="flex flex-col gap-2">
+					<div class="text-xs text-muted-foreground">Quick Switch Network:</div>
+					<div class="grid grid-cols-2 gap-2">
+						{#each supportedNetworks as network}
+							<Button
+								size="sm"
+								variant={walletStore.chainName === network ? "default" : "outline"}
+								onclick={() => handleSwitchNetwork(network)}
+								disabled={walletStore.isConnecting || walletStore.chainName === network}
+								class="w-full"
+							>
+								{#if walletStore.chainName === network}
+									<CheckCircle2 class="size-3 mr-1" />
+								{/if}
+								{network}
+							</Button>
+						{/each}
+					</div>
+				</div>
+			</div>
 		{/if}
 
 		<Separator />

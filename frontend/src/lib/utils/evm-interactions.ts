@@ -3,11 +3,22 @@ import { TOKEN_CONTRACTS } from '$lib/stores/proofs.svelte';
 import { USDcoinAbi, L1WarpToadAbi } from '$lib/contracts/abis';
 import { createClient, getChainId } from './evm-wallet';
 import { createPublicClient, http, type Hash } from 'viem';
-import { getContractAddresses } from '$lib/contracts/addresses';
+import { getContractAddresses, CONTRACT_ADDRESSES } from '$lib/contracts/addresses';
 import { poseidon2, poseidon3 } from 'poseidon-lite';
 
 // Field size for BN254 curve (used by Aztec)
 const FIELD_MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
+
+/**
+ * Get deployment block for a chain (used as starting point for event queries)
+ */
+function getDeploymentBlock(chainId: number): bigint {
+	const chainData = CONTRACT_ADDRESSES[chainId.toString()];
+	if (chainData?.deploymentBlock) {
+		return BigInt(chainData.deploymentBlock);
+	}
+	return chainId === 31337 ? 0n : 0n; // localhost = 0, others = 0 (fallback)
+}
 
 /**
  * HASHING UTILITIES
@@ -450,6 +461,46 @@ export async function mintFreeTokens(tokenInput: Token, chain: Chain, amount: nu
  */
 
 import { GigaBridgeAbi, L1WarpToadAbi as WarpToadAbi } from '$lib/contracts/abis';
+
+/**
+ * Store the current local root in history
+ * This must be called before same-chain withdrawals to make the root valid
+ * 
+ * @param chainId - The chain ID
+ * @returns Transaction hash if successful, undefined if skipped
+ */
+export async function storeL1LocalRootInHistory(chainId: number): Promise<string | undefined> {
+	const client = createClient(chainId);
+	if (!client) throw new Error('Failed to create wallet client');
+	
+	const publicClient = createPublicClient({
+		chain: client.chain,
+		transport: http()
+	});
+	
+	const addresses = getContractAddresses(chainId);
+	if (!addresses.L1WarpToad) throw new Error('L1WarpToad address not found');
+	
+	const userAddress = (await client.getAddresses())[0];
+	
+	console.log('Storing local root in history...');
+	try {
+		const { request } = await publicClient.simulateContract({
+			address: addresses.L1WarpToad as `0x${string}`,
+			abi: WarpToadAbi,
+			account: userAddress,
+			functionName: 'storeLocalRootInHistory',
+		});
+		
+		const txHash = await client.writeContract(request);
+		await publicClient.waitForTransactionReceipt({ hash: txHash });
+		console.log('Local root stored:', txHash);
+		return txHash;
+	} catch (error) {
+		console.log('storeLocalRootInHistory skipped (no new burns or already stored)');
+		return undefined;
+	}
+}
 
 /**
  * Trigger a bridge sync: updates the gigaRoot and sends it to all recipients
@@ -936,8 +987,8 @@ export async function getEvmMerkleDataForL1(
 		? BigInt(localRootBlockNumber) 
 		: await publicClient.getBlockNumber();
 	
-	// Query from block 0 or deployment block (could be optimized with deployment block config)
-	const fromBlock = 0n;
+	// Query from deployment block to avoid scanning entire chain history
+	const fromBlock = getDeploymentBlock(chainId);
 	
 	console.log(`Querying Burn events from block ${fromBlock} to ${toBlock}...`);
 	

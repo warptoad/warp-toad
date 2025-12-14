@@ -38,7 +38,7 @@
 
 	let isGenerating = $state(false);
 	let generationStep = $state<
-		"idle" | "preparing" | "approving" | "wrapping" | "burning" | "complete"
+		"idle" | "preparing" | "approving" | "wrapping" | "burning" | "complete" | "done"
 	>("idle");
 	let generationMessage = $state("");
 	let lastError = $state<string | null>(null);
@@ -301,19 +301,9 @@
 				</AlertDescription>
 			</Alert>
 		{:else if needsNetworkSwitch}
-			<Alert>
-				<AlertDescription class="flex items-center justify-between">
-					<span>Please switch to {selectedChain} network</span>
-					<Button
-						size="sm"
-						variant="outline"
-						onclick={switchNetwork}
-						disabled={walletStore.isConnecting}
-					>
-						{walletStore.isConnecting ? "Switching..." : "Switch Network"}
-					</Button>
-				</AlertDescription>
-			</Alert>
+			<div class="text-sm text-muted-foreground text-center py-2">
+				⚠️ Wrong network - open wallet settings to switch to {selectedChain}
+			</div>
 		{:else if !isChainAvailable(selectedChain)}
 			<Alert variant="destructive">
 				<AlertDescription>
@@ -381,7 +371,23 @@
 			disabled={!canSubmit}
 			onclick={generateTransfer}
 		>
-			{isGenerating ? "Processing..." : "Generate Proof & Transfer"}
+			{#if generationStep === "idle"}
+				Transfer
+			{:else if generationStep === "preparing"}
+				Preparing...
+			{:else if generationStep === "approving"}
+				Approving...
+			{:else if generationStep === "wrapping"}
+				Wrapping...
+			{:else if generationStep === "burning"}
+				Transferring...
+			{:else if generationStep === "complete"}
+				Done!
+			{:else if generationStep === "done"}
+				Done!
+			{:else}
+				Transfer
+			{/if}
 		</Button>
 	</CardContent>
 </Card>
