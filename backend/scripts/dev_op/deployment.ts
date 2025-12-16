@@ -28,12 +28,6 @@ import aztecDeploymentsSepolia from "../deploy/aztec/aztecDeployments/11155111/d
 //@ts-ignore
 import aztecDeploymentsSandbox from "../deploy/aztec/aztecDeployments/31337/deployed_addresses.json" with { type: 'json' };
 
-//@ts-ignore
-import scrollDeploymentsSepolia from "../../ignition/deployments/chain-534351/deployed_addresses.json" with { type: 'json' };
-//@ts-ignore
-import L1DeploymentsSepolia from "../../ignition/deployments/chain-11155111/deployed_addresses.json" with { type: 'json' };
-//@ts-ignore
-import L1DeploymentsSandbox from "../../ignition/deployments/chain-31337/deployed_addresses.json" with { type: 'json' };
 import { AccountManager, Wallet } from '@aztec/aztec.js/wallet';
 import { PXE } from '@aztec/pxe/server';
 import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
@@ -42,15 +36,52 @@ import { ContractInstanceWithAddress, getContractInstanceFromInstantiationParams
 
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 
+import * as fs from 'fs';
+import * as path from 'path';
+
 interface deployments {
     [chainId: number]: any
 }
 
-export const evmDeployments: deployments = {
-    534351: scrollDeploymentsSepolia,
-    11155111: L1DeploymentsSepolia,
-    31337: L1DeploymentsSandbox
+// Function to load deployments safely
+function loadDeployments(): deployments {
+    const deployments: deployments = {};
+    const deploymentsDir = path.join(__dirname, '../../ignition/deployments');
+    
+    // Try to load chain-31337 (local)
+    try {
+        const localPath = path.join(deploymentsDir, 'chain-31337/deployed_addresses.json');
+        if (fs.existsSync(localPath)) {
+            deployments[31337] = JSON.parse(fs.readFileSync(localPath, 'utf-8'));
+        }
+    } catch (e) {
+        console.warn("Local deployments not found (chain-31337)");
+    }
+    
+    // Try to load chain-11155111 (Sepolia)
+    try {
+        const sepoliaPath = path.join(deploymentsDir, 'chain-11155111/deployed_addresses.json');
+        if (fs.existsSync(sepoliaPath)) {
+            deployments[11155111] = JSON.parse(fs.readFileSync(sepoliaPath, 'utf-8'));
+        }
+    } catch (e) {
+        console.warn("Sepolia deployments not found (chain-11155111)");
+    }
+    
+    // Try to load chain-534351 (Scroll Sepolia)
+    try {
+        const scrollPath = path.join(deploymentsDir, 'chain-534351/deployed_addresses.json');
+        if (fs.existsSync(scrollPath)) {
+            deployments[534351] = JSON.parse(fs.readFileSync(scrollPath, 'utf-8'));
+        }
+    } catch (e) {
+        console.warn("Scroll Sepolia deployments not found (chain-534351)");
+    }
+    
+    return deployments;
 }
+
+export const evmDeployments: deployments = loadDeployments();
 
 export const aztecDeployments: deployments = {
     11155111: aztecDeploymentsSepolia,

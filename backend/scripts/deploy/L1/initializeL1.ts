@@ -39,7 +39,8 @@ async function main() {
 
     //aztec
     try {
-        await L1AztecBridgeAdapter.initialize(aztecNativeBridgeRegistryAddress, L2AztecAdapterAddress, gigaBridgeAddress);
+        const aztecTx = await L1AztecBridgeAdapter.initialize(aztecNativeBridgeRegistryAddress, L2AztecAdapterAddress, gigaBridgeAddress);
+        await aztecTx.wait();
         initializationStatus["L1AztecBridgeAdapter"] = true
     } catch (error: any) {
         if (error.message === "execution reverted: cant initialize twice") {
@@ -56,7 +57,8 @@ async function main() {
     // scroll
 
     try {
-        await L1ScrollBridgeAdapter.initialize(L2ScrollBridgeAdapterAddress, gigaBridgeAddress);
+        const scrollTx = await L1ScrollBridgeAdapter.initialize(L2ScrollBridgeAdapterAddress, gigaBridgeAddress);
+        await scrollTx.wait();
         initializationStatus["L1ScrollBridgeAdapter"] = true
     } catch {
         console.warn(`couldn't initialize: L1ScrollBridgeAdapter at: ${L1ScrollBridgeAdapter.target}. 
@@ -65,10 +67,13 @@ async function main() {
         initializationStatus["L1ScrollBridgeAdapter"] = false
     }
 
+    // wait for nonce to settle
+    await new Promise(r => setTimeout(r, 3000));
 
     //warptoad
     try {
-        await L1WarpToad.initialize(gigaBridgeAddress, L1WarpToad.target) // <- L1WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
+        const warpTx = await L1WarpToad.initialize(gigaBridgeAddress, L1WarpToad.target) // <- L1WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
+        await warpTx.wait();
         initializationStatus["L1WarpToad"] = true
     } catch (error: any) {
         if (error.message === "execution reverted: gigaRootProvider is already set") {
