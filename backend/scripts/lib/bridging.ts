@@ -156,7 +156,7 @@ export async function bridgeAZTECLocalRootToL1(
 
     // @danish oh o the aztec sdk changed again :(, it needs {from:wallet.account} or something like that
     // we prob need to find and replace every .send() with .send({from:wallet.account} ) (manually check if it is aztec ofc)
-    const sendRootToL1Tx = await L2AztecBridgeAdapter.methods.send_root_to_l1(blockNumberOfRoot).send({ fee: { paymentMethod: sponsoredPaymentMethod }, from: (await aztecWallet.getAccounts())[0].item }).wait({ timeout: 60 * 60 * 12 });
+    const sendRootToL1Tx = await L2AztecBridgeAdapter.methods.send_root_to_l1(blockNumberOfRoot).send({ fee: { paymentMethod: sponsoredPaymentMethod }, from: (await aztecWallet.getAccounts())[0].item }).wait()//{ timeout: 60 * 60 * 12 });
     sendRootToL1Tx.txHash
 
     const l1ChainId = (await provider.getNetwork()).chainId
@@ -201,7 +201,6 @@ export async function bridgeAZTECLocalRootToL1(
         args,
         waitFunc
     )).wait(confirmations) as ethers.ContractTransactionReceipt
-    console.log("landed this guy", refreshRootTx, {nonce: (await refreshRootTx.getTransaction()).nonce})
 
     return { refreshRootTx, sendRootToL1Tx, PXE_L2Root }
 }
@@ -394,7 +393,7 @@ export async function receiveGigaRootOnAztec(
         await waitForBlocksAztec(blocksToWait, aztecNode, isSandBox, L2AztecBridgeAdapter, aztecWallet);
     }
 
-    const receiveGigaRootTx = await L2AztecBridgeAdapter.methods.receive_giga_root(content_hash, index, AztecWarpToad.address).send({ fee: { paymentMethod: sponsoredPaymentMethod }, from: (await (aztecWallet as AztecWallet).getAccounts())[0].item }).wait({ timeout: 60 * 60 * 12 });
+    const receiveGigaRootTx = await L2AztecBridgeAdapter.methods.receive_giga_root(content_hash, index, AztecWarpToad.address).send({ fee: { paymentMethod: sponsoredPaymentMethod }, from: (await (aztecWallet as AztecWallet).getAccounts())[0].item }).wait();//({ timeout: 60 * 60 * 12 });
     return { receiveGigaRootTx }
 }
 
@@ -430,7 +429,6 @@ export async function tryUntilItWorks(contract: ethers.Contract | any, funcName:
             await contract[funcName].estimateGas(...funcArgs);
             works = true;
         } catch (error) {
-            console.log("didn't work", error)
             await waitFunc()
         }
     }

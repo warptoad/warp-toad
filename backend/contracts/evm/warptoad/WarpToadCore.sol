@@ -8,6 +8,7 @@ import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {IWarpToadCore} from "../interfaces/IWarpToadCore.sol";
 import {ILocalRootProvider, IGigaRootRecipient} from "../interfaces/IRootMessengers.sol";
+import {IGigaRootProvider} from "../interfaces/IRootMessengers.sol";
 
 // tutorial https://github.com/privacy-scaling-explorations/zk-kit.solidity/blob/main/packages/lean-imt/contracts/test/LazyIMTTest.sol
 // noir equivalent (normal merkle tree): https://github.com/privacy-scaling-explorations/zk-kit.noir/tree/main/packages/merkle-trees
@@ -57,9 +58,6 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore,ILocalRootProvider, IGiga
         LazyIMT.init(commitTreeData, _maxTreeDepth);
         nativeToken = _nativeToken;
         deployer = msg.sender;
-
-        // other wise cachedLocalRoot can be 0. Which i cant see how that would be a issue but it scares so we do this to be safe
-        storeLocalRootInHistory();
     }
 
     // needs initialize because the gigaBridge sets its localRootProvider (inc L1WarpToad) in the constructor
@@ -69,6 +67,14 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore,ILocalRootProvider, IGiga
         require(l1BridgeAdapter == address(0), "l1BridgeAdapter is already set");
         gigaRootProvider = _gigaRootProvider;
         l1BridgeAdapter = _l1BridgeAdapter;
+
+        // so we dont end up with gigaRoot being = 0
+        uint256 _gigaRoot = IGigaRootProvider(_gigaRootProvider).gigaRoot();
+        gigaRootHistory[_gigaRoot] = true;
+        gigaRoot = _gigaRoot;
+
+        // other wise cachedLocalRoot can be 0. Which i cant see how that would be a issue but it scares so we do this to be safe
+        storeLocalRootInHistory();
     }
 
     function decimals() public view virtual override returns (uint8) {
@@ -86,6 +92,9 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore,ILocalRootProvider, IGiga
 
         uint256 _commitment = PoseidonT3.hash([_preCommitment, _amount]);
         LazyIMT.insert(commitTreeData, _commitment);
+        // This is inefficient, but not doing this creates devUx pain and even problematic privacyUX
+        // the proper version of warptoad is going to use leanIMT anyway which has a similar gas footprint and always has a root!
+        storeLocalRootInHistory();
         emit Burn(_commitment, _amount, lastLeafIndex);
         lastLeafIndex++;
     }
