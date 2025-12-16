@@ -5,9 +5,29 @@ import { createClient, getChainId } from './evm-wallet';
 import { createPublicClient, http, type Hash } from 'viem';
 import { getContractAddresses, CONTRACT_ADDRESSES } from '$lib/contracts/addresses';
 import { poseidon2, poseidon3 } from 'poseidon-lite';
+import { getEVMChain } from '$lib/config/chains';
 
 // Field size for BN254 curve (used by Aztec)
 const FIELD_MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
+
+/**
+ * Get RPC URL for a chain ID from the chain registry
+ * This ensures we use configured RPC URLs (like Infura) instead of default public endpoints
+ */
+function getRpcUrl(chainId: number): string | undefined {
+	// Map chain ID to chain name
+	const chainMap: Record<number, 'Ethereum' | 'Scroll'> = {
+		31337: 'Ethereum', // Localhost Anvil
+		11155111: 'Ethereum', // Sepolia
+		534351: 'Scroll', // Scroll Sepolia
+	};
+	
+	const chainName = chainMap[chainId];
+	if (!chainName) return undefined;
+	
+	const chainDef = getEVMChain(chainName);
+	return chainDef?.rpcUrl;
+}
 
 /**
  * Get deployment block for a chain (used as starting point for event queries)
@@ -18,6 +38,80 @@ function getDeploymentBlock(chainId: number): bigint {
 		return BigInt(chainData.deploymentBlock);
 	}
 	return chainId === 31337 ? 0n : 0n; // localhost = 0, others = 0 (fallback)
+}
+
+/**
+ * GAS PRICE UTILITIES
+ */
+
+/**
+ * Estimate appropriate gas fees for the current network
+ * Returns priority fee and max fee suitable for proof generation
+ * 
+ * @param chainId - The chain ID
+ * @returns Object with priorityFee and maxFee in wei
+ */
+export async function estimateGasFeesForProof(chainId: number): Promise<{
+	priorityFee: bigint;
+	maxFee: bigint;
+}> {
+	const client = createClient(chainId);
+	if (!client) throw new Error('Failed to create client');
+	
+	const rpcUrl = getRpcUrl(chainId);
+	const publicClient = createPublicClient({
+		chain: client.chain,
+		transport: http(rpcUrl)
+	});
+	
+	// Check if this is localhost (Anvil)
+	const isLocalhost = chainId === 31337;
+	
+	if (isLocalhost) {
+		// For local development, use minimal fees (1 gwei)
+		const oneGwei = 1_000_000_000n;
+		return {
+			priorityFee: oneGwei,
+			maxFee: oneGwei * 2n, // 2 gwei total
+		};
+	}
+	
+	// For testnets/mainnet, estimate current gas prices
+	try {
+		// Get current gas price estimate from the network
+		const feeData = await publicClient.estimateFeesPerGas();
+		
+		// Extract base fee and priority fee
+		const maxPriorityFeePerGas = feeData.maxPriorityFeePerGas || 2_000_000_000n; // Default 2 gwei
+		const maxFeePerGas = feeData.maxFeePerGas || 50_000_000_000n; // Default 50 gwei
+		
+		// Use the network's priority fee, but ensure minimum of 2 gwei
+		const minPriorityFee = 2_000_000_000n; // 2 gwei minimum
+		const priorityFee = maxPriorityFeePerGas > minPriorityFee 
+			? maxPriorityFeePerGas 
+			: minPriorityFee;
+		
+		// Max fee should be at least 2x current base fee + priority fee to handle fluctuations
+		// We'll use the network's estimate but ensure it's reasonable
+		const minMaxFee = priorityFee * 25n; // At least 25x priority fee (e.g., 50 gwei if priority is 2 gwei)
+		const maxFee = maxFeePerGas > minMaxFee ? maxFeePerGas : minMaxFee;
+		
+		console.log('Estimated gas fees for proof:');
+		console.log('  Priority Fee:', (Number(priorityFee) / 1e9).toFixed(2), 'gwei');
+		console.log('  Max Fee:', (Number(maxFee) / 1e9).toFixed(2), 'gwei');
+		
+		return {
+			priorityFee,
+			maxFee,
+		};
+	} catch (error) {
+		console.error('Failed to estimate gas fees, using defaults:', error);
+		// Fallback to conservative defaults for testnets
+		return {
+			priorityFee: 2_000_000_000n, // 2 gwei
+			maxFee: 100_000_000_000n, // 100 gwei
+		};
+	}
 }
 
 /**
@@ -146,9 +240,10 @@ async function getTokenDecimals(
 	const client = createClient(chainId);
 	if (!client) throw new Error('Failed to create client');
 	
+	const rpcUrl = getRpcUrl(chainId);
 	const publicClient = createPublicClient({
 		chain: client.chain,
-		transport: http()
+		transport: http(rpcUrl)
 	});
 	
 	const decimals = await publicClient.readContract({
@@ -172,9 +267,10 @@ async function checkAllowance(
 	const client = createClient(chainId);
 	if (!client) throw new Error('Failed to create client');
 	
+	const rpcUrl = getRpcUrl(chainId);
 	const publicClient = createPublicClient({
 		chain: client.chain,
-		transport: http()
+		transport: http(rpcUrl)
 	});
 	
 	const allowance = await publicClient.readContract({
@@ -199,9 +295,10 @@ export async function approveWarpToad(
 	const client = createClient(chainId);
 	if (!client) throw new Error('Failed to create client');
 	
+	const rpcUrl = getRpcUrl(chainId);
 	const publicClient = createPublicClient({
 		chain: client.chain,
-		transport: http()
+		transport: http(rpcUrl)
 	});
 	
 	const userAddress = (await client.getAddresses())[0];
@@ -247,9 +344,10 @@ export async function wrapTokens(
 	const client = createClient(chainId);
 	if (!client) throw new Error('Failed to create client');
 	
+	const rpcUrl = getRpcUrl(chainId);
 	const publicClient = createPublicClient({
 		chain: client.chain,
-		transport: http()
+		transport: http(rpcUrl)
 	});
 	
 	const userAddress = (await client.getAddresses())[0];
@@ -287,9 +385,10 @@ export async function burnTokens(
 	const client = createClient(chainId);
 	if (!client) throw new Error('Failed to create client');
 	
+	const rpcUrl = getRpcUrl(chainId);
 	const publicClient = createPublicClient({
 		chain: client.chain,
-		transport: http()
+		transport: http(rpcUrl)
 	});
 	
 	const userAddress = (await client.getAddresses())[0];
@@ -421,9 +520,10 @@ export async function mintFreeTokens(tokenInput: Token, chain: Chain, amount: nu
 
     //get decimals
 
+    const rpcUrl = getRpcUrl(chainId);
     const publicClient = createPublicClient({
         chain: client.chain,
-        transport: http()
+        transport: http(rpcUrl)
     })
 
     const decimals = await publicClient.readContract({
@@ -473,9 +573,10 @@ export async function storeL1LocalRootInHistory(chainId: number): Promise<string
 	const client = createClient(chainId);
 	if (!client) throw new Error('Failed to create wallet client');
 	
+	const rpcUrl = getRpcUrl(chainId);
 	const publicClient = createPublicClient({
 		chain: client.chain,
-		transport: http()
+		transport: http(rpcUrl)
 	});
 	
 	const addresses = getContractAddresses(chainId);
@@ -520,9 +621,10 @@ export async function triggerBridgeSync(chainId: number): Promise<{
 	const client = createClient(chainId);
 	if (!client) throw new Error('Failed to create wallet client');
 	
+	const rpcUrl = getRpcUrl(chainId);
 	const publicClient = createPublicClient({
 		chain: client.chain,
-		transport: http()
+		transport: http(rpcUrl)
 	});
 	
 	const addresses = getContractAddresses(chainId);
@@ -607,9 +709,10 @@ export async function getL1GigaRoot(chainId: number): Promise<bigint> {
 	const client = createClient(chainId);
 	if (!client) throw new Error('Failed to create client');
 	
+	const rpcUrl = getRpcUrl(chainId);
 	const publicClient = createPublicClient({
 		chain: client.chain,
-		transport: http()
+		transport: http(rpcUrl)
 	});
 	
 	const addresses = getContractAddresses(chainId);
@@ -631,9 +734,10 @@ export async function getL1LocalRoot(chainId: number): Promise<bigint> {
 	const client = createClient(chainId);
 	if (!client) throw new Error('Failed to create client');
 	
+	const rpcUrl = getRpcUrl(chainId);
 	const publicClient = createPublicClient({
 		chain: client.chain,
-		transport: http()
+		transport: http(rpcUrl)
 	});
 	
 	const addresses = getContractAddresses(chainId);
@@ -704,9 +808,10 @@ export async function claimOnL1(
 	const client = createClient(chainId);
 	if (!client) throw new Error('Failed to create client');
 	
+	const rpcUrl = getRpcUrl(chainId);
 	const publicClient = createPublicClient({
 		chain: client.chain,
-		transport: http()
+		transport: http(rpcUrl)
 	});
 	
 	const addresses = getContractAddresses(chainId);
@@ -719,6 +824,36 @@ export async function claimOnL1(
 	console.log('Amount:', proofInputs.amount);
 	console.log('GigaRoot:', proofInputs.giga_root);
 	console.log('Recipient:', proofInputs.recipient_address);
+	
+	// Get current network gas prices (these are separate from the proof's fee params)
+	const { priorityFee: currentPriorityFee, maxFee: currentMaxFee } = await estimateGasFeesForProof(chainId);
+	console.log('Using gas prices:');
+	console.log('  Priority Fee:', (Number(currentPriorityFee) / 1e9).toFixed(2), 'gwei');
+	console.log('  Max Fee:', (Number(currentMaxFee) / 1e9).toFixed(2), 'gwei');
+	
+	// Estimate gas for the transaction
+	const gasEstimate = await publicClient.estimateContractGas({
+		address: addresses.L1WarpToad as `0x${string}`,
+		abi: L1WarpToadAbi,
+		account: userAddress,
+		functionName: 'mint',
+		args: [
+			BigInt(proofInputs.nullifier),
+			BigInt(proofInputs.amount),
+			BigInt(proofInputs.giga_root),
+			BigInt(proofInputs.destination_local_root),
+			BigInt(proofInputs.fee_factor),
+			BigInt(proofInputs.priority_fee),
+			BigInt(proofInputs.max_fee),
+			paddedHexToAddress(proofInputs.relayer_address),
+			paddedHexToAddress(proofInputs.recipient_address),
+			proof as `0x${string}`,
+		],
+	});
+	
+	// Add 20% buffer to gas estimate
+	const gasLimit = (gasEstimate * 120n) / 100n;
+	console.log('Gas estimate:', gasEstimate.toString(), 'Gas limit:', gasLimit.toString());
 	
 	// Call mint function on L1WarpToad
 	const { request } = await publicClient.simulateContract({
@@ -738,9 +873,10 @@ export async function claimOnL1(
 			paddedHexToAddress(proofInputs.recipient_address),
 			proof as `0x${string}`,
 		],
-		// Set gas price parameters to match proof's priority fee
-		maxPriorityFeePerGas: BigInt(proofInputs.priority_fee),
-		maxFeePerGas: BigInt(proofInputs.priority_fee) * 100n, // Allow higher base fee
+		// Use current network gas prices (NOT the proof's fee params)
+		maxPriorityFeePerGas: currentPriorityFee,
+		maxFeePerGas: currentMaxFee,
+		gas: gasLimit,
 	});
 	
 	const txHash = await client.writeContract(request);
@@ -807,9 +943,10 @@ export async function claimAndUnwrapOnL1(
 	const client = createClient(chainId);
 	if (!client) throw new Error('Failed to create client');
 	
+	const rpcUrl = getRpcUrl(chainId);
 	const publicClient = createPublicClient({
 		chain: client.chain,
-		transport: http()
+		transport: http(rpcUrl)
 	});
 	
 	const addresses = getContractAddresses(chainId);
@@ -934,9 +1071,10 @@ export async function isValidL1LocalRoot(chainId: number, localRoot: bigint): Pr
 	const client = createClient(chainId);
 	if (!client) throw new Error('Failed to create client');
 	
+	const rpcUrl = getRpcUrl(chainId);
 	const publicClient = createPublicClient({
 		chain: client.chain,
-		transport: http()
+		transport: http(rpcUrl)
 	});
 	
 	const addresses = getContractAddresses(chainId);
@@ -974,9 +1112,10 @@ export async function getEvmMerkleDataForL1(
 	const client = createClient(chainId);
 	if (!client) throw new Error('Failed to create client');
 	
+	const rpcUrl = getRpcUrl(chainId);
 	const publicClient = createPublicClient({
 		chain: client.chain,
-		transport: http()
+		transport: http(rpcUrl)
 	});
 	
 	const addresses = getContractAddresses(chainId);

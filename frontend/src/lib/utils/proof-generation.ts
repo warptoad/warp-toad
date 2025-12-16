@@ -76,9 +76,23 @@ const GIGA_TREE_DEPTH = 5;
 const AZTEC_TREE_DEPTH = 42;
 
 // Default fee parameters for self-relaying (no relayer fee)
-const DEFAULT_FEE_FACTOR = 0n;
-const DEFAULT_PRIORITY_FEE = 1n; // Must be non-zero per circuit constraints
+// NOTE: These fees are for RELAYER COMPENSATION, not gas fees!
+// - max_fee is how much of the withdrawal amount you're willing to pay a relayer
+// - priority_fee is a minimal gas price check in the circuit
+// - For self-relay, we use minimal values and override gas at transaction time
+const DEFAULT_FEE_FACTOR = 0n; // No relayer fee for self-relay
+const DEFAULT_PRIORITY_FEE = 1_000_000_000n; // 1 gwei - minimal for circuit validation
 const DEFAULT_RELAYER_ADDRESS = '0x0000000000000000000000000000000000000001'; // address(1) for self-relay
+
+/**
+ * Fee configuration for proof generation
+ * NOTE: For self-relay, just use the defaults. These are NOT gas fees!
+ */
+export interface FeeConfig {
+	priorityFee?: bigint;  // Minimal priority fee for circuit validation (default 1 gwei)
+	maxFee?: bigint;       // Max relayer fee from withdrawal amount (default: full amount)
+	feeFactor?: bigint;    // Fee factor for relayer (0 for self-relay)
+}
 
 // =============================================================================
 // HELPER FUNCTIONS
@@ -154,8 +168,7 @@ function createEmptyAztecMerkleData(): {
  * @param originLocalRoot - The Aztec note hash tree root
  * @param destinationChainId - The L1 chain ID
  * @param recipientAddress - The recipient's L1 address
- * @param maxFee - Maximum fee willing to pay (for relayer support)
- * @returns ProofInputs ready for the circuit
+ * @returns ProofInputs ready for the circuit (uses self-relay defaults)
  */
 export function prepareProofInputsForAztecToL1(
 	commitmentData: CommitmentPreImage,
@@ -165,16 +178,15 @@ export function prepareProofInputsForAztecToL1(
 	destinationLocalRoot: bigint,
 	originLocalRoot: bigint,
 	destinationChainId: bigint,
-	recipientAddress: string,
-	maxFee?: bigint
+	recipientAddress: string
 ): ProofInputs {
 	// Compute nullifier
 	const nullifier = hashNullifier(commitmentData.nullifier_preimg);
 
-	// Use default fee params for self-relaying
+	// Use self-relay defaults: no relayer fee, minimal priority fee for validation
 	const feeFactor = DEFAULT_FEE_FACTOR;
 	const priorityFee = DEFAULT_PRIORITY_FEE;
-	const actualMaxFee = maxFee ?? commitmentData.amount; // Default to full amount
+	const actualMaxFee = commitmentData.amount; // Allow full amount (no relayer takes a cut)
 
 	const proofInputs: ProofInputs = {
 		// ----- public inputs -----
@@ -226,7 +238,7 @@ export function prepareProofInputsForAztecToL1(
  * @param chainId - The chain ID
  * @param recipientAddress - The recipient's address
  * @param isFromAztec - Whether the burn originated from Aztec
- * @param maxFee - Maximum fee willing to pay
+ * @returns ProofInputs ready for the circuit (uses self-relay defaults)
  */
 export function prepareProofInputsForSameChain(
 	commitmentData: CommitmentPreImage,
@@ -236,13 +248,12 @@ export function prepareProofInputsForSameChain(
 	gigaRoot: bigint,
 	chainId: bigint,
 	recipientAddress: string,
-	isFromAztec: boolean,
-	maxFee?: bigint
+	isFromAztec: boolean
 ): ProofInputs {
 	const nullifier = hashNullifier(commitmentData.nullifier_preimg);
 	const feeFactor = DEFAULT_FEE_FACTOR;
 	const priorityFee = DEFAULT_PRIORITY_FEE;
-	const actualMaxFee = maxFee ?? commitmentData.amount;
+	const actualMaxFee = commitmentData.amount;
 
 	return {
 		nullifier: toHex(nullifier),

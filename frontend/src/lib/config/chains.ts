@@ -95,37 +95,37 @@ export type ChainDefinition = EVMChainDefinition | AztecChainDefinition;
  */
 const ETHEREUM_CHAIN: EVMChainDefinition = isTestMode
 	? {
-			id: 'Ethereum',
-			name: 'Localhost (Anvil)',
-			type: 'EVM',
-			role: 'L1',
-			chainId: 31337,
-			viemChain: anvil,
-			rpcUrl: 'http://localhost:8545',
-			contracts: {
-				warpToad: LocalEvmDeployments['L1WarpToadModule#L1WarpToad'],
-				nativeToken: LocalEvmDeployments['TestToken#USDcoin'],
-				bridgeAdapter: LocalEvmDeployments['L1InfraModule#L1AztecBridgeAdapter'],
-				gigaBridge: LocalEvmDeployments['L1InfraModule#GigaBridge'],
-			},
-			enabled: true,
-		}
+		id: 'Ethereum',
+		name: 'Localhost (Anvil)',
+		type: 'EVM',
+		role: 'L1',
+		chainId: 31337,
+		viemChain: anvil,
+		rpcUrl: 'http://localhost:8545',
+		contracts: {
+			warpToad: LocalEvmDeployments['L1WarpToadModule#L1WarpToad'],
+			nativeToken: LocalEvmDeployments['TestToken#USDcoin'],
+			bridgeAdapter: LocalEvmDeployments['L1InfraModule#L1AztecBridgeAdapter'],
+			gigaBridge: LocalEvmDeployments['L1InfraModule#GigaBridge'],
+		},
+		enabled: true,
+	}
 	: {
-			id: 'Ethereum',
-			name: 'Sepolia Testnet',
-			type: 'EVM',
-			role: 'L1',
-			chainId: 11155111,
-			viemChain: sepolia,
-			rpcUrl: import.meta.env.VITE_SEPOLIA_RPC_URL || 'https://sepolia.drpc.org',
-			contracts: {
-				warpToad: (SepoliaDeployments as Record<string, string>)['L1WarpToadModule#L1WarpToad'],
-				nativeToken: (SepoliaDeployments as Record<string, string>)['TestToken#USDcoin'],
-				bridgeAdapter: (SepoliaDeployments as Record<string, string>)['L1InfraModule#L1AztecBridgeAdapter'],
-				gigaBridge: (SepoliaDeployments as Record<string, string>)['L1InfraModule#GigaBridge'],
-			},
-			enabled: true,
-		};
+		id: 'Ethereum',
+		name: 'Sepolia Testnet',
+		type: 'EVM',
+		role: 'L1',
+		chainId: 11155111,
+		viemChain: sepolia,
+		rpcUrl: import.meta.env.VITE_SEPOLIA_RPC_URL || 'https://sepolia.drpc.org',
+		contracts: {
+			warpToad: (SepoliaDeployments as Record<string, string>)['L1WarpToadModule#L1WarpToad'],
+			nativeToken: (SepoliaDeployments as Record<string, string>)['TestToken#USDcoin'],
+			bridgeAdapter: (SepoliaDeployments as Record<string, string>)['L1InfraModule#L1AztecBridgeAdapter'],
+			gigaBridge: (SepoliaDeployments as Record<string, string>)['L1InfraModule#GigaBridge'],
+		},
+		enabled: true,
+	};
 
 /**
  * Scroll L2 Chain Definition
@@ -138,7 +138,7 @@ const SCROLL_CHAIN: EVMChainDefinition = {
 	role: 'L2',
 	chainId: 534351,
 	viemChain: scrollSepolia,
-	rpcUrl: 'https://sepolia-rpc.scroll.io',
+	rpcUrl: import.meta.env.VITE_SCROLL_SEPOLIA_RPC_URL || 'https://sepolia-rpc.scroll.io',
 	contracts: {
 		warpToad: (ScrollSepoliaDeployments as Record<string, string>)['L2ScrollModule#L2WarpToad'],
 		nativeToken: (ScrollSepoliaDeployments as Record<string, string>)['TestToken#USDcoin'],
@@ -152,51 +152,51 @@ const SCROLL_CHAIN: EVMChainDefinition = {
  */
 const AZTEC_CHAIN: AztecChainDefinition = isTestMode
 	? {
-			id: 'Aztec',
-			name: 'Sandbox',
-			type: 'Aztec',
-			role: 'Privacy',
-			nodeUrl: import.meta.env.VITE_AZTEC_NODE_URL || 'http://localhost:8080',
-			network: 'sandbox',
-			contracts: {
-				warpToad: {
-					address: LocalAztecDeployments.AztecWarpToad.address,
-					constructorArgs: LocalAztecDeployments.AztecWarpToad.constructorArgs,
-					contractAddressSalt: LocalAztecDeployments.AztecWarpToad.contractAddressSalt,
-					deployer: LocalAztecDeployments.AztecWarpToad.deployer,
-				},
-				bridgeAdapter: {
-					address: LocalAztecDeployments.L2AztecBridgeAdapter.address,
-					constructorArgs: LocalAztecDeployments.L2AztecBridgeAdapter.constructorArgs,
-					contractAddressSalt: LocalAztecDeployments.L2AztecBridgeAdapter.contractAddressSalt,
-					deployer: LocalAztecDeployments.L2AztecBridgeAdapter.deployer,
-				},
+		id: 'Aztec',
+		name: 'Sandbox',
+		type: 'Aztec',
+		role: 'Privacy',
+		nodeUrl: import.meta.env.VITE_AZTEC_NODE_URL || 'http://localhost:8080',
+		network: 'sandbox',
+		contracts: {
+			warpToad: {
+				address: LocalAztecDeployments.AztecWarpToad.address,
+				constructorArgs: LocalAztecDeployments.AztecWarpToad.constructorArgs,
+				contractAddressSalt: LocalAztecDeployments.AztecWarpToad.contractAddressSalt,
+				deployer: LocalAztecDeployments.AztecWarpToad.deployer,
 			},
-			enabled: true,
-		}
+			bridgeAdapter: {
+				address: LocalAztecDeployments.L2AztecBridgeAdapter.address,
+				constructorArgs: LocalAztecDeployments.L2AztecBridgeAdapter.constructorArgs,
+				contractAddressSalt: LocalAztecDeployments.L2AztecBridgeAdapter.contractAddressSalt,
+				deployer: LocalAztecDeployments.L2AztecBridgeAdapter.deployer,
+			},
+		},
+		enabled: true,
+	}
 	: {
-			id: 'Aztec',
-			name: 'Devnet',
-			type: 'Aztec',
-			role: 'Privacy',
-			nodeUrl: 'https://aztec-alpha-testnet-fullnode.zkv.xyz',
-			network: 'devnet',
-			contracts: {
-				warpToad: {
-					address: TestnetAztecDeployments.AztecWarpToad.address,
-					constructorArgs: TestnetAztecDeployments.AztecWarpToad.constructorArgs,
-					contractAddressSalt: TestnetAztecDeployments.AztecWarpToad.contractAddressSalt,
-					deployer: TestnetAztecDeployments.AztecWarpToad.deployer,
-				},
-				bridgeAdapter: {
-					address: TestnetAztecDeployments.L2AztecBridgeAdapter.address,
-					constructorArgs: TestnetAztecDeployments.L2AztecBridgeAdapter.constructorArgs,
-					contractAddressSalt: TestnetAztecDeployments.L2AztecBridgeAdapter.contractAddressSalt,
-					deployer: TestnetAztecDeployments.L2AztecBridgeAdapter.deployer,
-				},
+		id: 'Aztec',
+		name: 'Devnet',
+		type: 'Aztec',
+		role: 'Privacy',
+		nodeUrl: 'https://aztec-alpha-testnet-fullnode.zkv.xyz',
+		network: 'devnet',
+		contracts: {
+			warpToad: {
+				address: TestnetAztecDeployments.AztecWarpToad.address,
+				constructorArgs: TestnetAztecDeployments.AztecWarpToad.constructorArgs,
+				contractAddressSalt: TestnetAztecDeployments.AztecWarpToad.contractAddressSalt,
+				deployer: TestnetAztecDeployments.AztecWarpToad.deployer,
 			},
-			enabled: true,
-		};
+			bridgeAdapter: {
+				address: TestnetAztecDeployments.L2AztecBridgeAdapter.address,
+				constructorArgs: TestnetAztecDeployments.L2AztecBridgeAdapter.constructorArgs,
+				contractAddressSalt: TestnetAztecDeployments.L2AztecBridgeAdapter.contractAddressSalt,
+				deployer: TestnetAztecDeployments.L2AztecBridgeAdapter.deployer,
+			},
+		},
+		enabled: true,
+	};
 
 // ============================================================================
 // Chain Registry

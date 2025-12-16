@@ -30,7 +30,6 @@
 		getMerkleDataForAztecToL1,
 	} from "$lib/utils/aztec-interactions.js";
 	import {
-		decodeNote,
 		getL1GigaRoot,
 		getL1LocalRoot,
 		claimFromAztec,
@@ -40,6 +39,7 @@
 		getEvmMerkleDataForL1,
 		isValidL1LocalRoot,
 		storeL1LocalRootInHistory,
+		decodeNote,
 	} from "$lib/utils/evm-interactions.js";
 	import {
 		getScrollGigaRoot,
