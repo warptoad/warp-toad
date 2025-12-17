@@ -1,0 +1,215 @@
+import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
+import { getInitialTestAccountsData } from "@aztec/accounts/testing";
+//@ts-ignore
+import { SPONSORED_FPC_SALT } from '@aztec/constants';
+import { SCROLL_CHAINID_MAINNET, SCROLL_CHAINID_SEPOLIA } from '../lib/constants';
+import { getAztecTestAccountNoEnv } from '../deploy/utils/aztecUtilsNoEnv';
+// evm 
+import { GigaBridge__factory, L1AztecBridgeAdapter__factory, L1ScrollBridgeAdapter__factory, L2ScrollBridgeAdapter__factory, L2WarpToad__factory, L1WarpToad__factory } from '../../typechain-types';
+// aztec
+import { WarpToadCoreContract, WarpToadCoreContractArtifact } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore';
+import { L2AztecBridgeAdapterContract, L2AztecBridgeAdapterContractArtifact } from '../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter';
+//@ts-ignore
+import aztecDeploymentsSepolia from "../deploy/aztec/aztecDeployments/11155111/deployed_addresses.json" with { type: 'json' };
+//@ts-ignore
+import aztecDeploymentsSandbox from "../deploy/aztec/aztecDeployments/31337/deployed_addresses.json" with { type: 'json' };
+import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
+import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
+import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import * as fs from 'fs';
+import * as path from 'path';
+// Function to load deployments safely
+function loadDeployments() {
+    const deployments = {};
+    const deploymentsDir = path.join(__dirname, '../../ignition/deployments');
+    // Try to load chain-31337 (local)
+    try {
+        const localPath = path.join(deploymentsDir, 'chain-31337/deployed_addresses.json');
+        if (fs.existsSync(localPath)) {
+            deployments[31337] = JSON.parse(fs.readFileSync(localPath, 'utf-8'));
+        }
+    }
+    catch (e) {
+        console.warn("Local deployments not found (chain-31337)");
+    }
+    // Try to load chain-11155111 (Sepolia)
+    try {
+        const sepoliaPath = path.join(deploymentsDir, 'chain-11155111/deployed_addresses.json');
+        if (fs.existsSync(sepoliaPath)) {
+            deployments[11155111] = JSON.parse(fs.readFileSync(sepoliaPath, 'utf-8'));
+        }
+    }
+    catch (e) {
+        console.warn("Sepolia deployments not found (chain-11155111)");
+    }
+    // Try to load chain-534351 (Scroll Sepolia)
+    try {
+        const scrollPath = path.join(deploymentsDir, 'chain-534351/deployed_addresses.json');
+        if (fs.existsSync(scrollPath)) {
+            deployments[534351] = JSON.parse(fs.readFileSync(scrollPath, 'utf-8'));
+        }
+    }
+    catch (e) {
+        console.warn("Scroll Sepolia deployments not found (chain-534351)");
+    }
+    return deployments;
+}
+export const evmDeployments = loadDeployments();
+export const aztecDeployments = {
+    11155111: aztecDeploymentsSepolia,
+    31337: aztecDeploymentsSandbox
+};
+export const delay = async (timeInMs) => await new Promise((resolve) => setTimeout(resolve, timeInMs));
+export function getL1Adapter(l2ChainId, isAztec = false, signer, allL1Contracts) {
+    if ((!l2ChainId) && (!isAztec)) {
+        throw new Error("either set isAztec to true, or provide a l2ChainId both cannot be falsy");
+    }
+    if (isAztec) {
+        return L1AztecBridgeAdapter__factory.connect(allL1Contracts["L1InfraModule#L1AztecBridgeAdapter"], signer);
+    }
+    switch (l2ChainId) {
+        case SCROLL_CHAINID_MAINNET:
+        case SCROLL_CHAINID_SEPOLIA:
+            return L1ScrollBridgeAdapter__factory.connect(allL1Contracts["L1InfraModule#L1ScrollBridgeAdapter"], signer);
+        default:
+            throw new Error("unknown chainId :/");
+    }
+}
+export async function getL1Contracts(l1ChainId, l2ChainId, signer, isAztec = false) {
+    const l1Contracts = evmDeployments[Number(l1ChainId)];
+    const L1Adapter = getL1Adapter(l2ChainId, isAztec, signer, l1Contracts);
+    const gigaBridge = GigaBridge__factory.connect(l1Contracts["L1InfraModule#GigaBridge"], signer);
+    const l1Warptoad = L1WarpToad__factory.connect(l1Contracts["L1InfraModule#L1WarpToad"], signer);
+    return { L1Adapter, gigaBridge, l1Warptoad };
+}
+export async function getL2EvmContracts(l2ChainId, signer) {
+    const l2Contracts = evmDeployments[Number(l2ChainId)];
+    let L2Adapter;
+    let L2WarpToad;
+    switch (l2ChainId) {
+        case SCROLL_CHAINID_MAINNET:
+        case SCROLL_CHAINID_SEPOLIA:
+            L2Adapter = L2ScrollBridgeAdapter__factory.connect(l2Contracts["L2ScrollModule#L2ScrollBridgeAdapter"], signer);
+            L2WarpToad = L2WarpToad__factory.connect(l2Contracts["L2ScrollModule#L2WarpToad"], signer);
+        default:
+            // throw new Error("unknown chainId :/")
+            break;
+    }
+    return { L2Adapter: L2Adapter, L2WarpToad: L2WarpToad };
+}
+export async function getL2AZTECContracts(l1ChainId, l2Wallet, PXE, aztecNodeUrl) {
+    console.log({ l1ChainId });
+    const isSandBox = BigInt(l1ChainId) === 31337n;
+    const contracts = aztecDeployments[Number(l1ChainId)];
+    const { address: AztecWarpToadAddress, contractAddressSalt: warptoadSalt, constructorArgs: warptoadArgs, deployer: warptoadDeployer } = contracts["AztecWarpToad"];
+    const { address: L2AztecAdapterAddress, contractAddressSalt: adapterSalt, constructorArgs: adapterArgs, deployer: adapterDeployer } = contracts["L2AztecBridgeAdapter"];
+    console.log("IS SANDBOX?:", isSandBox);
+    const aztecWarpToadContractInstance = await getContractInstanceFromInstantiationParams(WarpToadCoreContractArtifact, {
+        salt: Fr.fromHexString(warptoadSalt),
+        constructorArgs: warptoadArgs.map((v) => v.startsWith("0x") ? new Fr(BigInt(v)) : v),
+        deployer: AztecAddress.fromField(Fr.fromHexString(warptoadDeployer))
+    });
+    const l2AztecAdapterContractInstance = await getContractInstanceFromInstantiationParams(L2AztecBridgeAdapterContractArtifact, {
+        salt: Fr.fromHexString(adapterSalt),
+        constructorArgs: adapterArgs.map((v) => v.startsWith("0x") ? new Fr(BigInt(v)) : v),
+        deployer: AztecAddress.fromField(Fr.fromHexString(adapterDeployer))
+    });
+    console.log({ aztecWarpToadContractInstanceAddress: aztecWarpToadContractInstance.address });
+    await PXE.registerContract({
+        instance: aztecWarpToadContractInstance,
+        artifact: WarpToadCoreContractArtifact
+    });
+    await PXE.registerContract({
+        instance: l2AztecAdapterContractInstance,
+        artifact: L2AztecBridgeAdapterContractArtifact
+    });
+    await l2Wallet.registerContract({
+        instance: aztecWarpToadContractInstance,
+        artifact: WarpToadCoreContractArtifact
+    });
+    await l2Wallet.registerContract({
+        instance: l2AztecAdapterContractInstance,
+        artifact: L2AztecBridgeAdapterContractArtifact
+    });
+    await delay(10000);
+    const aztecWarpToad = await WarpToadCoreContract.at(aztecWarpToadContractInstance.address, l2Wallet);
+    const l2AztecBridgeAdapter = await L2AztecBridgeAdapterContract.at(l2AztecAdapterContractInstance.address, l2Wallet);
+    return { L2Adapter: l2AztecBridgeAdapter, L2WarpToad: aztecWarpToad };
+}
+export async function getL2Contracts(l2Wallet, l1ChainId, l2ChainId, isAztec, PXE, aztecNodeUrl) {
+    if (isAztec) {
+        return await getL2AZTECContracts(l1ChainId, l2Wallet, PXE, aztecNodeUrl);
+    }
+    else {
+        return await getL2EvmContracts(l2ChainId, l2Wallet);
+    }
+}
+export function createRandomAztecPrivateKey() {
+    const privKey = GrumpkinScalar.random();
+    const scalar = privKey.toBigInt(); // bigint
+    const hex = '0x' + scalar.toString(16).padStart(64, '0');
+    return hex;
+}
+// from https://github.com/AztecProtocol/aztec-starter/blob/d9a8377aa240c4e75e3bf7912f3c58681927ba7e/src/utils/deploy_account.ts#L9
+/*export async function deploySchnorrAccount(pxe: PXE, hexSecretKey?: string, saltString?: string): Promise<AccountManager> {
+    const sponsoredFPC = await getSponsoredFPCInstance();
+    //@ts-ignore
+    await pxe.registerContract({ instance: sponsoredFPC, artifact: SponsoredFPCContract.artifact });
+    const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(sponsoredFPC.address);
+
+    let secretKey = Fr.fromHexString(hexSecretKey ? hexSecretKey : "0x46726565416c65787950657274736576416e64526f6d616e53746f726d2122")//0x46726565416c65787950657274736576416e64526f6d616e53746f726d2121
+    let salt = Fr.fromHexString(saltString ? saltString : "0x46726565416c65787950657274736576416e64526f6d616e53746f726d2122")//Fr.random();
+
+    let schnorrAccount = await generateSchnorrAccounts(pxe, secretKey, deriveSigningKey(secretKey), salt.toBigInt());
+    try {
+        await schnorrAccount.deploy({ fee: { paymentMethod: sponsoredPaymentMethod } }).wait({ timeout: 60 * 60 * 12 });
+    } catch (error) {
+        const exceptedError = "Invalid tx: Existing nullifier"
+        //@ts-ignore
+        if (error.message.startsWith(exceptedError)) {
+            //@ts-ignore
+            console.log(`Ran into a error: ${error.message} deploying account: ${schnorrAccount.getAddress()}.\n Assuming that means the account already exist!`)
+        } else {
+            console.error(`Couldn't deploy schnorr account and it is also likely not already deployed since this isn't caused by the error: ${exceptedError}`, { cause: error })
+
+        }
+
+    }
+
+    return schnorrAccount;
+}*/
+export async function getSponsoredFPCInstance() {
+    //@ts-ignore
+    return await getContractInstanceFromDeployParams(SponsoredFPCContract.artifact, {
+        salt: new Fr(SPONSORED_FPC_SALT),
+    });
+}
+// based of https://github.com/AztecProtocol/aztec-starter/blob/d9a8377aa240c4e75e3bf7912f3c58681927ba7e/scripts/deploy_contract.ts#L22
+async function getTestnetWallet(pxe, aztecNodeUrl) {
+    const sponsoredFPC = await getSponsoredFPCInstance();
+    //@ts-ignore
+    await pxe.registerContract({ instance: sponsoredFPC, artifact: SponsoredFPCContract.artifact });
+    const sponsoredPaymentMethod = new SponsoredFeePaymentMethod(sponsoredFPC.address);
+    //let accountManager = await deploySchnorrAccount(pxe);
+    //const wallet = await accountManager.getWallet();
+    const wallet = await getAztecTestAccountNoEnv(2n, aztecNodeUrl);
+    return { wallet, sponsoredPaymentMethod };
+}
+/**
+ * get test wallet for either testnet or sandbox. Probably breaks on mainnet since it relies on a faucet fee sponsor (FPC)
+ * @param PXE
+ * @param chainId
+ * @returns
+ */
+export async function getAztecTestWallet(PXE, chainId, aztecNodeUrl) {
+    if (chainId == 31337n) {
+        console.warn("assuming ur on sandbox since chainId is 31337");
+        return { wallet: (await getInitialTestAccountsData())[0], sponsoredPaymentMethod: undefined };
+    }
+    else {
+        console.warn("assuming ur on testnet since chainId is NOT 31337");
+        return await getTestnetWallet(PXE, aztecNodeUrl);
+    }
+}
+//# sourceMappingURL=deployment.js.map

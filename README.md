@@ -86,7 +86,7 @@ VERSION=3.0.0-devnet.5 aztec start --port 8080 --pxe --pxe.nodeUrl=https://devne
 <!--
 ## aztec testnet deploy environment
 ```shell
-export NODE_URL=https://aztec-alpha-testnet-fullnode.zkv.xyz
+export NODE_URL=https://devnet.aztec-labs.com
 export SPONSORED_FPC_ADDRESS=0x0b27e30667202907fc700d50e9bc816be42f8141fae8b9f2281873dbdb9fc2e5
 ```
 -->

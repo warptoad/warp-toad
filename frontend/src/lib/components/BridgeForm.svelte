@@ -9,6 +9,14 @@
 	import { Input } from "$lib/components/ui/input/index.js";
 	import { Alert, AlertDescription } from "$lib/components/ui/alert/index.js";
 	import {
+		Dialog,
+		DialogContent,
+		DialogDescription,
+		DialogFooter,
+		DialogHeader,
+		DialogTitle,
+	} from "$lib/components/ui/dialog/index.js";
+	import {
 		ArrowDownUp,
 		Loader2,
 		CheckCircle2,
@@ -39,6 +47,12 @@
 	} from "$lib/utils/scroll-interactions.js";
 	import { getWalletInstance } from "$lib/utils/aztec-wallet.js";
 	import { getEVMChain, isChainEnabled } from "$lib/config/chains.js";
+	import { 
+		triggerBridge, 
+		getChainIdForBridgeKeeper, 
+		getExpectedDuration,
+		savePendingBridgeSync 
+	} from "$lib/utils/bridge-keeper.js";
 
 	let sourceChain = $state<Chain>("Ethereum");
 	let targetChain = $state<Chain>("Aztec");
@@ -47,10 +61,11 @@
 
 	let isGenerating = $state(false);
 	let generationStep = $state<
-		"idle" | "preparing" | "approving" | "wrapping" | "burning" | "complete" | "done"
+		"idle" | "preparing" | "approving" | "wrapping" | "burning" | "triggering-sync" | "complete" | "done"
 	>("idle");
 	let generationMessage = $state("");
 	let lastError = $state<string | null>(null);
+	let showDisclaimer = $state(false);
 	
 	// Track bridge state for resuming
 	let bridgeState = $state<{
@@ -178,8 +193,15 @@
 		}
 	}
 
+	function confirmBridge() {
+		showDisclaimer = true;
+	}
+
 	async function generateProof() {
 		if (!canSubmit) return;
+		
+		// Close disclaimer dialog
+		showDisclaimer = false;
 
 		isGenerating = true;
 		lastError = null;
@@ -212,14 +234,25 @@
 				await bridgeFromEvm(destinationChainId);
 			}
 
+			// Step: Trigger root synchronization
+			await triggerRootSync();
+
 			// Step: Complete
 			generationStep = "complete";
-			generationMessage = "Bridge complete! Note generated successfully.";
+			const expectedDuration = getExpectedDuration(sourceChain, targetChain);
+			generationMessage = `Bridge complete! Note generated successfully.
+
+⏳ Root synchronization initiated.
+${targetChain === 'Scroll' || sourceChain === 'Scroll'
+	? ' Synchronization will take 2-3 hours for Scroll bridges.'
+	: '⏱️ Synchronization will take 30-60 minutes for Aztec bridges.'}
+
+You can close this page. Your note has been downloaded.`;
 			
 			// Refresh balances after successful bridge
 			await balanceStore.refresh();
 
-			await new Promise((resolve) => setTimeout(resolve, 1500));
+			await new Promise((resolve) => setTimeout(resolve, 3000));
 
 			// Reset form
 			amount = "";
@@ -233,6 +266,42 @@
 			lastError = errorMessage;
 			generationMessage = `Error: ${errorMessage}`;
 			isGenerating = false;
+		}
+	}
+
+	/**
+	 * Trigger root synchronization via BridgeKeeper API
+	 * This is called after note generation to automatically sync roots
+	 */
+	async function triggerRootSync() {
+		generationStep = "triggering-sync";
+		generationMessage = "Initiating root synchronization...";
+
+		try {
+			const fromChainId = getChainIdForBridgeKeeper(sourceChain);
+			const toChainId = getChainIdForBridgeKeeper(targetChain);
+			
+			console.log(`[BridgeKeeper] Triggering sync: ${sourceChain} (${fromChainId}) -> ${targetChain} (${toChainId})`);
+			
+			const response = await triggerBridge(fromChainId, toChainId, 3);
+			
+			// Store operation ID for later checking
+			savePendingBridgeSync({
+				operationId: response.operationId,
+				fromChain: sourceChain,
+				toChain: targetChain,
+				expectedDuration: response.expectedDuration,
+				timestamp: Date.now()
+			});
+			
+			console.log('✅ Root synchronization triggered!');
+			console.log(`   Operation ID: ${response.operationId}`);
+			console.log(`   Expected duration: ${response.expectedDuration}`);
+		} catch (error) {
+			// Don't fail the whole bridge if BridgeKeeper is unreachable
+			// The note is already generated and valid
+			console.warn(' Failed to trigger automatic root synchronization:', error);
+			console.log('Note: You can manually trigger sync later via BridgeKeeper API');
 		}
 	}
 	
@@ -532,7 +601,7 @@
 			</Alert>
 		{:else if needsNetworkSwitch}
 			<div class="text-sm text-muted-foreground text-center py-2">
-				⚠️ Wrong network - open wallet settings to switch to {sourceChain}
+				 Wrong network - open wallet settings to switch to {sourceChain}
 			</div>
 		{/if}
 
@@ -580,7 +649,7 @@
 		<Button
 			class="w-full h-12 text-base"
 			disabled={!canSubmit}
-			onclick={generateProof}
+			onclick={confirmBridge}
 		>
 			{#if generationStep === "idle"}
 				Bridge
@@ -592,6 +661,8 @@
 				Wrapping...
 			{:else if generationStep === "burning"}
 				Bridging...
+			{:else if generationStep === "triggering-sync"}
+				Syncing...
 			{:else if generationStep === "complete"}
 				Done!
 			{:else if generationStep === "done"}
@@ -624,3 +695,63 @@
 	excludeChain={sourceChain}
 	onSelect={handleTargetChainSelect}
 />
+
+<!-- Bridge Duration Disclaimer Dialog -->
+<Dialog bind:open={showDisclaimer}>
+	<DialogContent class="sm:max-w-md">
+		<DialogHeader>
+			<DialogTitle> Bridge Synchronization Time</DialogTitle>
+			<DialogDescription class="space-y-3 pt-2">
+				<p class="font-semibold">
+					Bridge operations require time for root synchronization:
+				</p>
+				
+				{#if targetChain === 'Scroll' || sourceChain === 'Scroll'}
+					<div class="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
+						<p class="text-sm font-semibold text-yellow-900 dark:text-yellow-100">
+							🕐 Scroll bridges take <strong>2-3 hours</strong>
+						</p>
+						<p class="text-xs text-yellow-800 dark:text-yellow-200 mt-1">
+							This is due to Scroll's L2 finalization process and API claim data availability.
+						</p>
+					</div>
+				{:else if targetChain === 'Aztec' || sourceChain === 'Aztec'}
+					<div class="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
+						<p class="text-sm font-semibold text-blue-900 dark:text-blue-100">
+							🕐 Aztec bridges take <strong>30-60 minutes</strong>
+						</p>
+						<p class="text-xs text-blue-800 dark:text-blue-200 mt-1">
+							This is due to L1 message confirmation requirements.
+						</p>
+					</div>
+				{/if}
+				
+				<div class="bg-muted rounded-lg p-3 space-y-2">
+					<p class="text-sm">
+						<strong>What happens next:</strong>
+					</p>
+					<ol class="text-xs space-y-1 list-decimal list-inside">
+						<li>Your tokens will be burned on {sourceChain}</li>
+						<li>A withdrawal note will be generated and downloaded</li>
+						<li>Root synchronization will be triggered automatically</li>
+						<li>You can close this page and come back later</li>
+						<li>Use your note to withdraw on {targetChain} once sync completes</li>
+					</ol>
+				</div>
+				
+				<p class="text-xs text-muted-foreground">
+					 Your note will be downloaded immediately. You can safely close this page 
+					after the bridge completes. The synchronization happens in the background.
+				</p>
+			</DialogDescription>
+		</DialogHeader>
+		<DialogFooter class="flex gap-2 sm:gap-0">
+			<Button variant="outline" onclick={() => showDisclaimer = false}>
+				Cancel
+			</Button>
+			<Button onclick={generateProof}>
+				I Understand, Continue
+			</Button>
+		</DialogFooter>
+	</DialogContent>
+</Dialog>
