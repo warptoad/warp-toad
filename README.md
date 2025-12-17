@@ -10,12 +10,13 @@ yarn install;
 ```
 
 make sure you're on aztec 3.0.0-devnet.5
+
 ```shell
 aztec-up 3.0.0-devnet.5
-
 ```
 
 install noir and backend
+
 ```shell
 bbup -v 0.72.1;
 noirup -v 1.0.0-beta.5;
@@ -23,73 +24,25 @@ noirup -v 1.0.0-beta.5;
 
 ## compile contracts
 ### aztec
+in root run:
 ```shell
-# aztec warpToad
-cd backend/contracts/aztec/WarpToadCore;
-aztec-nargo compile;
-aztec-postprocess-contract
-aztec codegen -o src/artifacts target;
-cd ../../../..
-
-# L2AztecBridgeAdapter
-cd backend/contracts/aztec/L2AztecBridgeAdapter;
-aztec-nargo compile;
-aztec-postprocess-contract
-aztec codegen -o src/artifacts target;
-cd ../../../..
+yarn run b:compile:aztec
 ```
 
 ### generate EVM verifier contracts
-<!-- //this should be a bash script lmao -->
-<!-- 
-idk what happened to the new versions of bb but it sucks!!
-This is how to do it with the new version of bb but it doesnt work
 ```shell
-cd backend/circuits/withdraw/; 
-aztec-nargo compile; 
-bb write_vk -b ./target/withdraw.json -o ./target/ --oracle_hash keccak;
-bb write_solidity_verifier -k ./target/vk --scheme ultra_honk -o ./target/contract.sol;
-
-cd ../../..;
-
-# move to contracts folder
-mv backend/circuits/withdraw/target/contract.sol backend/contracts/evm/WithdrawVerifier.sol
-
-# rename the contract
-yarn workspace @warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file ./contracts/evm/WithdrawVerifier.sol --remove "contract HonkVerifier is BaseHonkVerifier(N, LOG_N, NUMBER_OF_PUBLIC_INPUTS) {" --replace "contract WithdrawVerifier is BaseHonkVerifier(N, LOG_N, NUMBER_OF_PUBLIC_INPUTS) {"
-``` -->
-```shell
-cd backend/circuits/withdraw/; 
-nargo compile; 
-bb write_vk -b ./target/withdraw.json;
-bb contract;
-cd ../../..;
-
-# move to contracts folder
-mv backend/circuits/withdraw/target/contract.sol backend/contracts/evm/WithdrawVerifier.sol
-
-# rename the contract
-yarn workspace @warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file ./contracts/evm/WithdrawVerifier.sol --remove "contract UltraVerifier is BaseUltraVerifier {" --replace "contract WithdrawVerifier is BaseUltraVerifier {"
+yarn run b:circuit
 ```
 
-
-## run sandbox
+## run sandbox (needed for local/sandbox deployment)
+in a new shell window run either:
 ```shell
 VERSION=3.0.0-devnet.5 aztec start --sandbox
 ```
-
-## run PXE on alpha testnet
+or
 ```shell
-VERSION=3.0.0-devnet.5 aztec start --port 8080 --pxe --pxe.nodeUrl=https://devnet.aztec-labs.com/ --l1-chain-id 11155111 --l1-rpc-urls https://sepolia.infura.io/v3/urkey
-
+yarn run b:sandbox
 ```
-<!--
-## aztec testnet deploy environment
-```shell
-export NODE_URL=https://devnet.aztec-labs.com
-export SPONSORED_FPC_ADDRESS=0x0b27e30667202907fc700d50e9bc816be42f8141fae8b9f2281873dbdb9fc2e5
-```
--->
 
 
 ## deploy
@@ -102,63 +55,49 @@ yarn workspace @warp-toad/backend hardhat vars set ETHERSCAN_KEY;
 yarn workspace @warp-toad/backend hardhat vars set ETHERSCAN_KEY_SCROLL;
 ```
 
-### deploy L1 aztec-sandbox
-#### deploy test token
+## local/sandbox deployment
+
+#### 1. deploy test token on "L1"
 ```shell
-yarn workspace @warp-toad/backend hardhat ignition deploy ignition/modules/TestToken.ts --network aztecSandbox;
+yarn workspace @warp-toad/backend hardhat ignition deploy ignition/modules/TestToken.ts --network sepolia;
 ```
-
-<!-- ```shell
-yarn workspace @warp-toad/backend hardhat ignition deploy ignition/modules/TestToken.ts --network sepolia
-``` -->
-#### deploy on L1
-note: you might need comment out the scroll chainId json imports in `backend/scripts/dev_op/deployment.ts`  
-@TODO fix that
+#### 2. deploy warptoad on "L1"
 ```shell
-NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/deployL1.ts --network aztecSandbox;
+NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/deployL1.ts --network sepolia;
 ```
-<!--  
-NATIVE_TOKEN_ADDRESS=0xc74F692152C5f2cC695b14cec86B729ff8b03168 yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/deployL1.ts --network aztecSandbox;
-
-NATIVE_TOKEN_ADDRESS=0xc74F692152C5f2cC695b14cec86B729ff8b03168 yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/deployL1.ts --network sepolia;
-
--->
-
-#### deploy on aztec
+#### 3. deploy warptoad on aztec
 sandbox
 ```shell
-NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/deployAztec.ts --network aztecSandbox;
+NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/deployAztec.ts --network sepolia;
 ```
-
-sepolia devnet
-```shell
-NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress PXE_URL=https://devnet.aztec-labs.com yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/deployAztec.ts --network sepolia;
-```
-
-<!--
-NATIVE_TOKEN_ADDRESS=0x95401dc811bb5740090279Ba06cfA8fcF6113778 PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/deployAztec.ts --network aztecSandbox;
-
-NATIVE_TOKEN_ADDRESS=0xc74F692152C5f2cC695b14cec86B729ff8b03168 PXE_URL=https://devnet.aztec-labs.com yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/deployAztec.ts --network sepolia;
--->
-
-#### deploy on scroll
-```shell
-NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/scroll/deployL2Scroll.ts --network scrollSepolia;
-```
-<!-- 
-NATIVE_TOKEN_ADDRESS=0xc74F692152C5f2cC695b14cec86B729ff8b03168 yarn workspace @warp-toad/backend hardhat run scripts/deploy/scroll/deployL2Scroll.ts --network scrollSepolia; 
- -->
-
-#### initialize contracts
-sandbox  
+#### 4. initialize/connect contracts 
 ```shell
 #L1
 PXE_URL=http://localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/initializeL1.ts --network aztecSandbox;
 #aztec
 PXE_URL=http://localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/initializeAztec.ts --network aztecSandbox;
 ```
-  
-sepolia  
+
+# testnet/devnet deployment
+#### 1. deploy test token on "L1"
+```shell
+yarn workspace @warp-toad/backend hardhat ignition deploy ignition/modules/TestToken.ts --network aztecSandbox;
+```
+#### 2. deploy warptoad on "L1"
+```shell
+NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/deployL1.ts --network aztecSandbox;
+```
+#### 3. deploy warptoad on aztec
+sandbox
+```shell
+NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress PXE_URL=https://devnet.aztec-labs.com yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/deployAztec.ts --network sepolia;
+```
+#### 4. deploy on scroll
+```shell
+NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/scroll/deployL2Scroll.ts --network scrollSepolia;
+```
+
+#### 5. initialize/connect contracts 
 ```shell
 PXE_URL=https://devnet.aztec-labs.com yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/initializeL1.ts --network sepolia;
 #aztec
@@ -167,27 +106,16 @@ PXE_URL=https://devnet.aztec-labs.com yarn workspace @warp-toad/backend hardhat 
 yarn workspace @warp-toad/backend hardhat run scripts/deploy/scroll/initializeL2Scroll.ts --network scrollSepolia;
 ```
 
-## verify contracts
-The deploy script verifies most contracts accept for poseidon since it is on an older version.
-<!-- ```shell
-#sepolia  
-yarn workspace @warp-toad/backend hardhat ignition verify chain-11155111 --include-unrelated-contracts;
-#scroll sepolia  
-yarn workspace @warp-toad/backend hardhat ignition verify chain-534351 --include-unrelated-contracts;
-
-``` -->
-
 ## bridge
 #### sandbox 
 ```shell
-PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --isAztec --localRootProviders 0x99bbA657f2BbC93c02D617f8bA121cB8Fc104Acf 0x0E801D84Fa97b50751Dbf25036d067dCf18858bF
+PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --isAztec --localRootProviders 0xL1WarpToadAddress 0xL1AztecAdapterAddress
 ```
 #### aztec
 Takes about 0.5-1 hour to run
 ```shell
 yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --L1Rpc UrUrl --L2Rpc http://localhost:8080/ --privatekey 0xUrPrivateKey --isAztec
 ```
-
 #### scroll
 Note: You have to use a paid rpc since free rpcs wont allow you to work with events well enough  
 Takes about 2-3 hours to run
@@ -223,29 +151,44 @@ yarn workspace @warp-toad/backend hardhat ignition deploy ./ignition/modules/L1W
 yarn workspace @warp-toad/backend ts-node scripts/dev_op/estimateGas.ts -d ignition/deployments/chain-31337/deployed_addresses.json;
 ```
 
-# frontend 
-## preReq
+# bridgeSync
+
+## 1. prepare .env
+prepare .env file.
+```shell
+    cd bridgeSync/;
+    cp .env.template .env;
+```
+edit the contents of .env (for local test set **ALLOWED_ORIGINS** to the port the frontend will be running on.)
+## 2. run bridge
+in root either run
+```shell
+yarn bridge:dev
+```
+or build and spin up docker container: 
+```shell
+yarn bridge:docker && yarn bridge:docker:run
+```
+
+# frontend
+## 1. prepare .env
+prepare .env file.
 ```shell
     cd frontend/;
-    cp template.env .env;
-    yarn install;
-```
-
-## run dev
+    cp .env.template .env;
+``` 
+edit the contents of .env (for local test set **VITE_TEST_MODE=true and VITE_BRIDGE_KEEPER_URL=http://localhost:6969)**
+## 2. generate artifacts from backend for frontend.
+in root run
 ```shell
-    yarn dev in /frontend or yarn f:dev
+yarn f:prep
 ```
-
-## publish backend npm package
-makes sure the aztec, ethers and circuit artifacts are build (compile instruction above)  
-You might need to add `// @ts-ignore` in  `backend/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore.ts` and `backend/contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.ts` above the json import line
-
-### build it
+## 3. run frontend
+either run: 
 ```shell
-yarn workspace @warp-toad/backend build
+yarn f:dev
 ```
-
-### publish it
+or if you want to use proving: 
 ```shell
-yarn workspace @warp-toad/backend publish
+yarn f:run
 ```
