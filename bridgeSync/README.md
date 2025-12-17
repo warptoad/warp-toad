@@ -78,8 +78,9 @@ yarn install
 
 ### 2. Configure Environment
 Copy `.env.template` to `.env` and fill in:
-- `EVM_PRIVATE_KEY`: Your wallet private key
+- `EVM_PRIVATE_KEY`: Your wallet private key (required)
 - `SEPOLIA_RPC_URL`: Infura/Alchemy Sepolia RPC
+- `ALLOWED_ORIGINS`: Comma-separated list of allowed CORS origins (default: `https://warptoad.xyz,http://localhost:5173,http://localhost:3000`)
 - Other RPC URLs as needed
 
 ### 3. Run in Development
@@ -109,9 +110,18 @@ The service will be available on port 6969.
 
 ## Security
 
-- API accepts requests only from `https://warptoad.xyz` or localhost
-- All other origins are rejected
-- CORS configured for security
+- **CORS Protection**: API uses CORS middleware to control which origins can access the service
+- **Allowed Origins**: By default, allows requests from:
+  - `https://warptoad.xyz` (production frontend)
+  - `http://localhost:5173` (Vite dev server)
+  - `http://localhost:3000` (alternative dev port)
+  - Any `localhost` or `127.0.0.1` with any port (development)
+- **Configuration**: Set `ALLOWED_ORIGINS` environment variable to customize allowed origins (comma-separated)
+- **No-Origin Requests**: Requests without an origin header (curl, Postman, server-to-server) are allowed
+- **CORS Headers**: 
+  - Credentials: enabled
+  - Methods: GET, POST, OPTIONS
+  - Max-Age: 24 hours (86400 seconds)
 
 ## Notes
 

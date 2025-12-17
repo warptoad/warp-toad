@@ -1,4 +1,5 @@
 import express from 'express';
+import cors from 'cors';
 import * as dotenv from 'dotenv';
 import { randomUUID } from 'crypto';
 import { 
@@ -18,7 +19,7 @@ dotenv.config();
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '6969');
-const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || 'https://warptoad.xyz';
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'https://warptoad.xyz,http://localhost:5173,http://localhost:3000').split(',');
 const EVM_PRIVATE_KEY = process.env.EVM_PRIVATE_KEY || '';
 
 if (!EVM_PRIVATE_KEY) {
@@ -30,17 +31,32 @@ if (!EVM_PRIVATE_KEY) {
 const operations = new Map<string, BridgeOperation>();
 const locks = new Set<string>();
 
-// Security middleware
-app.use((req, res, next) => {
-  const origin = req.get('origin');
-  const isLocalhost = req.ip === '127.0.0.1' || req.ip === '::1' || req.hostname === 'localhost';
-  
-  if (isLocalhost || origin === ALLOWED_ORIGIN) {
-    next();
-  } else {
-    res.status(403).json({ ok: false, error: 'Forbidden: Invalid origin' });
-  }
-});
+// CORS configuration - must be applied before other middleware
+app.use(cors({
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, curl, Postman)
+    if (!origin) {
+      return callback(null, true);
+    }
+    
+    // Check if origin is in allowed list
+    if (ALLOWED_ORIGINS.includes(origin)) {
+      return callback(null, true);
+    }
+    
+    // Allow localhost with any port for development
+    if (origin.startsWith('http://localhost:') || origin.startsWith('http://127.0.0.1:')) {
+      return callback(null, true);
+    }
+    
+    // Reject other origins
+    callback(new Error(`Origin ${origin} not allowed by CORS`));
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  maxAge: 86400 // 24 hours
+}));
 
 app.use(express.json());
 
@@ -209,8 +225,8 @@ app.get('/status/:operationId', (req, res) => {
 // Start server
 app.listen(PORT, () => {
   console.log(`BridgeKeeper running on port ${PORT}`);
-  console.log(`Allowed origin: ${ALLOWED_ORIGIN}`);
-  console.log(`Security: Origin checking enabled`);
+  console.log(`Allowed origins: ${ALLOWED_ORIGINS.join(', ')}`);
+  console.log(`CORS: Enabled with origin validation`);
   console.log(`\nSupported routes:`);
   getSupportedRoutes().forEach(route => {
     console.log(`  ${route.from} -> ${route.to}`);
