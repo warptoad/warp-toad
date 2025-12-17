@@ -7,7 +7,7 @@ services:
       dockerfile: bridgeSync/Dockerfile
     container_name: bridge-sync
     ports:
-      - "6969:6969"
+      - "127.0.0.1:6969:6969"
     environment:
       - NODE_ENV=production
       - PORT=6969
