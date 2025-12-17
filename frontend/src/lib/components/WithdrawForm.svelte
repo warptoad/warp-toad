@@ -51,10 +51,26 @@
 		prepareProofInputsForSameChain,
 		generateWithdrawProof,
 		formatProofForL1,
+		type FeeConfig,
 	} from "$lib/utils/proof-generation.js";
 
 	import { getChainId as getEvmChainId } from "$lib/utils/evm-wallet.js";
-	import { getEVMChain, isChainEnabled } from "$lib/config/chains.js";
+	import {
+		getEVMChain,
+		getTokenConfig,
+		isChainEnabled,
+	} from "$lib/config/chains.js";
+
+	import {
+		getRelayerInfo,
+		submitWithdrawRelay,
+		pollRelayStatus,
+		isRelayServiceAvailable,
+		type RelayerInfo,
+		type RelayStatus,
+	} from "$lib/utils/relay-client.js";
+
+	import { onMount } from "svelte";
 
 	let selectedProof = $state<Proof | null>(null);
 	let fileInput: HTMLInputElement;
@@ -77,9 +93,17 @@
 	// Auto-unwrap toggle (default ON) - only shown for Aztec -> L1 flow
 	let autoUnwrap = $state(true);
 
+	// Relay service state
+	let useRelay = $state(false);
+	let relayServiceAvailable = $state(false);
+	let relayerInfo = $state<RelayerInfo | null>(null);
+	let feePercentage = $state(0.25); // Min 0.25%, max 5%
+	let relayOperationId = $state<string | null>(null);
+	let relayStatusText = $state<string>("idle");
+
 	// Get source chain ID dynamically based on source chain
 	function getSourceChainId(): number {
-		const ethereumChain = getEVMChain('Ethereum');
+		const ethereumChain = getEVMChain("Ethereum");
 		return ethereumChain?.chainId ?? 31337;
 	}
 
@@ -232,6 +256,59 @@
 		}
 	}
 
+	// Check relay service availability on mount
+	onMount(async () => {
+		try {
+			relayServiceAvailable = await isRelayServiceAvailable();
+			if (relayServiceAvailable) {
+				relayerInfo = await getRelayerInfo();
+				console.log("Relay service available:", relayerInfo);
+			} else {
+				console.warn(
+					"Relay service not available - using self-relay only",
+				);
+			}
+		} catch (error) {
+			console.warn("Failed to connect to relay service:", error);
+			relayServiceAvailable = false;
+		}
+	});
+
+	function getTokenDecimals(): number {
+		if (!selectedProof) return 1e6;
+		const tokenConfig = getTokenConfig(selectedProof.token);
+		const decimals = tokenConfig?.decimals ?? 6;
+		return 10 ** decimals;
+	}
+
+	// Calculate estimated fee amount in tokens
+	function calculateEstimatedFee(): string {
+		if (!selectedProof?.commitmentData?.amount) return "0";
+
+		const amount = BigInt(selectedProof.commitmentData.amount);
+		const feeAmount =
+			(amount * BigInt(Math.floor(feePercentage * 100))) / 10000n;
+
+		const decimals = getTokenDecimals();
+
+		const formattedFee = Number(feeAmount) / decimals;
+		return formattedFee.toFixed(6);
+	}
+
+	// Calculate net amount recipient receives
+	function calculateNetAmount(): string {
+		if (!selectedProof?.commitmentData?.amount) return "0";
+
+		const amount = BigInt(selectedProof.commitmentData.amount);
+		const feeAmount =
+			(amount * BigInt(Math.floor(feePercentage * 100))) / 10000n;
+		const netAmount = amount - feeAmount;
+
+		const decimals = getTokenDecimals();
+		const formatted = Number(netAmount) / decimals;
+		return formatted.toFixed(6);
+	}
+
 	/**
 	 * Main withdraw function - routes to appropriate handler based on flow
 	 */
@@ -245,7 +322,7 @@
 		try {
 			// Route based on source and target chain combination
 			const { sourceChain, targetChain } = selectedProof;
-			
+
 			// Check for same-chain transfer first
 			if (sourceChain === targetChain) {
 				// Same-chain private transfer (L1 -> L1 or Scroll -> Scroll)
@@ -254,7 +331,9 @@
 				} else if (sourceChain === "Scroll") {
 					await withdrawSameChainScroll();
 				} else {
-					throw new Error("Same-chain transfers are only supported on EVM chains (Ethereum, Scroll)");
+					throw new Error(
+						"Same-chain transfers are only supported on EVM chains (Ethereum, Scroll)",
+					);
 				}
 			} else if (sourceChain === "Aztec") {
 				// Aztec -> EVM (L1 or Scroll)
@@ -430,7 +509,7 @@
 			// This is not yet fully implemented
 			throw new Error(
 				"L1 -> Scroll withdrawal is not yet implemented. " +
-				"Currently only Aztec -> Scroll is supported."
+					"Currently only Aztec -> Scroll is supported.",
 			);
 		}
 
@@ -454,9 +533,11 @@
 		withdrawStep = "checking-bridge";
 		withdrawMessage = "Checking Scroll bridge state...";
 
-		const scrollChain = getEVMChain('Scroll');
+		const scrollChain = getEVMChain("Scroll");
 		if (!scrollChain || !scrollChain.enabled) {
-			throw new Error("Scroll is not available in the current environment");
+			throw new Error(
+				"Scroll is not available in the current environment",
+			);
 		}
 
 		const chainId = await getEvmChainId();
@@ -487,13 +568,13 @@
 		// Note: This reuses the L1 function but with Scroll chain ID
 		const { aztecLocalRoot, aztecLocalRootBlockNumber, gigaMerkleData } =
 			await getMerkleDataForAztecToL1(scrollChain.chainId, gigaRoot);
-		
+
 		const aztecMerkleData = await getAztecMerkleData(
 			aztecWallet,
 			commitment,
 			aztecLocalRootBlockNumber,
 		);
-		
+
 		console.log("Aztec merkle data:", aztecMerkleData);
 		console.log("Origin local root (Aztec):", aztecLocalRoot.toString());
 
@@ -559,7 +640,7 @@
 	/**
 	 * Withdraw from Scroll to L1
 	 * This generates a ZK proof and calls the L1WarpToad.mint()
-	 * 
+	 *
 	 * NOTE: This requires EVM merkle data format which is different from Aztec
 	 * The proof generation needs to use is_from_aztec = false
 	 */
@@ -570,14 +651,14 @@
 		// 3. This requires proper LazyIMT proof generation
 		throw new Error(
 			"Scroll -> L1 withdrawal is not yet implemented. " +
-			"This requires EVM merkle proof generation from Scroll's LazyIMT tree."
+				"This requires EVM merkle proof generation from Scroll's LazyIMT tree.",
 		);
 	}
 
 	/**
 	 * Withdraw from same-chain transfer on Ethereum L1
 	 * Used for L1 -> L1 private transfers
-	 * 
+	 *
 	 * Flow:
 	 * 1. Get local root and gigaRoot from L1WarpToad
 	 * 2. Build EVM merkle proof for the commitment
@@ -661,14 +742,16 @@
 			localRoot,
 			gigaRoot, // Pass the actual gigaRoot from the contract
 			BigInt(chainId),
-			walletStore.wallets.evm || "0x0000000000000000000000000000000000000000",
+			walletStore.wallets.evm ||
+				"0x0000000000000000000000000000000000000000",
 			false, // is_from_aztec = false for EVM
 		);
 		console.log("Proof inputs prepared");
 
 		// Step 5: Generate ZK proof
 		withdrawStep = "generating-proof";
-		withdrawMessage = "Generating ZK proof (this may take 30-60 seconds)...";
+		withdrawMessage =
+			"Generating ZK proof (this may take 30-60 seconds)...";
 
 		const { proof, publicInputs } = await generateWithdrawProof(
 			proofInputs,
@@ -695,7 +778,7 @@
 				proofInputs,
 				proofHex,
 				chainId,
-				'L1 -> L1 same-chain'
+				"L1 -> L1 same-chain",
 			);
 			mintTxHash = result.mintTxHash;
 			unwrapTxHash = result.unwrapTxHash || null;
@@ -706,7 +789,12 @@
 			}
 		} else {
 			// Just mint wrapped tokens (use L1 -> L1 logging)
-			const result = await claimOnL1(proofInputs, proofHex, chainId, 'L1 -> L1 same-chain');
+			const result = await claimOnL1(
+				proofInputs,
+				proofHex,
+				chainId,
+				"L1 -> L1 same-chain",
+			);
 			mintTxHash = result.txHash;
 		}
 
@@ -739,7 +827,7 @@
 	/**
 	 * Withdraw from same-chain transfer on Scroll L2
 	 * Used for Scroll -> Scroll private transfers
-	 * 
+	 *
 	 * NOTE: This is similar to L1 same-chain but uses Scroll contracts
 	 * Currently not fully implemented - requires Scroll merkle data generation
 	 */
@@ -750,7 +838,7 @@
 		// 3. Call mint() on L2WarpToad
 		throw new Error(
 			"Scroll -> Scroll same-chain withdrawal is not yet implemented. " +
-			"This requires EVM merkle proof generation from Scroll's LazyIMT tree."
+				"This requires EVM merkle proof generation from Scroll's LazyIMT tree.",
 		);
 	}
 
@@ -844,6 +932,17 @@
 		// Step 5: Prepare proof inputs
 		withdrawMessage = "Preparing proof inputs...";
 
+		// Prepare fee config for relay or self-relay
+		const feeConfig: FeeConfig | undefined =
+			useRelay && relayerInfo
+				? {
+						feeFactor: BigInt(Math.floor(feePercentage * 100)), // Convert % to basis points
+						relayerAddress: relayerInfo.relayerAddress,
+						priorityFee: BigInt(relayerInfo.currentGasPrice),
+						maxFee: BigInt(selectedProof.commitmentData.amount), // Allow up to full amount
+					}
+				: undefined; // undefined = use self-relay defaults
+
 		// Get recipient address from connected EVM wallet
 		// (could also get from Aztec wallet if needed)
 		const proofInputs = prepareProofInputsForAztecToL1(
@@ -856,6 +955,7 @@
 			BigInt(chainId),
 			walletStore.wallets.evm ||
 				"0x0000000000000000000000000000000000000000",
+			feeConfig, // <-- FEE CONFIG FOR RELAY
 		);
 		console.log("Proof inputs prepared");
 
@@ -876,31 +976,95 @@
 		const proofHex = formatProofForL1(proof);
 		console.log("Proof hex length:", proofHex.length);
 
-		// Step 7: Call mint on L1
-		withdrawStep = "minting";
-		withdrawMessage = "Minting wrapped tokens on L1...";
-
+		// Step 7: Submit transaction (relay or self-relay)
 		let mintTxHash: string;
 		let unwrapTxHash: string | null = null;
 
-		if (autoUnwrap) {
-			// Mint and unwrap in sequence
-			const result = await claimAndUnwrapFromAztec(
-				proofInputs,
-				proofHex,
-				chainId,
-			);
-			mintTxHash = result.mintTxHash;
-			unwrapTxHash = result.unwrapTxHash || null;
+		if (useRelay && relayerInfo) {
+			// GASLESS RELAY PATH
+			withdrawStep = "minting";
+			withdrawMessage = "Submitting to relay service...";
 
-			if (unwrapTxHash) {
-				withdrawStep = "unwrapping";
-				withdrawMessage = "Unwrapping to native tokens...";
+			try {
+				// Get L1 WarpToad contract address
+				const l1Chain = getEVMChain("Ethereum");
+				if (!l1Chain)
+					throw new Error("Ethereum chain config not found");
+
+				const relayResponse = await submitWithdrawRelay({
+					contractAddress: l1Chain.contracts.warpToad,
+					nullifier: publicInputs[0].toString(),
+					amount: publicInputs[2].toString(),
+					gigaRoot: publicInputs[3].toString(),
+					localRoot: publicInputs[4].toString(),
+					feeFactor: publicInputs[5].toString(),
+					priorityFee: publicInputs[6].toString(),
+					maxFee: publicInputs[7].toString(),
+					relayer: relayerInfo.relayerAddress,
+					recipient:
+						walletStore.wallets.evm ||
+						"0x0000000000000000000000000000000000000000",
+					proof: proofHex,
+				});
+
+				relayOperationId = relayResponse.operationId || null;
+				withdrawMessage =
+					"Waiting for relayer to submit transaction...";
+
+				// Poll for status
+				const finalStatus = await pollRelayStatus(
+					relayResponse.operationId!,
+					(status: RelayStatus) => {
+						relayStatusText = status.status;
+						if (status.status === "validating") {
+							withdrawMessage =
+								"Relayer validating transaction...";
+						} else if (status.status === "submitting") {
+							withdrawMessage =
+								"Relayer submitting transaction...";
+						}
+					},
+				);
+
+				if (finalStatus.status === "failed") {
+					throw new Error(
+						finalStatus.error || "Relay transaction failed",
+					);
+				}
+
+				mintTxHash = finalStatus.txHash!;
+				unwrapTxHash = null; // Relay doesn't support auto-unwrap
+			} catch (error) {
+				throw new Error(`Relay failed: ${error}`);
 			}
 		} else {
-			// Just mint wrapped tokens
-			const result = await claimFromAztec(proofInputs, proofHex, chainId);
-			mintTxHash = result.txHash;
+			// EXISTING SELF-RELAY PATH
+			withdrawStep = "minting";
+			withdrawMessage = "Minting wrapped tokens on L1...";
+
+			if (autoUnwrap) {
+				// Mint and unwrap in sequence
+				const result = await claimAndUnwrapFromAztec(
+					proofInputs,
+					proofHex,
+					chainId,
+				);
+				mintTxHash = result.mintTxHash;
+				unwrapTxHash = result.unwrapTxHash || null;
+
+				if (unwrapTxHash) {
+					withdrawStep = "unwrapping";
+					withdrawMessage = "Unwrapping to native tokens...";
+				}
+			} else {
+				// Just mint wrapped tokens
+				const result = await claimFromAztec(
+					proofInputs,
+					proofHex,
+					chainId,
+				);
+				mintTxHash = result.txHash;
+			}
 		}
 
 		// Step 8: Complete
@@ -959,10 +1123,11 @@
 		if (!selectedProof) return false;
 		return (
 			selectedProof.sourceChain === "Aztec" &&
-			(selectedProof.targetChain === "Ethereum" || selectedProof.targetChain === "Scroll")
+			(selectedProof.targetChain === "Ethereum" ||
+				selectedProof.targetChain === "Scroll")
 		);
 	}
-	
+
 	// Legacy alias for backwards compatibility
 	function isAztecToL1(): boolean {
 		return isAztecToEVM() && selectedProof?.targetChain === "Ethereum";
@@ -1121,8 +1286,8 @@
 				</Alert>
 			{/if}
 
-			<!-- Auto-unwrap toggle (for L1 withdrawals) -->
-			{#if showAutoUnwrap()}
+			<!-- Auto-unwrap toggle (for L1 withdrawals, but NOT when using relay) -->
+			{#if showAutoUnwrap() && !useRelay}
 				<div
 					class="flex items-center justify-between p-3 rounded-lg border"
 				>
@@ -1153,12 +1318,132 @@
 				{/if}
 			{/if}
 
+			<!-- Relay Service Toggle (only for Aztec -> L1) -->
+			{#if isAztecToL1() && relayServiceAvailable && relayerInfo}
+				<Separator />
+
+				<div class="space-y-4">
+					<!-- Toggle between self-relay and gasless -->
+					<div
+						class="flex items-center justify-between p-3 rounded-lg border"
+					>
+						<div class="space-y-0.5">
+							<Label for="use-relay" class="cursor-pointer">
+								Gasless Withdrawal (Pay Fee Instead of Gas)
+							</Label>
+							<p class="text-xs text-muted-foreground">
+								Use relay service to avoid gas fees - pay {feePercentage}%
+								from withdrawal
+							</p>
+						</div>
+						<input
+							id="use-relay"
+							type="checkbox"
+							bind:checked={useRelay}
+							class="h-4 w-4 rounded border-gray-300"
+						/>
+					</div>
+
+					<!-- Fee Slider (only shown when relay enabled) -->
+					{#if useRelay}
+						<div
+							class="space-y-3 p-4 rounded-lg border bg-muted/50"
+						>
+							<div class="space-y-2">
+								<div class="flex items-center justify-between">
+									<Label for="fee-slider"
+										>Relayer Fee: {feePercentage}%</Label
+									>
+									<span class="text-sm text-muted-foreground">
+										{feePercentage}% of withdrawal
+									</span>
+								</div>
+
+								<input
+									id="fee-slider"
+									type="range"
+									min="0.25"
+									max="5"
+									step="0.25"
+									bind:value={feePercentage}
+									class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
+								/>
+
+								<div
+									class="flex justify-between text-xs text-muted-foreground"
+								>
+									<span>Min: 0.25%</span>
+									<span>Max: 5%</span>
+								</div>
+							</div>
+
+							<!-- Fee Breakdown -->
+							<div class="space-y-2 text-sm">
+								<div class="flex justify-between">
+									<span class="text-muted-foreground"
+										>Withdrawal Amount:</span
+									>
+									<span class="font-medium"
+										>{selectedProof.amount}
+										{selectedProof.token}</span
+									>
+								</div>
+								<div class="flex justify-between">
+									<span class="text-muted-foreground"
+										>Relayer Fee ({feePercentage}%):</span
+									>
+									<span class="text-destructive"
+										>-{calculateEstimatedFee()}
+										{selectedProof.token}</span
+									>
+								</div>
+								<Separator />
+								<div class="flex justify-between font-semibold">
+									<span>You Receive:</span>
+									<span class="text-green-600"
+										>{calculateNetAmount()}
+										{selectedProof.token}</span
+									>
+								</div>
+							</div>
+
+							<!-- Relayer Info -->
+							<Alert>
+								<AlertDescription class="text-xs space-y-1">
+									<div><strong>Relayer Address:</strong></div>
+									<div
+										class="font-mono text-[10px] break-all"
+									>
+										{relayerInfo.relayerAddress}
+									</div>
+									<div class="mt-2 text-muted-foreground">
+										No gas payment required. Fee deducted
+										from withdrawal amount.
+									</div>
+								</AlertDescription>
+							</Alert>
+						</div>
+					{/if}
+
+					<!-- Auto-unwrap not available with relay -->
+					{#if useRelay && showAutoUnwrap()}
+						<Alert>
+							<AlertDescription class="text-xs">
+								Auto-unwrap is not available with gasless relay.
+								You will receive wrapped tokens.
+							</AlertDescription>
+						</Alert>
+					{/if}
+				</div>
+			{/if}
+
 			<!-- Same-chain transfer info -->
 			{#if isSameChainTransfer()}
 				<Alert>
 					<AlertDescription class="text-sm">
-						<strong>Same-chain transfer:</strong> This is a private transfer on {selectedProof.sourceChain}.
-						A bridge sync must have occurred after your burn transaction.
+						<strong>Same-chain transfer:</strong> This is a private
+						transfer on {selectedProof.sourceChain}. A bridge sync
+						must have occurred after your burn transaction.
 					</AlertDescription>
 				</Alert>
 			{/if}
@@ -1192,7 +1477,13 @@
 				{#if isWithdrawing}
 					Processing...
 				{:else if isAztecToL1()}
-					{autoUnwrap ? "Withdraw to Ethereum" : "Withdraw (Wrapped)"}
+					{#if useRelay}
+						Gasless Withdraw ({feePercentage}% fee)
+					{:else if autoUnwrap}
+						Withdraw to Ethereum
+					{:else}
+						Withdraw (Wrapped)
+					{/if}
 				{:else}
 					Withdraw to {selectedProof.targetChain}
 				{/if}

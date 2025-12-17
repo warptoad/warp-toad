@@ -24,7 +24,14 @@
     "bridge:docker": "cd bridgeSync && yarn docker:build",
     "bridge:docker:run": "cd bridgeSync && yarn docker:run",
     "bridge:docker:logs": "cd bridgeSync && yarn docker:logs",
-    "bridge:docker:down": "cd bridgeSync && yarn docker:down"
+    "bridge:docker:down": "cd bridgeSync && yarn docker:down",
+    "relayer:dev": "cd relayService && yarn dev",
+    "relayer:build": "cd relayService && yarn build",
+    "relayer:start": "cd relayService && yarn start",
+    "relayer:docker": "cd relayService && yarn docker:build",
+    "relayer:docker:run": "cd relayService && yarn docker:run",
+    "relayer:docker:logs": "cd relayService && yarn docker:logs",
+    "relayer:docker:down": "cd relayService && yarn docker:down"
   },
   "repository": "https://github.com/JossDuff/warp-toad.git",
   "author": "jossduff <jduff360@gmail.com>",

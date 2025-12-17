@@ -1,23 +1,19 @@
 {
-  "name": "@warp-toad/bridge-sync",
+  "name": "@warp-toad/relay-service",
   "version": "1.0.0",
-  "description": "HTTP service for triggering cross-chain bridge operations",
+  "description": "Gasless withdrawal relay service for WarpToad",
   "main": "dist/server.js",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "docker:build": "docker build -t bridge-sync -f Dockerfile ..",
+    "docker:build": "docker build -t relayer-service -f Dockerfile ..",
     "docker:run": "docker compose up --build -d",
     "docker:logs": "docker compose logs -f",
     "docker:down": "docker compose down"
   },
   "dependencies": {
-    "@aztec/aztec.js": "0.87.2",
-    "@aztec/foundation": "0.87.2",
-    "@aztec/pxe": "0.87.2",
-    "@aztec/stdlib": "0.87.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.1",
     "ethers": "^6.13.0",

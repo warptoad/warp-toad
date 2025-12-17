@@ -89,9 +89,10 @@ const DEFAULT_RELAYER_ADDRESS = '0x0000000000000000000000000000000000000001'; //
  * NOTE: For self-relay, just use the defaults. These are NOT gas fees!
  */
 export interface FeeConfig {
-	priorityFee?: bigint;  // Minimal priority fee for circuit validation (default 1 gwei)
-	maxFee?: bigint;       // Max relayer fee from withdrawal amount (default: full amount)
-	feeFactor?: bigint;    // Fee factor for relayer (0 for self-relay)
+	priorityFee?: bigint;    // Minimal priority fee for circuit validation (default 1 gwei)
+	maxFee?: bigint;         // Max relayer fee from withdrawal amount (default: full amount)
+	feeFactor?: bigint;      // Fee factor for relayer (0 for self-relay)
+	relayerAddress?: string; // Relayer address (default: address(1) for self-relay)
 }
 
 // =============================================================================
@@ -168,7 +169,8 @@ function createEmptyAztecMerkleData(): {
  * @param originLocalRoot - The Aztec note hash tree root
  * @param destinationChainId - The L1 chain ID
  * @param recipientAddress - The recipient's L1 address
- * @returns ProofInputs ready for the circuit (uses self-relay defaults)
+ * @param feeConfig - Optional fee configuration for relaying
+ * @returns ProofInputs ready for the circuit
  */
 export function prepareProofInputsForAztecToL1(
 	commitmentData: CommitmentPreImage,
@@ -178,15 +180,17 @@ export function prepareProofInputsForAztecToL1(
 	destinationLocalRoot: bigint,
 	originLocalRoot: bigint,
 	destinationChainId: bigint,
-	recipientAddress: string
+	recipientAddress: string,
+	feeConfig?: FeeConfig
 ): ProofInputs {
 	// Compute nullifier
 	const nullifier = hashNullifier(commitmentData.nullifier_preimg);
 
-	// Use self-relay defaults: no relayer fee, minimal priority fee for validation
-	const feeFactor = DEFAULT_FEE_FACTOR;
-	const priorityFee = DEFAULT_PRIORITY_FEE;
-	const actualMaxFee = commitmentData.amount; // Allow full amount (no relayer takes a cut)
+	// Use provided fee config or defaults for self-relay
+	const feeFactor = feeConfig?.feeFactor ?? DEFAULT_FEE_FACTOR;
+	const priorityFee = feeConfig?.priorityFee ?? DEFAULT_PRIORITY_FEE;
+	const actualMaxFee = feeConfig?.maxFee ?? commitmentData.amount;
+	const relayerAddress = feeConfig?.relayerAddress ?? DEFAULT_RELAYER_ADDRESS;
 
 	const proofInputs: ProofInputs = {
 		// ----- public inputs -----
@@ -198,7 +202,7 @@ export function prepareProofInputsForAztecToL1(
 		fee_factor: toHex(feeFactor),
 		priority_fee: toHex(priorityFee),
 		max_fee: toHex(actualMaxFee),
-		relayer_address: addressToHex(DEFAULT_RELAYER_ADDRESS),
+		relayer_address: addressToHex(relayerAddress),
 		recipient_address: addressToHex(recipientAddress),
 
 		// ----- private inputs -----
@@ -238,7 +242,8 @@ export function prepareProofInputsForAztecToL1(
  * @param chainId - The chain ID
  * @param recipientAddress - The recipient's address
  * @param isFromAztec - Whether the burn originated from Aztec
- * @returns ProofInputs ready for the circuit (uses self-relay defaults)
+ * @param feeConfig - Optional fee configuration for relaying
+ * @returns ProofInputs ready for the circuit
  */
 export function prepareProofInputsForSameChain(
 	commitmentData: CommitmentPreImage,
@@ -248,12 +253,14 @@ export function prepareProofInputsForSameChain(
 	gigaRoot: bigint,
 	chainId: bigint,
 	recipientAddress: string,
-	isFromAztec: boolean
+	isFromAztec: boolean,
+	feeConfig?: FeeConfig
 ): ProofInputs {
 	const nullifier = hashNullifier(commitmentData.nullifier_preimg);
-	const feeFactor = DEFAULT_FEE_FACTOR;
-	const priorityFee = DEFAULT_PRIORITY_FEE;
-	const actualMaxFee = commitmentData.amount;
+	const feeFactor = feeConfig?.feeFactor ?? DEFAULT_FEE_FACTOR;
+	const priorityFee = feeConfig?.priorityFee ?? DEFAULT_PRIORITY_FEE;
+	const actualMaxFee = feeConfig?.maxFee ?? commitmentData.amount;
+	const relayerAddress = feeConfig?.relayerAddress ?? DEFAULT_RELAYER_ADDRESS;
 
 	return {
 		nullifier: toHex(nullifier),
@@ -264,7 +271,7 @@ export function prepareProofInputsForSameChain(
 		fee_factor: toHex(feeFactor),
 		priority_fee: toHex(priorityFee),
 		max_fee: toHex(actualMaxFee),
-		relayer_address: addressToHex(DEFAULT_RELAYER_ADDRESS),
+		relayer_address: addressToHex(relayerAddress),
 		recipient_address: addressToHex(recipientAddress),
 		origin_local_root: toHex(localRoot), // Same as destination for same-chain
 		is_from_aztec: isFromAztec,
