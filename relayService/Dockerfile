@@ -9,6 +9,7 @@ RUN corepack enable
 COPY package.json yarn.lock ./
 COPY relayService/package.json ./relayService/
 
+ENV NODE_ENV=development
 # Install all workspace dependencies
 RUN yarn install --frozen-lockfile
 
