@@ -135,7 +135,6 @@ export async function getL2AZTECContracts(
     PXE: PXE,
     aztecNodeUrl: string
 ): Promise<{ L2Adapter: L2AztecBridgeAdapterContract, L2WarpToad: L2AztecWarpToad }> {
-    console.log({ l1ChainId })
     const isSandBox = BigInt(l1ChainId) === 31337n
     const contracts = aztecDeployments[Number(l1ChainId)]
 
@@ -160,7 +159,6 @@ export async function getL2AZTECContracts(
         }
     )
 
-    console.log({aztecWarpToadContractInstanceAddress:aztecWarpToadContractInstance.address})
     await PXE.registerContract({
         instance: aztecWarpToadContractInstance,
         artifact: WarpToadCoreContractArtifact

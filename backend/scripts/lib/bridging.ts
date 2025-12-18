@@ -201,7 +201,6 @@ export async function bridgeAZTECLocalRootToL1(
         args,
         waitFunc
     )).wait(confirmations) as ethers.ContractTransactionReceipt
-    console.log("landed this guy", refreshRootTx, {nonce: (await refreshRootTx.getTransaction()).nonce})
 
     return { refreshRootTx, sendRootToL1Tx, PXE_L2Root }
 }
@@ -224,7 +223,7 @@ export async function bridgeLocalRootToL1(l1Wallet: ethers.Signer, gigaBridge: G
             confirmations
         )
         const gigaRootPreBridge = await gigaBridge.gigaRoot()
-        return { sendRootToL1Tx, sendRootToL1TxHash: sendRootToL1Tx.txHash }
+        return { sendRootToL1Tx, sendRootToL1TxHash: sendRootToL1Tx.txHash.toString() }
     } else {
         const sendRootToL1Tx = await bridgeEVMLocalRootToL1(L2Adapter as L2ScrollBridgeAdapter, l1Wallet,confirmations)
         return { sendRootToL1Tx, sendRootToL1TxHash: sendRootToL1Tx.hash }
@@ -407,7 +406,7 @@ export async function waitForBlocksAztec(blocksToWait: number, aztecNode: AztecN
         console.log({ waiting })
         const currentBlock = await aztecNode.getBlockNumber()
         waiting = currentBlock < waitTillBlock
-        console.log(`waiting ${L1BlockTime / 2 * blocksToWait / 1000} seconds until ${blocksToWait} aztec blocks have passed. blocks passed: ${currentBlock - blockBeforeWaiting}`, { isSandBox })
+        console.log(`waiting ${L1BlockTime / 2 * blocksToWait / 1000} seconds until ${blocksToWait} aztec blocks have passed. blocks passed: ${currentBlock - blockBeforeWaiting}`)
         if (waiting) {
             if (isSandBox) {
                 if (L2AztecBridgeAdapter && aztecWallet) {
@@ -512,7 +511,7 @@ export async function receiveGigaRootOnL2(
             aztecWallet
         )
         const gigaRootOnAztec = await (L2WarpToad as L2WarpToadAZTEC)?.methods.get_giga_root().simulate({ from: (await (aztecWallet as AztecWallet).getAccounts())[0].item })
-        return { receiveGigaRootTx, receiveGigaRootTxHash: receiveGigaRootTx.txHash.hash, gigaRootOnL2: gigaRootOnAztec }
+        return { receiveGigaRootTx, receiveGigaRootTxHash: receiveGigaRootTx.txHash.hash.toString(), gigaRootOnL2: gigaRootOnAztec }
     } else {
         //scroll
         if (gigaRootSent) {
@@ -588,14 +587,17 @@ export async function bridgeBetweenL1AndL2(
     const l1ChainIdStr = l1ChainId?.toString()
     //------- bridge localRoot L2->L1---------
     //TODO etherscan links would be nice!
-    console.log(`
-    Doing a L1 <-> L2 bridge on ${l1ChainIdStr} <-> ${l2ChainIdStr}
-        l1Wallet: ${await l1Wallet.getAddress()}
-        gigaBridge: ${gigaBridge.target}
-        L1Adapter: ${L1Adapter.target}
-        L2Adapter: ${getAddress(L2Adapter)}
-        L2WarpToad: ${getAddress(L2WarpToad)}
+    console.log(`\n
+--------- starting a L1 <-> L2 bridge on ${l1ChainIdStr} <-> ${l2ChainIdStr} ---------------------
+    l1Wallet: ${await l1Wallet.getAddress()}
+    gigaBridge: ${gigaBridge.target}
+    L1Adapter: ${L1Adapter.target}
+    L2Adapter: ${getAddress(L2Adapter)}
+    L2WarpToad: ${getAddress(L2WarpToad)}
+\n
     `)
+
+    console.log("\n-------------- bridging local root from L2- > L1 --------------\n")
     const { sendRootToL1Tx, sendRootToL1TxHash } = await bridgeLocalRootToL1(
         l1Wallet,
         gigaBridge,
@@ -610,7 +612,7 @@ export async function bridgeBetweenL1AndL2(
     )
     console.log(`local root is bridged to L1! At tx hash: ${sendRootToL1TxHash}`)
     //--- collect localRoots from adapters and send a giga root back--------------
-    console.log(`updating the gigaGiga root L1`)
+    console.log(`\n--------- updating the gigaGiga root L1 -----------------------\n`)
     const { gigaRootUpdateTx, gigaRootUpdateTxHash } = await updateGigaRoot(
         gigaBridge,
         localRootProviders,
@@ -618,7 +620,7 @@ export async function bridgeBetweenL1AndL2(
     )
     console.log(`GigaRoot is updated! At tx hash: ${gigaRootUpdateTxHash}`)
 
-    console.log(`initiating gigaRoot bridging to the L2's`)
+    console.log(`\n---------- initiating gigaRoot bridging to the L2's ---------------\n`)
     const { sendGigaRootTx, sendGigaRootTxHash, gigaRootSent } = await sendGigaRoot(
         gigaBridge,
         localRootProviders,
@@ -628,7 +630,7 @@ export async function bridgeBetweenL1AndL2(
     console.log(`gigaRoot bridging is initiated to the L2's! At tx hash: ${sendRootToL1TxHash}`)
 
     // ------- retrieve the giga root from the adapters on L2 and send them to the toads!!! ----------
-    console.log(`Completing arrival of the gigaRoot on L2 on the L2 adapter contract`)
+    console.log(`\n-------- Completing arrival of the gigaRoot on L2 on the L2 adapter contract ----------\n`)
     const { receiveGigaRootTx, receiveGigaRootTxHash } = await receiveGigaRootOnL2(
         L1Adapter,
         L2Adapter,
