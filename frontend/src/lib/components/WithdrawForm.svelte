@@ -727,6 +727,14 @@
 		// Step 4: Prepare proof inputs for same-chain withdrawal
 		withdrawMessage = "Preparing proof inputs...";
 
+		// Prepare fee config for relay or self-relay
+		const feeConfig: FeeConfig | undefined = useRelay && relayerInfo ? {
+			feeFactor: BigInt(Math.floor(feePercentage * 100)), // Convert % to basis points
+			relayerAddress: relayerInfo.relayerAddress,
+			priorityFee: BigInt(relayerInfo.currentGasPrice),
+			maxFee: BigInt(selectedProof.commitmentData.amount) // Allow up to full amount
+		} : undefined; // undefined = use self-relay defaults
+
 		// For same-chain transfers:
 		// - origin_local_root == destination_local_root (same chain)
 		// - Circuit skips giga root verification when roots are equal
@@ -745,6 +753,7 @@
 			walletStore.wallets.evm ||
 				"0x0000000000000000000000000000000000000000",
 			false, // is_from_aztec = false for EVM
+			feeConfig // Fee config for relay
 		);
 		console.log("Proof inputs prepared");
 
@@ -765,37 +774,90 @@
 		const proofHex = formatProofForL1(proof);
 		console.log("Proof hex length:", proofHex.length);
 
-		// Step 6: Call mint on L1 (same-chain transfer)
-		withdrawStep = "minting";
-		withdrawMessage = "Minting tokens on L1...";
-
+		// Step 6: Submit transaction (relay or self-relay)
 		let mintTxHash: string;
 		let unwrapTxHash: string | null = null;
 
-		if (autoUnwrap) {
-			// Mint and unwrap in sequence (use L1 -> L1 logging)
-			const result = await claimAndUnwrapOnL1(
-				proofInputs,
-				proofHex,
-				chainId,
-				"L1 -> L1 same-chain",
-			);
-			mintTxHash = result.mintTxHash;
-			unwrapTxHash = result.unwrapTxHash || null;
-
-			if (unwrapTxHash) {
-				withdrawStep = "unwrapping";
-				withdrawMessage = "Unwrapping to native tokens...";
+		if (useRelay && relayerInfo) {
+			// GASLESS RELAY PATH
+			withdrawStep = "minting";
+			withdrawMessage = "Submitting to relay service...";
+			
+			try {
+				// Get L1 WarpToad contract address
+				const l1Chain = getEVMChain('Ethereum');
+				if (!l1Chain) throw new Error('Ethereum chain config not found');
+				
+				const relayResponse = await submitWithdrawRelay({
+					contractAddress: l1Chain.contracts.warpToad,
+					nullifier: publicInputs[0].toString(),
+					amount: publicInputs[2].toString(),
+					gigaRoot: publicInputs[3].toString(),
+					localRoot: publicInputs[4].toString(),
+					feeFactor: publicInputs[5].toString(),
+					priorityFee: publicInputs[6].toString(),
+					maxFee: publicInputs[7].toString(),
+					relayer: relayerInfo.relayerAddress,
+					recipient: walletStore.wallets.evm || "0x0000000000000000000000000000000000000000",
+					proof: proofHex
+				});
+				
+				relayOperationId = relayResponse.operationId || null;
+				withdrawMessage = "Waiting for relayer to submit transaction...";
+				
+				// Poll for status
+				const finalStatus = await pollRelayStatus(
+					relayResponse.operationId!,
+					(status: RelayStatus) => {
+						relayStatusText = status.status;
+						if (status.status === 'validating') {
+							withdrawMessage = 'Relayer validating transaction...';
+						} else if (status.status === 'submitting') {
+							withdrawMessage = 'Relayer submitting transaction...';
+						}
+					}
+				);
+				
+				if (finalStatus.status === 'failed') {
+					throw new Error(finalStatus.error || 'Relay transaction failed');
+				}
+				
+				mintTxHash = finalStatus.txHash!;
+				unwrapTxHash = null; // Relay doesn't support auto-unwrap
+				
+			} catch (error) {
+				throw new Error(`Relay failed: ${error}`);
 			}
 		} else {
-			// Just mint wrapped tokens (use L1 -> L1 logging)
-			const result = await claimOnL1(
-				proofInputs,
-				proofHex,
-				chainId,
-				"L1 -> L1 same-chain",
-			);
-			mintTxHash = result.txHash;
+			// EXISTING SELF-RELAY PATH
+			withdrawStep = "minting";
+			withdrawMessage = "Minting tokens on L1...";
+
+			if (autoUnwrap) {
+				// Mint and unwrap in sequence (use L1 -> L1 logging)
+				const result = await claimAndUnwrapOnL1(
+					proofInputs,
+					proofHex,
+					chainId,
+					"L1 -> L1 same-chain",
+				);
+				mintTxHash = result.mintTxHash;
+				unwrapTxHash = result.unwrapTxHash || null;
+
+				if (unwrapTxHash) {
+					withdrawStep = "unwrapping";
+					withdrawMessage = "Unwrapping to native tokens...";
+				}
+			} else {
+				// Just mint wrapped tokens
+				const result = await claimOnL1(
+					proofInputs,
+					proofHex,
+					chainId,
+					"L1 -> L1 same-chain",
+				);
+				mintTxHash = result.txHash;
+			}
 		}
 
 		// Step 7: Complete
@@ -1319,7 +1381,7 @@
 			{/if}
 
 			<!-- Relay Service Toggle (only for Aztec -> L1) -->
-			{#if isAztecToL1() && relayServiceAvailable && relayerInfo}
+			{#if (isAztecToL1() || isSameChainL1()) && relayServiceAvailable && relayerInfo}
 				<Separator />
 
 				<div class="space-y-4">
@@ -1476,7 +1538,7 @@
 			<Button class="w-full" disabled={!canWithdraw} onclick={withdraw}>
 				{#if isWithdrawing}
 					Processing...
-				{:else if isAztecToL1()}
+				{:else if isAztecToL1() || isSameChainL1()}
 					{#if useRelay}
 						Gasless Withdraw ({feePercentage}% fee)
 					{:else if autoUnwrap}
