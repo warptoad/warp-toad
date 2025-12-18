@@ -49,9 +49,7 @@ async function main() {
     // aztec is not evm!
     const l2Data = {} as any; //TODO 
     if (args.isAztec) {
-        console.log("conecting to aztec ----------------------------------------------------------------------------")
         const { PXE, aztecWallet, sponsoredPaymentMethod, aztecNode } = await connectAztec(args.L2Rpc, l1ChainId)
-        console.log("done connecting to aztec ----------------------------------------------------------------------------")
         l2Data.l2Wallet = aztecWallet
         l2Data.PXE = PXE
         l2Data.sponsoredPaymentMethod = sponsoredPaymentMethod
@@ -78,6 +76,7 @@ async function main() {
     const errorsLimit = 1000
     let errors: any[] = []
     let lastBridgePromise;
+    console.log("----------------------starting bridging loop----------------------")
     do {
         if (errors.length > errorsLimit) {
             console.log(errors)
@@ -93,15 +92,9 @@ async function main() {
             } catch (error) {
                 //throw error
                 errors.push(error)
-                console.log(`whoops an error. Total errors since running: ${errors.length}, error limit: ${errorsLimit} `, error)
+                console.log(`whoops an error at bridge run: ${bridgeIteration}. Total errors since running: ${errors.length}, error limit: ${errorsLimit} `, error)
             }
         }
-        const L1AdapterGigaBridge =await L1Adapter.gigaBridge()
-        console.log({
-            L1AdapterGigaBridge,
-            gigaBridge: gigaBridge.target
-        })
-        //console.warn("JIMJIM DONT FORGET YOU COMMENTED OUT payableLocalRootProviders TO DISABLE SCROLL!!!")
         lastBridgePromise = bridgeBetweenL1AndL2TryCatch([
             l1Wallet,
             L1Adapter,
@@ -119,7 +112,9 @@ async function main() {
             }
         ]).then((res) => console.log(`completed ${bridgeIteration}th bridge run`, res?.txHashes))
 
-        await sleep(600000) // 10 min
+        if (args.repeat) {
+            await sleep(600000) // 10 min
+        }
     } while (args.repeat)
 
     // incase --repeat is not set. We wait!
