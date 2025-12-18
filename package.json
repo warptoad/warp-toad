@@ -17,7 +17,7 @@
     "b:contract:move": "mv backend/circuits/withdraw/target/contract.sol backend/contracts/evm/WithdrawVerifier.sol",
     "b:contract:rename":"yarn workspace @warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file ./contracts/evm/WithdrawVerifier.sol --remove 'contract UltraVerifier is BaseUltraVerifier {' --replace 'contract WithdrawVerifier is BaseUltraVerifier {'",
     "b:circuit": "yarn b:contract:gen && yarn b:contract:move && yarn b:contract:rename",
-    "b:sandbox": "VERSION=3.0.0-devnet.5 aztec start --sandbox",
+    "b:sandbox": "VERSION=3.0.0-rc.4 aztec start --local-network",
     "bridge:dev": "cd bridgeSync && yarn dev",
     "bridge:build": "cd bridgeSync && yarn build",
     "bridge:start": "cd bridgeSync && yarn start",
