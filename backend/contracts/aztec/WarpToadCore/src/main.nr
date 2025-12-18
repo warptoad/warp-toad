@@ -1,5 +1,5 @@
 use aztec::macros::aztec;
-mod warptoad_note;
+//mod warptoad_note;
 // from
 // https://github.com/privacy-scaling-explorations/zk-kit.noir/blob/fa5fdb0f0d0867e367388f85079db3b1f9a47590/packages/merkle-trees/src/merkle.nr#L3
 
@@ -123,12 +123,10 @@ pub contract WarpToadCore {
     #[external("private")]
     fn mint_for_testing(amount: u64, recipient: AztecAddress) {
         //self.storage.balances.at(recipient).add(amount, recipient);
-        // emit_event_in_private(
-        //     Transfer { from: self.context.this_address(), to: recipient, amount },
-        //     &mut self.context,
-        //     recipient,
-        //     MessageDelivery.UNCONSTRAINED_OFFCHAIN,
-        // );
+        emit_event_in_private(
+            self.context,
+            Transfer { from: self.context.this_address(), to: recipient, amount },
+        ).deliver_to(recipient,MessageDelivery.UNCONSTRAINED_OFFCHAIN,);
     }
 
     #[external("public")]
@@ -345,6 +343,7 @@ pub contract WarpToadCore {
     unconstrained fn balance_of(owner: AztecAddress) -> Field {
         // let balance: EasyPrivateUint<UtilityContext> = self.storage.balances.at(owner);
         // balance.get_value()
+        6969696969696969696969696969696969696
     }
 
     // #[external("private")]
