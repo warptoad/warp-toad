@@ -39,6 +39,8 @@ pub contract WarpToadCore {
         note_getter_options::{NoteGetterOptions, NoteStatus},
         note_viewer_options::NoteViewerOptions,
     };
+    use balance_set::BalanceSet;
+
     //use aztec::note::note_getter_options::return_all_notes;
     use aztec::note::retrieved_note::RetrievedNote;
 
@@ -51,7 +53,7 @@ pub contract WarpToadCore {
     struct Transfer {
         from: AztecAddress,
         to: AztecAddress,
-        amount: u64,
+        amount: u128,
     }
 
     #[derive(Serialize)]
@@ -59,7 +61,7 @@ pub contract WarpToadCore {
     struct Approval {
         owner: AztecAddress,
         spender: AztecAddress,
-        amount: u64,
+        amount: u128,
     }
 
     #[event]
@@ -79,8 +81,8 @@ pub contract WarpToadCore {
         commitments: Owned<PrivateSet<WarpToadNote, Context>, Context>,
 
         //AIP-20 token state
-        // balances: Map<AztecAddress, EasyPrivateUint<Context>, Context>,
-        // allowances: Map<Field, EasyPrivateUint<Context>, Context>,
+        balances: Owned<BalanceSet<Context>, Context>,
+        allowances: Owned<BalanceSet<Context>, Context>,
         //Token Metadata
         symbol: PublicImmutable<FieldCompressedString, Context>,
         name: PublicImmutable<FieldCompressedString, Context>,
@@ -122,8 +124,8 @@ pub contract WarpToadCore {
 
     // @TODO @WARNING remove this in prod!! Do minting from giga root instead
     #[external("private")]
-    fn mint_for_testing(amount: u64, recipient: AztecAddress) {
-        //self.storage.balances.at(recipient).add(amount, recipient);
+    fn mint_for_testing(amount: u128, recipient: AztecAddress) {
+        self.storage.balances.at(recipient).add(amount).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
         emit_event_in_private(
             self.context,
             Transfer { from: self.context.this_address(), to: recipient, amount },
@@ -148,7 +150,7 @@ pub contract WarpToadCore {
     // this works without creating a gigaRoot history right? we just need to make sure the block number we provide matches what gigaRoot was at that time in here!
     #[external("private")]
     fn mint_giga_root_evm(
-        amount: u64,
+        amount: u128,
         secret: Field,
         nullifier_preimage: Field,
         recipient: AztecAddress,
@@ -175,7 +177,7 @@ pub contract WarpToadCore {
         self.context.push_nullifier(nullifier);
 
         // TODO Mint into private balance
-        //self.storage.balances.at(recipient).add(amount, recipient);
+        self.storage.balances.at(recipient).add(amount).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
 
         emit_event_in_private(
             self.context,
@@ -185,12 +187,13 @@ pub contract WarpToadCore {
     }
 
     #[external("private")]
-    fn burn(amount: u64, destination_chain_id: Field, secret: Field, nullifier_preimage: Field) {
+    fn burn(amount: u128, destination_chain_id: Field, secret: Field, nullifier_preimage: Field) {
         let sender = self.context.msg_sender().expect(f"Sender must not be none!");
         let recipient = sender;
 
         // Will fail if insufficient balance so no need for bal checkssssss
-        // self.storage.balances.at(sender).sub(amount, sender);
+        self.storage.balances.at(sender).add(amount).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
+
 
         let warptoad_note: WarpToadNote = WarpToadNote::new(
             nullifier_preimage,
@@ -218,10 +221,11 @@ pub contract WarpToadCore {
 
     // Transfers `amount` of tokens from `sender` to a `recipient`.
     #[external("private")]
-    fn transfer(to: AztecAddress, amount: u64) {
+    fn transfer(to: AztecAddress, amount: u128) {
         let from = self.context.msg_sender().expect(f"From must not be none!");
-        // self.storage.balances.at(from).sub(amount, from); // reverts if insufficient funds
-        // self.storage.balances.at(to).add(amount, to);
+        
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN); // reverts if insufficient funds
+        self.storage.balances.at(to).add(amount).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
         emit_event_in_private(
             self.context,
             Transfer { from: from, to: to, amount: amount },
@@ -229,10 +233,11 @@ pub contract WarpToadCore {
     }
 
     #[external("private")]
-    fn increase_allowance(spender: AztecAddress, added: u64) {
+    fn increase_allowance(spender: AztecAddress, added: u128) {
         let owner = self.context.msg_sender().expect(f"Owner must not be none!");
-        let key = pedersen_hash([owner.to_field(), spender.to_field()]);
-        //self.storage.allowances.at(key).add(added, owner);
+        //idk why the old code did the key like this? ask danish
+        //let key = pedersen_hash([owner.to_field(), spender.to_field()]);
+        self.storage.allowances.at(owner).add(added).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
         let _ = added;
         // we emit delta for wallet UX; clients should track deltas or query via PXE.
         emit_event_in_private(
@@ -242,25 +247,25 @@ pub contract WarpToadCore {
     }
 
     #[external("private")]
-    fn decrease_allowance(spender: AztecAddress, subtracted: u64) {
+    fn decrease_allowance(spender: AztecAddress, subtracted: u128) {
         let owner = self.context.msg_sender().expect(f"Owner must not be none!");
-        let key = pedersen_hash([owner.to_field(), spender.to_field()]);
-        //self.storage.allowances.at(key).sub(subtracted, owner); // underflow means revert
+        //let key = pedersen_hash([owner.to_field(), spender.to_field()]);
+        self.storage.allowances.at(owner).sub(subtracted).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN); // underflow means revert
         emit_event_in_private(
             self.context,
-            Approval { owner, spender, amount: 0u64 }, // semantic: signal decrease occurred
+            Approval { owner, spender, amount: 0u128 }, // semantic: signal decrease occurred
         ).deliver_to(owner,MessageDelivery.UNCONSTRAINED_ONCHAIN);
     }
 
     #[external("private")]
-    fn transfer_from(owner: AztecAddress, to: AztecAddress, amount: u64) {
+    fn transfer_from(owner: AztecAddress, to: AztecAddress, amount: u128) {
         let spender = self.context.msg_sender().expect(f"Spender must not be none!");
-        let key = pedersen_hash([owner.to_field(), spender.to_field()]);
+        //let key = pedersen_hash([owner.to_field(), spender.to_field()]);
         // Check & consume allowance (reverts on insufficient)
-        // self.storage.allowances.at(key).sub(amount, owner);
+        self.storage.allowances.at(spender).sub(amount).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
 
-        // self.storage.balances.at(owner).sub(amount, owner);
-        // self.storage.balances.at(to).add(amount, to);
+        self.storage.balances.at(owner).sub(amount).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        self.storage.balances.at(to).add(amount).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
 
         emit_event_in_private(
             self.context,
@@ -339,10 +344,9 @@ pub contract WarpToadCore {
     }
 
     #[external("utility")]
-    unconstrained fn balance_of(owner: AztecAddress) -> Field {
-        // let balance: EasyPrivateUint<UtilityContext> = self.storage.balances.at(owner);
-        // balance.get_value()
-        6969696969696969696969696969696969696
+    unconstrained fn balance_of(owner: AztecAddress) -> u128 {
+        let balance = self.storage.balances.at(owner).balance_of();
+        balance
     }
 
     #[external("private")]
