@@ -1,5 +1,5 @@
 use aztec::macros::aztec;
-//mod warptoad_note;
+mod warptoad_note;
 // from
 // https://github.com/privacy-scaling-explorations/zk-kit.noir/blob/fa5fdb0f0d0867e367388f85079db3b1f9a47590/packages/merkle-trees/src/merkle.nr#L3
 
@@ -8,7 +8,7 @@ use aztec::macros::aztec;
 pub contract WarpToadCore {
 
     // local dep
-    //use crate::warptoad_note::WarpToadNote;
+    use crate::warptoad_note::WarpToadNote;
     use dep::aztec::protocol_types::traits::{Serialize, ToField};
     use dep::std::hash::pedersen_hash;
     use constants::{EVM_TREE_DEPTH, GIGA_TREE_DEPTH};
@@ -43,6 +43,7 @@ pub contract WarpToadCore {
     use aztec::note::retrieved_note::RetrievedNote;
 
     use protocol_types::constants::MAX_NOTE_HASHES_PER_CALL;
+    use aztec::state_vars::owned::Owned;
 
     // ---- Events yay! :D
     #[derive(Serialize)]
@@ -75,7 +76,7 @@ pub contract WarpToadCore {
         giga_root: PublicMutable<Field, Context>,
         native_token: PublicImmutable<EthAddress, Context>,
         //Notes for bridging
-        //commitments: PrivateSet<WarpToadNote, Context>,
+        commitments: Owned<PrivateSet<WarpToadNote, Context>, Context>,
 
         //AIP-20 token state
         // balances: Map<AztecAddress, EasyPrivateUint<Context>, Context>,
@@ -126,7 +127,7 @@ pub contract WarpToadCore {
         emit_event_in_private(
             self.context,
             Transfer { from: self.context.this_address(), to: recipient, amount },
-        ).deliver_to(recipient,MessageDelivery.UNCONSTRAINED_OFFCHAIN,);
+        ).deliver_to(recipient,MessageDelivery.UNCONSTRAINED_ONCHAIN,);
     }
 
     #[external("public")]
@@ -180,33 +181,31 @@ pub contract WarpToadCore {
             self.context,
             Transfer { from: self.context.this_address(), to: recipient, amount },
         )
-            .deliver_to(recipient, MessageDelivery.UNCONSTRAINED_OFFCHAIN);
+            .deliver_to(recipient, MessageDelivery.UNCONSTRAINED_ONCHAIN);
     }
 
     #[external("private")]
     fn burn(amount: u64, destination_chain_id: Field, secret: Field, nullifier_preimage: Field) {
         let sender = self.context.msg_sender().expect(f"Sender must not be none!");
+        let recipient = sender;
 
         // Will fail if insufficient balance so no need for bal checkssssss
         // self.storage.balances.at(sender).sub(amount, sender);
 
-        // let warptoad_note: WarpToadNote = WarpToadNote::new(
-        //     nullifier_preimage,
-        //     secret,
-        //     destination_chain_id,
-        //     (amount as Field),
-        // );
+        let warptoad_note: WarpToadNote = WarpToadNote::new(
+            nullifier_preimage,
+            secret,
+            destination_chain_id,
+            (amount as Field),
+        );
 
-        // self.storage.commitments.insert(warptoad_note).emit(
-        //     sender,
-        //     MessageDelivery.CONSTRAINED_ONCHAIN,
-        // );
+        self.storage.commitments.at(recipient).insert(warptoad_note).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
 
         emit_event_in_private(
             self.context,
             Transfer { from: sender, to: self.context.this_address(), amount },
         )
-            .deliver_to(sender, MessageDelivery.UNCONSTRAINED_OFFCHAIN);
+            .deliver_to(sender, MessageDelivery.UNCONSTRAINED_ONCHAIN);
     }
 
     //-----------------------------------------------
@@ -226,7 +225,7 @@ pub contract WarpToadCore {
         emit_event_in_private(
             self.context,
             Transfer { from: from, to: to, amount: amount },
-        ).deliver_to(to, MessageDelivery.UNCONSTRAINED_OFFCHAIN);
+        ).deliver_to(to, MessageDelivery.UNCONSTRAINED_ONCHAIN);
     }
 
     #[external("private")]
@@ -239,7 +238,7 @@ pub contract WarpToadCore {
         emit_event_in_private(
             self.context,
             Approval { owner, spender, amount: added }
-        ).deliver_to(owner,MessageDelivery.UNCONSTRAINED_OFFCHAIN,);
+        ).deliver_to(owner,MessageDelivery.UNCONSTRAINED_ONCHAIN,);
     }
 
     #[external("private")]
@@ -250,7 +249,7 @@ pub contract WarpToadCore {
         emit_event_in_private(
             self.context,
             Approval { owner, spender, amount: 0u64 }, // semantic: signal decrease occurred
-        ).deliver_to(owner,MessageDelivery.UNCONSTRAINED_OFFCHAIN);
+        ).deliver_to(owner,MessageDelivery.UNCONSTRAINED_ONCHAIN);
     }
 
     #[external("private")]
@@ -266,7 +265,7 @@ pub contract WarpToadCore {
         emit_event_in_private(
             self.context,
             Transfer { from: owner, to, amount },
-        ).deliver_to(to,MessageDelivery.UNCONSTRAINED_OFFCHAIN);
+        ).deliver_to(to,MessageDelivery.UNCONSTRAINED_ONCHAIN);
     }
 
     // utility
@@ -346,14 +345,13 @@ pub contract WarpToadCore {
         6969696969696969696969696969696969696
     }
 
-    // #[external("private")]
-    // fn get_notes_util(slot: Field) -> BoundedVec<RetrievedNote<WarpToadNote>, 16> {
-    //     let (retrieved_notes, _) = get_notes::<WarpToadNote, 4, _,_ >(
-    //         &mut self.context,
-    //         slot,
-    //         NoteGetterOptions::<WarpToadNote, 4, _ , _>::new()
-    //     );
-    //     retrieved_notes
-    // }
+    #[external("private")]
+    fn get_notes_util(slot: Field) -> BoundedVec<RetrievedNote<WarpToadNote>, 16> {
+        let owner = self.context.msg_sender().unwrap();
+        let retrieved_notes = self.storage.commitments.at(owner).get_notes(
+            NoteGetterOptions::<WarpToadNote, 4, _ , _>::new()
+        );
+        retrieved_notes
+    }
 
 }
