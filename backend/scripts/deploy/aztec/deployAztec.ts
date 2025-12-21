@@ -10,6 +10,10 @@ import fs from "fs/promises";
 import { deployAztecWarpToad } from "./aztecToadWarp";
 import { deployL2AztecBridgeAdapter } from "./L2AztecBridgeAdapter";
 import { getAztecTestAccount, getEnvArgs, initNodeClient, } from "../utils/aztecUtils";
+import { createAztecNodeClient } from "@aztec/aztec.js/node";
+import { TestWallet } from "@aztec/test-wallet/server";
+import { getInitialTestAccountsData } from "@aztec/accounts/testing";
+import { getFeeJuiceBalance } from '@aztec/aztec.js/utils';
 
 const { nativeTokenAddress } = getEnvArgs()
 
@@ -35,8 +39,15 @@ async function main() {
         }
     }
 
-    const wallet = await getAztecTestAccount(chainId)
+    // Create a wallet and import test accounts
+    // const node = createAztecNodeClient( process.env.PXE_URL as string);
+    // const wallet = await TestWallet.create(node);
+    // const [alice] = await getInitialTestAccountsData();
+    // await wallet.createSchnorrAccount(alice.secret, alice.salt);
+    // const juice = await getFeeJuiceBalance(alice.address, node)
+    // console.log({juice})
 
+    const wallet = await getAztecTestAccount(chainId)
     //------deploy-------------
     const { AztecWarpToad, constructorArgs: WarpToadContructArgs, contractAddressSalt: WarpToadSalt, deployer: warptoadDeployer } = await deployAztecWarpToad(nativeToken, wallet, undefined)
     console.log({ AztecWarpToad: AztecWarpToad.address })

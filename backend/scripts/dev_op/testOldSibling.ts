@@ -1,5 +1,5 @@
 // import { createAztecNodeClient, Fr } from '@aztec/aztec.js';
-// const AZTEC_NODE_URL = "https://devnet.aztec-labs.com/"
+// const AZTEC_NODE_URL = "https://next.devnet.aztec-labs.com/"
 // async function main() {
 //     const noteHash = BigInt("0x2b1196bc19fe0407c938c9633f4decde0f5ec3425e02fa2d7e9ae41f819ee893") // https://devnet.aztecscan.xyz/tx-effects/0x16cdbae0a675397e0d81abf7f443ce51e4bd5bec11614e6fb3c9df3b625b27ac
 //     const node = createAztecNodeClient(AZTEC_NODE_URL)

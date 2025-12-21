@@ -188,5 +188,7 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore,ILocalRootProvider, IGiga
         _mint( msg.sender, _amount);
     }
 
-
+    function nullifierExists(uint256 _nullifier) public view returns (bool) {
+        return nullifiers[_nullifier];
+    }
 }

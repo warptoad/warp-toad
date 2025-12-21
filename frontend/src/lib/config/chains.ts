@@ -179,7 +179,7 @@ const AZTEC_CHAIN: AztecChainDefinition = isTestMode
 		name: 'Devnet',
 		type: 'Aztec',
 		role: 'Privacy',
-		nodeUrl: import.meta.env.VITE_AZTEC_NODE_URL || 'https://devnet.aztec-labs.com',
+		nodeUrl: import.meta.env.VITE_AZTEC_NODE_URL || 'https://next.devnet.aztec-labs.com',
 		network: 'devnet',
 		contracts: {
 			warpToad: {

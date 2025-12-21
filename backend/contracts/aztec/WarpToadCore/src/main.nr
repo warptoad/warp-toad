@@ -24,6 +24,7 @@ pub contract WarpToadCore {
     use dep::aztec::note::note_getter::get_notes;
     use aztec::context::{self, utility_context::UtilityContext};
     use aztec::{
+        oracle::notes::check_nullifier_exists,
         event::event_emission::emit_event_in_private,
         history::public_storage::PublicStorageHistoricalRead,
         macros::{events::event, functions::{external, initializer}, storage::storage},
@@ -44,8 +45,8 @@ pub contract WarpToadCore {
     //use aztec::note::note_getter_options::return_all_notes;
     use aztec::note::retrieved_note::RetrievedNote;
 
-    use protocol_types::constants::MAX_NOTE_HASHES_PER_CALL;
     use aztec::state_vars::owned::Owned;
+    use protocol_types::constants::MAX_NOTE_HASHES_PER_CALL;
 
     // ---- Events yay! :D
     #[derive(Serialize)]
@@ -129,7 +130,8 @@ pub contract WarpToadCore {
         emit_event_in_private(
             self.context,
             Transfer { from: self.context.this_address(), to: recipient, amount },
-        ).deliver_to(recipient,MessageDelivery.UNCONSTRAINED_ONCHAIN,);
+        )
+            .deliver_to(recipient, MessageDelivery.UNCONSTRAINED_ONCHAIN);
     }
 
     #[external("public")]
@@ -177,7 +179,9 @@ pub contract WarpToadCore {
         self.context.push_nullifier(nullifier);
 
         // TODO Mint into private balance
-        self.storage.balances.at(recipient).add(amount).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        self.storage.balances.at(recipient).add(amount).deliver(
+            MessageDelivery.UNCONSTRAINED_ONCHAIN,
+        );
 
         emit_event_in_private(
             self.context,
@@ -194,7 +198,6 @@ pub contract WarpToadCore {
         // Will fail if insufficient balance so no need for bal checkssssss
         self.storage.balances.at(sender).sub(amount).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
 
-
         let warptoad_note: WarpToadNote = WarpToadNote::new(
             nullifier_preimage,
             secret,
@@ -202,7 +205,9 @@ pub contract WarpToadCore {
             (amount as Field),
         );
 
-        self.storage.commitments.at(recipient).insert(warptoad_note).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        self.storage.commitments.at(recipient).insert(warptoad_note).deliver(
+            MessageDelivery.UNCONSTRAINED_ONCHAIN,
+        );
 
         emit_event_in_private(
             self.context,
@@ -223,13 +228,14 @@ pub contract WarpToadCore {
     #[external("private")]
     fn transfer(to: AztecAddress, amount: u128) {
         let from = self.context.msg_sender().expect(f"From must not be none!");
-        
+
         self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN); // reverts if insufficient funds
         self.storage.balances.at(to).add(amount).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
         emit_event_in_private(
             self.context,
             Transfer { from: from, to: to, amount: amount },
-        ).deliver_to(to, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        )
+            .deliver_to(to, MessageDelivery.UNCONSTRAINED_ONCHAIN);
     }
 
     #[external("private")]
@@ -240,21 +246,24 @@ pub contract WarpToadCore {
         self.storage.allowances.at(owner).add(added).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
         let _ = added;
         // we emit delta for wallet UX; clients should track deltas or query via PXE.
-        emit_event_in_private(
-            self.context,
-            Approval { owner, spender, amount: added }
-        ).deliver_to(owner,MessageDelivery.UNCONSTRAINED_ONCHAIN,);
+        emit_event_in_private(self.context, Approval { owner, spender, amount: added }).deliver_to(
+            owner,
+            MessageDelivery.UNCONSTRAINED_ONCHAIN,
+        );
     }
 
     #[external("private")]
     fn decrease_allowance(spender: AztecAddress, subtracted: u128) {
         let owner = self.context.msg_sender().expect(f"Owner must not be none!");
         //let key = pedersen_hash([owner.to_field(), spender.to_field()]);
-        self.storage.allowances.at(owner).sub(subtracted).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN); // underflow means revert
+        self.storage.allowances.at(owner).sub(subtracted).deliver(
+            MessageDelivery.UNCONSTRAINED_ONCHAIN,
+        ); // underflow means revert
         emit_event_in_private(
             self.context,
             Approval { owner, spender, amount: 0u128 }, // semantic: signal decrease occurred
-        ).deliver_to(owner,MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        )
+            .deliver_to(owner, MessageDelivery.UNCONSTRAINED_ONCHAIN);
     }
 
     #[external("private")]
@@ -262,15 +271,17 @@ pub contract WarpToadCore {
         let spender = self.context.msg_sender().expect(f"Spender must not be none!");
         //let key = pedersen_hash([owner.to_field(), spender.to_field()]);
         // Check & consume allowance (reverts on insufficient)
-        self.storage.allowances.at(spender).sub(amount).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        self.storage.allowances.at(spender).sub(amount).deliver(
+            MessageDelivery.UNCONSTRAINED_ONCHAIN,
+        );
 
         self.storage.balances.at(owner).sub(amount).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
         self.storage.balances.at(to).add(amount).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
 
-        emit_event_in_private(
-            self.context,
-            Transfer { from: owner, to, amount },
-        ).deliver_to(to,MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        emit_event_in_private(self.context, Transfer { from: owner, to, amount }).deliver_to(
+            to,
+            MessageDelivery.UNCONSTRAINED_ONCHAIN,
+        );
     }
 
     // utility
@@ -282,10 +293,7 @@ pub contract WarpToadCore {
 
         let historical_header = self.context.get_block_header_at(block_number);
 
-        historical_header.public_storage_historical_read(
-            giga_root_slot,
-            contract_address,
-        )
+        historical_header.public_storage_historical_read(giga_root_slot, contract_address)
     }
 
     #[external("utility")]
@@ -353,9 +361,14 @@ pub contract WarpToadCore {
     fn get_notes_util(slot: Field) -> BoundedVec<RetrievedNote<WarpToadNote>, 16> {
         let owner = self.context.msg_sender().unwrap();
         let retrieved_notes = self.storage.commitments.at(owner).get_notes(
-            NoteGetterOptions::<WarpToadNote, 4, _ , _>::new()
+            NoteGetterOptions::<WarpToadNote, 4, _, _>::new(),
         );
         retrieved_notes
+    }
+
+    #[external("utility")]
+    unconstrained fn nullifier_exists(nullifier: Field) -> bool {
+        check_nullifier_exists(nullifier)
     }
 
 }

@@ -90,7 +90,7 @@ NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend ha
 #### 3. deploy warptoad on aztec
 sandbox
 ```shell
-NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress PXE_URL=https://devnet.aztec-labs.com yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/deployAztec.ts --network sepolia;
+NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress PXE_URL=https://next.devnet.aztec-labs.com yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/deployAztec.ts --network sepolia;
 ```
 #### 4. deploy on scroll
 ```shell
@@ -99,9 +99,9 @@ NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend ha
 
 #### 5. initialize/connect contracts 
 ```shell
-PXE_URL=https://devnet.aztec-labs.com yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/initializeL1.ts --network sepolia;
+PXE_URL=https://next.devnet.aztec-labs.com yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/initializeL1.ts --network sepolia;
 #aztec
-PXE_URL=https://devnet.aztec-labs.com yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/initializeAztec.ts --network sepolia;
+PXE_URL=https://next.devnet.aztec-labs.com yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/initializeAztec.ts --network sepolia;
 #scroll
 yarn workspace @warp-toad/backend hardhat run scripts/deploy/scroll/initializeL2Scroll.ts --network scrollSepolia;
 ```
