@@ -6,8 +6,6 @@ import { time, loadFixture } from "@nomicfoundation/hardhat-toolbox/network-help
 // aztec
 import { ethers } from "ethers";
 
-import { sha256ToField } from "@aztec/foundation/crypto";
-
 //misc
 import os from 'os';
 

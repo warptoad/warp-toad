@@ -30,7 +30,7 @@ import aztecDeploymentsSandbox from "../deploy/aztec/aztecDeployments/31337/depl
 
 import { AccountManager, Wallet } from '@aztec/aztec.js/wallet';
 import { PXE } from '@aztec/pxe/server';
-import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
+import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
 
@@ -168,14 +168,15 @@ export async function getL2AZTECContracts(
         instance: l2AztecAdapterContractInstance,
         artifact: L2AztecBridgeAdapterContractArtifact
     })
-    await l2Wallet.registerContract({
-        instance: aztecWarpToadContractInstance,
-        artifact: WarpToadCoreContractArtifact
-    })
-    await l2Wallet.registerContract({
-        instance: l2AztecAdapterContractInstance,
-        artifact: L2AztecBridgeAdapterContractArtifact
-    })
+    console.log("cant register contract on wallet object but can on PXE obj?? TODO report bug.")
+    await l2Wallet.registerContract(
+        aztecWarpToadContractInstance,
+        WarpToadCoreContractArtifact
+    )
+    await l2Wallet.registerContract(
+        l2AztecAdapterContractInstance,
+        L2AztecBridgeAdapterContractArtifact
+    )
     await delay(10000)
     const aztecWarpToad = await WarpToadCoreContract.at(aztecWarpToadContractInstance.address, l2Wallet);
     const l2AztecBridgeAdapter = await L2AztecBridgeAdapterContract.at(l2AztecAdapterContractInstance.address, l2Wallet)

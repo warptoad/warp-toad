@@ -13,6 +13,7 @@ import fs from "fs/promises";
 import {  checkFileExists, getContractAddressesAztec, getContractAddressesEvm, getEvmDeployedAddressesFilePath, getEvmDeployedAddressesFolderPath, promptBool } from "../../dev_op/utils";
 import hre from "hardhat";
 import { ethers } from "hardhat";
+import { SolidityParameterType } from "@nomicfoundation/ignition-core";
 const provider = ethers.provider;
 
 
@@ -69,8 +70,8 @@ async function main() {
     const { gigaBridge, L1AztecBridgeAdapter, L1ScrollBridgeAdapter } = await hre.ignition.deploy(L1InfraModule, {
         parameters: {
             L1InfraModule: {
-                LazyIMTLibAddress: LazyIMTLib.target,
-                L1WarpToadAddress: L1WarpToad.target,
+                LazyIMTLibAddress: LazyIMTLib.target as SolidityParameterType,
+                L1WarpToadAddress: L1WarpToad.target as SolidityParameterType,
                 L1ScrollMessengerAddress: L1ScrollMessengerAddress
             }
         },
@@ -123,8 +124,8 @@ async function main() {
         await hre.run("verify:verify", {
         address: LazyIMTLib.target,
         contract: "@zk-kit/lazy-imt.sol/LazyIMT.sol:LazyIMT",
-        constructorArguments: journalDataPerAddress[LazyIMTLib.target].constructorArgs,
-        libraries: journalDataPerAddress[LazyIMTLib.target].libraries,
+        constructorArguments: journalDataPerAddress[LazyIMTLib.target.toString()].constructorArgs,
+        libraries: journalDataPerAddress[LazyIMTLib.target.toString()].libraries,
         });
         await sleep(waitTimeBetweenVerify)
 
@@ -144,8 +145,8 @@ async function main() {
         await hre.run("verify:verify", {
         address: gigaBridge.target,
         contract: "contracts/evm/GigaBridge.sol:GigaBridge",
-        constructorArguments: journalDataPerAddress[gigaBridge.target].constructorArgs,
-        libraries: journalDataPerAddress[gigaBridge.target].libraries,
+        constructorArguments: journalDataPerAddress[gigaBridge.target.toString()].constructorArgs,
+        libraries: journalDataPerAddress[gigaBridge.target.toString()].libraries,
         });
         await sleep(waitTimeBetweenVerify)
         
@@ -155,8 +156,8 @@ async function main() {
         await hre.run("verify:verify", {
         address: L1WarpToad.target,
         contract: "contracts/evm/warptoad/L1WarpToad.sol:L1WarpToad",
-        constructorArguments: journalDataPerAddress[L1WarpToad.target].constructorArgs,
-        libraries: journalDataPerAddress[L1WarpToad.target].libraries,
+        constructorArguments: journalDataPerAddress[L1WarpToad.target.toString()].constructorArgs,
+        libraries: journalDataPerAddress[L1WarpToad.target.toString()].libraries,
         });
         await sleep(waitTimeBetweenVerify)
 
@@ -164,8 +165,8 @@ async function main() {
         await hre.run("verify:verify", {
         address: withdrawVerifier.target,
         contract: "contracts/evm/withdrawVerifier.sol:WithdrawVerifier",
-        constructorArguments: journalDataPerAddress[withdrawVerifier.target].constructorArgs,
-        libraries: journalDataPerAddress[withdrawVerifier.target].libraries,
+        constructorArguments: journalDataPerAddress[withdrawVerifier.target.toString()].constructorArgs,
+        libraries: journalDataPerAddress[withdrawVerifier.target.toString()].libraries,
         });
         await sleep(waitTimeBetweenVerify)
 
@@ -175,8 +176,8 @@ async function main() {
         await hre.run("verify:verify", {
         address: L1AztecBridgeAdapter.target,
         contract: "contracts/evm/adapters/L1AztecBridgeAdapter.sol:L1AztecBridgeAdapter",
-        constructorArguments: journalDataPerAddress[L1AztecBridgeAdapter.target].constructorArgs,
-        libraries: journalDataPerAddress[L1AztecBridgeAdapter.target].libraries,
+        constructorArguments: journalDataPerAddress[L1AztecBridgeAdapter.target.toString()].constructorArgs,
+        libraries: journalDataPerAddress[L1AztecBridgeAdapter.target.toString()].libraries,
         });
         await sleep(waitTimeBetweenVerify)
 
@@ -184,8 +185,8 @@ async function main() {
         await hre.run("verify:verify", {
         address: L1ScrollBridgeAdapter.target,
         contract: "contracts/evm/adapters/L1ScrollBridgeAdapter.sol:L1ScrollBridgeAdapter",
-        constructorArguments: journalDataPerAddress[L1ScrollBridgeAdapter.target].constructorArgs,
-        libraries: journalDataPerAddress[L1ScrollBridgeAdapter.target].libraries,
+        constructorArguments: journalDataPerAddress[L1ScrollBridgeAdapter.target.toString()].constructorArgs,
+        libraries: journalDataPerAddress[L1ScrollBridgeAdapter.target.toString()].libraries,
         });
         await sleep(waitTimeBetweenVerify)
     }

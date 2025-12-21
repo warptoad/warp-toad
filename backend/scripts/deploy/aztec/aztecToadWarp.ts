@@ -5,8 +5,7 @@ import { WarpToadCoreContract } from '../../../contracts/aztec/WarpToadCore/src/
 import { USDcoin } from '../../../typechain-types';
 import { TestWallet } from "@aztec/test-wallet/server";
 import { EthAddressLike } from "@aztec/aztec.js/abi";
-import { Fr } from "@aztec/foundation/fields";
-
+import { Fr } from '@aztec/aztec.js/fields';
 export async function deployAztecWarpToad(nativeToken: USDcoin | any, deployerWallet: TestWallet, sponsoredPaymentMethod: SponsoredFeePaymentMethod | undefined, contractAddressSalt?:Fr) {
     contractAddressSalt ??= Fr.random()
     console.log("deploying Aztec Warptoad")

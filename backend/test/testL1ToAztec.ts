@@ -9,8 +9,6 @@ import { time, loadFixture } from "@nomicfoundation/hardhat-toolbox/network-help
 import { BytesLike, ethers } from "ethers";
 
 
-import { sha256ToField } from "@aztec/foundation/crypto";
-
 // other
 import { poseidon2, poseidon3 } from 'poseidon-lite'
 import os from 'os';

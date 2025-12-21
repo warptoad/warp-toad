@@ -4,7 +4,7 @@ import { L2AztecBridgeAdapterContract } from '../../../contracts/aztec/L2AztecBr
 
 import { TestWallet } from "@aztec/test-wallet/server";
 import { EthAddressLike } from "@aztec/aztec.js/abi";
-import { Fr } from "@aztec/foundation/fields";
+import { Fr } from "@aztec/aztec.js/fields";
 
 export async function deployL2AztecBridgeAdapter(L1AztecBridgeAdapter: EthAddressLike, deployerWallet: TestWallet, sponsoredPaymentMethod: SponsoredFeePaymentMethod | undefined, contractAddressSalt?: Fr) {
     contractAddressSalt ??= Fr.random()

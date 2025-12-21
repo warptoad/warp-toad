@@ -192,7 +192,7 @@ pub contract WarpToadCore {
         let recipient = sender;
 
         // Will fail if insufficient balance so no need for bal checkssssss
-        self.storage.balances.at(sender).add(amount).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        self.storage.balances.at(sender).sub(amount).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
 
 
         let warptoad_note: WarpToadNote = WarpToadNote::new(

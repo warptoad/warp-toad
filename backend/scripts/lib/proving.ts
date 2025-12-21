@@ -25,6 +25,7 @@ import { parseEventFromTx, parseMultipleEventsFromTx } from "./bridging";
 const abiCoder = new ethers.AbiCoder()
 
 import { poseidon2 } from "poseidon-lite";
+import { BlockNumber } from "@aztec/foundation/branded-types";
 // export async function connectPXE() {
 //     console.log("creating PXE client")
 //     const PXE = createPXEClient(PXE_URL);
@@ -184,7 +185,7 @@ export async function getGigaMerkleData(gigaBridge:GigaBridge,localRoot:bigint, 
 export async function getAztecNoteHashTreeRoot(blockNumber:number, aztecNode:AztecNode): Promise<bigint> {
     // do aztec things
     // PXE = PXE ? PXE : (await connectPXE()).PXE;
-    const block = await aztecNode.getBlock(blockNumber)
+    const block = await aztecNode.getBlock(blockNumber as BlockNumber)
     return block?.header.state.partial.noteHashTree.root.toBigInt() as bigint
 }
 
@@ -248,7 +249,7 @@ export async function getL1BridgeAdapterAztec(WarpToad:WarpToadAztec, aztecWalle
 export async function getAztecMerkleData(WarpToad:WarpToadAztec, commitment:bigint, destinationLocalRootBlock:number, PXE:PXE, aztecWallet:AztecWallet)  {
     console.log("finding unique_note_hash index within the tx")
     // TODO cleanup. Why here??
-    await PXE.registerContract(WarpToad)
+    //await PXE.registerContract(WarpToad)
     console.log({"warptoadAddressAztec":WarpToad.address})
     const warpToadNoteFilter:NotesFilter = {
         contractAddress: WarpToad.address, 

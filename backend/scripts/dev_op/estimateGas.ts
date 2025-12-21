@@ -3,7 +3,6 @@ import { ethers, NonceManager } from 'ethers';
 import fs from "fs/promises";
 import { USDcoin__factory, L1WarpToad, USDcoin, L1WarpToad__factory } from '../../typechain-types';
 import { hashCommitment, hashPreCommitment } from '../lib/hashing';
-const aztec = import('@aztec/aztec.js');
 import { createProof, getProofInputs } from '../lib/proving';
 import os from 'os';
 

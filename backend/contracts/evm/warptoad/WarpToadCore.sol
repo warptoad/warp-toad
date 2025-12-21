@@ -33,6 +33,8 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore,ILocalRootProvider, IGiga
     
     address deployer;
 
+    mapping(uint256 => bool) public nullifiers; 
+
     LazyIMTData public commitTreeData; // does this need to be public?
     uint8 public maxTreeDepth;
 
@@ -143,6 +145,8 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore,ILocalRootProvider, IGiga
         
         bytes32[] memory _publicInputs = _formatPublicInputs(_nullifier, block.chainid, _amount, _gigaRoot, _localRoot, _feeFactor, _priorityFee, _maxFee, _relayer, _recipient);
         require(IVerifier(withdrawVerifier).verify(_poof, _publicInputs), "invalid proof"); 
+        require(nullifiers[_nullifier] == false, "nullifier already exist");
+        nullifiers[_nullifier] = true;
 
         // fee logic       
         if (_feeFactor != 0 ) { // 

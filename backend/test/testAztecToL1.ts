@@ -203,7 +203,7 @@ describe("AztecWarpToad", function () {
             // TLDR is that context.version is basically their chainId likely. But we cant just use it as is because it doesnt care about conflicting with existing chainIds and currently return 1 (the same as L1  🙃)
             expect(chainIdAztecFromContract).to.equal(chainIdAztecFromContract);
             //expect(chainIdEvmProvider).to.not.equal(chainIdAztecFromContract);
-            expect(balancePostBurn).to.equal(balancePreBurn - amountToBurn1);
+            expect(balancePostBurn).to.equal(balancePreBurn - amountToBurn1, "aaaaaaaaaaa");
 
             // relayer fee logic
             const priorityFee = 100000000n;// in wei (this is 0.1 gwei)
@@ -346,7 +346,7 @@ describe("AztecWarpToad", function () {
             const marginOfErrorFee = 5 //no more than 5% off!
             console.log({overPayPercentage})
             expect(overPayPercentage).approximately(0, marginOfErrorFee, "This likely failed because HRE does something bad in gas calculation. Run it in something like an anvil node/aztecSandbox instead. Or gas usage changed")
-            expect(balanceRecipientPostMint).to.above(balanceRecipientPreMint + ethers.toBigInt(proofInputs.amount) - maxFee)
+            expect(balanceRecipientPostMint).to.above(balanceRecipientPreMint + ethers.toBigInt(proofInputs.amount) - maxFee,"oeps")
         });
     });
 });

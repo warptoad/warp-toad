@@ -1,6 +1,6 @@
 
 import { ethers } from "ethers";
-import { Wallet as AztecWallet, BaseWallet } from "@aztec/aztec.js/wallet"
+import { Wallet as AztecWallet } from "@aztec/aztec.js/wallet"
 import { createStore } from "@aztec/kv-store/lmdb";
 import { AztecNode, createAztecNodeClient } from "@aztec/aztec.js/node";
 import { createPXE, getPXEConfig, PXE } from "@aztec/pxe/server";
