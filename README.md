@@ -9,10 +9,10 @@ npm install --global yarn;
 yarn install;
 ```
 
-make sure you're on aztec 3.0.0-rc.4
+make sure you're on aztec 3.0.0-devnet.20251212
 
 ```shell
-aztec-up 3.0.0-rc.4
+aztec-up 3.0.0-devnet.20251212
 ```
 
 install noir and backend
@@ -37,7 +37,7 @@ yarn run b:circuit
 ## run sandbox (needed for local/sandbox deployment)
 in a new shell window run either:
 ```shell
-VERSION=3.0.0-rc.4 aztec start --local-network
+VERSION=3.0.0-devnet.20251212 aztec start --local-network
 ```
 or
 ```shell
