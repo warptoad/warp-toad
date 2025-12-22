@@ -302,7 +302,7 @@
 			</Alert>
 		{:else if needsNetworkSwitch}
 			<div class="text-sm text-muted-foreground text-center py-2">
-				⚠️ Wrong network - open wallet settings to switch to {selectedChain}
+				 Wrong network - open wallet settings to switch to {selectedChain}
 			</div>
 		{:else if !isChainAvailable(selectedChain)}
 			<Alert variant="destructive">

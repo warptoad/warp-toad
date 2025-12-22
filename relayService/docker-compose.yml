@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  relayer-service:
+    build:
+      context: ..
+      dockerfile: relayService/Dockerfile
+    container_name: relayer-service
+    ports:
+      - "127.0.0.1:7777:7777"
+    environment:
+      - NODE_ENV=production
+      - PORT=7777
+    env_file:
+      - .env
+    restart: unless-stopped
+    networks:
+      - bridge-network
+
+networks:
+  bridge-network:
+    driver: bridge

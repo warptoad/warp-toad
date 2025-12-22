@@ -72,6 +72,51 @@ export function getWalletInstance(): Wallet | null {
 }
 
 /**
+ * Get the Aztec node URL from the connected Azguard wallet
+ * Falls back to environment config if wallet doesn't expose it
+ */
+export async function getAztecNodeUrlFromWallet(): Promise<string> {
+	if (!walletInstance) {
+		// No wallet connected, use environment config
+		return AZTEC_CONFIG.nodeUrl;
+	}
+	
+	try {
+		// Try to get chain info from wallet (may include node URL)
+		const chainInfo = await walletInstance.getChainInfo();
+		
+		// Check if chainInfo has a node/pxe URL property
+		// The Azguard wallet may expose this differently
+		const walletWithUrl = chainInfo as any;
+		if (walletWithUrl.nodeUrl) {
+			console.log('Using Aztec node URL from Azguard wallet:', walletWithUrl.nodeUrl);
+			return walletWithUrl.nodeUrl;
+		}
+		if (walletWithUrl.pxeUrl) {
+			console.log('Using Aztec PXE URL from Azguard wallet:', walletWithUrl.pxeUrl);
+			return walletWithUrl.pxeUrl;
+		}
+		
+		// If Azguard doesn't expose the URL, check the wallet object directly
+		const walletObj = walletInstance as any;
+		if (walletObj.nodeUrl) {
+			console.log('Using node URL from wallet object:', walletObj.nodeUrl);
+			return walletObj.nodeUrl;
+		}
+		if (walletObj.pxe?.nodeUrl) {
+			console.log('Using node URL from PXE:', walletObj.pxe.nodeUrl);
+			return walletObj.pxe.nodeUrl;
+		}
+	} catch (error) {
+		console.warn('Could not get node URL from Azguard wallet, using config:', error);
+	}
+	
+	// Fallback to environment config
+	console.log('Using Aztec node URL from environment config:', AZTEC_CONFIG.nodeUrl);
+	return AZTEC_CONFIG.nodeUrl;
+}
+
+/**
  * Check if wallet is currently connected
  */
 export function isWalletConnected(): boolean {
@@ -79,6 +124,7 @@ export function isWalletConnected(): boolean {
 	
 	// Check if wallet instance has connected property
 	const azguardWallet = walletInstance as unknown as { connected?: boolean };
+
 	return azguardWallet.connected ?? false;
 }
 
