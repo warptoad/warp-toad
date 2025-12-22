@@ -23,6 +23,7 @@ pub contract WarpToadCore {
     use dep::aztec::note::note_getter::get_notes;
     use aztec::context::{self, utility_context::UtilityContext};
     use aztec::{
+        oracle::notes::check_nullifier_exists,
         event::event_emission::emit_event_in_private,
         history::public_storage::PublicStorageHistoricalRead,
         macros::{events::event, functions::{external, initializer}, storage::storage},
@@ -364,6 +365,11 @@ pub contract WarpToadCore {
             NoteGetterOptions::<WarpToadNote, 4, _ , _>::new()
         );
         retrieved_notes
+    }
+
+    #[external("utility")]
+    unconstrained fn nullifier_exists(nullifier: Field) -> bool {
+        check_nullifier_exists(nullifier)
     }
 
 }

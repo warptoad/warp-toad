@@ -175,26 +175,6 @@ describe("AztecWarpToad", function () {
             const preCommitment1 = hashPreCommitment(commitmentPreImg1.nullifier_preimg, commitmentPreImg1.secret, commitmentPreImg1.destination_chain_id) 
             await (await L1WarpToadWithSender.burn(preCommitment1, commitmentPreImg1.amount)).wait(1)
 
-
-            // ------------------make a root------------------------------------
-            // our merkle tree is lazy. So we need to wake him up and store a the local root manually!!
-            await (await L1WarpToadWithRelayer.storeLocalRootInHistory()).wait(1)
-            // no need to bridge we're staying on L1. How comfy! 
-            // but we do need a gigaRoot since we just deployed and it doesn't even exist yet!
-
-            // const {gigaRootUpdateTx} = await updateGigaRoot(
-            //     gigaBridge,
-            //     localRootProviders,
-            // )
-            const gigaRootRecipients = [L1WarpToad.target] // only me. effectively no altruism :P
-            const {sendGigaRootTx} = await sendGigaRoot(
-                gigaBridge,
-                gigaRootRecipients,
-                [] // no payable gigaRootRecipients
-            )
-
-
-
             // -------------mint-----------------------------------
             // relayer fee logic
             const priorityFee = 100000000n;// in wei (this is 0.1 gwei)
