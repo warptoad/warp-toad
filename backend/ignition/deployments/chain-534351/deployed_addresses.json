@@ -1,8 +1,8 @@
 {
-  "L2ScrollModule#L1ScrollBridgeAdapter": "0xD4641657D1d5944Abc9E59f73dd3Eee1014eBF27",
+  "L2ScrollModule#L1ScrollBridgeAdapter": "0xC73398102d6b307106067495FA56EB788C226485",
   "L2ScrollModule#PoseidonT3": "0x3333333C0A88F9BE4fd23ed0536F9B6c427e3B93",
-  "L2ScrollModule#WithdrawVerifier": "0xB9C93eE02C513c465118FAA2B8c4F1f23a0E1901",
-  "L2ScrollModule#LazyIMT": "0x1df41222f6D18dCdc411844afE248a2cf9df807c",
-  "L2ScrollModule#L2WarpToad": "0xaab7Ade1Fb19B9cdb6cc22b9Da623F0cd645e157",
-  "L2ScrollModule#L2ScrollBridgeAdapter": "0x4FB96E963Fb5070a88fB543Cabc423b56101304a"
+  "L2ScrollModule#WithdrawVerifier": "0x902C8a27Fb41B5eE20E0EF9Ba9f4666Be2B2C688",
+  "L2ScrollModule#LazyIMT": "0x7B3343cf26529F778ca1FE441fba7494A14Fc6F6",
+  "L2ScrollModule#L2WarpToad": "0xAB93756c4cE5473f3F34407B7E50c39D90221948",
+  "L2ScrollModule#L2ScrollBridgeAdapter": "0x950e696C69965E58EE0c7Dd8fd8e0D3e6a65aa1D"
 }
