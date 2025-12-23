@@ -23,6 +23,7 @@
         "SLOAD",
         "SOAD",
         "staticcall",
+        "Stringyfied",
         "tornadocash",
         "typechain",
         "Uints",

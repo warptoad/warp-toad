@@ -20,6 +20,7 @@ import { PublicKeys } from "@aztec/aztec.js/keys";
 import { ContractArtifact } from "@aztec/aztec.js/abi";
 import { Wallet } from "@aztec/aztec.js/wallet";
 import { ethers } from "hardhat";
+import { BytesLike } from "ethers";
 export interface DeploymentArtifact {
   // these are things you need to store at deployment
   address: AztecAddress,
@@ -31,6 +32,22 @@ export interface DeploymentArtifact {
   // these can technically be recovered from contractArtifact
   version: number,
   classId: Fr,
+
+  // the contract artifact it self, just so you never lose it and can always verify it!
+  contractArtifact: ContractArtifact,
+}
+
+export interface DeploymentStringyfiedArtifact {
+  // these are things you need to store at deployment
+  address: string,
+  deployer: string,
+  constructorArgs: string[],
+  salt: string,
+  publicKeys: string[]
+
+  // these can technically be recovered from contractArtifact
+  version: string,
+  classId: string,
 
   // the contract artifact it self, just so you never lose it and can always verify it!
   contractArtifact: ContractArtifact,

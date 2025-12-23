@@ -20,7 +20,8 @@ async function connectAztec(PXE_URL: string, chainId: bigint) {
     // const wallet = (await getAztecTestAccounts(aztecNode))[0]
     const [alice] = await getInitialTestAccountsData()
     const { wallet, sponsoredPaymentMethod } = await getAztecWallet(PXE_URL, alice, isSanbox)
-    return { aztecNode, aztecWallet: wallet, sponsoredPaymentMethod: sponsoredPaymentMethod, PXE:wallet }
+    const PXE = await initPXE(aztecNode,chainId) //TOD remove this. No PXE anymore just wallet!
+    return { aztecNode, aztecWallet: wallet, sponsoredPaymentMethod: sponsoredPaymentMethod, PXE:PXE }
 
 }
 

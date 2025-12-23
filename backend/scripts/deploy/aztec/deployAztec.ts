@@ -54,17 +54,17 @@ async function main() {
     console.log({ L2AztecBridgeAdapter: L2AztecBridgeAdapter.address })
     const deployments = {
         AztecWarpToad: {
-            address: AztecWarpToad.address,
-            deploymentArtifact:AztecWarpToadDeployArtifact
+            address: AztecWarpToad.address
         },
         L2AztecBridgeAdapter: {
-            address: L2AztecBridgeAdapter.address,
-            deploymentArtifact: L2AztecBridgeAdapterDeployArtifact
+            address: L2AztecBridgeAdapter.address
         }
     }
 
     try { await fs.mkdir(folderPath) } catch { console.warn(`praying the folder already exist ${folderPath}`) }
     await fs.writeFile(deployedAddressesPath, JSON.stringify(deployments, null, 2));
+    await fs.writeFile(`${folderPath}/AztecWarpToadDeployArtifact.json`, JSON.stringify(AztecWarpToadDeployArtifact))
+    await fs.writeFile(`${folderPath}/L2AztecBridgeAdapterDeployArtifact.json`, JSON.stringify(L2AztecBridgeAdapterDeployArtifact))
     console.log(`
     deployed: 
         AztecWarpToad:              ${AztecWarpToad.address}

@@ -411,7 +411,6 @@ export async function waitForBlocksAztec(blocksToWait: number, aztecNode: AztecN
     const waitTillBlock = blockBeforeWaiting + blocksToWait
     let waiting = true
     while (waiting) {
-        console.log({ waiting })
         const currentBlock = await aztecNode.getBlockNumber()
         waiting = currentBlock < waitTillBlock
         console.log(`waiting ${L1BlockTime / 2 * blocksToWait / 1000} seconds until ${blocksToWait} aztec blocks have passed. blocks passed: ${currentBlock - blockBeforeWaiting}`)
