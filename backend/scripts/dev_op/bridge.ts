@@ -6,17 +6,21 @@ import { getL1Contracts, getL2Contracts, getAztecTestWallet } from "../dev_op/de
 import { getLocalRootProviders, getPayableGigaRootRecipients, bridgeBetweenL1AndL2, sleep } from "../lib/bridging"//'@warp-toad/backend/bridging';
 import { PXE } from '@aztec/pxe/server';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
-import { getAztecTestAccounts, initPXE } from 'scripts/deploy/utils/aztecUtilsNoEnv';
+import { getAztecTestAccounts, getAztecWallet, initPXE } from 'scripts/deploy/utils/aztecUtilsNoEnv';
+import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 
 const AZTEC_NODE_URL = "https://aztec-alpha-testnet-fullnode.zkv.xyz"
 
 
 async function connectAztec(PXE_URL: string, chainId: bigint) {
     const aztecNode = createAztecNodeClient(PXE_URL);
-    const PXE = await initPXE(aztecNode, chainId)
-    //const { wallet, sponsoredPaymentMethod } = await getAztecTestWallet(PXE, chainId,AZTEC_NODE_URL)
-    const wallet = (await getAztecTestAccounts(aztecNode))[0]
-    return { PXE, aztecNode, aztecWallet: wallet, sponsoredPaymentMethod: undefined }
+    const isSanbox = chainId === 31337n
+    // const PXE = await initPXE(aztecNode, chainId)
+    // //const { wallet, sponsoredPaymentMethod } = await getAztecTestWallet(PXE, chainId,AZTEC_NODE_URL)
+    // const wallet = (await getAztecTestAccounts(aztecNode))[0]
+    const [alice] = await getInitialTestAccountsData()
+    const { wallet, sponsoredPaymentMethod } = await getAztecWallet(PXE_URL, alice, isSanbox)
+    return { aztecNode, aztecWallet: wallet, sponsoredPaymentMethod: sponsoredPaymentMethod, PXE:wallet }
 
 }
 
@@ -30,7 +34,7 @@ async function main() {
     parser.add_argument('-ep', '--evmPrivatekey', { help: 'give me ur evmPrivatekey you can trust me! Defaults to standard anvil key', required: false, default: "0x4bbbf85ce3377467afe5d46f804f221813b2bb87f24d81f60f1fcdbf7cbf4356" });
     // TODO actually use this key. Rn it's using a hardcoded default
     parser.add_argument('-ap', '--aztecPrivatekey', { help: 'give me ur aztecPrivatekey you can trust me! Defaults to getInitialTestAccountsWallets() but that only works on sandbox', required: false, default: "sandbox" });
-    parser.add_argument('-l', '--localRootProviders', { help: 'a list of contracts to get the local roots from on L1 (can be L1Warptoad or/and any L1<l2name>adapter)', required: false, type: 'str', nargs:"+" });
+    parser.add_argument('-l', '--localRootProviders', { help: 'a list of contracts to get the local roots from on L1 (can be L1Warptoad or/and any L1<l2name>adapter)', required: false, type: 'str', nargs: "+" });
     //parser.add_argument('-g', '--gigaRootRecipients', { help: 'a list of contracts to send the gigaRoot to on L1 (can be L1Warptoad or/and any L1<l2name>adapter)', required: false, type: 'str' });
     parser.add_argument('-L1', '--L1Rpc', { help: 'url for the ethereum L1 rpc', required: false, type: 'str', default: "http://localhost:8545" });
     parser.add_argument('-L2', '--L2Rpc', { help: 'url for L2 rpc', required: false, type: 'str', default: "http://localhost:8080" });
@@ -42,7 +46,7 @@ async function main() {
     // ------------------- process user inputs -------------------
     const l1Provider = new ethers.JsonRpcProvider(args.L1Rpc);
 
-    const l1Wallet =  new NonceManager(new ethers.Wallet(args.evmPrivatekey, l1Provider));
+    const l1Wallet = new NonceManager(new ethers.Wallet(args.evmPrivatekey, l1Provider));
     const l1ChainId = (await l1Provider.getNetwork()).chainId
     if (args.evmPrivatekey === "0x4bbbf85ce3377467afe5d46f804f221813b2bb87f24d81f60f1fcdbf7cbf4356" && l1ChainId !== 31337n) { console.warn("default anvil key used on a l1 network that is not chainId 31337!") }
 
@@ -64,7 +68,7 @@ async function main() {
 
     //------------------- get contract details -------------------------------
     const localRootProviders = args.localRootProviders ? args.localRootProviders : await getLocalRootProviders(l1ChainId)
-    if(!args.localRootProviders) {console.log("selecting all adapters as gigaRoot recipients. THIS WILL BREAK ON SANDBOX!!!!!!!!!!!!!!!!!!!!!!!!!\n if you dont want that, manually put in the addresses of L1Warptoad and L1AztecAdapter with the flag: --localRootProviders")}
+    if (!args.localRootProviders) { console.log("selecting all adapters as gigaRoot recipients. THIS WILL BREAK ON SANDBOX!!!!!!!!!!!!!!!!!!!!!!!!!\n if you dont want that, manually put in the addresses of L1Warptoad and L1AztecAdapter with the flag: --localRootProviders") }
     const { L1Adapter, gigaBridge, l1Warptoad } = await getL1Contracts(l1ChainId, l2ChainId as bigint, l1Wallet, args.isAztec)
     const { L2Adapter, L2WarpToad } = await getL2Contracts(l2Wallet, l1ChainId, l2ChainId, args.isAztec, PXE as PXE, AZTEC_NODE_URL)
     const payableLocalRootProviders = await getPayableGigaRootRecipients(l1ChainId)

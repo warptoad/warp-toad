@@ -114,7 +114,7 @@ PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend bun scripts/dev_o
 #### aztec
 Takes about 0.5-1 hour to run
 ```shell
-yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --L1Rpc UrUrl --L2Rpc http://localhost:8080/ --privatekey 0xUrPrivateKey --isAztec
+yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --L1Rpc UrUrl --L2Rpc https://next.devnet.aztec-labs.com / --privatekey 0xUrPrivateKey --isAztec
 ```
 #### scroll
 Note: You have to use a paid rpc since free rpcs wont allow you to work with events well enough  

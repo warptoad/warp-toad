@@ -47,23 +47,19 @@ async function main() {
 
     //const wallet = await getAztecTestAccount(chainId)
     //------deploy-------------
-    const { AztecWarpToad, constructorArgs: WarpToadContructArgs, contractAddressSalt: WarpToadSalt, deployer: warptoadDeployer } = await deployAztecWarpToad(nativeToken, wallet, sponsoredPaymentMethod)
+    const { AztecWarpToad, deploymentArtifact: AztecWarpToadDeployArtifact } = await deployAztecWarpToad(nativeToken, wallet, sponsoredPaymentMethod)
     console.log({ AztecWarpToad: AztecWarpToad.address })
 
-    const { L2AztecBridgeAdapter, constructorArgs: AdpterContructArgs, contractAddressSalt: AdpterSalt , deployer: adapterDeployer} = await deployL2AztecBridgeAdapter(L1AztecAdapterAddress, wallet, sponsoredPaymentMethod)
+    const { L2AztecBridgeAdapter, deploymentArtifact: L2AztecBridgeAdapterDeployArtifact} = await deployL2AztecBridgeAdapter(L1AztecAdapterAddress, wallet, sponsoredPaymentMethod)
     console.log({ L2AztecBridgeAdapter: L2AztecBridgeAdapter.address })
     const deployments = {
         AztecWarpToad: {
             address: AztecWarpToad.address,
-            constructorArgs: WarpToadContructArgs.map((v)=>v.toString()),
-            contractAddressSalt: WarpToadSalt,
-            deployer: warptoadDeployer
+            deploymentArtifact:AztecWarpToadDeployArtifact
         },
         L2AztecBridgeAdapter: {
             address: L2AztecBridgeAdapter.address,
-            constructorArgs: AdpterContructArgs.map((v)=>v.toString()),
-            contractAddressSalt: AdpterSalt,
-            deployer: adapterDeployer
+            deploymentArtifact: L2AztecBridgeAdapterDeployArtifact
         }
     }
 

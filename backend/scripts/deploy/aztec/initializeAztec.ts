@@ -7,7 +7,8 @@ import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { L2AztecBridgeAdapterContractArtifact } from "../../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter";
 import { Contract, ContractInstanceWithAddress } from "@aztec/aztec.js/contracts";
 import { error } from "console";
-import { initPXE } from "../utils/aztecUtilsNoEnv";
+import { getAztecWallet, initPXE } from "../utils/aztecUtilsNoEnv";
+import { getInitialTestAccountsData } from "@aztec/accounts/testing";
 
 export const delay = async (timeInMs: number) => await new Promise((resolve) => setTimeout(resolve, timeInMs))
 
@@ -16,10 +17,10 @@ async function main() {
 
     const provider = hre.ethers.provider
     const chainId = (await provider.getNetwork()).chainId
+    const isSanbox = chainId === 31337n
+    const [alice] = await getInitialTestAccountsData()
+    const {wallet, sponsoredPaymentMethod} = await getAztecWallet(process.env.PXE_URL as string, alice, isSanbox)
 
-    const wallet = await getAztecTestAccount(chainId)
-
-    const sponsoredPaymentMethod = undefined;
     const evmContractAddresses = evmDeployments[Number(chainId)]
     const aztecContractAddresses = aztecDeployments[Number(chainId)]
     console.log({ aztecContractAddresses })
