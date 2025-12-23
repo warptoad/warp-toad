@@ -8,7 +8,8 @@ use constants::{
 
 use hashing::{hash_commitment,aztec_merkle_verify, evm_merkle_verify,Aztec_merkle_data,Evm_merkle_data};
 
-
+// TODO WARNING INFINITE MINT BUG: Aztec_merkle_data.contract_address can be anything and can be used to forge commitments.
+// move Aztec_merkle_data.contract_address to public input and set it in all L2Warptoad.sol instance
 fn main(
     // ----- public inputs -----
     nullifier: pub Field,

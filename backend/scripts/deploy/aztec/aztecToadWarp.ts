@@ -15,6 +15,6 @@ export async function deployAztecWarpToad(nativeToken: USDcoin | any, deployerWa
 
     const constructorArgs:[EthAddressLike, string,string,bigint] = [nativeToken.target as EthAddressLike, name, symbol, decimals]
     const deployer = (await deployerWallet.getAccounts())[0].item
-    const AztecWarpToad = await WarpToadCoreContract.deploy(deployerWallet, ...constructorArgs).send({contractAddressSalt: contractAddressSalt, from: deployer }).deployed();
+    const AztecWarpToad = await WarpToadCoreContract.deploy(deployerWallet, ...constructorArgs).send({contractAddressSalt: contractAddressSalt, from: deployer, fee:{paymentMethod:sponsoredPaymentMethod} }).deployed();
     return { AztecWarpToad, constructorArgs, contractAddressSalt, deployer };
 }

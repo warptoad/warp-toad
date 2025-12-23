@@ -389,8 +389,19 @@ export async function receiveGigaRootOnAztec(
         console.warn("isSandBox is not set or detected. I hope ur indeed not on sandbox because it will break if u are!")
         await waitForBlocksAztec(blocksToWait, aztecNode, isSandBox, L2AztecBridgeAdapter, aztecWallet);
     }
-
-    const receiveGigaRootTx = await L2AztecBridgeAdapter.methods.receive_giga_root(content_hash, index, AztecWarpToad.address).send({ fee: { paymentMethod: sponsoredPaymentMethod }, from: (await (aztecWallet as AztecWallet).getAccounts())[0].item }).wait({ timeout: 60 * 60 * 12 });
+    let receiveGigaRootTx;
+    const maxFails = 30
+    for (let i = 0; i < maxFails; i++) {
+        try {
+            receiveGigaRootTx = await L2AztecBridgeAdapter.methods.receive_giga_root(content_hash, index, AztecWarpToad.address).send({ fee: { paymentMethod: sponsoredPaymentMethod }, from: (await (aztecWallet as AztecWallet).getAccounts())[0].item }).wait();//({ timeout: 60 * 60 * 12 });
+            break;   
+        } catch (error:any) {
+            console.log(`failed to get gigaRoot to L2Adapter on aztec. trying again in 1 min. ${index} errors out of ${maxFails} limit. Failed tx: ${receiveGigaRootTx?.txHash.toString()}`)
+            console.log(error.message)
+            await sleep(60000)
+        }
+        
+    }
     return { receiveGigaRootTx }
 }
 
@@ -426,7 +437,6 @@ export async function tryUntilItWorks(contract: ethers.Contract | any, funcName:
             await contract[funcName].estimateGas(...funcArgs);
             works = true;
         } catch (error) {
-            console.log("didn't work", error)
             await waitFunc()
         }
     }
@@ -508,7 +518,7 @@ export async function receiveGigaRootOnL2(
             aztecWallet
         )
         const gigaRootOnAztec = await (L2WarpToad as L2WarpToadAZTEC)?.methods.get_giga_root().simulate({ from: (await (aztecWallet as AztecWallet).getAccounts())[0].item })
-        return { receiveGigaRootTx, receiveGigaRootTxHash: receiveGigaRootTx.txHash.hash.toString(), gigaRootOnL2: gigaRootOnAztec }
+        return { receiveGigaRootTx, receiveGigaRootTxHash: receiveGigaRootTx!.txHash.hash.toString(), gigaRootOnL2: gigaRootOnAztec }
     } else {
         //scroll
         if (gigaRootSent) {

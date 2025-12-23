@@ -14,6 +14,7 @@ import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { TestWallet } from "@aztec/test-wallet/server";
 import { getInitialTestAccountsData } from "@aztec/accounts/testing";
 import { getFeeJuiceBalance } from '@aztec/aztec.js/utils';
+import { getAztecWallet } from "../utils/aztecUtilsNoEnv";
 
 const { nativeTokenAddress } = getEnvArgs()
 
@@ -23,6 +24,7 @@ async function main() {
     const provider = hre.ethers.provider
     const nativeToken = new ethers.Contract(nativeTokenAddress, er20Abi, provider)
     const chainId = (await provider.getNetwork()).chainId
+    const isSanbox = chainId === 31337n
 
     const deployedAddresses = await getContractAddressesEvm(chainId)
     const L1AztecAdapterAddress = deployedAddresses["L1InfraModule#L1AztecBridgeAdapter"]
@@ -40,19 +42,15 @@ async function main() {
     }
 
     // Create a wallet and import test accounts
-    // const node = createAztecNodeClient( process.env.PXE_URL as string);
-    // const wallet = await TestWallet.create(node);
-    // const [alice] = await getInitialTestAccountsData();
-    // await wallet.createSchnorrAccount(alice.secret, alice.salt);
-    // const juice = await getFeeJuiceBalance(alice.address, node)
-    // console.log({juice})
+    const [alice] = await getInitialTestAccountsData()
+    const {wallet, sponsoredPaymentMethod} = await getAztecWallet(process.env.PXE_URL as string, alice, isSanbox)
 
-    const wallet = await getAztecTestAccount(chainId)
+    //const wallet = await getAztecTestAccount(chainId)
     //------deploy-------------
-    const { AztecWarpToad, constructorArgs: WarpToadContructArgs, contractAddressSalt: WarpToadSalt, deployer: warptoadDeployer } = await deployAztecWarpToad(nativeToken, wallet, undefined)
+    const { AztecWarpToad, constructorArgs: WarpToadContructArgs, contractAddressSalt: WarpToadSalt, deployer: warptoadDeployer } = await deployAztecWarpToad(nativeToken, wallet, sponsoredPaymentMethod)
     console.log({ AztecWarpToad: AztecWarpToad.address })
 
-    const { L2AztecBridgeAdapter, constructorArgs: AdpterContructArgs, contractAddressSalt: AdpterSalt , deployer: adapterDeployer} = await deployL2AztecBridgeAdapter(L1AztecAdapterAddress, wallet, undefined)
+    const { L2AztecBridgeAdapter, constructorArgs: AdpterContructArgs, contractAddressSalt: AdpterSalt , deployer: adapterDeployer} = await deployL2AztecBridgeAdapter(L1AztecAdapterAddress, wallet, sponsoredPaymentMethod)
     console.log({ L2AztecBridgeAdapter: L2AztecBridgeAdapter.address })
     const deployments = {
         AztecWarpToad: {
