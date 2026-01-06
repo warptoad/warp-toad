@@ -178,6 +178,7 @@ export interface AztecContractAddresses {
  */
 export const AZTEC_CONTRACTS: AztecContractAddresses = (() => {
 	const chain = getAztecChain('Aztec')!;
+	console.log({chain})
 	return {
 		AztecWarpToad: chain.contracts.warpToad,
 		L2AztecBridgeAdapter: chain.contracts.bridgeAdapter,

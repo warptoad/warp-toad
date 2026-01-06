@@ -162,13 +162,13 @@ const AZTEC_CHAIN: AztecChainDefinition = isTestMode
 			warpToad: {
 				address: LocalAztecDeployments.AztecWarpToad.address,
 				constructorArgs: LocalAztecDeployments.AztecWarpToad.constructorArgs,
-				contractAddressSalt: LocalAztecDeployments.AztecWarpToad.contractAddressSalt,
+				contractAddressSalt: LocalAztecDeployments.AztecWarpToad.salt,
 				deployer: LocalAztecDeployments.AztecWarpToad.deployer,
 			},
 			bridgeAdapter: {
 				address: LocalAztecDeployments.L2AztecBridgeAdapter.address,
 				constructorArgs: LocalAztecDeployments.L2AztecBridgeAdapter.constructorArgs,
-				contractAddressSalt: LocalAztecDeployments.L2AztecBridgeAdapter.contractAddressSalt,
+				contractAddressSalt: LocalAztecDeployments.L2AztecBridgeAdapter.salt,
 				deployer: LocalAztecDeployments.L2AztecBridgeAdapter.deployer,
 			},
 		},
@@ -185,13 +185,13 @@ const AZTEC_CHAIN: AztecChainDefinition = isTestMode
 			warpToad: {
 				address: TestnetAztecDeployments.AztecWarpToad.address,
 				constructorArgs: TestnetAztecDeployments.AztecWarpToad.constructorArgs,
-				contractAddressSalt: TestnetAztecDeployments.AztecWarpToad.contractAddressSalt,
+				contractAddressSalt: TestnetAztecDeployments.AztecWarpToad.salt,
 				deployer: TestnetAztecDeployments.AztecWarpToad.deployer,
 			},
 			bridgeAdapter: {
 				address: TestnetAztecDeployments.L2AztecBridgeAdapter.address,
 				constructorArgs: TestnetAztecDeployments.L2AztecBridgeAdapter.constructorArgs,
-				contractAddressSalt: TestnetAztecDeployments.L2AztecBridgeAdapter.contractAddressSalt,
+				contractAddressSalt: TestnetAztecDeployments.L2AztecBridgeAdapter.salt,
 				deployer: TestnetAztecDeployments.L2AztecBridgeAdapter.deployer,
 			},
 		},

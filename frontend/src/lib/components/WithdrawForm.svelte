@@ -1369,15 +1369,6 @@
 						class="h-4 w-4 rounded border-gray-300"
 					/>
 				</div>
-				{#if autoUnwrap}
-					<Alert>
-						<AlertDescription class="text-xs">
-							Note: Auto-unwrap may fail due to a known contract
-							bug. You will receive wrapped tokens that can be
-							unwrapped later.
-						</AlertDescription>
-					</Alert>
-				{/if}
 			{/if}
 
 			<!-- Relay Service Toggle (only for Aztec -> L1) -->

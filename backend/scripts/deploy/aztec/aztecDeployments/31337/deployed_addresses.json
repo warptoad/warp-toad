@@ -7,7 +7,7 @@
       "wrptd-USDC",
       "6"
     ],
-    "contractAddressSalt": "0x0be037ddf732c36a824bd2a4da680a0f468a0b90b93cde9ed376d0c2a81b0e11",
+    "salt": "0x0be037ddf732c36a824bd2a4da680a0f468a0b90b93cde9ed376d0c2a81b0e11",
     "deployer": "0x2974756c17646ca139f79b5710b6aee11e2621ce65c882ffd593cfde58d94072"
   },
   "L2AztecBridgeAdapter": {
@@ -15,7 +15,7 @@
     "constructorArgs": [
       "0x8f86403A4DE0BB5791fa46B8e795C547942fE4Cf"
     ],
-    "contractAddressSalt": "0x0ae1f9bb7e3574089ce4b7333a8242e49e8babbbfbbbfe70bee5a40e9cdaf5f9",
+    "salt": "0x0ae1f9bb7e3574089ce4b7333a8242e49e8babbbfbbbfe70bee5a40e9cdaf5f9",
     "deployer": "0x2974756c17646ca139f79b5710b6aee11e2621ce65c882ffd593cfde58d94072"
   }
 }
