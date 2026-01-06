@@ -3,11 +3,9 @@
  * Auto-generated from Ignition deployments
  * DO NOT EDIT MANUALLY
  * 
- * Generated: 2026-01-06T12:07:57.863Z
+ * Generated: 2026-01-06T21:39:57.577Z
  * Run 'npm run pull:addresses' to update
  */
-
-import type { TokenContract } from "$lib/types/bridge";
 
 export interface ContractAddresses {
 	deploymentBlock?: number;
@@ -43,21 +41,20 @@ export const CONTRACT_ADDRESSES: Record<string, ContractAddresses> = {
     "GigaBridge": "0xEc7F7cFAa21abF4005A61f6FeA3289b1650D991C"
   },
   "534351": {
-    "deploymentBlock": 15684597,
-    "L1ScrollBridgeAdapter": "0x026B97173994E15c32702bE57Ccb607Ab13dD279",
-    "L2WarpToad": "0x67Cc5Ac2029aaA9FD56F7D036d61f2d80A034c10",
-    "L2ScrollBridgeAdapter": "0x1A546E41e84A935d20A40E7a2C38f56a426feBd8"
+    "deploymentBlock": 15967550,
+    "L1ScrollBridgeAdapter": "0x58dc3f54239F26fF424523745b6303e0370355A8",
+    "L2WarpToad": "0xEEBc8d07d54A4Da01DaF41c41acf3597EF11cF93",
+    "L2ScrollBridgeAdapter": "0x89229e10159e29a4C24ac76dE7bbE071D7ab1010"
   },
   "11155111": {
-    "deploymentBlock": 9899477,
-    "USDcoin": "0x7AA44197E3D445f6B3c96Fb3b10B23c13662c656",
-    "L1WarpToad": "0xb8fFBCDBbdfd559C6cF34a9A50a560eadB2B86cd",
-    "L1AztecBridgeAdapter": "0x5b14876b2bDc657258bCfD1935E48402A27Bf0b7",
-    "L1ScrollBridgeAdapter": "0x026B97173994E15c32702bE57Ccb607Ab13dD279",
-    "GigaBridge": "0x4Fc572E0B2C2121AFe531cFCdb9F7eB6Bf461D8c"
+    "deploymentBlock": 9991951,
+    "USDcoin": "0xa0CAa84ebFf522ec43b7Aec844AF36C2ccF86c75",
+    "L1WarpToad": "0x6BaC43F25f30CC76a51cCeA7333Cd03A84F12640",
+    "L1AztecBridgeAdapter": "0x89EceAeCC78324Ef0599aB78f6222Ab10a377221",
+    "L1ScrollBridgeAdapter": "0x58dc3f54239F26fF424523745b6303e0370355A8",
+    "GigaBridge": "0xd98CF1b5bf6C1baB321BC94E0ED9bd20B04aA55f"
   }
 };
-
 
 // Helper to get addresses for a specific chain
 export function getContractAddresses(chainId: number | string): ContractAddresses {

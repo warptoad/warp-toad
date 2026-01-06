@@ -36,8 +36,8 @@ const MOCK_BALANCES: MockTokenBalance[] = [
 export const TOKEN_CONTRACTS: TokenContract[] = [
 	{ 
 		token: 'USDC', 
-		ethereumAddress: '0x7AA44197E3D445f6B3c96Fb3b10B23c13662c656', 	// this is native USDC
-		scrollAddress: '0x67Cc5Ac2029aaA9FD56F7D036d61f2d80A034c10'		// but this is wrptd-USDC!!!
+		ethereumAddress: '0xa0CAa84ebFf522ec43b7Aec844AF36C2ccF86c75', 	// this is native USDC
+		scrollAddress: '0xEEBc8d07d54A4Da01DaF41c41acf3597EF11cF93'		// but this is wrptd-USDC!!!
 	}
 ]
 
