@@ -34,7 +34,7 @@ export interface DeploymentArtifact {
   classId: Fr,
 
   // the contract artifact it self, just so you never lose it and can always verify it!
-  contractArtifact: ContractArtifact,
+  contractArtifact?: ContractArtifact,
 }
 
 export interface DeploymentStringyfiedArtifact {

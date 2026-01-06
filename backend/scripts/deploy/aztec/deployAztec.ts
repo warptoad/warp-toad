@@ -52,12 +52,18 @@ async function main() {
 
     const { L2AztecBridgeAdapter, deploymentArtifact: L2AztecBridgeAdapterDeployArtifact} = await deployL2AztecBridgeAdapter(L1AztecAdapterAddress, wallet, sponsoredPaymentMethod)
     console.log({ L2AztecBridgeAdapter: L2AztecBridgeAdapter.address })
+    
+    // contractArtifact is too big too be in one file
+    const L2AztecBridgeAdapterDeployArgs = structuredClone(L2AztecBridgeAdapterDeployArtifact)
+    const AztecWarpToadDeployDeployArgs = structuredClone(AztecWarpToadDeployArtifact)
+    delete L2AztecBridgeAdapterDeployArgs.contractArtifact
+    delete AztecWarpToadDeployDeployArgs.contractArtifact
     const deployments = {
         AztecWarpToad: {
-            address: AztecWarpToad.address
+            ...L2AztecBridgeAdapterDeployArgs
         },
         L2AztecBridgeAdapter: {
-            address: L2AztecBridgeAdapter.address
+            ...AztecWarpToadDeployDeployArgs
         }
     }
 

@@ -16,12 +16,28 @@ const MOCK_BALANCES: MockTokenBalance[] = [
 	{ token: 'DAI', ethereum: '500.00', scroll: '250.00', aztec: '0.00' },
 	{ token: 'WBTC', ethereum: '0.152', scroll: '0.075', aztec: '0.000' }
 ];
+// @TODO Danish make this not hardcoded. You can do it anyway you like.
+// WarptoadL1/L2 have the func nativeToken which returns the L1 token but not the L2 native token since the contract is unaware of native L2 token bridges
+// So "TOKEN_CONTRACTS" seems ambiguous to me here. I think we are not consistent on that through out our code. 
 
+// i think this is also from confusing design + research i was talking about. 
+// So let we clarify and decide on what we will do 
+
+// in THIS REPO:
+// There is always a nativeL1 token, 
+// sometimes a nativeL2 token but not always (scroll has canonical native token bridge, but facet, aztec, etc not)
+// There is always a wrptd-token, this is just warptoadL1/L2
+// you can ONLY wrap and unwrap on L1.
+
+// FUTURE VERSION (new repo)
+// NEVER unwrap on L2. 
+// can wrap on L2
+// if no canonical token bridge exist we either make our own canonical token
 export const TOKEN_CONTRACTS: TokenContract[] = [
 	{ 
 		token: 'USDC', 
-		ethereumAddress: '0xc74F692152C5f2cC695b14cec86B729ff8b03168',
-		scrollAddress: '0xaab7Ade1Fb19B9cdb6cc22b9Da623F0cd645e157'
+		ethereumAddress: '0x7AA44197E3D445f6B3c96Fb3b10B23c13662c656', 	// this is native USDC
+		scrollAddress: '0x67Cc5Ac2029aaA9FD56F7D036d61f2d80A034c10'		// but this is wrptd-USDC!!!
 	}
 ]
 

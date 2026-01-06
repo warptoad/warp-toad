@@ -510,7 +510,7 @@ export async function bridgeToChain(
  */
 export async function mintFreeTokens(tokenInput: Token, chain: Chain, amount: number): Promise<void> {
 
-    const token = TOKEN_CONTRACTS.find(b => b.token === tokenInput);
+    const token = TOKEN_CONTRACTS.find((b:any) => b.token === tokenInput);
     const chainId = await getChainId()
     if (!token || !chainId) return
     const chainKey = chain.toLowerCase() + "Address" as 'ethereumAddress' | 'scrollAddress' | 'aztecAddress';
