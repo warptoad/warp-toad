@@ -30,6 +30,7 @@ yarn run b:compile:aztec
 ```
 
 ### generate EVM verifier contracts
+TODO for some reason the `yarn b:contract:gen` part of this script only works if you copy paste it in the terminal 
 ```shell
 yarn run b:circuit
 ```

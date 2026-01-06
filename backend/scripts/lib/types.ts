@@ -7,8 +7,6 @@ export type AztecMerkleData = {
     leaf_index: ethers.BytesLike,
     hash_path: ethers.BytesLike[],
     leaf_nonce: ethers.BytesLike,
-    //contract_address: {inner:ethers.BytesLike},
-    contract_address: ethers.BytesLike
 }
 
 
@@ -24,6 +22,7 @@ export type ProofInputs = {
     amount: ethers.BytesLike,
     giga_root: ethers.BytesLike,
     destination_local_root: ethers.BytesLike,
+    aztec_warptoad_address: ethers.BytesLike,
 
     fee_factor: ethers.BytesLike, 
     priority_fee: ethers.BytesLike,

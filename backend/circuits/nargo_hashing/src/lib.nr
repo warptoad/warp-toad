@@ -6,7 +6,6 @@ pub struct Aztec_merkle_data<let D: u32> {
     pub leaf_index: Field,
     pub hash_path: [Field; D],
     pub leaf_nonce: Field,
-    pub contract_address: Field,
 }
 
 pub struct Evm_merkle_data<let D: u32> {
@@ -59,8 +58,9 @@ pub fn aztec_merkle_verify<let D: u32>(
     root: Field,
     leaf: Field,
     merkle_data: Aztec_merkle_data<D>,
+    contract_address: Field
 ) { 
-    let siloed_note_hash = compute_siloed_note_hash(merkle_data.contract_address, leaf);
+    let siloed_note_hash = compute_siloed_note_hash(contract_address, leaf);
     let unique_note_hash = compute_unique_note_hash(merkle_data.leaf_nonce, siloed_note_hash);
     let merkle_tree: MerkleTree<Field> = MerkleTree::from(root, poseidon2_hasher);
     merkle_tree.membership(unique_note_hash, merkle_data.leaf_index, merkle_data.hash_path);

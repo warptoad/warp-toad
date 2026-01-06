@@ -17,6 +17,9 @@ fn main(
     amount: pub Field,
     giga_root: pub Field,
     destination_local_root: pub Field,
+    aztec_warptoad_address: pub Field, //<- this is here to prevent the circuit from allowing commitments from other aztec contracts. 
+    // On aztec we re-use the global note-hash-tree (commitment tree), so other contracts are also able to commit to this tree.
+    // This prevents hackers from creating fake warptoad commitments in a aztec contract they deploy.
 
     // fee_factor is what the contract multiplies by the (baseFee+priorityFee) and pays that to relayer. 
     // So calculating it would be fee_factor = gasCost * EthPriceInWrptdTOKEN * relayerBonusFactor 
@@ -65,7 +68,7 @@ fn main(
     // aztecs tree is different from ours because we haven't come around to making a poseidon2 merkle tree in solidity yet.
     // besides poseidon2 might cost more gas? 
     if (is_from_aztec) {
-        aztec_merkle_verify(origin_local_root, commitment, aztec_merkle_data);
+        aztec_merkle_verify(origin_local_root, commitment, aztec_merkle_data, aztec_warptoad_address);
     } else {
         evm_merkle_verify(origin_local_root, commitment, evm_merkle_data);
     }

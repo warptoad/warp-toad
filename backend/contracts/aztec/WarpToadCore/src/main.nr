@@ -24,12 +24,14 @@ pub contract WarpToadCore {
     use dep::aztec::note::note_getter::get_notes;
     use aztec::context::{self, utility_context::UtilityContext};
     use aztec::{
-        oracle::notes::check_nullifier_exists,
         event::event_emission::emit_event_in_private,
         history::public_storage::PublicStorageHistoricalRead,
-        macros::{events::event, functions::{external, initializer}, storage::storage},
+        macros::{events::event, functions::{external, initializer, view}, storage::storage},
         messages::message_delivery::MessageDelivery,
-        oracle::get_membership_witness::{get_note_hash_membership_witness, MembershipWitness},
+        oracle::{
+            get_membership_witness::{get_note_hash_membership_witness, MembershipWitness},
+            notes::check_nullifier_exists,
+        },
         protocol_types::{address::{AztecAddress, EthAddress}, constants::NOTE_HASH_TREE_HEIGHT},
         state_vars::{
             map::Map, private_set::PrivateSet, public_immutable::PublicImmutable,
@@ -226,7 +228,12 @@ pub contract WarpToadCore {
 
     // Transfers `amount` of tokens from `sender` to a `recipient`.
     #[external("private")]
-    fn transfer(to: AztecAddress, amount: u128) {
+    fn transfer_private_to_private(
+        from: AztecAddress, // TODO unused
+        to: AztecAddress,
+        amount: u128,
+        _nonce: Field, // TODO unused
+    ) {
         let from = self.context.msg_sender().expect(f"From must not be none!");
 
         self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN); // reverts if insufficient funds
@@ -336,6 +343,7 @@ pub contract WarpToadCore {
         self.context.version()
     }
 
+    //------old warptoad name getter (still used in ui and test)-------------------------------------------
     #[external("utility")]
     unconstrained fn public_get_name() -> pub FieldCompressedString {
         self.storage.name.read()
@@ -351,8 +359,41 @@ pub contract WarpToadCore {
         self.storage.decimals.read()
     }
 
+    //----------these are from wonderland, the above does the exact same but is our own naming and should be removed but ui and test still use it :/ 
+    /// @notice Returns the name of the token
+    /// @return The name of the token
+    #[external("public")]
+    #[view]
+    fn name() -> FieldCompressedString {
+        self.storage.name.read()
+    }
+
+    /// @notice Returns the symbol of the token
+    /// @return The symbol of the token
+    #[external("public")]
+    #[view]
+    fn symbol() -> FieldCompressedString {
+        self.storage.symbol.read()
+    }
+
+    /// @notice Returns the decimals of the token
+    /// @return The decimals of the token
+    #[external("public")]
+    #[view]
+    fn decimals() -> u8 {
+        self.storage.decimals.read()
+    }
+    //-------------------------------------------------
+
+    // @TODO this a duplicate of balance_of_private and should be removed. However tests and ui still use this function!
     #[external("utility")]
     unconstrained fn balance_of(owner: AztecAddress) -> u128 {
+        let balance = self.storage.balances.at(owner).balance_of();
+        balance
+    }
+
+    #[external("utility")]
+    unconstrained fn balance_of_private(owner: AztecAddress) -> u128 {
         let balance = self.storage.balances.at(owner).balance_of();
         balance
     }
@@ -370,5 +411,42 @@ pub contract WarpToadCore {
     unconstrained fn nullifier_exists(nullifier: Field) -> bool {
         check_nullifier_exists(nullifier)
     }
+
+    //------------TODO to be implemented -------
+
+    /// @notice Returns the public balance of `owner`
+    /// @param owner The address of the owner
+    /// @return The balance of the public balance of `owner`
+    #[external("public")]
+    #[view]
+    fn balance_of_public(owner: AztecAddress) -> u128 {
+        696969696 //TODO not implemented (azguard needs this)
+    }
+    
+    #[external("private")]
+    fn transfer_private_to_public(
+        from: AztecAddress, // TODO unused
+        to: AztecAddress,
+        amount: u128,
+        _nonce: Field, // TODO unused
+    ) {}
+
+    #[external("private")]
+    fn transfer_public_to_private(
+        from: AztecAddress, // TODO unused
+        to: AztecAddress,
+        amount: u128,
+        _nonce: Field, // TODO unused
+    ) {}
+
+    #[external("public")]
+    fn transfer_public_to_public(
+        from: AztecAddress, // TODO unused
+        to: AztecAddress,
+        amount: u128,
+        _nonce: Field, // TODO unused
+    ) {}
+
+    //---------------------------
 
 }

@@ -282,9 +282,8 @@ export async function getAztecMerkleData(WarpToad:WarpToadAztec, commitment:bigi
         leaf_index: ethers.toBeHex(witness.index),
         hash_path: witness.path.map((h:bigint)=>ethers.toBeHex(h)),
         leaf_nonce: ethers.toBeHex(noteNonce),
-        contract_address: ethers.toBeHex(WarpToad.address.toBigInt())
     }
-    return merkleData
+    return {aztecMerkleData:merkleData, aztecWarptoadAddress:WarpToad.address.toBigInt()}
 }
 
 
@@ -333,15 +332,19 @@ export async function getMerkleData(gigaBridge:GigaBridge, warpToadOrigin: WarpT
     console.log("getting localProof")
     let aztecMerkleData:AztecMerkleData;
     let evmMerkleData:EvmMerkleData;
+    let aztecWarptoadAddress:bigint;
     if (isFromAztec) {
-        aztecMerkleData = await getAztecMerkleData(warpToadOrigin, commitment, Number(destinationLocalRootL2Block),PXE as PXE,aztecWallet as AztecWallet) 
+        const aztecData = await getAztecMerkleData(warpToadOrigin, commitment, Number(destinationLocalRootL2Block),PXE as PXE,aztecWallet as AztecWallet) 
+        aztecWarptoadAddress = aztecData.aztecWarptoadAddress
+        aztecMerkleData = aztecData.aztecMerkleData
         evmMerkleData = emptyEvmMerkleData
     } else {
         aztecMerkleData = emptyAztecMerkleData
+        aztecWarptoadAddress = await ( warpToadOrigin as WarpToadEvm).aztecWarptoadAddress()
         evmMerkleData = await getEvmMerkleData(warpToadOrigin, commitment, EVM_TREE_DEPTH, Number(destinationLocalRootL2Block));
     }
 
-    return {isFromAztec, gigaMerkleData,evmMerkleData,aztecMerkleData, originLocalRoot, blockNumber: gigaRootArrivalBlockNumber}
+    return {isFromAztec, gigaMerkleData,evmMerkleData,aztecMerkleData, originLocalRoot, blockNumber: gigaRootArrivalBlockNumber, aztecWarptoadAddress}
 }
 
 export async function getProofInputs(
@@ -377,7 +380,8 @@ export async function getProofInputs(
         gigaMerkleData,
         evmMerkleData,
         aztecMerkleData, 
-        originLocalRoot
+        originLocalRoot,
+        aztecWarptoadAddress
     } = await getMerkleData(gigaBridge,warpToadOrigin,warpToadDestination, commitment, aztecWallet, PXE, aztecNode)
     const proofInputs: ProofInputs = {
         // ----- public inputs -----
@@ -386,6 +390,7 @@ export async function getProofInputs(
         amount: ethers.toBeHex(amount),
         giga_root: ethers.toBeHex(gigaRoot),
         destination_local_root: ethers.toBeHex(destinationLocalRoot),
+        aztec_warptoad_address: ethers.toBeHex(aztecWarptoadAddress),
 
         fee_factor: ethers.toBeHex(feeFactor),
         priority_fee: ethers.toBeHex(priorityFee),

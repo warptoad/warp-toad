@@ -4,7 +4,7 @@ import { expect } from "chai";
 // import { time, loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers.js";
 
 //aztec
-import { BytesLike, ethers } from "ethers";
+import { BytesLike, ethers, toBigInt } from "ethers";
 // //@ts-ignore
 // import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
 // //@ts-ignore
@@ -131,7 +131,7 @@ describe("AztecWarpToad", function () {
         await L1AztecBridgeAdapter.initialize(aztecNativeBridgeRegistryAddress, L2AztecBridgeAdapter.address.toString(), gigaBridge.target);
         
         //connect toads
-        await L1WarpToad.initialize(gigaBridge.target, L1WarpToad.target) // <- L1WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
+        await L1WarpToad.initialize(gigaBridge.target, L1WarpToad.target, AztecWarpToad.address.toBigInt()) // <- L1WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
         await AztecWarpToad.methods.initialize(L2AztecBridgeAdapter.address, L1AztecBridgeAdapter.target as any as EthAddressLike).send({from:(await aztecDeployerWallet.getAccounts())[0].item}).wait()// all other warptoad initializations will look like this
 
         return { L2AztecBridgeAdapter, L1AztecBridgeAdapter, gigaBridge, L1WarpToad, nativeToken, LazyIMTLib, PoseidonT3Lib, AztecWarpToad, aztecWallets, evmWallets,PXE };
