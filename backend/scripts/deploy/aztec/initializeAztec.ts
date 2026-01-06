@@ -1,14 +1,16 @@
 // initializing more than one contract? use try and catch!
 import { WarpToadCoreContract, WarpToadCoreContractArtifact } from "../../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore";
-import {  getAztecTestAccount, getContractInstanceFromAddress, initNodeClient } from "../utils/aztecUtils";
+import { getAztecTestAccount, getContractInstanceFromAddress, initNodeClient } from "../utils/aztecUtils";
 import * as hre from "hardhat";
 import { aztecDeployments, evmDeployments } from "../../dev_op/deployment";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { L2AztecBridgeAdapterContractArtifact } from "../../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter";
-import { Contract, ContractInstanceWithAddress } from "@aztec/aztec.js/contracts";
+import { Contract, ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from "@aztec/aztec.js/contracts";
 import { error } from "console";
 import { getAztecWallet, initPXE } from "../utils/aztecUtilsNoEnv";
 import { getInitialTestAccountsData } from "@aztec/accounts/testing";
+import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
+import { getDeploymentArtifactAztec } from "../../dev_op/utils";
 
 export const delay = async (timeInMs: number) => await new Promise((resolve) => setTimeout(resolve, timeInMs))
 
@@ -19,7 +21,7 @@ async function main() {
     const chainId = (await provider.getNetwork()).chainId
     const isSanbox = chainId === 31337n
     const [alice] = await getInitialTestAccountsData()
-    const {wallet, sponsoredPaymentMethod} = await getAztecWallet(process.env.PXE_URL as string, alice, isSanbox)
+    const { wallet, sponsoredPaymentMethod } = await getAztecWallet(process.env.PXE_URL as string, alice, isSanbox)
 
     const evmContractAddresses = evmDeployments[Number(chainId)]
     const aztecContractAddresses = aztecDeployments[Number(chainId)]
@@ -27,8 +29,8 @@ async function main() {
 
     const L1AztecBridgeAdapter = evmContractAddresses["L1InfraModule#L1AztecBridgeAdapter"]
 
-    const {address: AztecWarpToadAddress} = aztecContractAddresses["AztecWarpToad"]
-    const {address: L2AztecAdapterAddress} = aztecContractAddresses["L2AztecBridgeAdapter"]
+    const { address: AztecWarpToadAddress } = aztecContractAddresses["AztecWarpToad"]
+    const { address: L2AztecAdapterAddress } = aztecContractAddresses["L2AztecBridgeAdapter"]
 
 
     // if (chainId !== 31337n) {
@@ -52,22 +54,49 @@ async function main() {
     // }
 
 
-    const aztecWarpToadContractInstance = await getContractInstanceFromAddress(AztecAddress.fromString(AztecWarpToadAddress))
+    //const aztecWarpToadContractInstance = await getContractInstanceFromAddress(AztecAddress.fromString(AztecWarpToadAddress))
     const nodeClient = await initNodeClient()
     const PXE = await initPXE(nodeClient, chainId);
-    PXE.registerContract({
+    // PXE.registerContract({
+    //     instance: aztecWarpToadContractInstance,
+    //     artifact: WarpToadCoreContractArtifact
+    // })
+
+
+
+    //await wallet.registerContract(aztecWarpToadContractInstance, WarpToadCoreContractArtifact)
+
+    const aztecWarpToad = await WarpToadCoreContract.at(AztecAddress.fromString(AztecWarpToadAddress), wallet);
+    const initializationStatus: any = {}
+
+    const warptoadDeployArtifact = await getDeploymentArtifactAztec(chainId, "AztecWarpToad")
+    const adapterDeployArtifact = await getDeploymentArtifactAztec(chainId, "L2AztecBridgeAdapter")
+    const aztecWarpToadContractInstance = await getContractInstanceFromInstantiationParams(
+        WarpToadCoreContractArtifact,
+        {
+            salt: Fr.fromHexString(warptoadDeployArtifact.salt),
+            constructorArgs: warptoadDeployArtifact.constructorArgs.map((v: string) => v.startsWith("0x") ? new Fr(BigInt(v)) : v),
+            deployer: AztecAddress.fromField(Fr.fromHexString(warptoadDeployArtifact.deployer))
+        }
+    )
+    const l2AztecAdapterContractInstance = await getContractInstanceFromInstantiationParams(
+        L2AztecBridgeAdapterContractArtifact,
+        {
+            salt: Fr.fromHexString(adapterDeployArtifact.salt),
+            constructorArgs: adapterDeployArtifact.constructorArgs.map((v: string) => v.startsWith("0x") ? new Fr(BigInt(v)) : v),
+            deployer: AztecAddress.fromField(Fr.fromHexString(adapterDeployArtifact.deployer))
+        }
+    )
+    console.log({instanceAddr:aztecWarpToadContractInstance.address,AztecWarpToadAddress})
+    await PXE.registerContract({
         instance: aztecWarpToadContractInstance,
         artifact: WarpToadCoreContractArtifact
     })
 
-
-
-    await wallet.registerContract(aztecWarpToadContractInstance, WarpToadCoreContractArtifact)
-
-    const aztecWarpToad = await WarpToadCoreContract.at(AztecAddress.fromString(AztecWarpToadAddress), wallet);
-
-
-    const initializationStatus: any = {}
+    await PXE.registerContract({
+        instance: l2AztecAdapterContractInstance,
+        artifact: L2AztecBridgeAdapterContractArtifact
+    })
 
     try {
         await aztecWarpToad.methods.initialize(L2AztecAdapterAddress, L1AztecBridgeAdapter).send({ fee: { paymentMethod: sponsoredPaymentMethod }, from: (await wallet.getAccounts())[0].item }).wait({ timeout: 60 * 60 * 12 }) // <- L1WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
@@ -76,9 +105,12 @@ async function main() {
         console.warn(`couldn't initialize: AztecWarpToad at: ${aztecWarpToad.address}. 
         Was it already initialized?     
         `)
+        const L1AdapterFromAztecWarptoad = await aztecWarpToad.methods.get_l1_bridge_adapter().simulate({ from: (await wallet.getAccounts())[0].item })
+        console.log({ L1AdapterFromAztecWarptoad })
         console.warn(error)
         initializationStatus["AztecWarpToad"] = false
     }
+
 
     console.log(`
         initialized: 

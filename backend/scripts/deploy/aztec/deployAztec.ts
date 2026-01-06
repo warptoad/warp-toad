@@ -60,10 +60,10 @@ async function main() {
     delete AztecWarpToadDeployDeployArgs.contractArtifact
     const deployments = {
         AztecWarpToad: {
-            ...L2AztecBridgeAdapterDeployArgs
+            ...AztecWarpToadDeployDeployArgs
         },
         L2AztecBridgeAdapter: {
-            ...AztecWarpToadDeployDeployArgs
+            ...L2AztecBridgeAdapterDeployArgs
         }
     }
 

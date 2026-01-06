@@ -42,7 +42,7 @@ export async function initNodeClient(): Promise<AztecNode> {
         console.log("creating Aztec Node Client...");
         const node = createAztecNodeClient(PXE_URL);
         const nodeInfo = await node.getNodeInfo();
-        console.log("Connected to sandbox version:", nodeInfo.nodeVersion);
+        console.log("Connected to aztecNode version:", nodeInfo.nodeVersion);
         console.log("Chain ID:", nodeInfo.l1ChainId);
         return node;
 

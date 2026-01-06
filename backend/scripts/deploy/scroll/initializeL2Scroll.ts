@@ -19,7 +19,7 @@ import fs from "fs/promises";
 
 import { vars } from "hardhat/config.js";
 import { evmDeployments } from "../../dev_op/deployment";
-import { getContractAddressesAztec } from "scripts/dev_op/utils";
+import { getContractAddressesAztec } from "../../dev_op/utils";
 const SEPOLIA_URL = vars.get("SEPOLIA_URL")
 
 // function getArgs() {
@@ -62,7 +62,7 @@ async function main() {
     const L1ScrollBridgeAdapterAddress = L1DeployedAddresses["L1InfraModule#L1ScrollBridgeAdapter"]
     const L2WarpToadAddress = L2ScrollDeployedAddresses["L2ScrollModule#L2WarpToad"]
     const L2ScrollBridgeAdapterAddress = L2ScrollDeployedAddresses["L2ScrollModule#L2ScrollBridgeAdapter"]
-    const aztecDeployedAddresses = await getContractAddressesAztec(l2ChainId)
+    const aztecDeployedAddresses = await getContractAddressesAztec(l1ChainId)
     const {address:AztecWarpToadAddress} = aztecDeployedAddresses["AztecWarpToad"]
     console.log({L2WarpToadAddress, l2ChainId,L2ScrollDeployedAddresses })
     const L2WarpToad = L2WarpToad__factory.connect(L2WarpToadAddress, signer)

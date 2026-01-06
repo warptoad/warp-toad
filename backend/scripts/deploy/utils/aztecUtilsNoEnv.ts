@@ -20,18 +20,18 @@ import { PublicKeys } from "@aztec/aztec.js/keys";
 import { ContractArtifact } from "@aztec/aztec.js/abi";
 import { Wallet } from "@aztec/aztec.js/wallet";
 import { ethers } from "hardhat";
-import { BytesLike } from "ethers";
+import { BytesLike, toBeHex } from "ethers";
 export interface DeploymentArtifact {
   // these are things you need to store at deployment
-  address: AztecAddress,
-  deployer: AztecAddress,
+  address: BytesLike,
+  deployer: BytesLike,
   constructorArgs: any[],
-  salt: Fr,
-  publicKeys: PublicKeys
+  salt: BytesLike,
+  publicKeys: BytesLike[],
 
   // these can technically be recovered from contractArtifact
-  version: number,
-  classId: Fr,
+  version: string,
+  classId: BytesLike,
 
   // the contract artifact it self, just so you never lose it and can always verify it!
   contractArtifact?: ContractArtifact,
@@ -104,7 +104,7 @@ export async function initNodeClientNoEnv(nodeUrl: string): Promise<AztecNode> {
         console.log("creating Aztec Node Client...");
         const node = createAztecNodeClient(nodeUrl);
         const nodeInfo = await node.getNodeInfo();
-        console.log("Connected to sandbox version:", nodeInfo.nodeVersion);
+        console.log("Connected to aztecNode versionon:", nodeInfo.nodeVersion);
         console.log("Chain ID:", nodeInfo.l1ChainId);
         return node;
 
@@ -181,7 +181,7 @@ export async function deployAndCreateDeploymentArtifact(wallet: Wallet, account:
     const deployedContract = await deployer.deploy(...constructorArgs).send({ contractAddressSalt: salt, from: account}).deployed();
     const instantiationData = {
         constructorArtifact: constructorName,
-        constructorArgs: constructorArgs,
+        constructorArgs: constructorArgs.map((v)=>typeof v === "bigint" ? toBeHex(v) : v),
         skipArgsDecoding: optionalInstantiontionOpts ? optionalInstantiontionOpts.skipArgsDecoding : undefined,
         salt: salt,
         publicKeys:  optionalInstantiontionOpts ? optionalInstantiontionOpts.publicKeys : undefined,
@@ -189,15 +189,15 @@ export async function deployAndCreateDeploymentArtifact(wallet: Wallet, account:
     }
     const contractInstance = await getContractInstanceFromInstantiationParams(artifact,instantiationData)
     const deploymentArtifact: DeploymentArtifact = {
-        address: deployedContract.address,
-        deployer: account,
-        constructorArgs: constructorArgs.map((v)=> typeof v === "bigint" ? ethers.toBeHex(v) : v ), // TODO maybe make it Fr?? Did this because no stingifying bigints :/
-        salt: salt,
-        publicKeys: contractInstance.publicKeys,
+        address: deployedContract.address.toString(),
+        deployer: account.toString(),
+        constructorArgs: constructorArgs.map((v)=> typeof v === "bigint" ? ethers.toBeHex(v) : v ),
+        salt: salt.toString(),
+        publicKeys: contractInstance.publicKeys.toFields().map((v)=>v.toString()),
 
         // these can technically be recovered from contractArtifact
-        version: contractInstance.version,
-        classId: contractInstance.currentContractClassId,
+        version: contractInstance.version.toString(),
+        classId: contractInstance.currentContractClassId.toString(),
 
         // the contract artifact it self, just so you never lose it and can always verify it!
         contractArtifact: deployedContract.artifact,
