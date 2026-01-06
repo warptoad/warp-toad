@@ -2,7 +2,7 @@ import type { Chain, Token, CommitmentPreImage } from '$lib/types/bridge.js';
 import { TOKEN_CONTRACTS } from '$lib/stores/proofs.svelte';
 import { USDcoinAbi, L1WarpToadAbi } from '$lib/contracts/abis';
 import { createClient, getChainId } from './evm-wallet';
-import { createPublicClient, http, type Hash } from 'viem';
+import { createPublicClient, http, toHex, type Hash } from 'viem';
 import { getContractAddresses, CONTRACT_ADDRESSES } from '$lib/contracts/addresses';
 import { poseidon2, poseidon3 } from 'poseidon-lite';
 import { getEVMChain } from '$lib/config/chains';
@@ -87,8 +87,8 @@ export async function estimateGasFeesForProof(chainId: number): Promise<{
 		
 		// Use the network's priority fee, but ensure minimum of 2 gwei
 		const minPriorityFee = 2_000_000_000n; // 2 gwei minimum
-		const priorityFee = maxPriorityFeePerGas > minPriorityFee 
-			? maxPriorityFeePerGas 
+		const priorityFee = maxPriorityFeePerGas > minPriorityFee
+			? maxPriorityFeePerGas
 			: minPriorityFee;
 		
 		// Max fee should be at least 2x current base fee + priority fee to handle fluctuations
@@ -510,47 +510,47 @@ export async function bridgeToChain(
  */
 export async function mintFreeTokens(tokenInput: Token, chain: Chain, amount: number): Promise<void> {
 
-    const token = TOKEN_CONTRACTS.find((b:any) => b.token === tokenInput);
-    const chainId = await getChainId()
-    if (!token || !chainId) return
-    const chainKey = chain.toLowerCase() + "Address" as 'ethereumAddress' | 'scrollAddress' | 'aztecAddress';
+	const token = TOKEN_CONTRACTS.find((b: any) => b.token === tokenInput);
+	const chainId = await getChainId()
+	if (!token || !chainId) return
+	const chainKey = chain.toLowerCase() + "Address" as 'ethereumAddress' | 'scrollAddress' | 'aztecAddress';
 
-    const client = createClient(chainId)
-    if (!client) return
+	const client = createClient(chainId)
+	if (!client) return
 
-    //get decimals
+	//get decimals
 
-    const rpcUrl = getRpcUrl(chainId);
-    const publicClient = createPublicClient({
-        chain: client.chain,
-        transport: http(rpcUrl)
-    })
+	const rpcUrl = getRpcUrl(chainId);
+	const publicClient = createPublicClient({
+		chain: client.chain,
+		transport: http(rpcUrl)
+	})
 
-    const decimals = await publicClient.readContract({
-        address: token[chainKey] as `0x${string}`,
-        abi: USDcoinAbi,
-        functionName: 'decimals',
-    })
+	const decimals = await publicClient.readContract({
+		address: token[chainKey] as `0x${string}`,
+		abi: USDcoinAbi,
+		functionName: 'decimals',
+	})
 
-    if (!decimals) return
+	if (!decimals) return
 
-    //try to mint tokens
+	//try to mint tokens
 
-    try {
+	try {
 
-        const { request } = await publicClient.simulateContract({
-            address: token[chainKey] as `0x${string}`,
-            abi: USDcoinAbi,
-            account: (await client.getAddresses())[0],
-            functionName: 'getFreeShit',
-            args: [BigInt(amount * 10 ** decimals)]
-        })
+		const { request } = await publicClient.simulateContract({
+			address: token[chainKey] as `0x${string}`,
+			abi: USDcoinAbi,
+			account: (await client.getAddresses())[0],
+			functionName: 'getFreeShit',
+			args: [BigInt(amount * 10 ** decimals)]
+		})
 
-        await client.writeContract(request)
+		await client.writeContract(request)
 
-    } catch (error) {
-        throw error
-    }
+	} catch (error) {
+		throw error
+	}
 
 }
 
@@ -1108,7 +1108,7 @@ export async function getEvmMerkleDataForL1(
 	chainId: number,
 	commitment: bigint,
 	localRootBlockNumber?: number
-): Promise<EvmMerkleData> {
+): Promise<{evmMerkleData:EvmMerkleData, aztecWarptoadAddress:bigint}> {
 	const client = createClient(chainId);
 	if (!client) throw new Error('Failed to create client');
 	
@@ -1122,8 +1122,8 @@ export async function getEvmMerkleDataForL1(
 	if (!addresses.L1WarpToad) throw new Error('L1WarpToad address not found');
 	
 	// Get current block number if not specified
-	const toBlock = localRootBlockNumber 
-		? BigInt(localRootBlockNumber) 
+	const toBlock = localRootBlockNumber
+		? BigInt(localRootBlockNumber)
 		: await publicClient.getBlockNumber();
 	
 	// Query from deployment block to avoid scanning entire chain history
@@ -1134,11 +1134,21 @@ export async function getEvmMerkleDataForL1(
 	// Query all Burn events
 	const burnEvents = await queryBurnEventsInChunks(
 		publicClient,
-		addresses.L1WarpToad as `0x${string}`,
+		addresses.L1WarpToad as `0x${string}`, 	// @TODO danish docstring says this function can do scroll<->scroll but here address is L1Warptoad only!
 		fromBlock,
 		toBlock
 	);
-	
+
+	// @TODO danish here i make the same wrong assumption like above! Sorry!
+	// address: can both be a L1Warptoad or L2WarptoadScroll doesn't matter!
+	// or even get address somewhere else ofc, without a contract call
+	const aztecWarptoadAddress = await publicClient.readContract({
+		address: addresses.L1WarpToad as `0x${string}`,
+		abi: L1WarpToadAbi,
+		functionName: 'aztecWarptoadAddress',
+	})
+
+
 	console.log(`Found ${burnEvents.length} Burn events`);
 	
 	// Sort events by index to ensure correct tree construction
@@ -1164,8 +1174,8 @@ export async function getEvmMerkleDataForL1(
 		const result = poseidon2([BigInt(left.toString()), BigInt(right.toString())]);
 		return result.toString();
 	};
-	
-	const tree = new MerkleTree(EVM_TREE_DEPTH, leaves.map(l => l.toString()), { 
+
+	const tree = new MerkleTree(EVM_TREE_DEPTH, leaves.map(l => l.toString()), {
 		hashFunction: hashFunc,
 		zeroElement: '0'
 	});
@@ -1186,8 +1196,10 @@ export async function getEvmMerkleDataForL1(
 	const hashPath = proof.pathElements.map(e => BigInt(e.toString()));
 	
 	return {
-		leaf_index: BigInt(leafIndex),
-		hash_path: hashPath,
+		evmMerkleData: {
+			leaf_index: BigInt(leafIndex),
+			hash_path: hashPath,
+		}, aztecWarptoadAddress
 	};
 }
 

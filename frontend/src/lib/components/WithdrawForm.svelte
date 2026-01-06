@@ -71,6 +71,7 @@
 	} from "$lib/utils/relay-client.js";
 
 	import { onMount } from "svelte";
+    import { toHex } from "viem";
 
 	let selectedProof = $state<Proof | null>(null);
 	let fileInput: HTMLInputElement;
@@ -721,7 +722,7 @@
 		withdrawStep = "building-proofs";
 		withdrawMessage = "Building EVM merkle proof...";
 
-		const evmMerkleData = await getEvmMerkleDataForL1(chainId, commitment);
+		const {evmMerkleData, aztecWarptoadAddress} = await getEvmMerkleDataForL1(chainId, commitment);
 		console.log("EVM merkle data:", evmMerkleData);
 
 		// Step 4: Prepare proof inputs for same-chain withdrawal
@@ -740,6 +741,7 @@
 		// - Circuit skips giga root verification when roots are equal
 		// - We pass actual gigaRoot (contract validates it exists in history)
 		// - Empty giga merkle data (no cross-chain proof needed)
+		console.log({aztecWarptoadAddress:toHex(aztecWarptoadAddress)})
 		const proofInputs = prepareProofInputsForSameChain(
 			selectedProof.commitmentData,
 			null, // No Aztec merkle data
@@ -747,11 +749,11 @@
 				leaf_index: evmMerkleData.leaf_index,
 				hash_path: evmMerkleData.hash_path,
 			},
+			aztecWarptoadAddress,
 			localRoot,
 			gigaRoot, // Pass the actual gigaRoot from the contract
 			BigInt(chainId),
-			walletStore.wallets.evm ||
-				"0x0000000000000000000000000000000000000000",
+			walletStore.wallets.evm || "0x0000000000000000000000000000000000000000",
 			false, // is_from_aztec = false for EVM
 			feeConfig // Fee config for relay
 		);

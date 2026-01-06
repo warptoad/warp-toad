@@ -181,6 +181,7 @@ prepare .env file.
 edit the contents of .env (for local test set **VITE_TEST_MODE=true and VITE_BRIDGE_KEEPER_URL=http://localhost:6969)**
 ## 2. generate artifacts from backend for frontend.
 in root run
+TODO this should also move the circuit over!
 ```shell
 yarn f:prep
 ```
