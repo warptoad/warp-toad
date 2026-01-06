@@ -46,6 +46,7 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore,ILocalRootProvider, IGiga
     address public l1BridgeAdapter;  // just here so we can look it up in frontend (l1BridgeAdapter is the address that maps to leaves(localRoots) in the gigaTree)
     address public gigaRootProvider; // only contract that is allowed to provide giga roots
     address public withdrawVerifier;
+    uint256 public aztecWarptoadAddress; // since we use aztecs global note_hash_tree
 
     uint256 public lastLeafIndex;
 
@@ -63,11 +64,13 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore,ILocalRootProvider, IGiga
 
     // needs initialize because the gigaBridge sets its localRootProvider (inc L1WarpToad) in the constructor
     // 
-    function initialize(address _gigaRootProvider, address _l1BridgeAdapter) public onlyDeployer() {
+    function initialize(address _gigaRootProvider, address _l1BridgeAdapter, uint256 _aztecWarptoadAddress) public onlyDeployer() {
         require(gigaRootProvider == address(0), "gigaRootProvider is already set");
         require(l1BridgeAdapter == address(0), "l1BridgeAdapter is already set");
+        require(aztecWarptoadAddress == uint256(0), "aztecWarptoadAddress is already set");
         gigaRootProvider = _gigaRootProvider;
         l1BridgeAdapter = _l1BridgeAdapter;
+        aztecWarptoadAddress = _aztecWarptoadAddress;
 
         // so we dont end up with gigaRoot being = 0
         uint256 _gigaRoot = IGigaRootProvider(_gigaRootProvider).gigaRoot();
@@ -114,22 +117,23 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore,ILocalRootProvider, IGiga
         uint256 _amount,
         uint256 _gigaRoot,
         uint256 _localRoot,
+        uint256 _aztecWarptoadAddress,
         uint256 _feeFactor,
         uint256 _priorityFee,
         uint256 _maxFee,
         address _relayer,
         address _recipient
     ) public pure returns (bytes32[] memory) {
-        bytes32[] memory publicInputs = new bytes32[](10);
+        bytes32[] memory publicInputs = new bytes32[](11);
         // TODO is this expensive gas wise?
-        uint256[8] memory uintInputs = [_nullifier,_chainId,_amount,_gigaRoot,_localRoot,_feeFactor,_priorityFee,_maxFee];
+        uint256[9] memory uintInputs = [_nullifier,_chainId,_amount,_gigaRoot,_localRoot,_aztecWarptoadAddress,_feeFactor,_priorityFee,_maxFee];
         address[2] memory addressInputs = [_relayer, _recipient];
         
-        for (uint i = 0; i < uintInputs.length; i++) {
+        for (uint256 i = 0; i < uintInputs.length; i++) {
             publicInputs[i] = bytes32(uintInputs[i]);
         }
         uint256 indexAfterUints = uintInputs.length; 
-        for (uint i = 0; i < 2; i++) {
+        for (uint256 i = 0; i < addressInputs.length; i++) {
             publicInputs[indexAfterUints + i] = bytes32(uint256(uint160(bytes20(addressInputs[i])))); // silly ah solidity way to get left padded 32bytes hopefully the compiler doesn't make it look silly
         }
         return publicInputs;
@@ -153,7 +157,7 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore,ILocalRootProvider, IGiga
         require(nullifiers[_nullifier] == false, "nullifier already exists");
         nullifiers[_nullifier] = true;
         
-        bytes32[] memory _publicInputs = _formatPublicInputs(_nullifier, block.chainid, _amount, _gigaRoot, _localRoot, _feeFactor, _priorityFee, _maxFee, _relayer, _recipient);
+        bytes32[] memory _publicInputs = _formatPublicInputs(_nullifier, block.chainid, _amount, _gigaRoot, _localRoot, aztecWarptoadAddress, _feeFactor, _priorityFee, _maxFee, _relayer, _recipient);
         require(IVerifier(withdrawVerifier).verify(_poof, _publicInputs), "invalid proof"); 
 
         // fee logic       
@@ -196,8 +200,7 @@ abstract contract WarpToadCore is ERC20, IWarpToadCore,ILocalRootProvider, IGiga
         _mint( msg.sender, _amount);
     }
 
-    function nullfierExists(uint256 _nullifier) public view returns(bool) {
+    function nullifierExists(uint256 _nullifier) public view returns (bool) {
         return nullifiers[_nullifier];
     }
-
 }

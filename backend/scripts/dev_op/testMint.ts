@@ -32,7 +32,7 @@ async function main() {
     console.log("\n=== Checking values ===");
     console.log("Is gigaRoot valid?", await l1WarpToad.isValidGigaRoot(gigaRoot));
     console.log("Is localRoot valid?", await l1WarpToad.isValidLocalRoot(localRoot));
-    console.log("Is nullifier used?", await l1WarpToad.nullifierHistory(nullifier));
+    console.log("Is nullifier used?", await l1WarpToad.nullifiers(nullifier));
     
     console.log("\n=== Attempting mint ===");
     try {

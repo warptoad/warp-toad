@@ -1,7 +1,7 @@
 // initializing more than one contract? use try and catch!
 const hre = require("hardhat");
 // import hre from "hardhat"
-import { ethers } from "ethers";
+import { BytesLike, ethers, toBigInt } from "ethers";
 import { deployPoseidon } from "../poseidon";
 
 import L2WarpToadModule from "../../../ignition/modules/L2WarpToad"
@@ -19,6 +19,7 @@ import fs from "fs/promises";
 
 import { vars } from "hardhat/config.js";
 import { evmDeployments } from "../../dev_op/deployment";
+import { getContractAddressesAztec } from "../../dev_op/utils";
 const SEPOLIA_URL = vars.get("SEPOLIA_URL")
 
 // function getArgs() {
@@ -61,6 +62,8 @@ async function main() {
     const L1ScrollBridgeAdapterAddress = L1DeployedAddresses["L1InfraModule#L1ScrollBridgeAdapter"]
     const L2WarpToadAddress = L2ScrollDeployedAddresses["L2ScrollModule#L2WarpToad"]
     const L2ScrollBridgeAdapterAddress = L2ScrollDeployedAddresses["L2ScrollModule#L2ScrollBridgeAdapter"]
+    const aztecDeployedAddresses = await getContractAddressesAztec(l1ChainId)
+    const {address:AztecWarpToadAddress} = aztecDeployedAddresses["AztecWarpToad"]
     console.log({L2WarpToadAddress, l2ChainId,L2ScrollDeployedAddresses })
     const L2WarpToad = L2WarpToad__factory.connect(L2WarpToadAddress, signer)
     const initializationStatus:any = {}
@@ -68,7 +71,7 @@ async function main() {
 
     //warptoad
     try{
-        await L2WarpToad.initialize(L2ScrollBridgeAdapterAddress,L1ScrollBridgeAdapterAddress) // <- L2WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
+        await L2WarpToad.initialize(L2ScrollBridgeAdapterAddress,L1ScrollBridgeAdapterAddress, toBigInt(AztecWarpToadAddress as BytesLike)) // <- L2WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
         initializationStatus["L2WarpToad"] = true
     } catch {
         console.warn(`couldn't initialize: L2WarpToad at: ${L2WarpToadAddress}. 

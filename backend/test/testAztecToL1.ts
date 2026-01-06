@@ -4,7 +4,7 @@ import { expect } from "chai";
 // import { time, loadFixture } from "@nomicfoundation/hardhat-toolbox/network-helpers.js";
 
 //aztec
-import { BytesLike, ethers } from "ethers";
+import { BytesLike, ethers, toBigInt } from "ethers";
 // //@ts-ignore
 // import { getInitialTestAccountsWallets } from '@aztec/accounts/testing';
 // //@ts-ignore
@@ -131,7 +131,7 @@ describe("AztecWarpToad", function () {
         await L1AztecBridgeAdapter.initialize(aztecNativeBridgeRegistryAddress, L2AztecBridgeAdapter.address.toString(), gigaBridge.target);
         
         //connect toads
-        await L1WarpToad.initialize(gigaBridge.target, L1WarpToad.target) // <- L1WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
+        await L1WarpToad.initialize(gigaBridge.target, L1WarpToad.target, AztecWarpToad.address.toBigInt()) // <- L1WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
         await AztecWarpToad.methods.initialize(L2AztecBridgeAdapter.address, L1AztecBridgeAdapter.target as any as EthAddressLike).send({from:(await aztecDeployerWallet.getAccounts())[0].item}).wait()// all other warptoad initializations will look like this
 
         return { L2AztecBridgeAdapter, L1AztecBridgeAdapter, gigaBridge, L1WarpToad, nativeToken, LazyIMTLib, PoseidonT3Lib, AztecWarpToad, aztecWallets, evmWallets,PXE };
@@ -203,7 +203,7 @@ describe("AztecWarpToad", function () {
             // TLDR is that context.version is basically their chainId likely. But we cant just use it as is because it doesnt care about conflicting with existing chainIds and currently return 1 (the same as L1  🙃)
             expect(chainIdAztecFromContract).to.equal(chainIdAztecFromContract);
             //expect(chainIdEvmProvider).to.not.equal(chainIdAztecFromContract);
-            expect(balancePostBurn).to.equal(balancePreBurn - amountToBurn1);
+            expect(balancePostBurn).to.equal(balancePreBurn - amountToBurn1, "aaaaaaaaaaa");
 
             // relayer fee logic
             const priorityFee = 100000000n;// in wei (this is 0.1 gwei)
@@ -346,7 +346,7 @@ describe("AztecWarpToad", function () {
             const marginOfErrorFee = 5 //no more than 5% off!
             console.log({overPayPercentage})
             expect(overPayPercentage).approximately(0, marginOfErrorFee, "This likely failed because HRE does something bad in gas calculation. Run it in something like an anvil node/aztecSandbox instead. Or gas usage changed")
-            expect(balanceRecipientPostMint).to.above(balanceRecipientPreMint + ethers.toBigInt(proofInputs.amount) - maxFee)
+            expect(balanceRecipientPostMint).to.above(balanceRecipientPreMint + ethers.toBigInt(proofInputs.amount) - maxFee,"oeps")
         });
     });
 });

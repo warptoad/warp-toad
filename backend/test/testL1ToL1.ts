@@ -6,8 +6,6 @@ import { time, loadFixture } from "@nomicfoundation/hardhat-toolbox/network-help
 // aztec
 import { ethers } from "ethers";
 
-import { sha256ToField } from "@aztec/foundation/crypto";
-
 //misc
 import os from 'os';
 
@@ -111,7 +109,7 @@ describe("AztecWarpToad", function () {
         //await L1AztecBridgeAdapter.initialize(aztecNativeBridgeRegistryAddress, L2AztecBridgeAdapter.address.toString(), gigaBridge.target);
         
         //connect toads
-        await L1WarpToad.initialize(gigaBridge.target, L1WarpToad.target) // <- L1WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
+        await L1WarpToad.initialize(gigaBridge.target, L1WarpToad.target, 0n) // <- L1WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
         //await AztecWarpToad.methods.initialize(L2AztecBridgeAdapter.address, L1AztecBridgeAdapter.target).send().wait()// all other warptoad initializations will look like this
 
         return { gigaBridge, L1WarpToad:L1WarpToad as L1WarpToad, nativeToken, LazyIMTLib, PoseidonT3Lib, evmWallets };
@@ -206,7 +204,7 @@ describe("AztecWarpToad", function () {
 
             const proof = await createProof(proofInputs, os.cpus().length)
             //@ts-ignore
-            const onchainPublicInputs = await L1WarpToad._formatPublicInputs(proofInputs.nullifier, proofInputs.chain_id, proofInputs.amount, proofInputs.giga_root, proofInputs.destination_local_root, proofInputs.fee_factor, proofInputs.priority_fee, proofInputs.max_fee, proofInputs.relayer_address, proofInputs.recipient_address);
+            const onchainPublicInputs = await L1WarpToad._formatPublicInputs(proofInputs.nullifier, proofInputs.chain_id, proofInputs.amount, proofInputs.giga_root, proofInputs.destination_local_root,await L1WarpToad.aztecWarptoadAddress(), proofInputs.fee_factor, proofInputs.priority_fee, proofInputs.max_fee, proofInputs.relayer_address, proofInputs.recipient_address);
     
             console.log({jsPubInputs: proof.publicInputs, onchainPublicInputs})
             const withdrawVerifier = WithdrawVerifier__factory.connect(await L1WarpToad.withdrawVerifier(), provider)

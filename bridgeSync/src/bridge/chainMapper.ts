@@ -32,7 +32,7 @@ const CHAINS: Record<ChainId, ChainConfig> = {
     id: 'aztec',
     name: 'Aztec Network',
     type: 'Aztec',
-    rpcUrl: process.env.AZTEC_NODE_URL || 'https://devnet.aztec-labs.com',
+    rpcUrl: process.env.AZTEC_NODE_URL || 'https://next.devnet.aztec-labs.com',
     isAztec: true,
   },
 };

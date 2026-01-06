@@ -1,6 +1,6 @@
 
 import { ethers } from "ethers";
-import { Wallet as AztecWallet, BaseWallet } from "@aztec/aztec.js/wallet"
+import { Wallet as AztecWallet } from "@aztec/aztec.js/wallet"
 import { createStore } from "@aztec/kv-store/lmdb";
 import { AztecNode, createAztecNodeClient } from "@aztec/aztec.js/node";
 import { createPXE, getPXEConfig, PXE } from "@aztec/pxe/server";
@@ -42,7 +42,7 @@ export async function initNodeClient(): Promise<AztecNode> {
         console.log("creating Aztec Node Client...");
         const node = createAztecNodeClient(PXE_URL);
         const nodeInfo = await node.getNodeInfo();
-        console.log("Connected to sandbox version:", nodeInfo.nodeVersion);
+        console.log("Connected to aztecNode version:", nodeInfo.nodeVersion);
         console.log("Chain ID:", nodeInfo.l1ChainId);
         return node;
 

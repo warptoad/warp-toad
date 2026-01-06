@@ -5,6 +5,7 @@ import { L1AztecBridgeAdapter__factory, L1ScrollBridgeAdapter__factory, L1WarpTo
 
 import { getContractAddressesAztec, getContractAddressesEvm } from "../../dev_op/utils";
 import { initNodeClient } from "../utils/aztecUtils";
+import { BytesLike, toBigInt } from "ethers";
 
 
 async function main() {
@@ -30,6 +31,7 @@ async function main() {
     const L1ScrollBridgeAdapterAddress = L1DeployedAddresses["L1InfraModule#L1ScrollBridgeAdapter"]
 
     const {address:L2AztecAdapterAddress} = aztecDeployedAddresses["L2AztecBridgeAdapter"]
+    const {address:AztecWarpToadAddress} = aztecDeployedAddresses["AztecWarpToad"]
     const L2ScrollBridgeAdapterAddress = L2ScrollDeployedAddresses ? L2ScrollDeployedAddresses["L2ScrollModule#L2ScrollBridgeAdapter"] : "0x0000000000000000000000000000000000000000"
 
     const L1AztecBridgeAdapter = L1AztecBridgeAdapter__factory.connect(L1AztecBridgeAdapterAddress, signer)
@@ -72,7 +74,7 @@ async function main() {
 
     //warptoad
     try {
-        const warpTx = await L1WarpToad.initialize(gigaBridgeAddress, L1WarpToad.target) // <- L1WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
+        const warpTx = await L1WarpToad.initialize(gigaBridgeAddress, L1WarpToad.target, toBigInt(AztecWarpToadAddress as BytesLike)) // <- L1WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
         await warpTx.wait();
         initializationStatus["L1WarpToad"] = true
     } catch (error: any) {

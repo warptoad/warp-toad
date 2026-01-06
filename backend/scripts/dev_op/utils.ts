@@ -1,6 +1,7 @@
 import { createInterface } from 'readline/promises';
 import { stdin, stdout } from 'process';
 import fs from "fs/promises";
+import { DeploymentStringyfiedArtifact } from 'scripts/deploy/utils/aztecUtilsNoEnv';
 
 export async function checkFileExists(filePath: string): Promise<boolean> {
     try {
@@ -60,6 +61,19 @@ export async function getContractAddressesAztec(chainId: bigint) {
     // }
 
     //return aztecDeployments[Number(chainId)]
+}
+
+/**
+ * NOTE: contractName can be "AztecWarpToad" or "L2AztecBridgeAdapter"
+ * TODO these names are inconsistent. AztecWarpToad is also named WarpToadCore in the nr code!!
+ * @param chainId 
+ * @param contractName 
+ * @returns 
+ */
+export async function getDeploymentArtifactAztec(chainId: bigint, contractName:string) {
+    const filePath = `${getAztecDeployedAddressesFolderPath(chainId)}/${contractName}DeployArtifact.json`
+    const json = (await fs.readFile(filePath)).toString()
+    return JSON.parse(json) as DeploymentStringyfiedArtifact
 }
 
 /**

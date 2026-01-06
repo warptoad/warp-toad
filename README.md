@@ -9,10 +9,10 @@ npm install --global yarn;
 yarn install;
 ```
 
-make sure you're on aztec 3.0.0-devnet.5
+make sure you're on aztec 3.0.0-devnet.20251212
 
 ```shell
-aztec-up 3.0.0-devnet.5
+aztec-up 3.0.0-devnet.20251212
 ```
 
 install noir and backend
@@ -30,6 +30,7 @@ yarn run b:compile:aztec
 ```
 
 ### generate EVM verifier contracts
+TODO for some reason the `yarn b:contract:gen` part of this script only works if you copy paste it in the terminal 
 ```shell
 yarn run b:circuit
 ```
@@ -37,7 +38,7 @@ yarn run b:circuit
 ## run sandbox (needed for local/sandbox deployment)
 in a new shell window run either:
 ```shell
-VERSION=3.0.0-devnet.5 aztec start --sandbox
+VERSION=3.0.0-devnet.20251212 aztec start --local-network
 ```
 or
 ```shell
@@ -90,7 +91,7 @@ NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend ha
 #### 3. deploy warptoad on aztec
 sandbox
 ```shell
-NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress PXE_URL=https://devnet.aztec-labs.com yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/deployAztec.ts --network sepolia;
+NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress PXE_URL=https://next.devnet.aztec-labs.com yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/deployAztec.ts --network sepolia;
 ```
 #### 4. deploy on scroll
 ```shell
@@ -99,9 +100,9 @@ NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend ha
 
 #### 5. initialize/connect contracts 
 ```shell
-PXE_URL=https://devnet.aztec-labs.com yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/initializeL1.ts --network sepolia;
+PXE_URL=https://next.devnet.aztec-labs.com yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/initializeL1.ts --network sepolia;
 #aztec
-PXE_URL=https://devnet.aztec-labs.com yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/initializeAztec.ts --network sepolia;
+PXE_URL=https://next.devnet.aztec-labs.com yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/initializeAztec.ts --network sepolia;
 #scroll
 yarn workspace @warp-toad/backend hardhat run scripts/deploy/scroll/initializeL2Scroll.ts --network scrollSepolia;
 ```
@@ -114,7 +115,7 @@ PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend bun scripts/dev_o
 #### aztec
 Takes about 0.5-1 hour to run
 ```shell
-yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --L1Rpc UrUrl --L2Rpc http://localhost:8080/ --privatekey 0xUrPrivateKey --isAztec
+yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --L1Rpc UrUrl --L2Rpc https://next.devnet.aztec-labs.com / --privatekey 0xUrPrivateKey --isAztec
 ```
 #### scroll
 Note: You have to use a paid rpc since free rpcs wont allow you to work with events well enough  
@@ -180,6 +181,7 @@ prepare .env file.
 edit the contents of .env (for local test set **VITE_TEST_MODE=true and VITE_BRIDGE_KEEPER_URL=http://localhost:6969)**
 ## 2. generate artifacts from backend for frontend.
 in root run
+TODO this should also move the circuit over!
 ```shell
 yarn f:prep
 ```

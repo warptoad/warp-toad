@@ -5,7 +5,7 @@ pragma solidity 0.8.29;
 
 interface IWarpToadCore {
     event Burn(uint256 indexed commitment, uint256 amount, uint256 index);
-    function initialize(address _gigaRootProvider, address _l1BridgeAdapter) external;
+    function initialize(address _gigaRootProvider, address _l1BridgeAdapter, uint256 _aztecWarptoadAddress) external;
     function isValidGigaRoot(uint256 _gigaRoot) external view returns (bool);
     function burn(uint256 _preCommitment, uint256 _amount) external;
 
@@ -18,6 +18,7 @@ interface IWarpToadCore {
         uint256 _amount,
         uint256 _gigaRoot,
         uint256 _localRoot,
+        uint256 _aztecWarptoadAddress,
         uint256 _feeFactor,
         uint256 _priorityFee,
         uint256 _maxFee,

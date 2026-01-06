@@ -5,13 +5,13 @@ import { WarpToadCore as WarpToadEvm, USDcoin, PoseidonT3, LazyIMT, L1AztecBridg
 import { L2AztecBridgeAdapterContract } from '../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter'
 import { WarpToadCoreContract as L2WarpToadAZTEC } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
 
-import { sha256ToField } from "@aztec/foundation/crypto";
+//import { sha256ToField } from "@aztec/aztec.js/fields";
 import { evmDeployments } from "../dev_op/deployment";
 import { L1_SCROLL_MESSENGER_MAINNET, L1_SCROLL_MESSENGER_SEPOLIA } from "./constants";
 
 import { PXE } from "@aztec/pxe/server";
 import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee";
-import { Fr } from "@aztec/foundation/fields";
+import { Fr } from "@aztec/aztec.js/fields";
 import { Contract } from "@aztec/aztec.js/contracts";
 
 import { AztecNode } from "@aztec/aztec.js/node";
@@ -22,6 +22,7 @@ import {
   type L2ToL1MembershipWitness,
   computeL2ToL1MembershipWitness,
 } from '@aztec/stdlib/messaging';
+import { BlockNumber } from "@aztec/foundation/branded-types";
 
 
 export const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -153,17 +154,13 @@ export async function bridgeAZTECLocalRootToL1(
 ) {
     const blockNumberOfRoot = await aztecNode.getBlockNumber() //getBlockNumber();
     const PXE_L2Root = (await aztecNode.getBlock(blockNumberOfRoot))?.header.state.partial.noteHashTree.root as Fr
-
-    // @danish oh o the aztec sdk changed again :(, it needs {from:wallet.account} or something like that
-    // we prob need to find and replace every .send() with .send({from:wallet.account} ) (manually check if it is aztec ofc)
-    const sendRootToL1Tx = await L2AztecBridgeAdapter.methods.send_root_to_l1(blockNumberOfRoot).send({ fee: { paymentMethod: sponsoredPaymentMethod }, from: (await aztecWallet.getAccounts())[0].item }).wait()//{ timeout: 60 * 60 * 12 });
+    const sendRootToL1Tx = await L2AztecBridgeAdapter.methods.send_root_to_l1(blockNumberOfRoot).send({ fee: { paymentMethod: sponsoredPaymentMethod }, from: (await aztecWallet.getAccounts())[0].item }).wait({ timeout: 60 * 60 * 12 });
     sendRootToL1Tx.txHash
-
     const l1ChainId = (await provider.getNetwork()).chainId
-    const messageContent = sha256ToField([ // does sha256(PXE_L2Root, blockNumberOfRoot) then removes the last byte and then adds byte(1) in front (to fit into a field)
-        PXE_L2Root.toBuffer(),
-        new Fr(blockNumberOfRoot).toBuffer(),
-    ]);
+    // const messageContent = sha256ToField([ // does sha256(PXE_L2Root, blockNumberOfRoot) then removes the last byte and then adds byte(1) in front (to fit into a field)
+    //     PXE_L2Root.toBuffer(),
+    //     new Fr(blockNumberOfRoot).toBuffer(),
+    // ]);
 
     const isSandBox = l1ChainId === 31337n
 
@@ -176,7 +173,7 @@ export async function bridgeAZTECLocalRootToL1(
 
     const messageBlockNumber = sendRootEffect?.l2BlockNumber as number//await PXE.getBlockNumber(); // the blockNumber of when send_root_to_l1 settled onchain
     const contentHash = messageLeaf //L2toL2Messages[0][0]
-    const messageWitness = await computeL2ToL1MembershipWitness(aztecNode, messageBlockNumber, contentHash) as L2ToL1MembershipWitness
+    const messageWitness = await computeL2ToL1MembershipWitness(aztecNode, messageBlockNumber as BlockNumber, contentHash) as L2ToL1MembershipWitness
     const siblingPathArray = messageWitness.siblingPath.toFields().map((f: any) => f.toString())
 
     // console.log("got witness")
@@ -376,7 +373,6 @@ export async function receiveGigaRootOnAztec(
     // contenthash is just gigaRoot in this case since we only need to bridge 1 Field but normally its sha256ToField(_newL2Root.toBuffer(), _l2BlockNumber.toBuffer()))
     // sha256ToField = hashing with sha256 and then making that hash fit into a field somehow. (it just removes the last byte and then adds byte(1) in front)
     const parsedL1AdapterEvent = parseEventFromTx(sendGigaRootTx, L1AztecBridgeAdapter, "NewGigaRootSentToAztec")
-    console.log({parsedL1AdapterEvent})
     const content_hash = parsedL1AdapterEvent!.args[0];
     const key = parsedL1AdapterEvent!.args[1];
     const index = parsedL1AdapterEvent!.args[2];
@@ -415,7 +411,6 @@ export async function waitForBlocksAztec(blocksToWait: number, aztecNode: AztecN
     const waitTillBlock = blockBeforeWaiting + blocksToWait
     let waiting = true
     while (waiting) {
-        console.log({ waiting })
         const currentBlock = await aztecNode.getBlockNumber()
         waiting = currentBlock < waitTillBlock
         console.log(`waiting ${L1BlockTime / 2 * blocksToWait / 1000} seconds until ${blocksToWait} aztec blocks have passed. blocks passed: ${currentBlock - blockBeforeWaiting}`)

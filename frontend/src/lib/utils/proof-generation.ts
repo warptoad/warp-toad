@@ -32,11 +32,13 @@ export interface ProofInputs {
 	amount: string;
 	giga_root: string;
 	destination_local_root: string;
+	aztec_warptoad_address: string;
 	fee_factor: string;
 	priority_fee: string;
 	max_fee: string;
 	relayer_address: string;
 	recipient_address: string;
+
 
 	// ----- private inputs -----
 	origin_local_root: string;
@@ -47,7 +49,6 @@ export interface ProofInputs {
 		leaf_index: string;
 		hash_path: string[];
 		leaf_nonce: string;
-		contract_address: string;
 	};
 	evm_merkle_data: {
 		leaf_index: string;
@@ -199,6 +200,7 @@ export function prepareProofInputsForAztecToL1(
 		amount: toHex(commitmentData.amount),
 		giga_root: toHex(gigaRoot),
 		destination_local_root: toHex(destinationLocalRoot),
+		aztec_warptoad_address: toHex(aztecMerkleData.contract_address),
 		fee_factor: toHex(feeFactor),
 		priority_fee: toHex(priorityFee),
 		max_fee: toHex(actualMaxFee),
@@ -213,8 +215,7 @@ export function prepareProofInputsForAztecToL1(
 		aztec_merkle_data: {
 			leaf_index: toHex(aztecMerkleData.leaf_index),
 			hash_path: aztecMerkleData.hash_path.map(h => toHex(h)),
-			leaf_nonce: toHex(aztecMerkleData.leaf_nonce),
-			contract_address: toHex(aztecMerkleData.contract_address),
+			leaf_nonce: toHex(aztecMerkleData.leaf_nonce)
 		},
 		evm_merkle_data: createEmptyEvmMerkleData(), // Not used for Aztec -> L1
 		giga_merkle_data: {
@@ -239,6 +240,7 @@ export function prepareProofInputsForAztecToL1(
  * @param evmMerkleData - EVM merkle data (null for Aztec same-chain)
  * @param localRoot - The local root containing the commitment
  * @param gigaRoot - The current gigaRoot from the contract (must be valid/known)
+ * @param aztecWarptoadAddress - pub input that matches warptoadCore.aztecWarptoadAddress()
  * @param chainId - The chain ID
  * @param recipientAddress - The recipient's address
  * @param isFromAztec - Whether the burn originated from Aztec
@@ -249,6 +251,7 @@ export function prepareProofInputsForSameChain(
 	commitmentData: CommitmentPreImage,
 	aztecMerkleData: AztecMerkleData | null,
 	evmMerkleData: EvmMerkleData | null,
+	aztecWarptoadAddress: bigint,
 	localRoot: bigint,
 	gigaRoot: bigint,
 	chainId: bigint,
@@ -261,13 +264,14 @@ export function prepareProofInputsForSameChain(
 	const priorityFee = feeConfig?.priorityFee ?? DEFAULT_PRIORITY_FEE;
 	const actualMaxFee = feeConfig?.maxFee ?? commitmentData.amount;
 	const relayerAddress = feeConfig?.relayerAddress ?? DEFAULT_RELAYER_ADDRESS;
-
+	console.log(recipientAddress)
 	return {
 		nullifier: toHex(nullifier),
 		chain_id: toHex(chainId),
 		amount: toHex(commitmentData.amount),
 		giga_root: toHex(gigaRoot), // Must be a valid gigaRoot known to the contract
 		destination_local_root: toHex(localRoot),
+		aztec_warptoad_address: toHex(aztecWarptoadAddress),
 		fee_factor: toHex(feeFactor),
 		priority_fee: toHex(priorityFee),
 		max_fee: toHex(actualMaxFee),
@@ -282,7 +286,6 @@ export function prepareProofInputsForSameChain(
 				leaf_index: toHex(aztecMerkleData.leaf_index),
 				hash_path: aztecMerkleData.hash_path.map(h => toHex(h)),
 				leaf_nonce: toHex(aztecMerkleData.leaf_nonce),
-				contract_address: toHex(aztecMerkleData.contract_address),
 			}
 			: createEmptyAztecMerkleData(),
 		evm_merkle_data: evmMerkleData

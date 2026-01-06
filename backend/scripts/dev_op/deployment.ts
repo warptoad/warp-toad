@@ -14,7 +14,7 @@ import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { L1Adapter } from "../lib/bridging";
 import { SCROLL_CHAINID_MAINNET, SCROLL_CHAINID_SEPOLIA } from '../lib/constants';
 
-import { initNodeClientNoEnv, getAztecTestAccountNoEnv, getContractInstanceFromAddressNoEnv, initPXE } from '../deploy/utils/aztecUtilsNoEnv';
+import { initNodeClientNoEnv, getAztecTestAccountNoEnv, getContractInstanceFromAddressNoEnv, initPXE, DeploymentArtifact, DeploymentStringyfiedArtifact } from '../deploy/utils/aztecUtilsNoEnv';
 
 // evm 
 import { L2ScrollBridgeAdapter, GigaBridge__factory, L1AztecBridgeAdapter__factory, L1ScrollBridgeAdapter__factory, L2ScrollBridgeAdapter__factory, L2WarpToad as L2EvmWarpToad, L2WarpToad__factory, L1WarpToad__factory } from '../../typechain-types';
@@ -30,7 +30,7 @@ import aztecDeploymentsSandbox from "../deploy/aztec/aztecDeployments/31337/depl
 
 import { AccountManager, Wallet } from '@aztec/aztec.js/wallet';
 import { PXE } from '@aztec/pxe/server';
-import { Fr, GrumpkinScalar } from '@aztec/foundation/fields';
+import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
 import { ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
 
@@ -38,6 +38,7 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { getDeploymentArtifactAztec } from './utils';
 
 interface deployments {
     [chainId: number]: any
@@ -138,24 +139,25 @@ export async function getL2AZTECContracts(
     const isSandBox = BigInt(l1ChainId) === 31337n
     const contracts = aztecDeployments[Number(l1ChainId)]
 
-    const { address: AztecWarpToadAddress, contractAddressSalt: warptoadSalt, constructorArgs: warptoadArgs, deployer:warptoadDeployer } = contracts["AztecWarpToad"]
-    const { address: L2AztecAdapterAddress, contractAddressSalt: adapterSalt, constructorArgs: adapterArgs,deployer:adapterDeployer  } = contracts["L2AztecBridgeAdapter"]
-
+    const { address: AztecWarpToadAddress,}:{address:AztecAddress} = contracts["AztecWarpToad"]
+    const { address: L2AztecAdapterAddress }:{address:AztecAddress} = contracts["L2AztecBridgeAdapter"]
+    const warptoadDeployArtifact = await getDeploymentArtifactAztec(l1ChainId, "AztecWarpToad")
+    const adapterDeployArtifact = await getDeploymentArtifactAztec(l1ChainId, "L2AztecBridgeAdapter")
     console.log("IS SANDBOX?:", isSandBox)
     const aztecWarpToadContractInstance = await getContractInstanceFromInstantiationParams(
         WarpToadCoreContractArtifact,
         {
-            salt: Fr.fromHexString(warptoadSalt),
-            constructorArgs: warptoadArgs.map((v: string) => v.startsWith("0x") ? new Fr(BigInt(v)) : v),
-            deployer:AztecAddress.fromField(Fr.fromHexString(warptoadDeployer))
+            salt: Fr.fromHexString(warptoadDeployArtifact.salt),
+            constructorArgs: warptoadDeployArtifact.constructorArgs.map((v: string) => v.startsWith("0x") ? new Fr(BigInt(v)) : v),
+            deployer:AztecAddress.fromField(Fr.fromHexString(warptoadDeployArtifact.deployer))
         }
     )
     const l2AztecAdapterContractInstance = await getContractInstanceFromInstantiationParams(
         L2AztecBridgeAdapterContractArtifact,
         {
-            salt: Fr.fromHexString(adapterSalt),
-            constructorArgs: adapterArgs.map((v: string) => v.startsWith("0x") ? new Fr(BigInt(v)) : v),
-            deployer:AztecAddress.fromField(Fr.fromHexString(adapterDeployer))
+            salt: Fr.fromHexString(adapterDeployArtifact.salt),
+            constructorArgs: adapterDeployArtifact.constructorArgs.map((v: string) => v.startsWith("0x") ? new Fr(BigInt(v)) : v),
+            deployer:AztecAddress.fromField(Fr.fromHexString(adapterDeployArtifact.deployer))
         }
     )
 
@@ -168,14 +170,15 @@ export async function getL2AZTECContracts(
         instance: l2AztecAdapterContractInstance,
         artifact: L2AztecBridgeAdapterContractArtifact
     })
-    await l2Wallet.registerContract({
-        instance: aztecWarpToadContractInstance,
-        artifact: WarpToadCoreContractArtifact
-    })
-    await l2Wallet.registerContract({
-        instance: l2AztecAdapterContractInstance,
-        artifact: L2AztecBridgeAdapterContractArtifact
-    })
+    console.log("cant register contract on wallet object but can on PXE obj?? TODO report bug.")
+    await l2Wallet.registerContract(
+        aztecWarpToadContractInstance,
+        WarpToadCoreContractArtifact
+    )
+    await l2Wallet.registerContract(
+        l2AztecAdapterContractInstance,
+        L2AztecBridgeAdapterContractArtifact
+    )
     await delay(10000)
     const aztecWarpToad = await WarpToadCoreContract.at(aztecWarpToadContractInstance.address, l2Wallet);
     const l2AztecBridgeAdapter = await L2AztecBridgeAdapterContract.at(l2AztecAdapterContractInstance.address, l2Wallet)

@@ -226,6 +226,11 @@ export const L1WarpToadAbi = [
       },
       {
         "internalType": "uint256",
+        "name": "_aztecWarptoadAddress",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
         "name": "_feeFactor",
         "type": "uint256"
       },
@@ -307,6 +312,19 @@ export const L1WarpToadAbi = [
       }
     ],
     "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "aztecWarptoadAddress",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
     "type": "function"
   },
   {
@@ -477,6 +495,11 @@ export const L1WarpToadAbi = [
         "internalType": "address",
         "name": "_l1BridgeAdapter",
         "type": "address"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_aztecWarptoadAddress",
+        "type": "uint256"
       }
     ],
     "name": "initialize",
@@ -672,6 +695,44 @@ export const L1WarpToadAbi = [
         "internalType": "address",
         "name": "",
         "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "_nullifier",
+        "type": "uint256"
+      }
+    ],
+    "name": "nullifierExists",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "nullifiers",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
       }
     ],
     "stateMutability": "view",

@@ -25,6 +25,7 @@ import { parseEventFromTx, parseMultipleEventsFromTx } from "./bridging";
 const abiCoder = new ethers.AbiCoder()
 
 import { poseidon2 } from "poseidon-lite";
+import { BlockNumber } from "@aztec/foundation/branded-types";
 // export async function connectPXE() {
 //     console.log("creating PXE client")
 //     const PXE = createPXEClient(PXE_URL);
@@ -184,7 +185,7 @@ export async function getGigaMerkleData(gigaBridge:GigaBridge,localRoot:bigint, 
 export async function getAztecNoteHashTreeRoot(blockNumber:number, aztecNode:AztecNode): Promise<bigint> {
     // do aztec things
     // PXE = PXE ? PXE : (await connectPXE()).PXE;
-    const block = await aztecNode.getBlock(blockNumber)
+    const block = await aztecNode.getBlock(blockNumber as BlockNumber)
     return block?.header.state.partial.noteHashTree.root.toBigInt() as bigint
 }
 
@@ -248,7 +249,7 @@ export async function getL1BridgeAdapterAztec(WarpToad:WarpToadAztec, aztecWalle
 export async function getAztecMerkleData(WarpToad:WarpToadAztec, commitment:bigint, destinationLocalRootBlock:number, PXE:PXE, aztecWallet:AztecWallet)  {
     console.log("finding unique_note_hash index within the tx")
     // TODO cleanup. Why here??
-    await PXE.registerContract(WarpToad)
+    //await PXE.registerContract(WarpToad)
     console.log({"warptoadAddressAztec":WarpToad.address})
     const warpToadNoteFilter:NotesFilter = {
         contractAddress: WarpToad.address, 
@@ -281,9 +282,8 @@ export async function getAztecMerkleData(WarpToad:WarpToadAztec, commitment:bigi
         leaf_index: ethers.toBeHex(witness.index),
         hash_path: witness.path.map((h:bigint)=>ethers.toBeHex(h)),
         leaf_nonce: ethers.toBeHex(noteNonce),
-        contract_address: ethers.toBeHex(WarpToad.address.toBigInt())
     }
-    return merkleData
+    return {aztecMerkleData:merkleData, aztecWarptoadAddress:WarpToad.address.toBigInt()}
 }
 
 
@@ -332,15 +332,19 @@ export async function getMerkleData(gigaBridge:GigaBridge, warpToadOrigin: WarpT
     console.log("getting localProof")
     let aztecMerkleData:AztecMerkleData;
     let evmMerkleData:EvmMerkleData;
+    let aztecWarptoadAddress:bigint;
     if (isFromAztec) {
-        aztecMerkleData = await getAztecMerkleData(warpToadOrigin, commitment, Number(destinationLocalRootL2Block),PXE as PXE,aztecWallet as AztecWallet) 
+        const aztecData = await getAztecMerkleData(warpToadOrigin, commitment, Number(destinationLocalRootL2Block),PXE as PXE,aztecWallet as AztecWallet) 
+        aztecWarptoadAddress = aztecData.aztecWarptoadAddress
+        aztecMerkleData = aztecData.aztecMerkleData
         evmMerkleData = emptyEvmMerkleData
     } else {
         aztecMerkleData = emptyAztecMerkleData
+        aztecWarptoadAddress = await ( warpToadOrigin as WarpToadEvm).aztecWarptoadAddress()
         evmMerkleData = await getEvmMerkleData(warpToadOrigin, commitment, EVM_TREE_DEPTH, Number(destinationLocalRootL2Block));
     }
 
-    return {isFromAztec, gigaMerkleData,evmMerkleData,aztecMerkleData, originLocalRoot, blockNumber: gigaRootArrivalBlockNumber}
+    return {isFromAztec, gigaMerkleData,evmMerkleData,aztecMerkleData, originLocalRoot, blockNumber: gigaRootArrivalBlockNumber, aztecWarptoadAddress}
 }
 
 export async function getProofInputs(
@@ -376,7 +380,8 @@ export async function getProofInputs(
         gigaMerkleData,
         evmMerkleData,
         aztecMerkleData, 
-        originLocalRoot
+        originLocalRoot,
+        aztecWarptoadAddress
     } = await getMerkleData(gigaBridge,warpToadOrigin,warpToadDestination, commitment, aztecWallet, PXE, aztecNode)
     const proofInputs: ProofInputs = {
         // ----- public inputs -----
@@ -385,6 +390,7 @@ export async function getProofInputs(
         amount: ethers.toBeHex(amount),
         giga_root: ethers.toBeHex(gigaRoot),
         destination_local_root: ethers.toBeHex(destinationLocalRoot),
+        aztec_warptoad_address: ethers.toBeHex(aztecWarptoadAddress),
 
         fee_factor: ethers.toBeHex(feeFactor),
         priority_fee: ethers.toBeHex(priorityFee),

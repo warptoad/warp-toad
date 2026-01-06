@@ -10,6 +10,11 @@ import fs from "fs/promises";
 import { deployAztecWarpToad } from "./aztecToadWarp";
 import { deployL2AztecBridgeAdapter } from "./L2AztecBridgeAdapter";
 import { getAztecTestAccount, getEnvArgs, initNodeClient, } from "../utils/aztecUtils";
+import { createAztecNodeClient } from "@aztec/aztec.js/node";
+import { TestWallet } from "@aztec/test-wallet/server";
+import { getInitialTestAccountsData } from "@aztec/accounts/testing";
+import { getFeeJuiceBalance } from '@aztec/aztec.js/utils';
+import { getAztecWallet } from "../utils/aztecUtilsNoEnv";
 
 const { nativeTokenAddress } = getEnvArgs()
 
@@ -19,6 +24,7 @@ async function main() {
     const provider = hre.ethers.provider
     const nativeToken = new ethers.Contract(nativeTokenAddress, er20Abi, provider)
     const chainId = (await provider.getNetwork()).chainId
+    const isSanbox = chainId === 31337n
 
     const deployedAddresses = await getContractAddressesEvm(chainId)
     const L1AztecAdapterAddress = deployedAddresses["L1InfraModule#L1AztecBridgeAdapter"]
@@ -35,31 +41,36 @@ async function main() {
         }
     }
 
-    const wallet = await getAztecTestAccount(chainId)
+    // Create a wallet and import test accounts
+    const [alice] = await getInitialTestAccountsData()
+    const {wallet, sponsoredPaymentMethod} = await getAztecWallet(process.env.PXE_URL as string, alice, isSanbox)
 
+    //const wallet = await getAztecTestAccount(chainId)
     //------deploy-------------
-    const { AztecWarpToad, constructorArgs: WarpToadContructArgs, contractAddressSalt: WarpToadSalt, deployer: warptoadDeployer } = await deployAztecWarpToad(nativeToken, wallet, undefined)
+    const { AztecWarpToad, deploymentArtifact: AztecWarpToadDeployArtifact } = await deployAztecWarpToad(nativeToken, wallet, sponsoredPaymentMethod)
     console.log({ AztecWarpToad: AztecWarpToad.address })
 
-    const { L2AztecBridgeAdapter, constructorArgs: AdpterContructArgs, contractAddressSalt: AdpterSalt , deployer: adapterDeployer} = await deployL2AztecBridgeAdapter(L1AztecAdapterAddress, wallet, undefined)
+    const { L2AztecBridgeAdapter, deploymentArtifact: L2AztecBridgeAdapterDeployArtifact} = await deployL2AztecBridgeAdapter(L1AztecAdapterAddress, wallet, sponsoredPaymentMethod)
     console.log({ L2AztecBridgeAdapter: L2AztecBridgeAdapter.address })
+    
+    // contractArtifact is too big too be in one file
+    const L2AztecBridgeAdapterDeployArgs = structuredClone(L2AztecBridgeAdapterDeployArtifact)
+    const AztecWarpToadDeployDeployArgs = structuredClone(AztecWarpToadDeployArtifact)
+    delete L2AztecBridgeAdapterDeployArgs.contractArtifact
+    delete AztecWarpToadDeployDeployArgs.contractArtifact
     const deployments = {
         AztecWarpToad: {
-            address: AztecWarpToad.address,
-            constructorArgs: WarpToadContructArgs.map((v)=>v.toString()),
-            contractAddressSalt: WarpToadSalt,
-            deployer: warptoadDeployer
+            ...AztecWarpToadDeployDeployArgs
         },
         L2AztecBridgeAdapter: {
-            address: L2AztecBridgeAdapter.address,
-            constructorArgs: AdpterContructArgs.map((v)=>v.toString()),
-            contractAddressSalt: AdpterSalt,
-            deployer: adapterDeployer
+            ...L2AztecBridgeAdapterDeployArgs
         }
     }
 
     try { await fs.mkdir(folderPath) } catch { console.warn(`praying the folder already exist ${folderPath}`) }
     await fs.writeFile(deployedAddressesPath, JSON.stringify(deployments, null, 2));
+    await fs.writeFile(`${folderPath}/AztecWarpToadDeployArtifact.json`, JSON.stringify(AztecWarpToadDeployArtifact))
+    await fs.writeFile(`${folderPath}/L2AztecBridgeAdapterDeployArtifact.json`, JSON.stringify(L2AztecBridgeAdapterDeployArtifact))
     console.log(`
     deployed: 
         AztecWarpToad:              ${AztecWarpToad.address}

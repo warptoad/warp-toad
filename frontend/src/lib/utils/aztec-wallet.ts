@@ -193,6 +193,7 @@ export async function autoReconnect(): Promise<{ wallet: Wallet; address: string
 			return null;
 		}
 
+		// Azguard is not updated to the new devnet yet
 		walletInstance = wallet;
 		const accounts = await wallet.getAccounts();
 		

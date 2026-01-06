@@ -165,10 +165,8 @@ export async function getWarpToadContract(wallet: Wallet): Promise<WarpToadCoreC
 	);
 
 	const registeredContract = await wallet.registerContract(
-		{
-			artifact: WarpToadCoreContractArtifact,
-			instance: contract
-		}
+		contract,
+		WarpToadCoreContractArtifact
 	);
 
 	const warptoadContract = await WarpToadCoreContract.at(registeredContract.address, wallet);
@@ -290,7 +288,7 @@ async function getBurnEvents(
 	toBlock: bigint | 'latest' = 'latest'
 ): Promise<Array<{ commitment: bigint; amount: bigint; index: number }>> {
 	const fromBlock = getDeploymentBlock(chainId);
-	
+
 	const logs = await publicClient.getLogs({
 		address: warpToadAddress as `0x${string}`,
 		event: {
@@ -306,7 +304,7 @@ async function getBurnEvents(
 		toBlock,
 	});
 
-	return logs.map((log) => ({
+	return logs.map((log:any) => ({
 		commitment: log.args.commitment as bigint,
 		amount: log.args.amount as bigint,
 		index: Number(log.args.index),
@@ -325,7 +323,7 @@ async function getLocalRootEvents(
 	toBlock: bigint | 'latest' = 'latest'
 ): Promise<Array<{ localRoot: bigint; index: number; blockNumber: number; eventBlockNumber: bigint }>> {
 	const fromBlock = getDeploymentBlock(chainId);
-	
+
 	const logs = await publicClient.getLogs({
 		address: gigaBridgeAddress as `0x${string}`,
 		event: {
@@ -341,7 +339,7 @@ async function getLocalRootEvents(
 		toBlock,
 	});
 
-	return logs.map((log) => ({
+	return logs.map((log:any) => ({
 		localRoot: log.args.newLocalRoot as bigint,
 		index: Number(log.args.localRootIndex),
 		blockNumber: Number(log.args.localRootBlockNumber),
@@ -360,7 +358,7 @@ async function getGigaRootEvents(
 	filterGigaRoot?: bigint
 ): Promise<Array<{ gigaRoot: bigint; blockNumber: bigint; transactionHash: `0x${string}` }>> {
 	const fromBlock = getDeploymentBlock(chainId);
-	
+
 	const logs = await publicClient.getLogs({
 		address: gigaBridgeAddress as `0x${string}`,
 		event: {
@@ -376,7 +374,7 @@ async function getGigaRootEvents(
 		toBlock: 'latest',
 	});
 
-	return logs.map((log) => ({
+	return logs.map((log:any) => ({
 		gigaRoot: log.args.newGigaRoot as bigint,
 		blockNumber: log.blockNumber,
 		transactionHash: log.transactionHash,
@@ -437,12 +435,12 @@ async function getEvmMerkleData(
 
 	// Build merkle tree and get proof using fixed-merkle-tree
 	const tree = createPoseidonMerkleTree(EVM_TREE_DEPTH, sortedLeaves);
-	
+
 	// Validate the recreated tree root matches the expected local root
 	const computedRoot = BigInt(tree.root);
 	console.log('EVM tree - computed root:', computedRoot.toString());
 	console.log('EVM tree - expected local root:', expectedLocalRoot.toString());
-	
+
 	if (computedRoot !== expectedLocalRoot) {
 		throw new Error(
 			`Could not recreate the localRoot with events. ` +
@@ -450,7 +448,7 @@ async function getEvmMerkleData(
 			`This may indicate missing burn events or an incorrect block number.`
 		);
 	}
-	
+
 	const proof = getMerkleProof(tree, commitment);
 
 	return {
@@ -518,13 +516,13 @@ async function getGigaMerkleData(
 
 	// Build merkle tree and get proof using fixed-merkle-tree
 	const tree = createPoseidonMerkleTree(GIGA_TREE_DEPTH, sortedLeaves);
-	
+
 	// Validate the recreated giga tree root matches the expected gigaRoot
 	const computedGigaRoot = BigInt(tree.root);
 	console.log('Giga tree - computed root:', computedGigaRoot.toString());
 	console.log('Giga tree - expected gigaRoot:', expectedGigaRoot.toString());
 	console.log('Giga tree - sorted leaves:', sortedLeaves.map(l => l.toString()));
-	
+
 	if (computedGigaRoot !== expectedGigaRoot) {
 		throw new Error(
 			`Could not recreate the gigaRoot with events. ` +
@@ -532,7 +530,7 @@ async function getGigaMerkleData(
 			`This may indicate missing local root events or an incorrect block number.`
 		);
 	}
-	
+
 	const proof = getMerkleProof(tree, localRoot);
 
 	return {
@@ -904,7 +902,7 @@ export interface NullifierCheckResult {
 export async function isNullifierSpent(siloedNullifier: Fr): Promise<NullifierCheckResult> {
 	try {
 		const aztecNode = await getAztecNode();
-		
+
 		// Query the nullifier tree to check if this nullifier exists
 		// Using findLeavesIndexes with NULLIFIER_TREE is the correct way to check existence
 		// If the nullifier is found (index !== undefined), it has been spent
@@ -913,28 +911,28 @@ export async function isNullifierSpent(siloedNullifier: Fr): Promise<NullifierCh
 			MerkleTreeId.NULLIFIER_TREE,
 			[siloedNullifier]
 		);
-		
+
 		const isSpent = nullifierIndex !== undefined;
 		console.log(`Siloed nullifier ${siloedNullifier.toString().slice(0, 20)}... spent: ${isSpent}`);
-		
+
 		return { isSpent, success: true };
 	} catch (error) {
 		console.error('Error checking nullifier status:', error);
 		const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-		
+
 		// Check if it's a connection error
 		if (errorMessage.includes('connect') || errorMessage.includes('ECONNREFUSED') || errorMessage.includes('fetch')) {
-			return { 
-				isSpent: false, 
-				success: false, 
-				error: 'Could not connect to Aztec node. Make sure the sandbox is running.' 
+			return {
+				isSpent: false,
+				success: false,
+				error: 'Could not connect to Aztec node. Make sure the sandbox is running.'
 			};
 		}
-		
-		return { 
-			isSpent: false, 
-			success: false, 
-			error: `Failed to check nullifier: ${errorMessage}` 
+
+		return {
+			isSpent: false,
+			success: false,
+			error: `Failed to check nullifier: ${errorMessage}`
 		};
 	}
 }
@@ -955,7 +953,7 @@ export async function isNoteUsed(nullifierPreimage: bigint): Promise<NullifierCh
 		// Step 1: Compute inner nullifier (same as Noir circuit)
 		const innerNullifier = hashNullifier(nullifierPreimage);
 		const innerNullifierFr = Fr.fromString(innerNullifier.toString());
-		
+
 		// Step 2: Get the WarpToad contract address
 		const warpToadAddressStr = AZTEC_CONTRACTS.AztecWarpToad.address;
 		if (!warpToadAddressStr) {
@@ -966,15 +964,15 @@ export async function isNoteUsed(nullifierPreimage: bigint): Promise<NullifierCh
 			};
 		}
 		const warpToadAddress = AztecAddress.fromString(warpToadAddressStr);
-		
+
 		// Step 3: Silo the nullifier with the contract address
 		// This matches what Aztec does internally when context.push_nullifier() is called
 		const siloedNullifier = await siloNullifier(warpToadAddress, innerNullifierFr);
-		
+
 		console.log(`Inner nullifier: ${innerNullifier.toString().slice(0, 20)}...`);
 		console.log(`WarpToad address: ${warpToadAddress.toString()}`);
 		console.log(`Siloed nullifier: ${siloedNullifier.toString().slice(0, 20)}...`);
-		
+
 		// Step 4: Check if siloed nullifier exists in the tree
 		return isNullifierSpent(siloedNullifier);
 	} catch (error) {
@@ -1203,12 +1201,12 @@ const FIELD_MODULUS = 2188824287183927522224640574525727508854836440041603434369
 function generateRandomField(): bigint {
 	const randomBytes = new Uint8Array(32);
 	crypto.getRandomValues(randomBytes);
-	
+
 	let value = 0n;
 	for (let i = 0; i < randomBytes.length; i++) {
 		value = (value << 8n) | BigInt(randomBytes[i]);
 	}
-	
+
 	return value % FIELD_MODULUS;
 }
 
@@ -1322,6 +1320,7 @@ export function encodeAztecNote(
  */
 async function poseidon2HashWithSeparator(inputs: bigint[], separator: bigint): Promise<bigint> {
 	// Import dynamically since it's an async module
+	//@ts-ignore
 	const { poseidon2Hash } = await import('@zkpassport/poseidon2');
 	const inputsWithSeparator = [separator, ...inputs];
 	return poseidon2Hash(inputsWithSeparator);
