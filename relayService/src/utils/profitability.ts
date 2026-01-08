@@ -21,6 +21,19 @@ export async function checkProfitability(
   estimatedGasUnits: bigint = 250000n
 ): Promise<ProfitabilityCheck> {
   try {
+    // Special case: feeFactor=0 means altruistic testnet relayer
+    // Accept without profitability check (for testnet demo purposes)
+    if (feeFactor === 0n) {
+      console.log('[TESTNET] Altruistic relay - accepting without fee');
+      return {
+        isProfitable: true,
+        expectedGasCost: 0n,
+        expectedRelayerFee: 0n,
+        expectedProfit: 0n,
+        reason: 'Altruistic testnet relay (no fee)'
+      };
+    }
+
     // Get current base fee from latest block
     const feeData = await provider.getFeeData();
     const baseFee = feeData.maxFeePerGas || feeData.gasPrice || 0n;
@@ -111,11 +124,10 @@ export function validateFeeFactor(
   // If feeFactor is too large, it might drain entire amount
   const feeFactorNum = Number(feeFactor);
   
+  // Special case: feeFactor=0 is allowed for altruistic testnet relayer
   if (feeFactorNum === 0) {
-    return {
-      isValid: false,
-      reason: 'Fee factor cannot be zero for relayed transactions'
-    };
+    console.log('[TESTNET] Accepting feeFactor=0 for altruistic relay');
+    return { isValid: true };
   }
   
   // We expect feeFactor to be a small decimal like 0.0025 (for 0.25%)

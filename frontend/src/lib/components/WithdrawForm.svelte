@@ -311,6 +311,53 @@
 	}
 
 	/**
+	 * Add wrapped token to user's wallet (MetaMask)
+	 */
+	async function addWrappedTokenToWallet() {
+		try {
+			const eth = (window as any).ethereum;
+			if (!eth) {
+				alert('MetaMask not found. Please install MetaMask to add tokens.');
+				return;
+			}
+
+			const chainId = await getEvmChainId();
+			if (!chainId) {
+				alert('Please connect your wallet first');
+				return;
+			}
+
+			const chain = getEVMChain('Ethereum') || getEVMChain('Scroll');
+			if (!chain) {
+				alert('Chain configuration not found');
+				return;
+			}
+
+			const tokenConfig = getTokenConfig(selectedProof?.token || 'USDC');
+			const wrappedTokenAddress = chain.contracts.warpToad;
+			const decimals = tokenConfig?.decimals ?? 6;
+			const symbol = `wrptd-${selectedProof?.token || 'USDC'}`;
+
+			// Request to add token to MetaMask using EIP-747
+			await eth.request({
+				method: 'wallet_watchAsset',
+				params: {
+					type: 'ERC20',
+					options: {
+						address: wrappedTokenAddress,
+						symbol: symbol,
+						decimals: decimals,
+					},
+				} as any,
+			});
+
+			console.log('Token import requested');
+		} catch (error) {
+			console.error('Failed to add token to wallet:', error);
+		}
+	}
+
+	/**
 	 * Main withdraw function - routes to appropriate handler based on flow
 	 */
 	async function withdraw() {
@@ -729,8 +776,9 @@
 		withdrawMessage = "Preparing proof inputs...";
 
 		// Prepare fee config for relay or self-relay
+		// NOTE: Using feeFactor=0 for altruistic testnet relayer (contract formula is broken)
 		const feeConfig: FeeConfig | undefined = useRelay && relayerInfo ? {
-			feeFactor: BigInt(Math.floor(feePercentage * 100)), // Convert % to basis points
+			feeFactor: 0n, // Altruistic relayer for testnet (no fee)
 			relayerAddress: relayerInfo.relayerAddress,
 			priorityFee: BigInt(relayerInfo.currentGasPrice),
 			maxFee: BigInt(selectedProof.commitmentData.amount) // Allow up to full amount
@@ -796,9 +844,9 @@
 					amount: publicInputs[2].toString(),
 					gigaRoot: publicInputs[3].toString(),
 					localRoot: publicInputs[4].toString(),
-					feeFactor: publicInputs[5].toString(),
-					priorityFee: publicInputs[6].toString(),
-					maxFee: publicInputs[7].toString(),
+					feeFactor: publicInputs[6].toString(), // Index 6: fee_factor (index 5 is aztec_warptoad_address)
+					priorityFee: publicInputs[7].toString(), // Index 7: priority_fee
+					maxFee: publicInputs[8].toString(), // Index 8: max_fee
 					relayer: relayerInfo.relayerAddress,
 					recipient: walletStore.wallets.evm || "0x0000000000000000000000000000000000000000",
 					proof: proofHex
@@ -876,13 +924,15 @@
 			successMessage = `Withdrew ${selectedProof.amount} wrapped ${selectedProof.token}! Tx: ${mintTxHash.slice(0, 10)}...`;
 		}
 
-		// Refresh balances
-		await balanceStore.refresh();
+		// Reset button immediately so user can interact with UI
+		isWithdrawing = false;
 
-		// Reset after delay
+		// Refresh balances in background
+		balanceStore.refresh().catch(err => console.error('Failed to refresh balances:', err));
+
+		// Reset form after delay
 		setTimeout(() => {
 			selectedProof = null;
-			isWithdrawing = false;
 			withdrawStep = "idle";
 			withdrawMessage = "";
 		}, 5000);
@@ -997,10 +1047,11 @@
 		withdrawMessage = "Preparing proof inputs...";
 
 		// Prepare fee config for relay or self-relay
+		// NOTE: Using feeFactor=0 for altruistic testnet relayer (contract formula is broken)
 		const feeConfig: FeeConfig | undefined =
 			useRelay && relayerInfo
 				? {
-						feeFactor: BigInt(Math.floor(feePercentage * 100)), // Convert % to basis points
+						feeFactor: 0n, // Altruistic relayer for testnet (no fee)
 						relayerAddress: relayerInfo.relayerAddress,
 						priorityFee: BigInt(relayerInfo.currentGasPrice),
 						maxFee: BigInt(selectedProof.commitmentData.amount), // Allow up to full amount
@@ -1061,9 +1112,9 @@
 					amount: publicInputs[2].toString(),
 					gigaRoot: publicInputs[3].toString(),
 					localRoot: publicInputs[4].toString(),
-					feeFactor: publicInputs[5].toString(),
-					priorityFee: publicInputs[6].toString(),
-					maxFee: publicInputs[7].toString(),
+					feeFactor: publicInputs[6].toString(), // Index 6: fee_factor (index 5 is aztec_warptoad_address)
+					priorityFee: publicInputs[7].toString(), // Index 7: priority_fee
+					maxFee: publicInputs[8].toString(), // Index 8: max_fee
 					relayer: relayerInfo.relayerAddress,
 					recipient:
 						walletStore.wallets.evm ||
@@ -1145,13 +1196,15 @@
 			successMessage = `Withdrew ${selectedProof.amount} wrapped ${selectedProof.token}! Tx: ${mintTxHash.slice(0, 10)}...`;
 		}
 
-		// Refresh balances after successful withdraw
-		await balanceStore.refresh();
+		// Reset button immediately so user can interact with UI
+		isWithdrawing = false;
 
-		// Reset after delay
+		// Refresh balances in background
+		balanceStore.refresh().catch(err => console.error('Failed to refresh balances:', err));
+
+		// Reset form after delay
 		setTimeout(() => {
 			selectedProof = null;
-			isWithdrawing = false;
 			withdrawStep = "idle";
 			withdrawMessage = "";
 		}, 5000);
@@ -1384,11 +1437,10 @@
 					>
 						<div class="space-y-0.5">
 							<Label for="use-relay" class="cursor-pointer">
-								Gasless Withdrawal (Pay Fee Instead of Gas)
+								Gasless Withdrawal (Testnet - Subsidized)
 							</Label>
 							<p class="text-xs text-muted-foreground">
-								Use relay service to avoid gas fees - pay {feePercentage}%
-								from withdrawal
+								Use relay service to avoid gas fees. Relayer is subsidized for testnet demo.
 							</p>
 						</div>
 						<input
@@ -1399,39 +1451,11 @@
 						/>
 					</div>
 
-					<!-- Fee Slider (only shown when relay enabled) -->
+					<!-- Fee Info (only shown when relay enabled) -->
 					{#if useRelay}
 						<div
-							class="space-y-3 p-4 rounded-lg border bg-muted/50"
+							class="space-y-3 p-4 rounded-lg border bg-blue-50 dark:bg-blue-950/20"
 						>
-							<div class="space-y-2">
-								<div class="flex items-center justify-between">
-									<Label for="fee-slider"
-										>Relayer Fee: {feePercentage}%</Label
-									>
-									<span class="text-sm text-muted-foreground">
-										{feePercentage}% of withdrawal
-									</span>
-								</div>
-
-								<input
-									id="fee-slider"
-									type="range"
-									min="0.25"
-									max="5"
-									step="0.25"
-									bind:value={feePercentage}
-									class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-primary"
-								/>
-
-								<div
-									class="flex justify-between text-xs text-muted-foreground"
-								>
-									<span>Min: 0.25%</span>
-									<span>Max: 5%</span>
-								</div>
-							</div>
-
 							<!-- Fee Breakdown -->
 							<div class="space-y-2 text-sm">
 								<div class="flex justify-between">
@@ -1445,50 +1469,50 @@
 								</div>
 								<div class="flex justify-between">
 									<span class="text-muted-foreground"
-										>Relayer Fee ({feePercentage}%):</span
+										>Relayer Fee:</span
 									>
-									<span class="text-destructive"
-										>-{calculateEstimatedFee()}
-										{selectedProof.token}</span
+									<span class="font-medium text-green-600"
+										>FREE (Testnet)</span
 									>
 								</div>
-								<Separator />
-								<div class="flex justify-between font-semibold">
-									<span>You Receive:</span>
-									<span class="text-green-600"
-										>{calculateNetAmount()}
-										{selectedProof.token}</span
+								<div
+									class="flex justify-between pt-2 border-t"
+								>
+									<span class="text-muted-foreground"
+										>You Receive:</span
 									>
+									<span class="font-medium text-green-600">
+										{selectedProof.amount}
+										<button 
+											onclick={addWrappedTokenToWallet}
+											class="underline hover:text-green-700 cursor-pointer"
+											title="Click to add wrapped token to MetaMask"
+										>
+											wrptd-{selectedProof.token}
+										</button>
+									</span>
 								</div>
 							</div>
-
-							<!-- Relayer Info -->
-							<Alert>
-								<AlertDescription class="text-xs space-y-1">
-									<div><strong>Relayer Address:</strong></div>
-									<div
-										class="font-mono text-[10px] break-all"
+							<div class="space-y-2 p-3 rounded bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
+								<p class="text-xs text-muted-foreground">
+									<strong>Note:</strong> You will receive wrapped tokens (
+									<button 
+										onclick={addWrappedTokenToWallet}
+										class="underline hover:text-blue-700 cursor-pointer font-semibold"
+										title="Click to add to MetaMask"
 									>
-										{relayerInfo.relayerAddress}
-									</div>
-									<div class="mt-2 text-muted-foreground">
-										No gas payment required. Fee deducted
-										from withdrawal amount.
-									</div>
-								</AlertDescription>
-							</Alert>
+										wrptd-{selectedProof.token}
+									</button>
+									) when using the relayer. You can manually unwrap them to native {selectedProof.token} afterwards.
+								</p>
+								<p class="text-xs text-muted-foreground italic">
+									Production relayers would charge a small fee (0.25%-5%) from your withdrawal amount.
+								</p>
+							</div>
 						</div>
 					{/if}
 
-					<!-- Auto-unwrap not available with relay -->
-					{#if useRelay && showAutoUnwrap()}
-						<Alert>
-							<AlertDescription class="text-xs">
-								Auto-unwrap is not available with gasless relay.
-								You will receive wrapped tokens.
-							</AlertDescription>
-						</Alert>
-					{/if}
+
 				</div>
 			{/if}
 

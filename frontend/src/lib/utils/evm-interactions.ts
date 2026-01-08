@@ -957,30 +957,19 @@ export async function claimAndUnwrapOnL1(
 	console.log('Unwrapping tokens...');
 	console.log('Amount to unwrap:', amountToUnwrap.toString());
 	
-	// NOTE: The current unwrap function has a bug - it burns from address(this) instead of msg.sender
-	// This will fail until the bug is fixed. For now, user keeps wrapped tokens.
-	// TODO: Remove this comment once L1WarpToad.unwrap() is fixed
+	const { request } = await publicClient.simulateContract({
+		address: addresses.L1WarpToad as `0x${string}`,
+		abi: L1WarpToadAbi,
+		account: userAddress,
+		functionName: 'unwrap',
+		args: [amountToUnwrap],
+	});
 	
-	try {
-		const { request } = await publicClient.simulateContract({
-			address: addresses.L1WarpToad as `0x${string}`,
-			abi: L1WarpToadAbi,
-			account: userAddress,
-			functionName: 'unwrap',
-			args: [amountToUnwrap],
-		});
-		
-		const unwrapTxHash = await client.writeContract(request);
-		await publicClient.waitForTransactionReceipt({ hash: unwrapTxHash });
-		
-		console.log('Unwrap transaction completed:', unwrapTxHash);
-		return { mintTxHash, unwrapTxHash };
-	} catch (error) {
-		console.error('Unwrap failed (likely due to contract bug):', error);
-		// Return mint tx only - user will have wrapped tokens
-		// They can manually unwrap later when bug is fixed
-		return { mintTxHash, unwrapTxHash: '' };
-	}
+	const unwrapTxHash = await client.writeContract(request);
+	await publicClient.waitForTransactionReceipt({ hash: unwrapTxHash });
+	
+	console.log('Unwrap transaction completed:', unwrapTxHash);
+	return { mintTxHash, unwrapTxHash };
 }
 
 /**

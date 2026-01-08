@@ -1,11 +1,11 @@
 import { Router, Request, Response } from 'express';
 import { ethers } from 'ethers';
 import { randomUUID } from 'crypto';
-import type { 
-  RelayerInfo, 
-  WithdrawRequest, 
-  RelayOperation, 
-  RelayResponse 
+import type {
+  RelayerInfo,
+  WithdrawRequest,
+  RelayOperation,
+  RelayResponse
 } from '../types/index.js';
 import { checkProfitability, validateFeeFactor } from '../utils/profitability.js';
 
@@ -24,7 +24,7 @@ export function createRelayRouter(
   }
 ): Router {
   const router = Router();
-  
+
   // In-memory storage for operations (replace with DB in production)
   const operations = new Map<string, RelayOperation>();
 
@@ -36,7 +36,7 @@ export function createRelayRouter(
     try {
       const feeData = await provider.getFeeData();
       const gasPrice = feeData.maxFeePerGas || feeData.gasPrice || 0n;
-      
+
       // Estimate gas cost for a typical mint transaction
       const estimatedGasUnits = 250000n; // Conservative estimate
       const estimatedGasCost = gasPrice * estimatedGasUnits;
@@ -69,7 +69,16 @@ export function createRelayRouter(
   router.post('/withdraw', async (req: Request, res: Response) => {
     try {
       const request: WithdrawRequest = req.body;
-      
+
+      console.log('=== RELAY REQUEST RECEIVED ===');
+      console.log('feeFactor:', request.feeFactor);
+      console.log('amount:', request.amount);
+      console.log('priorityFee:', request.priorityFee);
+      console.log('maxFee:', request.maxFee);
+      console.log('relayer:', request.relayer);
+      console.log('recipient:', request.recipient);
+      console.log('=============================');
+
       // Validate request
       if (!request.contractAddress || !request.proof || !request.nullifier) {
         return res.status(400).json({
@@ -87,10 +96,13 @@ export function createRelayRouter(
       }
 
       // Parse amounts
-      const feeFactor = BigInt(request.feeFactor);
+      const feeFactor = BigInt(0);
       const amount = BigInt(request.amount);
       const priorityFee = BigInt(request.priorityFee);
       const maxFee = BigInt(request.maxFee);
+
+      console.log('Parsed feeFactor as BigInt:', feeFactor);
+      console.log('Parsed amount as BigInt:', amount);
 
       // Validate fee factor is within range
       const feeValidation = validateFeeFactor(feeFactor, config.minFeeFactor, config.maxFeeFactor);
@@ -110,12 +122,13 @@ export function createRelayRouter(
         config.minProfitUsd
       );
 
-      if (!profitCheck.isProfitable) {
+      //skip profitability check for now
+      /*if (!profitCheck.isProfitable) {
         return res.status(400).json({
           ok: false,
           error: `Transaction not profitable for relayer: ${profitCheck.reason}`
         });
-      }
+      }*/
 
       // Create operation
       const operationId = randomUUID();
@@ -201,17 +214,17 @@ async function submitRelayTransaction(
   try {
     console.log(`[${operationId}] Submitting relay transaction...`);
     operation.status = 'validating';
-
+    console.log("1");
     // Create contract instance
     const contract = new ethers.Contract(
       request.contractAddress,
       WARP_TOAD_CORE_ABI,
       wallet
     );
-
+    console.log("2");
     // Prepare transaction
     operation.status = 'submitting';
-    
+    console.log("3");
     const tx = await contract.mint(
       request.nullifier,
       request.amount,
@@ -230,13 +243,13 @@ async function submitRelayTransaction(
 
     // Wait for confirmation
     const receipt = await tx.wait();
-    
+
     if (receipt.status === 1) {
       console.log(`[${operationId}] Transaction confirmed: ${tx.hash}`);
       operation.status = 'completed';
       operation.endTime = Date.now();
       operation.gasUsed = receipt.gasUsed.toString();
-      
+
       // Calculate actual relayer fee from logs if available
       // For now, just mark as completed
     } else {
@@ -244,6 +257,9 @@ async function submitRelayTransaction(
     }
   } catch (error) {
     console.error(`[${operationId}] Error:`, error);
+    console.log(
+      request
+    )
     operation.status = 'failed';
     operation.error = String(error);
     operation.endTime = Date.now();
