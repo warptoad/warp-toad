@@ -298,6 +298,146 @@ export function prepareProofInputsForSameChain(
 	};
 }
 
+/**
+ * Prepare proof inputs for L1 → Scroll (EVM to EVM) withdrawal
+ * Uses is_from_aztec = false
+ * 
+ * @param commitmentData - The commitment pre-image from the L1 burn
+ * @param l1EvmMerkleData - Merkle proof from L1 burn tree
+ * @param gigaMerkleData - Merkle proof from GigaBridge tree (L1 local root in giga root)
+ * @param gigaRoot - The giga root from GigaBridge
+ * @param scrollLocalRoot - The Scroll local root (destination)
+ * @param l1LocalRoot - The L1 local root (origin)
+ * @param aztecWarptoadAddress - The Aztec WarpToad address (from L1WarpToad contract)
+ * @param scrollChainId - The Scroll chain ID
+ * @param recipientAddress - The recipient's Scroll address
+ * @param feeConfig - Optional fee configuration for relaying
+ * @returns ProofInputs ready for the circuit
+ */
+export function prepareProofInputsForL1ToScroll(
+	commitmentData: CommitmentPreImage,
+	l1EvmMerkleData: EvmMerkleData,
+	gigaMerkleData: EvmMerkleData,
+	gigaRoot: bigint,
+	scrollLocalRoot: bigint,
+	l1LocalRoot: bigint,
+	aztecWarptoadAddress: bigint,
+	scrollChainId: bigint,
+	recipientAddress: string,
+	feeConfig?: FeeConfig
+): ProofInputs {
+	// Compute nullifier
+	const nullifier = hashNullifier(commitmentData.nullifier_preimg);
+
+	// Use provided fee config or defaults for self-relay
+	const feeFactor = feeConfig?.feeFactor ?? DEFAULT_FEE_FACTOR;
+	const priorityFee = feeConfig?.priorityFee ?? DEFAULT_PRIORITY_FEE;
+	const actualMaxFee = feeConfig?.maxFee ?? commitmentData.amount;
+	const relayerAddress = feeConfig?.relayerAddress ?? DEFAULT_RELAYER_ADDRESS;
+
+	const proofInputs: ProofInputs = {
+		// ----- public inputs -----
+		nullifier: toHex(nullifier),
+		chain_id: toHex(scrollChainId),
+		amount: toHex(commitmentData.amount),
+		giga_root: toHex(gigaRoot),
+		destination_local_root: toHex(scrollLocalRoot),
+		aztec_warptoad_address: toHex(aztecWarptoadAddress),
+		fee_factor: toHex(feeFactor),
+		priority_fee: toHex(priorityFee),
+		max_fee: toHex(actualMaxFee),
+		relayer_address: addressToHex(relayerAddress),
+		recipient_address: addressToHex(recipientAddress),
+
+		// ----- private inputs -----
+		origin_local_root: toHex(l1LocalRoot),
+		is_from_aztec: false, // L1 → Scroll uses EVM merkle proof
+		nullifier_preimage: toHex(commitmentData.nullifier_preimg),
+		secret: toHex(commitmentData.secret),
+		aztec_merkle_data: createEmptyAztecMerkleData(), // Not used for EVM → EVM
+		evm_merkle_data: {
+			leaf_index: toHex(l1EvmMerkleData.leaf_index),
+			hash_path: l1EvmMerkleData.hash_path.map(h => toHex(h)),
+		},
+		giga_merkle_data: {
+			leaf_index: toHex(gigaMerkleData.leaf_index),
+			hash_path: gigaMerkleData.hash_path.map(h => toHex(h)),
+		},
+	};
+
+	return proofInputs;
+}
+
+/**
+ * Prepare proof inputs for Scroll → L1 withdrawal
+ * Uses is_from_aztec = false
+ * 
+ * @param commitmentData - The commitment pre-image from the Scroll burn
+ * @param scrollEvmMerkleData - Merkle proof from Scroll burn tree
+ * @param gigaMerkleData - Merkle proof from GigaBridge tree (Scroll local root in giga root)
+ * @param gigaRoot - The giga root from GigaBridge
+ * @param l1LocalRoot - The L1 local root (destination)
+ * @param scrollLocalRoot - The Scroll local root (origin)
+ * @param aztecWarptoadAddress - The Aztec WarpToad address (from Scroll L2WarpToad contract)
+ * @param l1ChainId - The L1 chain ID
+ * @param recipientAddress - The recipient's L1 address
+ * @param feeConfig - Optional fee configuration for relaying
+ * @returns ProofInputs ready for the circuit
+ */
+export function prepareProofInputsForScrollToL1(
+	commitmentData: CommitmentPreImage,
+	scrollEvmMerkleData: EvmMerkleData,
+	gigaMerkleData: EvmMerkleData,
+	gigaRoot: bigint,
+	l1LocalRoot: bigint,
+	scrollLocalRoot: bigint,
+	aztecWarptoadAddress: bigint,
+	l1ChainId: bigint,
+	recipientAddress: string,
+	feeConfig?: FeeConfig
+): ProofInputs {
+	// Compute nullifier
+	const nullifier = hashNullifier(commitmentData.nullifier_preimg);
+
+	// Use provided fee config or defaults for self-relay
+	const feeFactor = feeConfig?.feeFactor ?? DEFAULT_FEE_FACTOR;
+	const priorityFee = feeConfig?.priorityFee ?? DEFAULT_PRIORITY_FEE;
+	const actualMaxFee = feeConfig?.maxFee ?? commitmentData.amount;
+	const relayerAddress = feeConfig?.relayerAddress ?? DEFAULT_RELAYER_ADDRESS;
+
+	const proofInputs: ProofInputs = {
+		// ----- public inputs -----
+		nullifier: toHex(nullifier),
+		chain_id: toHex(l1ChainId),
+		amount: toHex(commitmentData.amount),
+		giga_root: toHex(gigaRoot),
+		destination_local_root: toHex(l1LocalRoot),
+		aztec_warptoad_address: toHex(aztecWarptoadAddress),
+		fee_factor: toHex(feeFactor),
+		priority_fee: toHex(priorityFee),
+		max_fee: toHex(actualMaxFee),
+		relayer_address: addressToHex(relayerAddress),
+		recipient_address: addressToHex(recipientAddress),
+
+		// ----- private inputs -----
+		origin_local_root: toHex(scrollLocalRoot),
+		is_from_aztec: false, // Scroll → L1 uses EVM merkle proof
+		nullifier_preimage: toHex(commitmentData.nullifier_preimg),
+		secret: toHex(commitmentData.secret),
+		aztec_merkle_data: createEmptyAztecMerkleData(), // Not used for EVM → EVM
+		evm_merkle_data: {
+			leaf_index: toHex(scrollEvmMerkleData.leaf_index),
+			hash_path: scrollEvmMerkleData.hash_path.map(h => toHex(h)),
+		},
+		giga_merkle_data: {
+			leaf_index: toHex(gigaMerkleData.leaf_index),
+			hash_path: gigaMerkleData.hash_path.map(h => toHex(h)),
+		},
+	};
+
+	return proofInputs;
+}
+
 // =============================================================================
 // PROOF GENERATION
 // =============================================================================

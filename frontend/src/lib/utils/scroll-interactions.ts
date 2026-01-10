@@ -440,9 +440,6 @@ export async function claimOnScroll(
 			paddedHexToAddress(proofInputs.recipient_address),
 			proof as `0x${string}`,
 		],
-		// Set gas price parameters
-		maxPriorityFeePerGas: BigInt(proofInputs.priority_fee),
-		maxFeePerGas: BigInt(proofInputs.priority_fee) * 100n,
 	});
 
 	const txHash = await client.writeContract(request);
@@ -584,6 +581,134 @@ function computeSiblingAtLevel(commitments: bigint[], siblingIndex: number, leve
 	// For higher levels, would need to compute from children
 	// For now return 0 as placeholder
 	return 0n;
+}
+
+/**
+ * Get EVM merkle data for a commitment on Scroll (for Scroll → L1 withdrawals)
+ * This is similar to getEvmMerkleDataForL1 but queries L2WarpToad on Scroll
+ * 
+ * @param commitment - The commitment to get merkle data for
+ * @returns EVM merkle data with leaf index, hash path, aztec warptoad address, and block number
+ */
+export async function getEvmMerkleDataForScroll(
+	commitment: bigint
+): Promise<{
+	evmMerkleData: { leaf_index: bigint; hash_path: bigint[] };
+	aztecWarptoadAddress: bigint;
+	localRootBlockNumber: number;
+}> {
+	const scroll = getScrollConfig();
+	
+	const publicClient = createPublicClient({
+		chain: scroll.viemChain,
+		transport: http(scroll.rpcUrl),
+	});
+	
+	// Get deployment block for Scroll from contract addresses
+	const { getContractAddresses } = await import('$lib/contracts/addresses');
+	const addresses = getContractAddresses(scroll.chainId);
+	const deploymentBlock = BigInt(addresses.deploymentBlock || 0);
+	const toBlock = await publicClient.getBlockNumber();
+	
+	console.log(`Querying Scroll Burn events from block ${deploymentBlock} to ${toBlock}...`);
+	
+	// Query all Burn events from L2WarpToad
+	const burnEvents = await publicClient.getLogs({
+		address: scroll.contracts.warpToad as `0x${string}`,
+		event: {
+			type: 'event',
+			name: 'Burn',
+			inputs: [
+				{ type: 'uint256', name: 'commitment', indexed: true },
+				{ type: 'uint256', name: 'amount', indexed: false },
+				{ type: 'uint256', name: 'index', indexed: false },
+			],
+		},
+		fromBlock: deploymentBlock,
+		toBlock,
+	});
+	
+	console.log(`Found ${burnEvents.length} Burn events on Scroll`);
+	
+	// Sort events by index
+	const sortedEvents = burnEvents
+		.map(e => ({
+			commitment: e.args.commitment as bigint,
+			index: Number(e.args.index as bigint | undefined),
+		}))
+		.sort((a, b) => a.index - b.index);
+	
+	// Extract commitments as leaves
+	const leaves = sortedEvents.map(e => e.commitment);
+	
+	// Find our commitment's index
+	const leafIndex = sortedEvents.findIndex(e => e.commitment === commitment);
+	if (leafIndex === -1) {
+		throw new Error(
+			`Commitment not found in Scroll burn events. ` +
+			`Make sure the burn transaction was confirmed on Scroll.`
+		);
+	}
+	
+	console.log(`Commitment found at index ${leafIndex} on Scroll`);
+	
+	// Get aztecWarptoadAddress from contract
+	const aztecWarptoadAddress = await publicClient.readContract({
+		address: scroll.contracts.warpToad as `0x${string}`,
+		abi: L2WarpToadAbi,
+		functionName: 'aztecWarptoadAddress',
+	});
+	
+	// Get max tree depth
+	const maxTreeDepth = await publicClient.readContract({
+		address: scroll.contracts.warpToad as `0x${string}`,
+		abi: L2WarpToadAbi,
+		functionName: 'maxTreeDepth',
+	});
+	
+	console.log(`Scroll tree depth: ${maxTreeDepth}`);
+	
+	// Build merkle tree using poseidon2 hash function
+	const { MerkleTree } = await import('fixed-merkle-tree');
+	const { poseidon2 } = await import('poseidon-lite');
+	
+	const hashFunc = (left: any, right: any): string => {
+		const result = poseidon2([BigInt(left.toString()), BigInt(right.toString())]);
+		return result.toString();
+	};
+	
+	const tree = new MerkleTree(Number(maxTreeDepth), leaves.map(l => l.toString()), {
+		hashFunction: hashFunc,
+		zeroElement: '0',
+	});
+	
+	// Verify the tree root matches what's stored on-chain
+	const treeRoot = BigInt(tree.root.toString());
+	const localRoot = await getScrollLocalRoot();
+	
+	if (treeRoot !== localRoot) {
+		console.warn(
+			`Warning: Computed tree root ${treeRoot} ` +
+			`does not match Scroll localRoot ${localRoot}. ` +
+			`This may indicate missing events or state mismatch.`
+		);
+	}
+	
+	// Get merkle proof
+	const proof = tree.proof(commitment.toString());
+	const hashPath = proof.pathElements.map(e => BigInt(e.toString()));
+	
+	// Get block number for the local root
+	const localRootBlockNumber = Number(toBlock);
+	
+	return {
+		evmMerkleData: {
+			leaf_index: BigInt(leafIndex),
+			hash_path: hashPath,
+		},
+		aztecWarptoadAddress,
+		localRootBlockNumber,
+	};
 }
 
 // ============================================================================

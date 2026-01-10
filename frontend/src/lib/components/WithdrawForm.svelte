@@ -135,10 +135,23 @@
 			: false,
 	);
 
+	let isOnCorrectNetwork = $derived(
+		selectedProof
+			? walletStore.isOnCorrectNetwork(selectedProof.targetChain)
+			: false,
+	);
+
+	let needsNetworkSwitch = $derived(
+		selectedProof !== null &&
+			isTargetConnected &&
+			!isOnCorrectNetwork,
+	);
+
 	let canWithdraw = $derived(
 		selectedProof !== null &&
 			!selectedProof.used &&
 			isTargetConnected &&
+			isOnCorrectNetwork &&
 			!isWithdrawing,
 	);
 
@@ -146,6 +159,21 @@
 		selectedProof = proof;
 		uploadError = null;
 		successMessage = null;
+	}
+
+	async function switchToTargetNetwork() {
+		if (!selectedProof) return;
+		
+		try {
+			await walletStore.switchToChain(selectedProof.targetChain);
+			// After switching, the button will automatically change to "Withdraw"
+			// due to reactive updates
+		} catch (error) {
+			console.error("Network switch error:", error);
+			uploadError = error instanceof Error 
+				? `Failed to switch network: ${error.message}` 
+				: "Failed to switch network";
+		}
 	}
 
 	async function handleFileUpload(event: Event) {
@@ -551,15 +579,18 @@
 			);
 		}
 
-		// Check if source is Aztec
-		if (selectedProof.sourceChain !== "Aztec") {
-			// For L1 -> Scroll, we need different merkle data handling
-			// This is not yet fully implemented
+		// Route based on source chain
+		if (selectedProof.sourceChain === "Ethereum") {
+			// L1 -> Scroll flow
+			await withdrawFromL1ToScroll();
+			return;
+		} else if (selectedProof.sourceChain !== "Aztec") {
 			throw new Error(
-				"L1 -> Scroll withdrawal is not yet implemented. " +
-					"Currently only Aztec -> Scroll is supported.",
+				`Unsupported source chain for Scroll withdrawal: ${selectedProof.sourceChain}`,
 			);
 		}
+		
+		// Continue with Aztec -> Scroll flow below...
 
 		// Step 1: Validate commitment data
 		withdrawStep = "validating";
@@ -612,10 +643,13 @@
 			);
 		}
 
-		// Get the Aztec local root from GigaBridge on Scroll
-		// Note: This reuses the L1 function but with Scroll chain ID
+		// Get the Aztec local root from GigaBridge on L1
+		// Note: GigaBridge lives on L1, so we query L1 even though destination is Scroll
+		const l1Chain = getEVMChain("Ethereum");
+		if (!l1Chain) throw new Error("Ethereum chain config not found");
+		
 		const { aztecLocalRoot, aztecLocalRootBlockNumber, gigaMerkleData } =
-			await getMerkleDataForAztecToL1(scrollChain.chainId, gigaRoot);
+			await getMerkleDataForAztecToL1(l1Chain.chainId, gigaRoot);
 
 		const aztecMerkleData = await getAztecMerkleData(
 			aztecWallet,
@@ -686,21 +720,274 @@
 	}
 
 	/**
+	 * Withdraw from L1 to Scroll L2
+	 * This generates a ZK proof and calls the L2WarpToad.mint() on Scroll
+	 */
+	async function withdrawFromL1ToScroll() {
+		if (!selectedProof?.commitmentData) {
+			throw new Error(
+				"Proof missing commitment data. Please re-bridge or upload a valid note file.",
+			);
+		}
+
+		// Step 1: Validate commitment data
+		withdrawStep = "validating";
+		withdrawMessage = "Validating commitment data...";
+
+		const { nullifier_preimg, secret, destination_chain_id, amount } =
+			selectedProof.commitmentData;
+
+		// Calculate commitment hash for lookups
+		const preCommitment = hashPreCommitment(
+			nullifier_preimg,
+			secret,
+			destination_chain_id,
+		);
+		const commitment = hashCommitment(preCommitment, amount);
+		console.log("Commitment:", commitment.toString());
+
+		// Step 2: Get Scroll chain state
+		withdrawStep = "checking-bridge";
+		withdrawMessage = "Checking Scroll bridge state...";
+
+		const scrollChain = getEVMChain("Scroll");
+		if (!scrollChain || !scrollChain.enabled) {
+			throw new Error(
+				"Scroll is not available in the current environment",
+			);
+		}
+
+		const chainId = await getEvmChainId();
+		if (!chainId || chainId !== scrollChain.chainId) {
+			throw new Error(
+				`Please switch to Scroll Sepolia network (chain ID: ${scrollChain.chainId})`,
+			);
+		}
+
+		const gigaRoot = await getScrollGigaRoot();
+		console.log("Scroll GigaRoot:", gigaRoot.toString());
+
+		const localRoot = await getScrollLocalRoot();
+		console.log("Scroll LocalRoot:", localRoot.toString());
+
+		// Step 3: Get L1 merkle data (burn proof)
+		withdrawStep = "building-proofs";
+		withdrawMessage = "Getting L1 burn proof...";
+
+		const l1Chain = getEVMChain("Ethereum");
+		if (!l1Chain) throw new Error("Ethereum chain config not found");
+		const l1ChainId = l1Chain.chainId;
+
+		const { evmMerkleData: l1EvmMerkleData, aztecWarptoadAddress } = 
+			await getEvmMerkleDataForL1(l1ChainId, commitment);
+
+		console.log("L1 EVM merkle data:", l1EvmMerkleData);
+
+		// Step 4: Get GigaBridge data (L1 local root in gigaRoot)
+		withdrawMessage = "Getting L1 local root from GigaBridge...";
+
+		// @ts-ignore - Function exists but TypeScript hasn't picked it up yet
+		const { getMerkleDataForL1ToScroll } = await import("$lib/utils/evm-interactions.js");
+		const { l1LocalRoot, l1LocalRootBlockNumber, gigaMerkleData } = 
+			// @ts-ignore
+			await getMerkleDataForL1ToScroll(l1ChainId, gigaRoot);
+
+		console.log("L1 local root:", l1LocalRoot.toString());
+		console.log("Giga merkle data:", gigaMerkleData);
+
+		// Step 5: Prepare proof inputs
+		withdrawMessage = "Preparing proof inputs...";
+
+		// @ts-ignore - Function exists but TypeScript hasn't picked it up yet
+		const { prepareProofInputsForL1ToScroll } = await import("$lib/utils/proof-generation.js");
+		// @ts-ignore
+		const proofInputs = prepareProofInputsForL1ToScroll(
+			selectedProof.commitmentData,
+			l1EvmMerkleData,
+			gigaMerkleData,
+			gigaRoot,
+			localRoot, // Scroll local root
+			l1LocalRoot, // L1 local root
+			aztecWarptoadAddress,
+			BigInt(scrollChain.chainId),
+			walletStore.wallets.evm || "0x0000000000000000000000000000000000000000"
+		);
+		console.log("Proof inputs prepared");
+
+		// Step 6: Generate ZK proof
+		withdrawStep = "generating-proof";
+		withdrawMessage = "Generating ZK proof (30-60 seconds)...";
+
+		const { proof, publicInputs } = await generateWithdrawProof(
+			proofInputs,
+			(msg) => { withdrawMessage = msg; }
+		);
+		console.log("Proof generated, public inputs:", publicInputs.length);
+
+		// Format proof for submission
+		const proofHex = formatProofForL1(proof);
+		console.log("Proof hex length:", proofHex.length);
+
+		// Step 7: Claim on Scroll
+		withdrawStep = "minting";
+		withdrawMessage = "Minting wrapped tokens on Scroll L2...";
+
+		const result = await claimOnScroll(proofInputs, proofHex);
+		const mintTxHash = result.txHash;
+
+		// Step 8: Complete
+		withdrawStep = "complete";
+		withdrawMessage = "Withdrawal to Scroll complete!";
+
+		proofStore.markProofAsUsed(selectedProof.id);
+		successMessage = `Withdrew ${selectedProof.amount} ${selectedProof.token} to Scroll! Tx: ${mintTxHash.slice(0, 10)}...`;
+
+		// Refresh balances
+		await balanceStore.refresh();
+
+		// Reset after delay
+		setTimeout(() => {
+			selectedProof = null;
+			isWithdrawing = false;
+			withdrawStep = "idle";
+			withdrawMessage = "";
+		}, 5000);
+	}
+
+	/**
 	 * Withdraw from Scroll to L1
 	 * This generates a ZK proof and calls the L1WarpToad.mint()
-	 *
-	 * NOTE: This requires EVM merkle data format which is different from Aztec
-	 * The proof generation needs to use is_from_aztec = false
 	 */
 	async function withdrawFromScrollToL1() {
-		// Scroll -> L1 withdrawal is more complex because:
-		// 1. We need to build EVM-style merkle proofs from Scroll's LazyIMT
-		// 2. The proof generation needs to handle the EVM path (is_from_aztec = false)
-		// 3. This requires proper LazyIMT proof generation
-		throw new Error(
-			"Scroll -> L1 withdrawal is not yet implemented. " +
-				"This requires EVM merkle proof generation from Scroll's LazyIMT tree.",
+		if (!selectedProof?.commitmentData) {
+			throw new Error(
+				"Proof missing commitment data. Please re-bridge or upload a valid note file.",
+			);
+		}
+
+		// Step 1: Validate commitment data
+		withdrawStep = "validating";
+		withdrawMessage = "Validating commitment data...";
+
+		const { nullifier_preimg, secret, destination_chain_id, amount } =
+			selectedProof.commitmentData;
+
+		// Calculate commitment hash for lookups
+		const preCommitment = hashPreCommitment(
+			nullifier_preimg,
+			secret,
+			destination_chain_id,
 		);
+		const commitment = hashCommitment(preCommitment, amount);
+		console.log("Commitment:", commitment.toString());
+
+		// Step 2: Get L1 chain state
+		withdrawStep = "checking-bridge";
+		withdrawMessage = "Checking L1 bridge state...";
+
+		const chainId = await getEvmChainId();
+		const l1Chain = getEVMChain("Ethereum");
+		if (!l1Chain) throw new Error("Ethereum chain config not found");
+		
+		// Ensure user is on L1 network
+		if (!chainId || chainId !== l1Chain.chainId) {
+			throw new Error(
+				`Please switch to Ethereum network (chain ID: ${l1Chain.chainId})`,
+			);
+		}
+
+		const gigaRoot = await getL1GigaRoot(chainId);
+		console.log("L1 GigaRoot:", gigaRoot.toString());
+
+		const localRoot = await getL1LocalRoot(chainId);
+		console.log("L1 LocalRoot:", localRoot.toString());
+
+		// Step 3: Get Scroll merkle data (burn proof)
+		withdrawStep = "building-proofs";
+		withdrawMessage = "Getting Scroll burn proof...";
+
+		// @ts-ignore - Function exists but TypeScript hasn't picked it up yet
+		const { getEvmMerkleDataForScroll } = await import("$lib/utils/scroll-interactions.js");
+		// @ts-ignore
+		const { evmMerkleData: scrollEvmMerkleData, aztecWarptoadAddress, localRootBlockNumber } = 
+			await getEvmMerkleDataForScroll(commitment);
+
+		console.log("Scroll EVM merkle data:", scrollEvmMerkleData);
+
+		// Step 4: Get GigaBridge data (Scroll local root in gigaRoot)
+		withdrawMessage = "Getting Scroll local root from GigaBridge...";
+
+		// @ts-ignore - Function exists but TypeScript hasn't picked it up yet
+		const { getMerkleDataForScrollToL1 } = await import("$lib/utils/evm-interactions.js");
+		// @ts-ignore
+		const { scrollLocalRoot, scrollLocalRootBlockNumber, gigaMerkleData } = 
+			await getMerkleDataForScrollToL1(chainId, gigaRoot);
+
+		console.log("Scroll local root:", scrollLocalRoot.toString());
+		console.log("Giga merkle data:", gigaMerkleData);
+
+		// Step 5: Prepare proof inputs
+		withdrawMessage = "Preparing proof inputs...";
+
+		// @ts-ignore - Function exists but TypeScript hasn't picked it up yet
+		const { prepareProofInputsForScrollToL1 } = await import("$lib/utils/proof-generation.js");
+		// @ts-ignore
+		const proofInputs = prepareProofInputsForScrollToL1(
+			selectedProof.commitmentData,
+			scrollEvmMerkleData,
+			gigaMerkleData,
+			gigaRoot,
+			localRoot, // L1 local root
+			scrollLocalRoot, // Scroll local root
+			aztecWarptoadAddress,
+			BigInt(chainId),
+			walletStore.wallets.evm || "0x0000000000000000000000000000000000000000"
+		);
+		console.log("Proof inputs prepared");
+
+		// Step 6: Generate ZK proof
+		withdrawStep = "generating-proof";
+		withdrawMessage = "Generating ZK proof (30-60 seconds)...";
+
+		const { proof, publicInputs } = await generateWithdrawProof(
+			proofInputs,
+			(msg) => { withdrawMessage = msg; }
+		);
+		console.log("Proof generated, public inputs:", publicInputs.length);
+
+		// Format proof for submission
+		const proofHex = formatProofForL1(proof);
+		console.log("Proof hex length:", proofHex.length);
+
+		// Step 7: Claim on L1
+		withdrawStep = "minting";
+		withdrawMessage = "Minting tokens on L1...";
+
+		const result = await claimOnL1(
+			proofInputs,
+			proofHex,
+			chainId,
+			"Scroll -> L1"
+		);
+		const mintTxHash = result.txHash;
+
+		// Step 8: Complete
+		withdrawStep = "complete";
+		withdrawMessage = "Withdrawal to L1 complete!";
+
+		proofStore.markProofAsUsed(selectedProof.id);
+		successMessage = `Withdrew ${selectedProof.amount} ${selectedProof.token} to Ethereum L1! Tx: ${mintTxHash.slice(0, 10)}...`;
+
+		// Refresh balances
+		await balanceStore.refresh();
+
+		// Reset after delay
+		setTimeout(() => {
+			selectedProof = null;
+			isWithdrawing = false;
+			withdrawStep = "idle";
+			withdrawMessage = "";
+		}, 5000);
 	}
 
 	/**
@@ -1362,6 +1649,13 @@
 								{/if}
 							</span>
 						</div>
+						{#if isTargetConnected && needsNetworkSwitch}
+							<Alert variant="default" class="border-yellow-500 bg-yellow-50 dark:bg-yellow-950">
+								<AlertDescription class="text-yellow-800 dark:text-yellow-200">
+									Wrong network. Please switch to {selectedProof.targetChain}.
+								</AlertDescription>
+							</Alert>
+						{/if}
 						{#if selectedProof.commitmentData}
 							<div class="flex justify-between text-sm">
 								<span class="text-muted-foreground"
@@ -1552,9 +1846,15 @@
 			{/if}
 
 			<!-- Withdraw Button -->
-			<Button class="w-full" disabled={!canWithdraw} onclick={withdraw}>
+			<Button 
+				class="w-full" 
+				disabled={(!canWithdraw && !needsNetworkSwitch) || isWithdrawing} 
+				onclick={needsNetworkSwitch ? switchToTargetNetwork : withdraw}
+			>
 				{#if isWithdrawing}
 					Processing...
+				{:else if needsNetworkSwitch}
+					Switch to {selectedProof.targetChain}
 				{:else if isAztecToL1() || isSameChainL1()}
 					{#if useRelay}
 						Gasless Withdraw ({feePercentage}% fee)

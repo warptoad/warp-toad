@@ -1,6 +1,6 @@
 import type { Chain, Token, CommitmentPreImage } from '$lib/types/bridge.js';
 import { TOKEN_CONTRACTS } from '$lib/stores/proofs.svelte';
-import { USDcoinAbi, L1WarpToadAbi } from '$lib/contracts/abis';
+import { USDcoinAbi, L1WarpToadAbi, GigaBridgeAbi, L1WarpToadAbi as WarpToadAbi } from '$lib/contracts/abis';
 import { createClient, getChainId } from './evm-wallet';
 import { createPublicClient, http, toHex, type Hash } from 'viem';
 import { getContractAddresses, CONTRACT_ADDRESSES } from '$lib/contracts/addresses';
@@ -559,8 +559,6 @@ export async function mintFreeTokens(tokenInput: Token, chain: Chain, amount: nu
  * These functions trigger the bridge sync process (updateGigaRoot + sendGigaRoot)
  * This is typically done by a relayer, but can be triggered manually by a user with an L1 wallet
  */
-
-import { GigaBridgeAbi, L1WarpToadAbi as WarpToadAbi } from '$lib/contracts/abis';
 
 /**
  * Store the current local root in history
@@ -1203,4 +1201,335 @@ export async function getL1LocalRootWithValidity(chainId: number): Promise<{
 	const localRoot = await getL1LocalRoot(chainId);
 	const isValid = await isValidL1LocalRoot(chainId, localRoot);
 	return { localRoot, isValid };
+}
+
+// ============================================================================
+// GIGABRIDGE MERKLE DATA
+// ============================================================================
+
+/**
+ * Get GigaBridge merkle data for L1 → Scroll withdrawal
+ * Proves that L1's localRoot exists in the gigaRoot on Scroll
+ * 
+ * @param l1ChainId - L1 chain ID (where GigaBridge lives)
+ * @param gigaRoot - The gigaRoot to search for L1's local root in
+ * @returns L1 local root, block number, and giga merkle proof
+ */
+export async function getMerkleDataForL1ToScroll(
+	l1ChainId: number,
+	gigaRoot: bigint
+): Promise<{
+	l1LocalRoot: bigint;
+	l1LocalRootBlockNumber: number;
+	gigaMerkleData: EvmMerkleData;
+}> {
+	const client = createClient(l1ChainId);
+	if (!client) throw new Error('Failed to create client for L1');
+	
+	const rpcUrl = getRpcUrl(l1ChainId);
+	const publicClient = createPublicClient({
+		chain: client.chain,
+		transport: http(rpcUrl)
+	});
+	
+	const addresses = getContractAddresses(l1ChainId);
+	if (!addresses.GigaBridge) throw new Error('GigaBridge address not found');
+	if (!addresses.L1WarpToad) throw new Error('L1WarpToad address not found');
+	
+	// Step 1: Find when this gigaRoot was constructed
+	console.log(`Searching for ConstructedNewGigaRoot event for gigaRoot: ${gigaRoot.toString()}`);
+	
+	const fromBlock = getDeploymentBlock(l1ChainId);
+	const toBlock = await publicClient.getBlockNumber();
+	
+	const gigaRootEvents = await publicClient.getLogs({
+		address: addresses.GigaBridge as `0x${string}`,
+		event: {
+			type: 'event',
+			name: 'ConstructedNewGigaRoot',
+			inputs: [
+				{ type: 'uint256', name: 'newGigaRoot', indexed: true }
+			]
+		},
+		args: {
+			newGigaRoot: gigaRoot
+		},
+		fromBlock,
+		toBlock
+	});
+	
+	if (gigaRootEvents.length === 0) {
+		throw new Error(
+			`GigaRoot ${gigaRoot} not found on L1. ` +
+			`Please wait for bridge sync to complete.`
+		);
+	}
+	
+	const gigaRootBlock = gigaRootEvents[0].blockNumber;
+	console.log(`Found gigaRoot at block ${gigaRootBlock}`);
+	
+	// Step 2: Get L1WarpToad's index in the giga tree
+	const l1WarpToadIndex = await publicClient.readContract({
+		address: addresses.GigaBridge as `0x${string}`,
+		abi: GigaBridgeAbi,
+		functionName: 'getLocalRootProvidersIndex',
+		args: [addresses.L1WarpToad as `0x${string}`]
+	});
+	
+	console.log(`L1WarpToad index in giga tree: ${l1WarpToadIndex}`);
+	
+	// Step 3: Get all local roots at that block (to build giga tree)
+	console.log(`Querying ReceivedNewLocalRoot events at block ${gigaRootBlock}...`);
+	
+	const localRootEvents = await publicClient.getLogs({
+		address: addresses.GigaBridge as `0x${string}`,
+		event: {
+			type: 'event',
+			name: 'ReceivedNewLocalRoot',
+			inputs: [
+				{ type: 'uint256', name: 'newLocalRoot', indexed: true },
+				{ type: 'uint40', name: 'localRootIndex', indexed: true },
+				{ type: 'uint256', name: 'localRootBlockNumber', indexed: false }
+			]
+		},
+		fromBlock: gigaRootBlock,
+		toBlock: gigaRootBlock
+	});
+	
+	console.log(`Found ${localRootEvents.length} local root events at block ${gigaRootBlock}`);
+	
+	// Step 4: Build the giga tree leaves array
+	// We need to find the maximum index to know the tree size
+	const maxTreeDepth = await publicClient.readContract({
+		address: addresses.GigaBridge as `0x${string}`,
+		abi: GigaBridgeAbi,
+		functionName: 'maxTreeDepth'
+	});
+	
+	const maxLeaves = 2 ** Number(maxTreeDepth);
+	const leaves: bigint[] = new Array(maxLeaves).fill(0n);
+	
+	let l1LocalRoot: bigint | null = null;
+	let l1LocalRootBlockNumber = 0;
+	
+	// Fill in the leaves from events
+	for (const event of localRootEvents) {
+		const localRoot = event.args.newLocalRoot as bigint;
+		const leafIndex = Number(event.args.localRootIndex as bigint | undefined);
+		const blockNumber = Number(event.args.localRootBlockNumber as bigint | undefined);
+		
+		leaves[leafIndex] = localRoot;
+		
+		// Check if this is L1WarpToad's local root
+		if (leafIndex === Number(l1WarpToadIndex)) {
+			l1LocalRoot = localRoot;
+			l1LocalRootBlockNumber = blockNumber;
+		}
+	}
+	
+	if (l1LocalRoot === null) {
+		throw new Error(
+			`L1WarpToad local root not found in giga tree at block ${gigaRootBlock}. ` +
+			`This should not happen - the gigaRoot should contain L1's local root.`
+		);
+	}
+	
+	console.log(`L1 local root: ${l1LocalRoot.toString()}`);
+	console.log(`L1 local root block number: ${l1LocalRootBlockNumber}`);
+	
+	// Step 5: Build merkle tree and get proof
+	const hashFunc = (left: Element, right: Element): string => {
+		const result = poseidon2([BigInt(left.toString()), BigInt(right.toString())]);
+		return result.toString();
+	};
+	
+	const gigaTree = new MerkleTree(Number(maxTreeDepth), leaves.map(l => l.toString()), {
+		hashFunction: hashFunc,
+		zeroElement: '0'
+	});
+	
+	// Verify tree root matches gigaRoot
+	const computedRoot = BigInt(gigaTree.root.toString());
+	if (computedRoot !== gigaRoot) {
+		console.warn(
+			`Warning: Computed giga tree root ${computedRoot} ` +
+			`does not match expected gigaRoot ${gigaRoot}`
+		);
+	}
+	
+	// Get merkle proof for L1's local root
+	const proof = gigaTree.proof(l1LocalRoot.toString());
+	const hashPath = proof.pathElements.map(e => BigInt(e.toString()));
+	
+	return {
+		l1LocalRoot,
+		l1LocalRootBlockNumber,
+		gigaMerkleData: {
+			leaf_index: BigInt(l1WarpToadIndex),
+			hash_path: hashPath
+		}
+	};
+}
+
+/**
+ * Get GigaBridge merkle data for Scroll → L1 withdrawal
+ * Proves that Scroll's localRoot exists in the gigaRoot on L1
+ * 
+ * @param l1ChainId - L1 chain ID (where GigaBridge lives)
+ * @param gigaRoot - The gigaRoot to search for Scroll's local root in
+ * @returns Scroll local root, block number, and giga merkle proof
+ */
+export async function getMerkleDataForScrollToL1(
+	l1ChainId: number,
+	gigaRoot: bigint
+): Promise<{
+	scrollLocalRoot: bigint;
+	scrollLocalRootBlockNumber: number;
+	gigaMerkleData: EvmMerkleData;
+}> {
+	const client = createClient(l1ChainId);
+	if (!client) throw new Error('Failed to create client for L1');
+	
+	const rpcUrl = getRpcUrl(l1ChainId);
+	const publicClient = createPublicClient({
+		chain: client.chain,
+		transport: http(rpcUrl)
+	});
+	
+	const addresses = getContractAddresses(l1ChainId);
+	if (!addresses.GigaBridge) throw new Error('GigaBridge address not found');
+	if (!addresses.L1ScrollBridgeAdapter) throw new Error('L1ScrollBridgeAdapter address not found');
+	
+	// Step 1: Find when this gigaRoot was constructed
+	console.log(`Searching for ConstructedNewGigaRoot event for gigaRoot: ${gigaRoot.toString()}`);
+	
+	const fromBlock = getDeploymentBlock(l1ChainId);
+	const toBlock = await publicClient.getBlockNumber();
+	
+	const gigaRootEvents = await publicClient.getLogs({
+		address: addresses.GigaBridge as `0x${string}`,
+		event: {
+			type: 'event',
+			name: 'ConstructedNewGigaRoot',
+			inputs: [
+				{ type: 'uint256', name: 'newGigaRoot', indexed: true }
+			]
+		},
+		args: {
+			newGigaRoot: gigaRoot
+		},
+		fromBlock,
+		toBlock
+	});
+	
+	if (gigaRootEvents.length === 0) {
+		throw new Error(
+			`GigaRoot ${gigaRoot} not found on L1. ` +
+			`Please wait for bridge sync to complete.`
+		);
+	}
+	
+	const gigaRootBlock = gigaRootEvents[0].blockNumber;
+	console.log(`Found gigaRoot at block ${gigaRootBlock}`);
+	
+	// Step 2: Get L1ScrollBridgeAdapter's index in the giga tree
+	const scrollAdapterIndex = await publicClient.readContract({
+		address: addresses.GigaBridge as `0x${string}`,
+		abi: GigaBridgeAbi,
+		functionName: 'getLocalRootProvidersIndex',
+		args: [addresses.L1ScrollBridgeAdapter as `0x${string}`]
+	});
+	
+	console.log(`L1ScrollBridgeAdapter index in giga tree: ${scrollAdapterIndex}`);
+	
+	// Step 3: Get all local roots at that block (to build giga tree)
+	console.log(`Querying ReceivedNewLocalRoot events at block ${gigaRootBlock}...`);
+	
+	const localRootEvents = await publicClient.getLogs({
+		address: addresses.GigaBridge as `0x${string}`,
+		event: {
+			type: 'event',
+			name: 'ReceivedNewLocalRoot',
+			inputs: [
+				{ type: 'uint256', name: 'newLocalRoot', indexed: true },
+				{ type: 'uint40', name: 'localRootIndex', indexed: true },
+				{ type: 'uint256', name: 'localRootBlockNumber', indexed: false }
+			]
+		},
+		fromBlock: gigaRootBlock,
+		toBlock: gigaRootBlock
+	});
+	
+	console.log(`Found ${localRootEvents.length} local root events at block ${gigaRootBlock}`);
+	
+	// Step 4: Build the giga tree leaves array
+	const maxTreeDepth = await publicClient.readContract({
+		address: addresses.GigaBridge as `0x${string}`,
+		abi: GigaBridgeAbi,
+		functionName: 'maxTreeDepth'
+	});
+	
+	const maxLeaves = 2 ** Number(maxTreeDepth);
+	const leaves: bigint[] = new Array(maxLeaves).fill(0n);
+	
+	let scrollLocalRoot: bigint | null = null;
+	let scrollLocalRootBlockNumber = 0;
+	
+	// Fill in the leaves from events
+	for (const event of localRootEvents) {
+		const localRoot = event.args.newLocalRoot as bigint;
+		const leafIndex = Number(event.args.localRootIndex as bigint | undefined);
+		const blockNumber = Number(event.args.localRootBlockNumber as bigint | undefined);
+		
+		leaves[leafIndex] = localRoot;
+		
+		// Check if this is Scroll's local root
+		if (leafIndex === Number(scrollAdapterIndex)) {
+			scrollLocalRoot = localRoot;
+			scrollLocalRootBlockNumber = blockNumber;
+		}
+	}
+	
+	if (scrollLocalRoot === null) {
+		throw new Error(
+			`Scroll local root not found in giga tree at block ${gigaRootBlock}. ` +
+			`This should not happen - the gigaRoot should contain Scroll's local root.`
+		);
+	}
+	
+	console.log(`Scroll local root: ${scrollLocalRoot.toString()}`);
+	console.log(`Scroll local root block number: ${scrollLocalRootBlockNumber}`);
+	
+	// Step 5: Build merkle tree and get proof
+	const hashFunc = (left: Element, right: Element): string => {
+		const result = poseidon2([BigInt(left.toString()), BigInt(right.toString())]);
+		return result.toString();
+	};
+	
+	const gigaTree = new MerkleTree(Number(maxTreeDepth), leaves.map(l => l.toString()), {
+		hashFunction: hashFunc,
+		zeroElement: '0'
+	});
+	
+	// Verify tree root matches gigaRoot
+	const computedRoot = BigInt(gigaTree.root.toString());
+	if (computedRoot !== gigaRoot) {
+		console.warn(
+			`Warning: Computed giga tree root ${computedRoot} ` +
+			`does not match expected gigaRoot ${gigaRoot}`
+		);
+	}
+	
+	// Get merkle proof for Scroll's local root
+	const proof = gigaTree.proof(scrollLocalRoot.toString());
+	const hashPath = proof.pathElements.map(e => BigInt(e.toString()));
+	
+	return {
+		scrollLocalRoot,
+		scrollLocalRootBlockNumber,
+		gigaMerkleData: {
+			leaf_index: BigInt(scrollAdapterIndex),
+			hash_path: hashPath
+		}
+	};
 }
