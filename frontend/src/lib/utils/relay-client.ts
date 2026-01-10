@@ -15,6 +15,7 @@ export interface RelayerInfo {
 }
 
 export interface WithdrawRelayRequest {
+  chainId: string; // Target chain ID (11155111 for L1, 534351 for Scroll)
   contractAddress: string;
   nullifier: string;
   amount: string;
@@ -50,10 +51,12 @@ export interface RelayStatus {
 
 /**
  * Fetch relayer information
+ * @param chainId Target chain ID (optional, defaults to L1 Sepolia)
  * @returns Relayer info including address and fee requirements
  */
-export async function getRelayerInfo(): Promise<RelayerInfo> {
-  const response = await fetch(`${RELAY_SERVICE_URL}/relay/info`);
+export async function getRelayerInfo(chainId?: number): Promise<RelayerInfo> {
+  const queryParams = chainId ? `?chainId=${chainId}` : '';
+  const response = await fetch(`${RELAY_SERVICE_URL}/relay/info${queryParams}`);
   
   if (!response.ok) {
     throw new Error(`Failed to fetch relayer info: ${response.statusText}`);

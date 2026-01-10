@@ -15,8 +15,8 @@ const WARP_TOAD_CORE_ABI = [
 ];
 
 export function createRelayRouter(
-  provider: ethers.Provider,
-  wallet: ethers.Wallet,
+  providers: Map<number, ethers.Provider>,
+  wallets: Map<number, ethers.Wallet>,
   config: {
     minFeeFactor: number;
     maxFeeFactor: number;
@@ -31,9 +31,22 @@ export function createRelayRouter(
   /**
    * GET /relay/info
    * Returns relayer information including address and fee requirements
+   * Query params: chainId (optional, defaults to L1)
    */
   router.get('/info', async (req: Request, res: Response) => {
     try {
+      const chainId = parseInt(req.query.chainId as string || '11155111'); // Default to Sepolia
+      
+      const provider = providers.get(chainId);
+      const wallet = wallets.get(chainId);
+      
+      if (!provider || !wallet) {
+        return res.status(400).json({
+          ok: false,
+          error: `Chain ID ${chainId} not supported. Supported: ${Array.from(providers.keys()).join(', ')}`
+        });
+      }
+
       const feeData = await provider.getFeeData();
       const gasPrice = feeData.maxFeePerGas || feeData.gasPrice || 0n;
 
@@ -43,8 +56,8 @@ export function createRelayRouter(
 
       const info: RelayerInfo = {
         relayerAddress: wallet.address,
-        minFeeFactor: config.minFeeFactor, // 25 = 0.25%
-        maxFeeFactor: config.maxFeeFactor, // 500 = 5%
+        minFeeFactor: config.minFeeFactor, // 0 = altruistic
+        maxFeeFactor: config.maxFeeFactor, // 0 = altruistic
         currentGasPrice: gasPrice.toString(),
         estimatedGasCost: estimatedGasCost.toString()
       };
@@ -65,12 +78,14 @@ export function createRelayRouter(
   /**
    * POST /relay/withdraw
    * Submit a withdrawal request to be relayed
+   * Body must include: chainId (target chain)
    */
   router.post('/withdraw', async (req: Request, res: Response) => {
     try {
       const request: WithdrawRequest = req.body;
 
       console.log('=== RELAY REQUEST RECEIVED ===');
+      console.log('chainId:', request.chainId);
       console.log('feeFactor:', request.feeFactor);
       console.log('amount:', request.amount);
       console.log('priorityFee:', request.priorityFee);
@@ -80,10 +95,22 @@ export function createRelayRouter(
       console.log('=============================');
 
       // Validate request
-      if (!request.contractAddress || !request.proof || !request.nullifier) {
+      if (!request.contractAddress || !request.proof || !request.nullifier || !request.chainId) {
         return res.status(400).json({
           ok: false,
-          error: 'Missing required fields: contractAddress, proof, nullifier'
+          error: 'Missing required fields: contractAddress, proof, nullifier, chainId'
+        });
+      }
+
+      // Get provider and wallet for this chain
+      const chainId = parseInt(request.chainId);
+      const provider = providers.get(chainId);
+      const wallet = wallets.get(chainId);
+      
+      if (!provider || !wallet) {
+        return res.status(400).json({
+          ok: false,
+          error: `Chain ID ${chainId} not supported. Supported: ${Array.from(providers.keys()).join(', ')}`
         });
       }
 
@@ -145,7 +172,8 @@ export function createRelayRouter(
         request,
         provider,
         wallet,
-        operations
+        operations,
+        config
       ).catch(error => {
         console.error(`[${operationId}] Transaction submission failed:`, error);
         const op = operations.get(operationId);
@@ -206,7 +234,12 @@ async function submitRelayTransaction(
   request: WithdrawRequest,
   provider: ethers.Provider,
   wallet: ethers.Wallet,
-  operations: Map<string, RelayOperation>
+  operations: Map<string, RelayOperation>,
+  config: {
+    minFeeFactor: number;
+    maxFeeFactor: number;
+    minProfitUsd: number;
+  }
 ): Promise<void> {
   const operation = operations.get(operationId);
   if (!operation) return;

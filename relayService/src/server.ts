@@ -13,6 +13,7 @@ const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'https://warptoad.xyz,ht
 // Validate required environment variables
 const RELAYER_PRIVATE_KEY = process.env.RELAYER_PRIVATE_KEY;
 const L1_RPC_URL = process.env.L1_RPC_URL;
+const SCROLL_RPC_URL = process.env.SCROLL_RPC_URL;
 
 if (!RELAYER_PRIVATE_KEY) {
   console.error('ERROR: RELAYER_PRIVATE_KEY environment variable is required');
@@ -24,23 +25,48 @@ if (!L1_RPC_URL) {
   process.exit(1);
 }
 
+if (!SCROLL_RPC_URL) {
+  console.error('ERROR: SCROLL_RPC_URL environment variable is required');
+  process.exit(1);
+}
+
 // Fee configuration
-const MIN_FEE_FACTOR = parseInt(process.env.MIN_FEE_FACTOR || '25'); // 0.25%
-const MAX_FEE_FACTOR = parseInt(process.env.MAX_FEE_FACTOR || '500'); // 5%
-const MIN_PROFIT_USD = parseFloat(process.env.MIN_PROFIT_USD || '1.0');
+const MIN_FEE_FACTOR = parseInt(process.env.MIN_FEE_FACTOR || '0'); // 0% altruistic
+const MAX_FEE_FACTOR = parseInt(process.env.MAX_FEE_FACTOR || '0'); // 0% altruistic
+const MIN_PROFIT_USD = parseFloat(process.env.MIN_PROFIT_USD || '0'); // No profit requirement
 
-// Setup provider and wallet
-const provider = new ethers.JsonRpcProvider(L1_RPC_URL);
-const wallet = new ethers.Wallet(RELAYER_PRIVATE_KEY, provider);
+// Setup providers for different chains
+const l1Provider = new ethers.JsonRpcProvider(L1_RPC_URL);
+const scrollProvider = new ethers.JsonRpcProvider(SCROLL_RPC_URL);
+
+// Create wallet instances for each chain
+const l1Wallet = new ethers.Wallet(RELAYER_PRIVATE_KEY, l1Provider);
+const scrollWallet = new ethers.Wallet(RELAYER_PRIVATE_KEY, scrollProvider);
+
+// Provider map for multi-chain support
+const providers = new Map<number, ethers.Provider>([
+  [11155111, l1Provider], // Sepolia
+  [31337, l1Provider], // Localhost Anvil (L1)
+  [534351, scrollProvider], // Scroll Sepolia
+  [534352, scrollProvider], // Scroll Mainnet
+]);
+
+// Wallet map for multi-chain support
+const wallets = new Map<number, ethers.Wallet>([
+  [11155111, l1Wallet], // Sepolia
+  [31337, l1Wallet], // Localhost Anvil (L1)
+  [534351, scrollWallet], // Scroll Sepolia
+  [534352, scrollWallet], // Scroll Mainnet
+]);
 
 console.log('='.repeat(60));
-console.log('WarpToad Relay Service');
+console.log('WarpToad Multi-Chain Relay Service');
 console.log('='.repeat(60));
-console.log(`Relayer Address: ${wallet.address}`);
-console.log(`RPC URL: ${L1_RPC_URL}`);
-console.log(`Min Fee: ${MIN_FEE_FACTOR / 100}% (${MIN_FEE_FACTOR} basis points)`);
-console.log(`Max Fee: ${MAX_FEE_FACTOR / 100}% (${MAX_FEE_FACTOR} basis points)`);
-console.log(`Min Profit: $${MIN_PROFIT_USD} USD`);
+console.log(`Relayer Address: ${l1Wallet.address}`);
+console.log(`L1 RPC URL: ${L1_RPC_URL}`);
+console.log(`Scroll RPC URL: ${SCROLL_RPC_URL}`);
+console.log(`Fee: ${MIN_FEE_FACTOR / 100}% (Altruistic - no fee)`);
+console.log(`Supported Chains: L1 Sepolia (11155111), Scroll Sepolia (534351)`);
 console.log('='.repeat(60));
 
 // CORS configuration
@@ -78,12 +104,13 @@ app.get('/health', (req, res) => {
     ok: true,
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
-    relayerAddress: wallet.address
+    relayerAddress: l1Wallet.address,
+    supportedChains: [11155111, 31337, 534351]
   });
 });
 
-// Mount relay routes
-const relayRouter = createRelayRouter(provider, wallet, {
+// Mount relay routes with multi-chain support
+const relayRouter = createRelayRouter(providers, wallets, {
   minFeeFactor: MIN_FEE_FACTOR,
   maxFeeFactor: MAX_FEE_FACTOR,
   minProfitUsd: MIN_PROFIT_USD

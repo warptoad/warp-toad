@@ -798,6 +798,14 @@
 		// Step 5: Prepare proof inputs
 		withdrawMessage = "Preparing proof inputs...";
 
+		// Prepare fee config for relay or self-relay
+		const feeConfig: FeeConfig | undefined = useRelay && relayerInfo ? {
+			feeFactor: 0n, // Altruistic relayer (no fee)
+			relayerAddress: relayerInfo.relayerAddress,
+			priorityFee: BigInt(relayerInfo.currentGasPrice),
+			maxFee: BigInt(selectedProof.commitmentData.amount) // Allow up to full amount
+		} : undefined; // undefined = use self-relay defaults
+
 		// @ts-ignore - Function exists but TypeScript hasn't picked it up yet
 		const { prepareProofInputsForL1ToScroll } = await import("$lib/utils/proof-generation.js");
 		// @ts-ignore
@@ -810,7 +818,8 @@
 			l1LocalRoot, // L1 local root
 			aztecWarptoadAddress,
 			BigInt(scrollChain.chainId),
-			walletStore.wallets.evm || "0x0000000000000000000000000000000000000000"
+			walletStore.wallets.evm || "0x0000000000000000000000000000000000000000",
+			feeConfig
 		);
 		console.log("Proof inputs prepared");
 
@@ -828,12 +837,63 @@
 		const proofHex = formatProofForL1(proof);
 		console.log("Proof hex length:", proofHex.length);
 
-		// Step 7: Claim on Scroll
-		withdrawStep = "minting";
-		withdrawMessage = "Minting wrapped tokens on Scroll L2...";
+		// Step 7: Claim on Scroll (relay or self-relay)
+		let mintTxHash: string;
 
-		const result = await claimOnScroll(proofInputs, proofHex);
-		const mintTxHash = result.txHash;
+		if (useRelay && relayerInfo) {
+			// GASLESS RELAY PATH
+			withdrawStep = "minting";
+			withdrawMessage = "Submitting to relay service...";
+			
+			try {
+				const relayResponse = await submitWithdrawRelay({
+					chainId: scrollChain.chainId.toString(),
+					contractAddress: scrollChain.contracts.warpToad,
+					nullifier: publicInputs[0].toString(),
+					amount: publicInputs[2].toString(),
+					gigaRoot: publicInputs[3].toString(),
+					localRoot: publicInputs[4].toString(),
+					feeFactor: publicInputs[6].toString(),
+					priorityFee: publicInputs[7].toString(),
+					maxFee: publicInputs[8].toString(),
+					relayer: relayerInfo.relayerAddress,
+					recipient: walletStore.wallets.evm || "0x0000000000000000000000000000000000000000",
+					proof: proofHex
+				});
+				
+				relayOperationId = relayResponse.operationId || null;
+				withdrawMessage = "Waiting for relayer to submit transaction...";
+				
+				// Poll for status
+				const finalStatus = await pollRelayStatus(
+					relayResponse.operationId!,
+					(status: RelayStatus) => {
+						relayStatusText = status.status;
+						if (status.status === 'validating') {
+							withdrawMessage = 'Relayer validating transaction...';
+						} else if (status.status === 'submitting') {
+							withdrawMessage = 'Relayer submitting transaction...';
+						}
+					}
+				);
+				
+				if (finalStatus.status === 'failed') {
+					throw new Error(finalStatus.error || 'Relay transaction failed');
+				}
+				
+				mintTxHash = finalStatus.txHash!;
+				
+			} catch (error) {
+				throw new Error(`Relay failed: ${error}`);
+			}
+		} else {
+			// SELF-RELAY PATH
+			withdrawStep = "minting";
+			withdrawMessage = "Minting wrapped tokens on Scroll L2...";
+
+			const result = await claimOnScroll(proofInputs, proofHex);
+			mintTxHash = result.txHash;
+		}
 
 		// Step 8: Complete
 		withdrawStep = "complete";
@@ -929,6 +989,14 @@
 		// Step 5: Prepare proof inputs
 		withdrawMessage = "Preparing proof inputs...";
 
+		// Prepare fee config for relay or self-relay
+		const feeConfig: FeeConfig | undefined = useRelay && relayerInfo ? {
+			feeFactor: 0n, // Altruistic relayer (no fee)
+			relayerAddress: relayerInfo.relayerAddress,
+			priorityFee: BigInt(relayerInfo.currentGasPrice),
+			maxFee: BigInt(selectedProof.commitmentData.amount) // Allow up to full amount
+		} : undefined; // undefined = use self-relay defaults
+
 		// @ts-ignore - Function exists but TypeScript hasn't picked it up yet
 		const { prepareProofInputsForScrollToL1 } = await import("$lib/utils/proof-generation.js");
 		// @ts-ignore
@@ -941,7 +1009,8 @@
 			scrollLocalRoot, // Scroll local root
 			aztecWarptoadAddress,
 			BigInt(chainId),
-			walletStore.wallets.evm || "0x0000000000000000000000000000000000000000"
+			walletStore.wallets.evm || "0x0000000000000000000000000000000000000000",
+			feeConfig
 		);
 		console.log("Proof inputs prepared");
 
@@ -959,17 +1028,68 @@
 		const proofHex = formatProofForL1(proof);
 		console.log("Proof hex length:", proofHex.length);
 
-		// Step 7: Claim on L1
-		withdrawStep = "minting";
-		withdrawMessage = "Minting tokens on L1...";
+		// Step 7: Claim on L1 (relay or self-relay)
+		let mintTxHash: string;
 
-		const result = await claimOnL1(
-			proofInputs,
-			proofHex,
-			chainId,
-			"Scroll -> L1"
-		);
-		const mintTxHash = result.txHash;
+		if (useRelay && relayerInfo) {
+			// GASLESS RELAY PATH
+			withdrawStep = "minting";
+			withdrawMessage = "Submitting to relay service...";
+			
+			try {
+				const relayResponse = await submitWithdrawRelay({
+					chainId: chainId.toString(),
+					contractAddress: l1Chain.contracts.warpToad,
+					nullifier: publicInputs[0].toString(),
+					amount: publicInputs[2].toString(),
+					gigaRoot: publicInputs[3].toString(),
+					localRoot: publicInputs[4].toString(),
+					feeFactor: publicInputs[6].toString(),
+					priorityFee: publicInputs[7].toString(),
+					maxFee: publicInputs[8].toString(),
+					relayer: relayerInfo.relayerAddress,
+					recipient: walletStore.wallets.evm || "0x0000000000000000000000000000000000000000",
+					proof: proofHex
+				});
+				
+				relayOperationId = relayResponse.operationId || null;
+				withdrawMessage = "Waiting for relayer to submit transaction...";
+				
+				// Poll for status
+				const finalStatus = await pollRelayStatus(
+					relayResponse.operationId!,
+					(status: RelayStatus) => {
+						relayStatusText = status.status;
+						if (status.status === 'validating') {
+							withdrawMessage = 'Relayer validating transaction...';
+						} else if (status.status === 'submitting') {
+							withdrawMessage = 'Relayer submitting transaction...';
+						}
+					}
+				);
+				
+				if (finalStatus.status === 'failed') {
+					throw new Error(finalStatus.error || 'Relay transaction failed');
+				}
+				
+				mintTxHash = finalStatus.txHash!;
+				
+			} catch (error) {
+				throw new Error(`Relay failed: ${error}`);
+			}
+		} else {
+			// SELF-RELAY PATH
+			withdrawStep = "minting";
+			withdrawMessage = "Minting tokens on L1...";
+
+			const result = await claimOnL1(
+				proofInputs,
+				proofHex,
+				chainId,
+				"Scroll -> L1"
+			);
+			mintTxHash = result.txHash;
+		}
 
 		// Step 8: Complete
 		withdrawStep = "complete";
@@ -1556,6 +1676,29 @@
 	function showAutoUnwrap(): boolean {
 		return isAztecToL1() || isSameChainL1();
 	}
+
+	// Check if relay should be available for this withdrawal flow
+	function isRelaySupported(): boolean {
+		if (!selectedProof) return false;
+		
+		// Relay is supported for all EVM → EVM flows
+		// (L1 → L1, L1 → Scroll, Scroll → L1, Aztec → L1, Aztec → Scroll)
+		const evmChains = ["Ethereum", "Scroll"];
+		const targetIsEVM = evmChains.includes(selectedProof.targetChain);
+		
+		// Aztec source is always supported (if target is EVM)
+		if (selectedProof.sourceChain === "Aztec" && targetIsEVM) {
+			return true;
+		}
+		
+		// EVM → EVM flows (L1 ↔ L1, L1 ↔ Scroll, Scroll ↔ Scroll)
+		const sourceIsEVM = evmChains.includes(selectedProof.sourceChain);
+		if (sourceIsEVM && targetIsEVM) {
+			return true;
+		}
+		
+		return false;
+	}
 </script>
 
 <Card>
@@ -1720,8 +1863,8 @@
 				</div>
 			{/if}
 
-			<!-- Relay Service Toggle (only for Aztec -> L1) -->
-			{#if (isAztecToL1() || isSameChainL1()) && relayServiceAvailable && relayerInfo}
+			<!-- Relay Service Toggle (for all supported EVM flows) -->
+			{#if isRelaySupported() && relayServiceAvailable && relayerInfo}
 				<Separator />
 
 				<div class="space-y-4">

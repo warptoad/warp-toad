@@ -7,6 +7,7 @@ export interface RelayerInfo {
 }
 
 export interface WithdrawRequest {
+  chainId: string; // Target chain ID (11155111 for L1, 534351 for Scroll)
   contractAddress: string;
   nullifier: string;
   amount: string;
