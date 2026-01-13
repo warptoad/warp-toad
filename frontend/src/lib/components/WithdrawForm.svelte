@@ -45,6 +45,9 @@
 		getScrollGigaRoot,
 		getScrollLocalRoot,
 		claimOnScroll,
+		isValidScrollLocalRoot,
+		storeScrollLocalRootInHistory,
+		getScrollChainId,
 	} from "$lib/utils/scroll-interactions.js";
 	import {
 		prepareProofInputsForAztecToL1,
@@ -1346,21 +1349,211 @@
 	}
 
 	/**
-	 * Withdraw from same-chain transfer on Scroll L2
-	 * Used for Scroll -> Scroll private transfers
+	 * Withdraw from Scroll to Scroll (same-chain)
+	 * This uses Scroll's L2WarpToad and stays on the same L2
 	 *
-	 * NOTE: This is similar to L1 same-chain but uses Scroll contracts
-	 * Currently not fully implemented - requires Scroll merkle data generation
+	 * Flow:
+	 * 1. Validate commitment data
+	 * 2. Get Scroll chain state (gigaRoot, localRoot)
+	 * 3. Ensure localRoot is stored in history (enables immediate withdrawal)
+	 * 4. Build EVM merkle proof from Scroll's LazyIMT tree
+	 * 5. Generate ZK proof with origin_local_root == destination_local_root
+	 * 6. Submit via relay service OR self-relay to L2WarpToad.mint()
 	 */
 	async function withdrawSameChainScroll() {
-		// Scroll same-chain withdrawal requires:
-		// 1. Building EVM merkle proof from Scroll's LazyIMT
-		// 2. The proof generation uses is_from_aztec = false
-		// 3. Call mint() on L2WarpToad
-		throw new Error(
-			"Scroll -> Scroll same-chain withdrawal is not yet implemented. " +
-				"This requires EVM merkle proof generation from Scroll's LazyIMT tree.",
+		if (!selectedProof?.commitmentData) {
+			throw new Error(
+				"Proof missing commitment data. Please re-bridge or upload a valid note file.",
+			);
+		}
+
+		// Step 1: Validate commitment data
+		withdrawStep = "validating";
+		withdrawMessage = "Validating commitment data...";
+
+		const { nullifier_preimg, secret, destination_chain_id, amount } =
+			selectedProof.commitmentData;
+
+		// Calculate commitment hash for lookups
+		const preCommitment = hashPreCommitment(
+			nullifier_preimg,
+			secret,
+			destination_chain_id,
 		);
+		const commitment = hashCommitment(preCommitment, amount);
+		console.log("Commitment:", commitment.toString());
+
+		// Step 2: Get Scroll chain state
+		withdrawStep = "checking-bridge";
+		withdrawMessage = "Checking Scroll bridge state...";
+
+		const scrollChainId = getScrollChainId();
+		console.log("Scroll Chain ID:", scrollChainId);
+
+		const gigaRoot = await getScrollGigaRoot();
+		console.log("Scroll GigaRoot:", gigaRoot.toString());
+
+		const localRoot = await getScrollLocalRoot();
+		console.log("Scroll LocalRoot:", localRoot.toString());
+
+		// For same-chain transfers, we need to ensure the localRoot is stored in history
+		// This allows immediate withdrawals after burn without full bridge sync
+		const isLocalRootValid = await isValidScrollLocalRoot(localRoot);
+		if (!isLocalRootValid) {
+			withdrawMessage = "Storing local root in history...";
+			console.log("Local root not in history, storing it now...");
+
+			// This is a transaction that costs gas but enables same-chain withdrawals
+			await storeScrollLocalRootInHistory();
+
+			// Verify it was stored successfully
+			const isNowValid = await isValidScrollLocalRoot(localRoot);
+			if (!isNowValid) {
+				throw new Error(
+					"Failed to store local root in history. Please try again.",
+				);
+			}
+		}
+
+		// Step 3: Build EVM merkle proof from Scroll's tree
+		withdrawStep = "building-proofs";
+		withdrawMessage = "Building merkle proof from Scroll tree...";
+
+		// Import the Scroll merkle data function dynamically
+		const { getEvmMerkleDataForScroll } = await import("$lib/utils/scroll-interactions.js");
+
+		const { evmMerkleData, aztecWarptoadAddress, localRootBlockNumber } =
+			await getEvmMerkleDataForScroll(commitment);
+
+		console.log("Scroll EVM merkle data:", evmMerkleData);
+		console.log("Aztec WarpToad address:", aztecWarptoadAddress.toString());
+
+		// Step 4: Prepare proof inputs for same-chain transfer
+		withdrawMessage = "Preparing proof inputs...";
+
+		// Get relayer info if using relay service
+		let feeConfig: FeeConfig | undefined;
+		if (useRelay && relayerInfo) {
+			feeConfig = {
+				feeFactor: 0n, // Altruistic relayer for testnet
+				relayerAddress: relayerInfo.relayerAddress,
+				priorityFee: BigInt(relayerInfo.currentGasPrice),
+				maxFee: BigInt(selectedProof.commitmentData.amount), // Allow up to full amount
+			};
+		}
+
+		// For same-chain: origin_local_root == destination_local_root
+		const proofInputs = prepareProofInputsForSameChain(
+			selectedProof.commitmentData,
+			null, // aztecMerkleData (not from Aztec)
+			evmMerkleData, // Scroll's EVM merkle data
+			aztecWarptoadAddress,
+			localRoot, // Same for both origin and destination
+			gigaRoot,
+			BigInt(scrollChainId),
+			walletStore.wallets.evm ||
+				"0x0000000000000000000000000000000000000000",
+			false, // isFromAztec = false (this is EVM -> EVM)
+			feeConfig,
+		);
+		console.log("Proof inputs prepared for Scroll same-chain");
+
+		// Step 5: Generate ZK proof in browser
+		withdrawStep = "generating-proof";
+		withdrawMessage =
+			"Generating ZK proof (this may take 30-60 seconds)...";
+
+		const { proof, publicInputs } = await generateWithdrawProof(
+			proofInputs,
+			(msg) => {
+				withdrawMessage = msg;
+			},
+		);
+		console.log("Proof generated, public inputs:", publicInputs.length);
+
+		// Format proof for Scroll submission
+		const proofHex = formatProofForL1(proof);
+		console.log("Proof hex length:", proofHex.length);
+
+		// Step 6: Submit transaction (relay or self-relay)
+		let mintTxHash: string;
+
+		if (useRelay && relayerInfo) {
+			// RELAY PATH
+			withdrawStep = "minting";
+			withdrawMessage = "Submitting to relay service...";
+
+			try {
+				const scrollChain = getEVMChain("Scroll");
+				if (!scrollChain || !scrollChain.enabled) {
+					throw new Error("Scroll chain not enabled");
+				}
+
+				const relayResponse = await submitWithdrawRelay({
+					chainId: scrollChainId.toString(),
+					contractAddress: scrollChain.contracts.warpToad,
+					nullifier: publicInputs[0].toString(),
+					amount: publicInputs[2].toString(),
+					gigaRoot: publicInputs[3].toString(),
+					localRoot: publicInputs[4].toString(),
+					feeFactor: publicInputs[6].toString(),
+					priorityFee: publicInputs[7].toString(),
+					maxFee: publicInputs[8].toString(),
+					relayer: relayerInfo.relayerAddress,
+					recipient: walletStore.wallets.evm || "0x0000000000000000000000000000000000000000",
+					proof: proofHex
+				});
+
+				relayOperationId = relayResponse.operationId || null;
+				withdrawMessage = "Waiting for relayer to submit transaction...";
+
+				// Poll for status
+				const finalStatus = await pollRelayStatus(
+					relayResponse.operationId!,
+					(status: RelayStatus) => {
+						relayStatusText = status.status;
+						if (status.status === 'validating') {
+							withdrawMessage = 'Relayer validating transaction...';
+						} else if (status.status === 'submitting') {
+							withdrawMessage = 'Relayer submitting transaction...';
+						}
+					}
+				);
+
+				if (finalStatus.status === 'failed') {
+					throw new Error(finalStatus.error || 'Relay transaction failed');
+				}
+
+				mintTxHash = finalStatus.txHash!;
+
+			} catch (error) {
+				throw new Error(`Relay failed: ${error}`);
+			}
+		} else {
+			// SELF-RELAY PATH
+			withdrawStep = "minting";
+			withdrawMessage = "Minting tokens on Scroll...";
+
+			const result = await claimOnScroll(
+				proofInputs,
+				proofHex,
+			);
+			mintTxHash = result.txHash;
+		}
+
+		// Step 7: Success!
+		withdrawStep = "complete";
+		withdrawMessage = "Withdrawal complete!";
+		successMessage = `Successfully withdrew ${amount} tokens on Scroll! Tx: ${mintTxHash}`;
+
+		console.log("Scroll same-chain withdrawal complete:", {
+			mintTxHash,
+			commitment: commitment.toString(),
+			localRoot: localRoot.toString(),
+		});
+
+		// Refresh Scroll balance
+		await balanceStore.refreshScrollBalance();
 	}
 
 	/**

@@ -711,6 +711,43 @@ export async function getEvmMerkleDataForScroll(
 	};
 }
 
+/**
+ * Store the current local root in Scroll's history
+ * This must be called before same-chain withdrawals to make the root valid
+ * 
+ * @returns Transaction hash if successful, undefined if skipped
+ */
+export async function storeScrollLocalRootInHistory(): Promise<string | undefined> {
+	const scroll = getScrollConfig();
+	const client = createClient(scroll.chainId);
+	if (!client) throw new Error('Failed to create wallet client for Scroll');
+	
+	const publicClient = createPublicClient({
+		chain: scroll.viemChain,
+		transport: http(scroll.rpcUrl)
+	});
+	
+	const userAddress = (await client.getAddresses())[0];
+	
+	console.log('Storing Scroll local root in history...');
+	try {
+		const { request } = await publicClient.simulateContract({
+			address: scroll.contracts.warpToad as `0x${string}`,
+			abi: L2WarpToadAbi,
+			account: userAddress,
+			functionName: 'storeLocalRootInHistory',
+		});
+		
+		const txHash = await client.writeContract(request);
+		await publicClient.waitForTransactionReceipt({ hash: txHash });
+		console.log('Scroll local root stored:', txHash);
+		return txHash;
+	} catch (error) {
+		console.log('storeLocalRootInHistory skipped (no new burns or already stored)');
+		return undefined;
+	}
+}
+
 // ============================================================================
 // Utility Exports
 // ============================================================================
