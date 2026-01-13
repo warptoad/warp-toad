@@ -1544,6 +1544,10 @@
 		// Step 7: Success!
 		withdrawStep = "complete";
 		withdrawMessage = "Withdrawal complete!";
+
+		// Mark note as consumed/used
+		proofStore.markProofAsUsed(selectedProof.id);
+
 		successMessage = `Successfully withdrew ${amount} tokens on Scroll! Tx: ${mintTxHash}`;
 
 		console.log("Scroll same-chain withdrawal complete:", {
@@ -1552,8 +1556,18 @@
 			localRoot: localRoot.toString(),
 		});
 
-		// Refresh Scroll balance
-		await balanceStore.refreshScrollBalance();
+		// Reset button immediately so user can interact with UI
+		isWithdrawing = false;
+
+		// Refresh balances in background
+		balanceStore.refreshScrollBalance().catch(err => console.error('Failed to refresh Scroll balance:', err));
+
+		// Reset form after delay
+		setTimeout(() => {
+			selectedProof = null;
+			withdrawStep = "idle";
+			withdrawMessage = "";
+		}, 5000);
 	}
 
 	/**
