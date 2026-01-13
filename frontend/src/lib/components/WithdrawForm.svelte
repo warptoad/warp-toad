@@ -1548,7 +1548,7 @@
 		// Mark note as consumed/used
 		proofStore.markProofAsUsed(selectedProof.id);
 
-		successMessage = `Successfully withdrew ${amount} tokens on Scroll! Tx: ${mintTxHash}`;
+		successMessage = `Successfully withdrew ${selectedProof.amount} ${selectedProof.token} on Scroll! Tx: ${mintTxHash.slice(0, 16)}...`;
 
 		console.log("Scroll same-chain withdrawal complete:", {
 			mintTxHash,
@@ -1643,12 +1643,29 @@
 
 		// Get Aztec merkle data using the block number from when the root was bridged
 		// This ensures our commitment exists in the tree at that snapshot
-		const aztecMerkleData = await getAztecMerkleData(
-			aztecWallet,
-			commitment,
-			aztecLocalRootBlockNumber,
-		);
-		console.log("Aztec merkle data:", aztecMerkleData);
+		let aztecMerkleData;
+		try {
+			aztecMerkleData = await getAztecMerkleData(
+				aztecWallet,
+				commitment,
+				aztecLocalRootBlockNumber,
+			);
+			console.log("Aztec merkle data:", aztecMerkleData);
+		} catch (error) {
+			// Check if this is the "unable to find sibling path" error due to old blocks
+			const errorMsg = error instanceof Error ? error.message : String(error);
+			if (errorMsg.includes("unable to find sibling path") || 
+			    errorMsg.includes("sibling") ||
+			    errorMsg.includes("MerkleTree")) {
+				throw new Error(
+					`The Aztec block (${aztecLocalRootBlockNumber}) is too old (>100 minutes). ` +
+					`The Aztec node only keeps recent merkle tree history. ` +
+					`Please wait for the next bridge sync (which happens every ~60 min) to get a more recent block number, or bridge your tokens again.`
+				);
+			}
+			// Re-throw other errors as-is
+			throw error;
+		}
 
 		// The origin local root is the Aztec note hash tree root that was bridged
 		const originLocalRoot = aztecLocalRoot;
