@@ -28,6 +28,20 @@ export const CHAIN_COLORS: Record<Chain, string> = {
 	Aztec: 'bg-indigo-500'
 };
 
+// Themed token styles for swamp UI
+export const TOKEN_STYLES: Record<Token, { bg: string; glow: string; logo: string }> = {
+	USDC: { bg: 'linear-gradient(135deg, #2775CA, #1a5490)', glow: 'rgba(39,117,202,0.4)', logo: '/src/assets/tokens/usdc.svg' },
+	DAI: { bg: 'linear-gradient(135deg, #F5AC37, #d4912d)', glow: 'rgba(245,172,55,0.4)', logo: '/src/assets/tokens/dai.svg' },
+	WBTC: { bg: 'linear-gradient(135deg, #F09242, #d47a2d)', glow: 'rgba(240,146,66,0.4)', logo: '/src/assets/tokens/wbtc.svg' }
+};
+
+// Themed chain styles for swamp UI
+export const CHAIN_STYLES: Record<Chain, { bg: string; glow: string; textDark?: boolean; logo: string }> = {
+	Ethereum: { bg: 'linear-gradient(135deg, #627EEA, #3c4a9e)', glow: 'rgba(98,126,234,0.4)', logo: '/src/assets/chains/ethereum.svg' },
+	Scroll: { bg: 'linear-gradient(135deg, #FFEEDA, #d4a574)', glow: 'rgba(212,165,116,0.4)', textDark: true, logo: '/src/assets/chains/scroll.svg' },
+	Aztec: { bg: 'linear-gradient(135deg, #9061F9, #6b3fd4)', glow: 'rgba(144,97,249,0.4)', logo: '/src/assets/chains/aztec.svg' }
+};
+
 // Token names for display
 export const TOKEN_NAMES: Record<Token, string> = {
 	USDC: 'USD Coin',

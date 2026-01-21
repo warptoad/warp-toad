@@ -20,7 +20,6 @@
 		ArrowDownUp,
 		Loader2,
 		CheckCircle2,
-		ChevronDown,
 	} from "@lucide/svelte";
 	import { walletStore } from "$lib/stores/wallets.svelte.js";
 	import { proofStore } from "$lib/stores/proofs.svelte.js";
@@ -28,8 +27,8 @@
 	import TokenSelector from "./TokenSelector.svelte";
 	import ChainSelector from "./ChainSelector.svelte";
 	import {
-		TOKEN_COLORS,
-		CHAIN_COLORS,
+		TOKEN_STYLES,
+		CHAIN_STYLES,
 		type Chain,
 		type Token,
 	} from "$lib/types/bridge.js";
@@ -449,309 +448,323 @@ You can close this page. Your note has been downloaded.`;
 	}
 </script>
 
-<Card>
-	<CardHeader>
-		<CardTitle>Bridge Funds</CardTitle>
-	</CardHeader>
-	<CardContent class="space-y-4">
-		<!-- Source Card (You Send) -->
-		<Card class="border-2 hover:border-primary/50 transition-colors">
-			<CardContent class="p-4 space-y-3">
-				<div class="text-sm text-muted-foreground">You Send</div>
-
-				<!-- Token & Chain Selection -->
-				<div class="flex gap-2">
-					<!-- Token Selector Button -->
-					<button
-						onclick={() => (sourceTokenOpen = true)}
-						class="flex items-center gap-2 px-3 py-2 border rounded-lg hover:bg-accent transition-colors"
-					>
-						<div
-							class="size-8 rounded-full {TOKEN_COLORS[
-								selectedToken
-							]} flex items-center justify-center"
-						>
-							<span class="text-white font-bold text-xs"
-								>{selectedToken.slice(0, 3)}</span
-							>
-						</div>
-						<span class="font-semibold">{selectedToken}</span>
-						<ChevronDown class="size-4" />
-					</button>
-
-					<!-- Chain Selector Button -->
-					<button
-						onclick={() => (sourceChainOpen = true)}
-						class="flex items-center gap-2 px-3 py-2 border rounded-lg hover:bg-accent transition-colors"
-					>
-						<div
-							class="size-8 rounded-full {CHAIN_COLORS[
-								sourceChain
-							]} flex items-center justify-center"
-						>
-							<span class="text-white font-bold text-xs"
-								>{sourceChain.slice(0, 1)}</span
-							>
-						</div>
-						<span class="font-medium">{sourceChain}</span>
-						<ChevronDown class="size-4" />
-					</button>
+<div class="space-y-3">
+	<!-- Source Section (You Send) -->
+	<div class="swamp-card-source">
+		<div class="swamp-card-inner">
+			<div class="flex items-center justify-between">
+				<div class="flex items-center gap-1.5">
+					<div class="w-0.5 h-3 bg-[var(--toad-green)] rounded-full"></div>
+					<span class="text-[0.65rem] font-semibold text-[var(--toad-green-muted)] uppercase tracking-widest">You Send</span>
 				</div>
-
-				<!-- Amount Input -->
-				<div class="space-y-2">
-					<div class="flex items-center gap-2">
-						<Input
-							type="number"
-							step="0.000001"
-							bind:value={amount}
-							placeholder="0.0"
-							class="text-2xl font-semibold h-12"
-						/>
-						<Button variant="outline" onclick={setMaxAmount}>
-							Max
-						</Button>
-					</div>
-					<div class="text-sm text-muted-foreground flex items-center gap-1">
-						{#if isBalanceLoading}
-							<Loader2 class="size-3 animate-spin" />
-							<span>Fetching balance...</span>
-						{:else}
-							<span>Balance: {balance} {selectedToken}</span>
-						{/if}
-					</div>
-				</div>
-			</CardContent>
-		</Card>
-
-		<!-- Swap Button -->
-		<div class="flex justify-center relative z-10">
-			<Button
-				size="icon"
-				variant="outline"
-				class="rounded-full size-10 border-2 bg-background hover:bg-accent w-full"
-				onclick={switchChains}
-			>
-				<ArrowDownUp class="size-4" />
-			</Button>
-		</div>
-
-		<!-- Destination Card (You Receive) -->
-		<Card class="border-2 hover:border-primary/50 transition-colors">
-			<CardContent class="p-4 space-y-3">
-				<div class="text-sm text-muted-foreground">You Receive</div>
-
-				<!-- Chain Selection (Token is same) -->
-				<div class="flex gap-2">
-					<!-- Token Display (Not clickable) -->
-					<div
-						class="flex items-center gap-2 px-3 py-2 border rounded-lg bg-muted/50"
-					>
-						<div
-							class="size-8 rounded-full {TOKEN_COLORS[
-								selectedToken
-							]} flex items-center justify-center"
-						>
-							<span class="text-white font-bold text-xs"
-								>{selectedToken.slice(0, 2)}</span
-							>
-						</div>
-						<span class="font-semibold">{selectedToken}</span>
-					</div>
-
-					<!-- Chain Selector Button -->
-					<button
-						onclick={() => (targetChainOpen = true)}
-						class="flex items-center gap-2 px-3 py-2 border rounded-lg hover:bg-accent transition-colors"
-					>
-						<div
-							class="size-8 rounded-full {CHAIN_COLORS[
-								targetChain
-							]} flex items-center justify-center"
-						>
-							<span class="text-white font-bold text-xs"
-								>{targetChain.slice(0, 1)}</span
-							>
-						</div>
-						<span class="font-medium">{targetChain}</span>
-						<ChevronDown class="size-4" />
-					</button>
-				</div>
-
-				<!-- Estimated Amount Display -->
-				<div class="space-y-2">
-					<div
-						class="text-2xl font-semibold text-muted-foreground h-12 flex items-center"
-					>
-						~{estimatedReceive}
-					</div>
-					<div class="text-sm text-muted-foreground">
-						Estimated amount
-					</div>
-				</div>
-			</CardContent>
-		</Card>
-
-		<!-- Validation Messages -->
-		{#if !isSourceConnected}
-			<Alert>
-				<AlertDescription>
-					Please connect your {sourceChain} wallet first.
-				</AlertDescription>
-			</Alert>
-		{:else if needsNetworkSwitch}
-			<div class="text-sm text-muted-foreground text-center py-2">
-				 Wrong network - open wallet settings to switch to {sourceChain}
-			</div>
-		{/if}
-
-		<!-- Error Message -->
-		{#if lastError}
-			<Alert variant="destructive">
-				<AlertDescription class="flex items-center justify-between">
-					<span>{lastError}</span>
-					<Button
-						size="sm"
-						variant="outline"
-						onclick={() => {
-							lastError = null;
-							generationStep = "idle";
-						}}
-					>
-						Dismiss
-					</Button>
-				</AlertDescription>
-			</Alert>
-		{/if}
-
-		<!-- Proof Generation Progress -->
-		{#if isGenerating || generationStep === "complete"}
-			<Alert>
-				<AlertDescription class="flex items-center gap-2">
-					{#if generationStep === "complete"}
-						<CheckCircle2 class="size-4" />
+				<div class="text-[0.65rem] text-[var(--muted-foreground)] flex items-center gap-1">
+					{#if isBalanceLoading}
+						<Loader2 class="size-2.5 animate-spin text-[var(--toad-green)]" />
+						<span>Loading...</span>
 					{:else}
-						<Loader2 class="size-4 animate-spin" />
+						<span>Balance:</span>
+						<span class="font-mono text-[var(--foreground)]">{balance}</span>
+						<span>{selectedToken}</span>
 					{/if}
-					<div class="flex-1">
-						<div>{generationMessage}</div>
-						{#if generationStep !== "idle" && generationStep !== "complete"}
-							<div class="text-xs text-muted-foreground mt-1">
-								Step: {generationStep}
-							</div>
-						{/if}
-					</div>
-				</AlertDescription>
-			</Alert>
-		{/if}
+				</div>
+			</div>
 
-		<!-- Submit Button -->
-		<Button
-			class="w-full h-12 text-base"
-			disabled={!canSubmit}
-			onclick={confirmBridge}
+			<!-- Token & Chain Selection -->
+			<div class="flex gap-2 flex-wrap">
+				<!-- Token Selector -->
+				<TokenSelector
+					bind:open={sourceTokenOpen}
+					{selectedToken}
+					chain={sourceChain}
+					variant="green"
+					onSelect={handleSourceTokenSelect}
+				/>
+
+				<!-- Chain Selector -->
+				<ChainSelector
+					bind:open={sourceChainOpen}
+					selectedChain={sourceChain}
+					excludeChain={targetChain}
+					variant="green"
+					onSelect={handleSourceChainSelect}
+				/>
+			</div>
+
+			<!-- Amount Input -->
+			<div class="relative">
+				<input
+					type="number"
+					step="0.000001"
+					bind:value={amount}
+					placeholder="0.0"
+					class="input-amount w-full bg-[var(--swamp-deep)] rounded-lg px-3 py-2 pr-16 border border-[rgba(130,226,102,0.15)] focus:border-[var(--toad-green)] focus:ring-2 focus:ring-[var(--toad-green)]/20 transition-all"
+				/>
+				<button
+					onclick={setMaxAmount}
+					class="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-[0.65rem] font-semibold text-[var(--toad-green)] bg-[rgba(130,226,102,0.08)] hover:bg-[rgba(130,226,102,0.15)] rounded transition-colors uppercase tracking-wider border border-[rgba(130,226,102,0.2)]"
+				>
+					Max
+				</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- Swap Button -->
+	<div class="flex justify-center -my-1.5 relative z-10">
+		<button
+			onclick={switchChains}
+			class="group relative p-2 rounded-full bg-[var(--swamp-deep)] border border-[rgba(130,226,102,0.15)] hover:border-[rgba(130,226,102,0.4)] transition-all duration-200"
 		>
+			<ArrowDownUp class="size-3.5 text-[var(--muted-foreground)] group-hover:text-[var(--toad-green)] group-hover:rotate-180 transition-all duration-300" />
+		</button>
+	</div>
+
+	<!-- Destination Section (You Receive) -->
+	<div class="swamp-card-target">
+		<div class="swamp-card-inner">
+			<div class="flex items-center gap-1.5">
+				<div class="w-0.5 h-3 bg-[var(--warp-purple)] rounded-full"></div>
+				<span class="text-[0.65rem] font-semibold text-[var(--warp-purple-muted)] uppercase tracking-widest">You Receive</span>
+			</div>
+
+			<!-- Token & Chain Selection -->
+			<div class="flex gap-2 flex-wrap">
+				<!-- Token Display (Static label - not clickable) -->
+				<div class="flex items-center gap-1.5 px-2.5 py-1.5 opacity-60">
+					<img
+						src={TOKEN_STYLES[selectedToken].logo}
+						alt={selectedToken}
+						class="w-5 h-5 rounded-full"
+					/>
+					<span class="text-sm font-medium text-[var(--foreground)]">{selectedToken}</span>
+				</div>
+
+				<!-- Chain Selector -->
+				<ChainSelector
+					bind:open={targetChainOpen}
+					selectedChain={targetChain}
+					excludeChain={sourceChain}
+					variant="purple"
+					onSelect={handleTargetChainSelect}
+				/>
+			</div>
+
+			<!-- Estimated Amount -->
+			<div>
+				<div class="font-mono text-lg font-semibold text-[var(--foreground)]">
+					~{estimatedReceive}
+				</div>
+				<div class="text-[0.65rem] text-[var(--muted-foreground)]">
+					Estimated amount (1:1 rate)
+				</div>
+			</div>
+		</div>
+	</div>
+
+	<!-- Validation Messages -->
+	{#if !isSourceConnected}
+		<div class="flex items-center gap-2 p-3 rounded-lg bg-[rgba(130,226,102,0.1)] border border-[rgba(130,226,102,0.2)]">
+			<div class="size-8 rounded-full bg-[rgba(130,226,102,0.2)] flex items-center justify-center flex-shrink-0">
+				<svg class="size-4 text-[var(--toad-green)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+				</svg>
+			</div>
+			<div class="text-xs">
+				<span class="font-medium text-[var(--foreground)]">Wallet Not Connected</span>
+				<span class="text-[var(--muted-foreground)]"> — Connect your {sourceChain} wallet</span>
+			</div>
+		</div>
+	{:else if needsNetworkSwitch}
+		<div class="flex items-center gap-2 p-3 rounded-lg bg-[rgba(224,226,102,0.1)] border border-[rgba(224,226,102,0.2)]">
+			<div class="size-8 rounded-full bg-[rgba(224,226,102,0.2)] flex items-center justify-center flex-shrink-0">
+				<svg class="size-4 text-[var(--eye-yellow)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+				</svg>
+			</div>
+			<div class="text-xs">
+				<span class="font-medium text-[var(--foreground)]">Wrong Network</span>
+				<span class="text-[var(--muted-foreground)]"> — Switch to {sourceChain}</span>
+			</div>
+		</div>
+	{/if}
+
+	<!-- Error Message -->
+	{#if lastError}
+		<div class="flex items-center justify-between gap-2 p-3 rounded-lg bg-[rgba(255,77,77,0.1)] border border-[rgba(255,77,77,0.2)]">
+			<div class="flex items-center gap-2 min-w-0">
+				<div class="size-6 rounded-full bg-[rgba(255,77,77,0.2)] flex items-center justify-center flex-shrink-0">
+					<svg class="size-3 text-[var(--destructive)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+					</svg>
+				</div>
+				<span class="text-xs text-[var(--foreground)] truncate">{lastError}</span>
+			</div>
+			<button
+				onclick={() => { lastError = null; generationStep = "idle"; }}
+				class="text-xs text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors flex-shrink-0"
+			>
+				✕
+			</button>
+		</div>
+	{/if}
+
+	<!-- Progress -->
+	{#if isGenerating || generationStep === "complete"}
+		<div class="p-3 rounded-lg bg-[var(--swamp-deep)] border border-[rgba(130,226,102,0.2)]">
+			<div class="flex items-center gap-2">
+				{#if generationStep === "complete"}
+					<div class="size-7 rounded-full bg-[rgba(130,226,102,0.2)] flex items-center justify-center flex-shrink-0">
+						<CheckCircle2 class="size-4 text-[var(--toad-green)]" />
+					</div>
+				{:else}
+					<div class="size-7 rounded-full bg-[rgba(130,226,102,0.1)] flex items-center justify-center flex-shrink-0">
+						<Loader2 class="size-4 text-[var(--toad-green)] animate-spin" />
+					</div>
+				{/if}
+				<div class="flex-1 min-w-0">
+					<div class="text-xs text-[var(--foreground)]">{generationMessage}</div>
+					{#if generationStep !== "idle" && generationStep !== "complete"}
+						<div class="text-[0.65rem] text-[var(--muted-foreground)] capitalize">
+							{generationStep.replace("-", " ")}
+						</div>
+					{/if}
+				</div>
+			</div>
+
+			<!-- Progress bar -->
+			{#if isGenerating}
+				<div class="mt-2 h-1 bg-[var(--swamp-surface)] rounded-full overflow-hidden">
+					<div class="h-full bg-gradient-to-r from-[var(--toad-green)] to-[var(--warp-purple)] rounded-full shimmer" style="width: {
+						generationStep === 'preparing' ? '15%' :
+						generationStep === 'approving' ? '30%' :
+						generationStep === 'wrapping' ? '50%' :
+						generationStep === 'burning' ? '70%' :
+						generationStep === 'triggering-sync' ? '90%' :
+						'100%'
+					}"></div>
+				</div>
+			{/if}
+		</div>
+	{/if}
+
+	<!-- Submit Button -->
+	<button
+		class="w-full py-3 rounded-xl font-semibold text-sm transition-all duration-300 relative overflow-hidden group
+			{canSubmit
+				? 'btn-warp cursor-pointer'
+				: 'bg-[var(--swamp-surface)] text-[var(--muted-foreground)] cursor-not-allowed border border-[rgba(130,226,102,0.1)]'
+			}"
+		disabled={!canSubmit}
+		onclick={confirmBridge}
+	>
+		<span class="relative z-10 flex items-center justify-center gap-1.5">
 			{#if generationStep === "idle"}
-				Bridge
+				<svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path d="M4 12h16M4 12l4-4M4 12l4 4M20 12l-4-4M20 12l-4 4" />
+				</svg>
+				Initiate Bridge
 			{:else if generationStep === "preparing"}
+				<Loader2 class="size-4 animate-spin" />
 				Preparing...
 			{:else if generationStep === "approving"}
+				<Loader2 class="size-4 animate-spin" />
 				Approving...
 			{:else if generationStep === "wrapping"}
+				<Loader2 class="size-4 animate-spin" />
 				Wrapping...
 			{:else if generationStep === "burning"}
-				Bridging...
+				<Loader2 class="size-4 animate-spin" />
+				Creating Commitment...
 			{:else if generationStep === "triggering-sync"}
+				<Loader2 class="size-4 animate-spin" />
 				Syncing...
-			{:else if generationStep === "complete"}
-				Done!
-			{:else if generationStep === "done"}
-				Done!
+			{:else if generationStep === "complete" || generationStep === "done"}
+				<CheckCircle2 class="size-4" />
+				Complete!
 			{:else}
-				Bridge
+				Initiate Bridge
 			{/if}
-		</Button>
-	</CardContent>
-</Card>
-
-<!-- Selectors -->
-<TokenSelector
-	bind:open={sourceTokenOpen}
-	{selectedToken}
-	chain={sourceChain}
-	onSelect={handleSourceTokenSelect}
-/>
-
-<ChainSelector
-	bind:open={sourceChainOpen}
-	selectedChain={sourceChain}
-	excludeChain={targetChain}
-	onSelect={handleSourceChainSelect}
-/>
-
-<ChainSelector
-	bind:open={targetChainOpen}
-	selectedChain={targetChain}
-	excludeChain={sourceChain}
-	onSelect={handleTargetChainSelect}
-/>
+		</span>
+	</button>
+</div>
 
 <!-- Bridge Duration Disclaimer Dialog -->
 <Dialog bind:open={showDisclaimer}>
-	<DialogContent class="sm:max-w-md">
+	<DialogContent class="sm:max-w-md bg-[var(--swamp-card)] border border-[rgba(130,226,102,0.15)]">
 		<DialogHeader>
-			<DialogTitle> Bridge Synchronization Time</DialogTitle>
-			<DialogDescription class="space-y-3 pt-2">
-				<p class="font-semibold">
-					Bridge operations require time for root synchronization:
-				</p>
-				
+			<DialogTitle class="text-xl font-bold text-[var(--foreground)] flex items-center gap-2">
+				<svg class="size-6 text-[var(--toad-green)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+					<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+				</svg>
+				Synchronization Time
+			</DialogTitle>
+			<DialogDescription class="space-y-4 pt-3">
 				{#if targetChain === 'Scroll' || sourceChain === 'Scroll'}
-					<div class="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
-						<p class="text-sm font-semibold text-yellow-900 dark:text-yellow-100">
-							🕐 Scroll bridges take <strong>2-3 hours</strong>
-						</p>
-						<p class="text-xs text-yellow-800 dark:text-yellow-200 mt-1">
-							This is due to Scroll's L2 finalization process and API claim data availability.
+					<div class="p-4 rounded-xl bg-[rgba(224,226,102,0.1)] border border-[rgba(224,226,102,0.2)]">
+						<div class="flex items-center gap-2 text-[var(--eye-yellow)] font-semibold">
+							<svg class="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+							</svg>
+							<span>2-3 hours for Scroll</span>
+						</div>
+						<p class="text-xs text-[var(--muted-foreground)] mt-2">
+							Scroll L2 finalization and claim data availability requires extended processing time.
 						</p>
 					</div>
 				{:else if targetChain === 'Aztec' || sourceChain === 'Aztec'}
-					<div class="bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-						<p class="text-sm font-semibold text-blue-900 dark:text-blue-100">
-							🕐 Aztec bridges take <strong>30-60 minutes</strong>
-						</p>
-						<p class="text-xs text-blue-800 dark:text-blue-200 mt-1">
-							This is due to L1 message confirmation requirements.
+					<div class="p-4 rounded-xl bg-[rgba(144,97,249,0.1)] border border-[rgba(144,97,249,0.2)]">
+						<div class="flex items-center gap-2 text-[var(--warp-purple)] font-semibold">
+							<svg class="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+							</svg>
+							<span>30-60 minutes for Aztec</span>
+						</div>
+						<p class="text-xs text-[var(--muted-foreground)] mt-2">
+							L1 message confirmation is required for privacy-preserving bridges.
 						</p>
 					</div>
 				{/if}
-				
-				<div class="bg-muted rounded-lg p-3 space-y-2">
-					<p class="text-sm">
-						<strong>What happens next:</strong>
-					</p>
-					<ol class="text-xs space-y-1 list-decimal list-inside">
-						<li>Your tokens will be burned on {sourceChain}</li>
-						<li>A withdrawal note will be generated and downloaded</li>
-						<li>Root synchronization will be triggered automatically</li>
-						<li>You can close this page and come back later</li>
-						<li>Use your note to withdraw on {targetChain} once sync completes</li>
+
+				<div class="p-4 rounded-xl bg-[var(--swamp-deep)] border border-[rgba(130,226,102,0.1)]">
+					<p class="text-sm font-medium text-[var(--foreground)] mb-3">What happens next:</p>
+					<ol class="space-y-2">
+						<li class="flex items-start gap-2 text-xs text-[var(--muted-foreground)]">
+							<span class="flex-shrink-0 size-5 rounded-full bg-[rgba(130,226,102,0.2)] flex items-center justify-center text-[var(--toad-green)] font-bold">1</span>
+							<span>Tokens burned on {sourceChain}</span>
+						</li>
+						<li class="flex items-start gap-2 text-xs text-[var(--muted-foreground)]">
+							<span class="flex-shrink-0 size-5 rounded-full bg-[rgba(130,226,102,0.2)] flex items-center justify-center text-[var(--toad-green)] font-bold">2</span>
+							<span>Withdrawal note generated & downloaded</span>
+						</li>
+						<li class="flex items-start gap-2 text-xs text-[var(--muted-foreground)]">
+							<span class="flex-shrink-0 size-5 rounded-full bg-[rgba(130,226,102,0.2)] flex items-center justify-center text-[var(--toad-green)] font-bold">3</span>
+							<span>Root sync triggered automatically</span>
+						</li>
+						<li class="flex items-start gap-2 text-xs text-[var(--muted-foreground)]">
+							<span class="flex-shrink-0 size-5 rounded-full bg-[rgba(144,97,249,0.2)] flex items-center justify-center text-[var(--warp-purple)] font-bold">4</span>
+							<span>Use note to withdraw on {targetChain}</span>
+						</li>
 					</ol>
 				</div>
-				
-				<p class="text-xs text-muted-foreground">
-					 Your note will be downloaded immediately. You can safely close this page 
-					after the bridge completes. The synchronization happens in the background.
+
+				<p class="text-xs text-[var(--muted-foreground)] text-center">
+					Your note downloads immediately. You can safely close this page.
 				</p>
 			</DialogDescription>
 		</DialogHeader>
-		<DialogFooter class="flex gap-2 sm:gap-0">
-			<Button variant="outline" onclick={() => showDisclaimer = false}>
+		<DialogFooter class="flex gap-3 pt-2">
+			<button
+				onclick={() => showDisclaimer = false}
+				class="flex-1 py-2.5 px-4 rounded-lg border border-[rgba(130,226,102,0.2)] text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:border-[rgba(130,226,102,0.4)] transition-all text-sm font-medium"
+			>
 				Cancel
-			</Button>
-			<Button onclick={generateProof}>
-				I Understand, Continue
-			</Button>
+			</button>
+			<button
+				onclick={generateProof}
+				class="flex-1 py-2.5 px-4 rounded-lg btn-warp text-sm font-semibold"
+			>
+				Continue
+			</button>
 		</DialogFooter>
 	</DialogContent>
 </Dialog>

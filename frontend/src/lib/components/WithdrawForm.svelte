@@ -1,15 +1,5 @@
 <script lang="ts">
-	import {
-		Card,
-		CardContent,
-		CardHeader,
-		CardTitle,
-	} from "$lib/components/ui/card/index.js";
-	import { Button } from "$lib/components/ui/button/index.js";
-	import { Alert, AlertDescription } from "$lib/components/ui/alert/index.js";
-	import { Separator } from "$lib/components/ui/separator/index.js";
-	import { Label } from "$lib/components/ui/label/index.js";
-	import { Upload, CheckCircle2, Loader2 } from "@lucide/svelte";
+	import { Upload, CheckCircle2, Loader2, AlertCircle, Download, Shield } from "@lucide/svelte";
 	import { walletStore } from "$lib/stores/wallets.svelte.js";
 	import { proofStore } from "$lib/stores/proofs.svelte.js";
 	import { balanceStore } from "$lib/stores/balances.svelte.js";
@@ -74,7 +64,7 @@
 	} from "$lib/utils/relay-client.js";
 
 	import { onMount } from "svelte";
-    import { toHex } from "viem";
+	import { toHex } from "viem";
 
 	let selectedProof = $state<Proof | null>(null);
 	let fileInput: HTMLInputElement;
@@ -166,15 +156,15 @@
 
 	async function switchToTargetNetwork() {
 		if (!selectedProof) return;
-		
+
 		try {
 			await walletStore.switchToChain(selectedProof.targetChain);
 			// After switching, the button will automatically change to "Withdraw"
 			// due to reactive updates
 		} catch (error) {
 			console.error("Network switch error:", error);
-			uploadError = error instanceof Error 
-				? `Failed to switch network: ${error.message}` 
+			uploadError = error instanceof Error
+				? `Failed to switch network: ${error.message}`
 				: "Failed to switch network";
 		}
 	}
@@ -592,7 +582,7 @@
 				`Unsupported source chain for Scroll withdrawal: ${selectedProof.sourceChain}`,
 			);
 		}
-		
+
 		// Continue with Aztec -> Scroll flow below...
 
 		// Step 1: Validate commitment data
@@ -650,7 +640,7 @@
 		// Note: GigaBridge lives on L1, so we query L1 even though destination is Scroll
 		const l1Chain = getEVMChain("Ethereum");
 		if (!l1Chain) throw new Error("Ethereum chain config not found");
-		
+
 		const { aztecLocalRoot, aztecLocalRootBlockNumber, gigaMerkleData } =
 			await getMerkleDataForAztecToL1(l1Chain.chainId, gigaRoot);
 
@@ -781,7 +771,7 @@
 		if (!l1Chain) throw new Error("Ethereum chain config not found");
 		const l1ChainId = l1Chain.chainId;
 
-		const { evmMerkleData: l1EvmMerkleData, aztecWarptoadAddress } = 
+		const { evmMerkleData: l1EvmMerkleData, aztecWarptoadAddress } =
 			await getEvmMerkleDataForL1(l1ChainId, commitment);
 
 		console.log("L1 EVM merkle data:", l1EvmMerkleData);
@@ -791,7 +781,7 @@
 
 		// @ts-ignore - Function exists but TypeScript hasn't picked it up yet
 		const { getMerkleDataForL1ToScroll } = await import("$lib/utils/evm-interactions.js");
-		const { l1LocalRoot, l1LocalRootBlockNumber, gigaMerkleData } = 
+		const { l1LocalRoot, l1LocalRootBlockNumber, gigaMerkleData } =
 			// @ts-ignore
 			await getMerkleDataForL1ToScroll(l1ChainId, gigaRoot);
 
@@ -847,7 +837,7 @@
 			// GASLESS RELAY PATH
 			withdrawStep = "minting";
 			withdrawMessage = "Submitting to relay service...";
-			
+
 			try {
 				const relayResponse = await submitWithdrawRelay({
 					chainId: scrollChain.chainId.toString(),
@@ -863,10 +853,10 @@
 					recipient: walletStore.wallets.evm || "0x0000000000000000000000000000000000000000",
 					proof: proofHex
 				});
-				
+
 				relayOperationId = relayResponse.operationId || null;
 				withdrawMessage = "Waiting for relayer to submit transaction...";
-				
+
 				// Poll for status
 				const finalStatus = await pollRelayStatus(
 					relayResponse.operationId!,
@@ -879,13 +869,13 @@
 						}
 					}
 				);
-				
+
 				if (finalStatus.status === 'failed') {
 					throw new Error(finalStatus.error || 'Relay transaction failed');
 				}
-				
+
 				mintTxHash = finalStatus.txHash!;
-				
+
 			} catch (error) {
 				throw new Error(`Relay failed: ${error}`);
 			}
@@ -951,7 +941,7 @@
 		const chainId = await getEvmChainId();
 		const l1Chain = getEVMChain("Ethereum");
 		if (!l1Chain) throw new Error("Ethereum chain config not found");
-		
+
 		// Ensure user is on L1 network
 		if (!chainId || chainId !== l1Chain.chainId) {
 			throw new Error(
@@ -972,7 +962,7 @@
 		// @ts-ignore - Function exists but TypeScript hasn't picked it up yet
 		const { getEvmMerkleDataForScroll } = await import("$lib/utils/scroll-interactions.js");
 		// @ts-ignore
-		const { evmMerkleData: scrollEvmMerkleData, aztecWarptoadAddress, localRootBlockNumber } = 
+		const { evmMerkleData: scrollEvmMerkleData, aztecWarptoadAddress, localRootBlockNumber } =
 			await getEvmMerkleDataForScroll(commitment);
 
 		console.log("Scroll EVM merkle data:", scrollEvmMerkleData);
@@ -983,7 +973,7 @@
 		// @ts-ignore - Function exists but TypeScript hasn't picked it up yet
 		const { getMerkleDataForScrollToL1 } = await import("$lib/utils/evm-interactions.js");
 		// @ts-ignore
-		const { scrollLocalRoot, scrollLocalRootBlockNumber, gigaMerkleData } = 
+		const { scrollLocalRoot, scrollLocalRootBlockNumber, gigaMerkleData } =
 			await getMerkleDataForScrollToL1(chainId, gigaRoot);
 
 		console.log("Scroll local root:", scrollLocalRoot.toString());
@@ -1038,7 +1028,7 @@
 			// GASLESS RELAY PATH
 			withdrawStep = "minting";
 			withdrawMessage = "Submitting to relay service...";
-			
+
 			try {
 				const relayResponse = await submitWithdrawRelay({
 					chainId: chainId.toString(),
@@ -1054,10 +1044,10 @@
 					recipient: walletStore.wallets.evm || "0x0000000000000000000000000000000000000000",
 					proof: proofHex
 				});
-				
+
 				relayOperationId = relayResponse.operationId || null;
 				withdrawMessage = "Waiting for relayer to submit transaction...";
-				
+
 				// Poll for status
 				const finalStatus = await pollRelayStatus(
 					relayResponse.operationId!,
@@ -1070,13 +1060,13 @@
 						}
 					}
 				);
-				
+
 				if (finalStatus.status === 'failed') {
 					throw new Error(finalStatus.error || 'Relay transaction failed');
 				}
-				
+
 				mintTxHash = finalStatus.txHash!;
-				
+
 			} catch (error) {
 				throw new Error(`Relay failed: ${error}`);
 			}
@@ -1242,12 +1232,12 @@
 			// GASLESS RELAY PATH
 			withdrawStep = "minting";
 			withdrawMessage = "Submitting to relay service...";
-			
+
 			try {
 				// Get L1 WarpToad contract address
 				const l1Chain = getEVMChain('Ethereum');
 				if (!l1Chain) throw new Error('Ethereum chain config not found');
-				
+
 				const relayResponse = await submitWithdrawRelay({
 					contractAddress: l1Chain.contracts.warpToad,
 					nullifier: publicInputs[0].toString(),
@@ -1261,10 +1251,10 @@
 					recipient: walletStore.wallets.evm || "0x0000000000000000000000000000000000000000",
 					proof: proofHex
 				});
-				
+
 				relayOperationId = relayResponse.operationId || null;
 				withdrawMessage = "Waiting for relayer to submit transaction...";
-				
+
 				// Poll for status
 				const finalStatus = await pollRelayStatus(
 					relayResponse.operationId!,
@@ -1277,14 +1267,14 @@
 						}
 					}
 				);
-				
+
 				if (finalStatus.status === 'failed') {
 					throw new Error(finalStatus.error || 'Relay transaction failed');
 				}
-				
+
 				mintTxHash = finalStatus.txHash!;
 				unwrapTxHash = null; // Relay doesn't support auto-unwrap
-				
+
 			} catch (error) {
 				throw new Error(`Relay failed: ${error}`);
 			}
@@ -1654,9 +1644,9 @@
 		} catch (error) {
 			// Check if this is the "unable to find sibling path" error due to old blocks
 			const errorMsg = error instanceof Error ? error.message : String(error);
-			if (errorMsg.includes("unable to find sibling path") || 
-			    errorMsg.includes("sibling") ||
-			    errorMsg.includes("MerkleTree")) {
+			if (errorMsg.includes("unable to find sibling path") ||
+				errorMsg.includes("sibling") ||
+				errorMsg.includes("MerkleTree")) {
 				throw new Error(
 					`The Aztec block (${aztecLocalRootBlockNumber}) is too old (>100 minutes). ` +
 					`The Aztec node only keeps recent merkle tree history. ` +
@@ -1904,346 +1894,364 @@
 	// Check if relay should be available for this withdrawal flow
 	function isRelaySupported(): boolean {
 		if (!selectedProof) return false;
-		
-		// Relay is supported for all EVM → EVM flows
-		// (L1 → L1, L1 → Scroll, Scroll → L1, Aztec → L1, Aztec → Scroll)
+
+		// Relay is supported for all EVM -> EVM flows
+		// (L1 -> L1, L1 -> Scroll, Scroll -> L1, Aztec -> L1, Aztec -> Scroll)
 		const evmChains = ["Ethereum", "Scroll"];
 		const targetIsEVM = evmChains.includes(selectedProof.targetChain);
-		
+
 		// Aztec source is always supported (if target is EVM)
 		if (selectedProof.sourceChain === "Aztec" && targetIsEVM) {
 			return true;
 		}
-		
-		// EVM → EVM flows (L1 ↔ L1, L1 ↔ Scroll, Scroll ↔ Scroll)
+
+		// EVM -> EVM flows (L1 <-> L1, L1 <-> Scroll, Scroll <-> Scroll)
 		const sourceIsEVM = evmChains.includes(selectedProof.sourceChain);
 		if (sourceIsEVM && targetIsEVM) {
 			return true;
 		}
-		
+
 		return false;
 	}
 </script>
 
-<Card>
-	<CardHeader>
-		<CardTitle>Withdraw Funds</CardTitle>
-	</CardHeader>
-	<CardContent class="space-y-6">
-		<!-- File Upload -->
-		<div class="space-y-2">
-			<Label>Upload Proof File</Label>
-			<input
-				bind:this={fileInput}
-				type="file"
-				accept=".txt"
-				onchange={handleFileUpload}
-				class="hidden"
-			/>
-			<Button
-				variant="outline"
-				onclick={triggerFileUpload}
-				class="w-full"
-				disabled={isCheckingNullifier}
-			>
-				{#if isCheckingNullifier}
-					<Loader2 class="size-4 mr-2 animate-spin" />
-					Checking note status...
-				{:else}
-					<Upload class="size-4 mr-2" />
-					Upload Proof (.txt)
-				{/if}
-			</Button>
-			{#if uploadError}
-				<Alert variant="destructive">
-					<AlertDescription class="whitespace-pre-wrap"
-						>{uploadError}</AlertDescription
-					>
-				</Alert>
-			{/if}
+<div class="space-y-3">
+	<!-- File Upload Section -->
+	<div class="space-y-2">
+		<div class="flex items-center gap-1.5 mb-1">
+			<div class="w-0.5 h-3 bg-[var(--warp-purple)] rounded-full"></div>
+			<span class="text-[0.65rem] font-semibold text-[var(--warp-purple-muted)] uppercase tracking-widest">Upload Proof</span>
 		</div>
+		<input
+			bind:this={fileInput}
+			type="file"
+			accept=".txt"
+			onchange={handleFileUpload}
+			class="hidden"
+		/>
+		<button
+			onclick={triggerFileUpload}
+			disabled={isCheckingNullifier}
+			class="w-full p-3 rounded-lg border border-dashed border-[rgba(144,97,249,0.3)] bg-[var(--swamp-deep)] hover:bg-[rgba(144,97,249,0.05)] hover:border-[rgba(144,97,249,0.5)] transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+		>
+			{#if isCheckingNullifier}
+				<Loader2 class="size-4 animate-spin text-[var(--warp-purple)]" />
+				<span class="text-xs text-[var(--muted-foreground)]">Checking note status...</span>
+			{:else}
+				<Upload class="size-4 text-[var(--warp-purple)]" />
+				<span class="text-xs text-[var(--foreground)]">Upload Proof (.txt)</span>
+			{/if}
+		</button>
 
-		<div class="text-center text-sm text-muted-foreground">— or —</div>
+		{#if uploadError}
+			<div class="flex items-center gap-2 p-2 rounded-lg bg-[rgba(255,77,77,0.1)] border border-[rgba(255,77,77,0.2)]">
+				<div class="size-5 rounded-full bg-[rgba(255,77,77,0.2)] flex items-center justify-center flex-shrink-0">
+					<svg class="size-2.5 text-[var(--destructive)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+					</svg>
+				</div>
+				<p class="text-xs text-[var(--foreground)] whitespace-pre-wrap">{uploadError}</p>
+			</div>
+		{/if}
+	</div>
 
-		<!-- Proof Table -->
-		<div class="space-y-2">
-			<Label>Select from Saved Proofs</Label>
+	<!-- Divider -->
+	<div class="flex items-center gap-3 py-1">
+		<div class="h-px flex-1 bg-[rgba(144,97,249,0.15)]"></div>
+		<span class="text-[0.65rem] text-[var(--muted-foreground)]">or select from saved</span>
+		<div class="h-px flex-1 bg-[rgba(144,97,249,0.15)]"></div>
+	</div>
+
+	<!-- Proof Table -->
+	<div class="space-y-2">
+		<div class="flex items-center gap-1.5">
+			<div class="w-0.5 h-3 bg-[var(--toad-green)] rounded-full"></div>
+			<span class="text-[0.65rem] font-semibold text-[var(--toad-green-muted)] uppercase tracking-widest">Saved Proofs</span>
+		</div>
+		<div class="rounded-lg border border-[rgba(130,226,102,0.15)] overflow-hidden">
 			<ProofTable onselect={handleProofSelect} />
 		</div>
+	</div>
 
-		{#if selectedProof}
-			<Separator />
+	{#if selectedProof}
+		<!-- Divider -->
+		<div class="h-px bg-[rgba(130,226,102,0.15)]"></div>
 
-			<!-- Selected Proof Details -->
-			<div class="space-y-4">
-				<Label>Selected Proof</Label>
-				<Card>
-					<CardContent class="pt-6 space-y-2">
-						<div class="flex justify-between text-sm">
-							<span class="text-muted-foreground">Amount:</span>
-							<span class="font-semibold"
-								>{selectedProof.amount}
-								{selectedProof.token}</span
-							>
-						</div>
-						<div class="flex justify-between text-sm">
-							<span class="text-muted-foreground">Route:</span>
-							<span
-								>{selectedProof.sourceChain} → {selectedProof.targetChain}</span
-							>
-						</div>
-						<div class="flex justify-between text-sm">
-							<span class="text-muted-foreground"
-								>Source Chain ID:</span
-							>
-							<span>{getSourceChainId()}</span>
-						</div>
-						<div class="flex justify-between text-sm">
-							<span class="text-muted-foreground"
-								>Target Wallet:</span
-							>
-							<span class="flex items-center gap-1">
-								{#if isTargetConnected}
-									<CheckCircle2
-										class="size-4 text-green-500"
-									/>
-									<span class="text-green-500">Connected</span
-									>
-								{:else}
-									<span class="text-destructive"
-										>Not Connected</span
-									>
-								{/if}
-							</span>
-						</div>
-						{#if isTargetConnected && needsNetworkSwitch}
-							<Alert variant="default" class="border-yellow-500 bg-yellow-50 dark:bg-yellow-950">
-								<AlertDescription class="text-yellow-800 dark:text-yellow-200">
-									Wrong network. Please switch to {selectedProof.targetChain}.
-								</AlertDescription>
-							</Alert>
-						{/if}
-						{#if selectedProof.commitmentData}
-							<div class="flex justify-between text-sm">
-								<span class="text-muted-foreground"
-									>Has Commitment:</span
-								>
-								<CheckCircle2 class="size-4 text-green-500" />
-							</div>
-						{:else}
-							<Alert variant="destructive">
-								<AlertDescription>
-									Missing commitment data. Upload note file to
-									restore.
-								</AlertDescription>
-							</Alert>
-						{/if}
-						{#if selectedProof.used}
-							<Alert>
-								<AlertDescription>
-									This proof has already been used
-								</AlertDescription>
-							</Alert>
-						{/if}
-					</CardContent>
-				</Card>
+		<!-- Selected Proof Details -->
+		<div class="space-y-2">
+			<div class="flex items-center gap-1.5">
+				<div class="w-0.5 h-3 bg-[var(--toad-green)] rounded-full"></div>
+				<span class="text-[0.65rem] font-semibold text-[var(--toad-green-muted)] uppercase tracking-widest">Selected Proof</span>
 			</div>
 
-			<!-- Validation Messages -->
-			{#if !isTargetConnected}
-				<Alert>
-					<AlertDescription>
-						Please connect your {selectedProof.targetChain} wallet to
-						withdraw.
-						{#if selectedProof.targetChain === "Aztec"}
-							<br /><span class="text-xs text-muted-foreground"
-								>Use the Azguard wallet extension.</span
-							>
-						{/if}
-					</AlertDescription>
-				</Alert>
-			{/if}
-
-			<!-- Auto-unwrap toggle (for L1 withdrawals, but NOT when using relay) -->
-			{#if showAutoUnwrap() && !useRelay}
-				<div
-					class="flex items-center justify-between p-3 rounded-lg border"
-				>
-					<div class="space-y-0.5">
-						<Label for="auto-unwrap" class="cursor-pointer"
-							>Auto-unwrap to native token</Label
-						>
-						<p class="text-xs text-muted-foreground">
-							Receive native {selectedProof.token} instead of wrapped
-							tokens
-						</p>
+			<div class="swamp-card-source">
+				<div class="swamp-card-inner space-y-2">
+					<div class="flex justify-between text-xs">
+						<span class="text-[var(--muted-foreground)]">Amount</span>
+						<span class="font-semibold font-mono text-[var(--foreground)]">
+							{selectedProof.amount} {selectedProof.token}
+						</span>
 					</div>
-					<input
-						id="auto-unwrap"
-						type="checkbox"
-						bind:checked={autoUnwrap}
-						class="h-4 w-4 rounded border-gray-300"
-					/>
-				</div>
-			{/if}
+					<div class="flex justify-between text-xs">
+						<span class="text-[var(--muted-foreground)]">Route</span>
+						<span class="flex items-center gap-1.5">
+							<span class="px-1.5 py-0.5 rounded bg-[rgba(144,97,249,0.2)] text-[var(--warp-purple)] text-[0.65rem]">{selectedProof.sourceChain}</span>
+							<span class="text-[var(--muted-foreground)]">→</span>
+							<span class="px-1.5 py-0.5 rounded bg-[rgba(130,226,102,0.2)] text-[var(--toad-green)] text-[0.65rem]">{selectedProof.targetChain}</span>
+						</span>
+					</div>
+					<div class="flex justify-between text-xs">
+						<span class="text-[var(--muted-foreground)]">Wallet</span>
+						<span class="flex items-center gap-1">
+							{#if isTargetConnected}
+								<CheckCircle2 class="size-3 text-[var(--toad-green)]" />
+								<span class="text-[var(--toad-green)]">Connected</span>
+							{:else}
+								<AlertCircle class="size-3 text-red-500" />
+								<span class="text-red-400">Not Connected</span>
+							{/if}
+						</span>
+					</div>
 
-			<!-- Relay Service Toggle (for all supported EVM flows) -->
-			{#if isRelaySupported() && relayServiceAvailable && relayerInfo}
-				<Separator />
-
-				<div class="space-y-4">
-					<!-- Toggle between self-relay and gasless -->
-					<div
-						class="flex items-center justify-between p-3 rounded-lg border"
-					>
-						<div class="space-y-0.5">
-							<Label for="use-relay" class="cursor-pointer">
-								Gasless Withdrawal (Testnet - Subsidized)
-							</Label>
-							<p class="text-xs text-muted-foreground">
-								Use relay service to avoid gas fees. Relayer is subsidized for testnet demo.
+					{#if isTargetConnected && needsNetworkSwitch}
+						<div class="flex items-center gap-2 p-2 rounded bg-[rgba(224,226,102,0.1)] border border-[rgba(224,226,102,0.2)]">
+							<svg class="size-3 text-[var(--eye-yellow)] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+							</svg>
+							<p class="text-[0.65rem] text-[var(--foreground)]">
+								Switch to {selectedProof.targetChain}
 							</p>
 						</div>
-						<input
-							id="use-relay"
-							type="checkbox"
-							bind:checked={useRelay}
-							class="h-4 w-4 rounded border-gray-300"
-						/>
-					</div>
+					{/if}
 
-					<!-- Fee Info (only shown when relay enabled) -->
-					{#if useRelay}
-						<div
-							class="space-y-3 p-4 rounded-lg border bg-blue-50 dark:bg-blue-950/20"
-						>
+					{#if !selectedProof.commitmentData}
+						<div class="flex items-center gap-2 p-2 rounded bg-[rgba(255,77,77,0.1)] border border-[rgba(255,77,77,0.2)]">
+							<svg class="size-3 text-[var(--destructive)] flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+							</svg>
+							<p class="text-[0.65rem] text-[var(--foreground)]">
+								Missing commitment — upload note file
+							</p>
+						</div>
+					{/if}
+
+					{#if selectedProof.used}
+						<div class="flex items-center gap-2 p-2 rounded bg-[rgba(144,97,249,0.1)] border border-[rgba(144,97,249,0.2)]">
+							<Shield class="size-3 text-[var(--warp-purple)] flex-shrink-0" />
+							<p class="text-[0.65rem] text-[var(--muted-foreground)]">
+								Already used
+							</p>
+						</div>
+					{/if}
+				</div>
+			</div>
+		</div>
+
+		<!-- Validation Messages -->
+		{#if !isTargetConnected}
+			<div class="flex items-center gap-2 p-3 rounded-lg bg-[rgba(130,226,102,0.1)] border border-[rgba(130,226,102,0.2)]">
+				<div class="size-7 rounded-full bg-[rgba(130,226,102,0.2)] flex items-center justify-center flex-shrink-0">
+					<svg class="size-3.5 text-[var(--toad-green)]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+					</svg>
+				</div>
+				<div class="text-xs">
+					<span class="font-medium text-[var(--foreground)]">Connect {selectedProof.targetChain} wallet</span>
+					{#if selectedProof.targetChain === "Aztec"}
+						<span class="text-[var(--muted-foreground)]"> — Use Azguard extension</span>
+					{/if}
+				</div>
+			</div>
+		{/if}
+
+		<!-- Auto-unwrap toggle (for L1 withdrawals, but NOT when using relay) -->
+		{#if showAutoUnwrap() && !useRelay}
+			<div class="p-3 rounded-lg bg-[var(--swamp-deep)] border border-[rgba(130,226,102,0.15)]">
+				<div class="flex items-center justify-between">
+					<div class="space-y-0.5">
+						<label for="auto-unwrap" class="cursor-pointer text-xs font-medium text-[var(--foreground)]">
+							Auto-unwrap to native token
+						</label>
+						<p class="text-[0.65rem] text-[var(--muted-foreground)]">
+							Receive native {selectedProof.token}
+						</p>
+					</div>
+					<label class="relative inline-flex items-center cursor-pointer">
+						<input
+							id="auto-unwrap"
+							type="checkbox"
+							bind:checked={autoUnwrap}
+							class="sr-only peer"
+						/>
+						<div class="w-9 h-5 bg-[rgba(130,226,102,0.2)] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[var(--toad-green)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--toad-green)]"></div>
+					</label>
+				</div>
+			</div>
+		{/if}
+
+		<!-- Relay Service Toggle (for all supported EVM flows) -->
+		{#if isRelaySupported() && relayServiceAvailable && relayerInfo}
+			<div class="h-px bg-[rgba(130,226,102,0.15)]"></div>
+
+			<div class="space-y-2">
+				<!-- Toggle between self-relay and gasless -->
+				<div class="p-3 rounded-lg bg-[var(--swamp-deep)] border border-[rgba(130,226,102,0.15)]">
+					<div class="flex items-center justify-between">
+						<div class="space-y-0.5">
+							<label for="use-relay" class="cursor-pointer text-xs font-medium text-[var(--foreground)] flex items-center gap-1.5">
+								<svg class="size-3.5 text-[var(--toad-green)]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+									<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+								</svg>
+								Gasless Withdrawal
+							</label>
+							<p class="text-[0.65rem] text-[var(--muted-foreground)]">
+								Relay service (subsidized for testnet)
+							</p>
+						</div>
+						<label class="relative inline-flex items-center cursor-pointer">
+							<input
+								id="use-relay"
+								type="checkbox"
+								bind:checked={useRelay}
+								class="sr-only peer"
+							/>
+							<div class="w-9 h-5 bg-[rgba(130,226,102,0.2)] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[var(--toad-green)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--toad-green)]"></div>
+						</label>
+					</div>
+				</div>
+
+				<!-- Fee Info (only shown when relay enabled) -->
+				{#if useRelay}
+					<div class="p-3 rounded-lg bg-[var(--swamp-deep)] border border-[rgba(130,226,102,0.15)]">
+						<div class="space-y-2">
 							<!-- Fee Breakdown -->
-							<div class="space-y-2 text-sm">
+							<div class="space-y-1.5 text-xs">
 								<div class="flex justify-between">
-									<span class="text-muted-foreground"
-										>Withdrawal Amount:</span
-									>
-									<span class="font-medium"
-										>{selectedProof.amount}
-										{selectedProof.token}</span
-									>
+									<span class="text-[var(--muted-foreground)]">Amount</span>
+									<span class="font-mono text-[var(--foreground)]">
+										{selectedProof.amount} {selectedProof.token}
+									</span>
 								</div>
 								<div class="flex justify-between">
-									<span class="text-muted-foreground"
-										>Relayer Fee:</span
-									>
-									<span class="font-medium text-green-600"
-										>FREE (Testnet)</span
-									>
+									<span class="text-[var(--muted-foreground)]">Fee</span>
+									<span class="text-[var(--toad-green)]">FREE (Testnet)</span>
 								</div>
-								<div
-									class="flex justify-between pt-2 border-t"
-								>
-									<span class="text-muted-foreground"
-										>You Receive:</span
-									>
-									<span class="font-medium text-green-600">
+								<div class="flex justify-between pt-1.5 border-t border-[rgba(130,226,102,0.1)]">
+									<span class="text-[var(--muted-foreground)]">You Receive</span>
+									<span class="text-[var(--toad-green)]">
 										{selectedProof.amount}
-										<button 
+										<button
 											onclick={addWrappedTokenToWallet}
-											class="underline hover:text-green-700 cursor-pointer"
-											title="Click to add wrapped token to MetaMask"
+											class="underline hover:text-[var(--toad-green-glow)] cursor-pointer ml-1"
+											title="Add to MetaMask"
 										>
 											wrptd-{selectedProof.token}
 										</button>
 									</span>
 								</div>
 							</div>
-							<div class="space-y-2 p-3 rounded bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800">
-								<p class="text-xs text-muted-foreground">
-									<strong>Note:</strong> You will receive wrapped tokens (
-									<button 
-										onclick={addWrappedTokenToWallet}
-										class="underline hover:text-blue-700 cursor-pointer font-semibold"
-										title="Click to add to MetaMask"
-									>
-										wrptd-{selectedProof.token}
-									</button>
-									) when using the relayer. You can manually unwrap them to native {selectedProof.token} afterwards.
-								</p>
-								<p class="text-xs text-muted-foreground italic">
-									Production relayers would charge a small fee (0.25%-5%) from your withdrawal amount.
+
+							<div class="p-2 rounded bg-[rgba(224,226,102,0.1)] border border-[rgba(224,226,102,0.2)]">
+								<p class="text-[0.65rem] text-[var(--muted-foreground)]">
+									<span class="text-[var(--eye-yellow)] font-medium">Note:</span> Wrapped tokens via relay. Unwrap manually after.
 								</p>
 							</div>
 						</div>
-					{/if}
+					</div>
+				{/if}
+			</div>
+		{/if}
 
+		<!-- Same-chain transfer info -->
+		{#if isSameChainTransfer()}
+			<div class="p-2.5 rounded-lg bg-[rgba(144,97,249,0.08)] border border-[rgba(144,97,249,0.15)]">
+				<p class="text-[0.65rem] text-[var(--muted-foreground)]">
+					<span class="text-[var(--warp-purple)] font-medium">Same-chain:</span> Private transfer on {selectedProof.sourceChain}. Bridge sync required.
+				</p>
+			</div>
+		{/if}
 
-				</div>
-			{/if}
-
-			<!-- Same-chain transfer info -->
-			{#if isSameChainTransfer()}
-				<Alert>
-					<AlertDescription class="text-sm">
-						<strong>Same-chain transfer:</strong> This is a private
-						transfer on {selectedProof.sourceChain}. A bridge sync
-						must have occurred after your burn transaction.
-					</AlertDescription>
-				</Alert>
-			{/if}
-
-			<!-- Withdraw Progress -->
-			{#if isWithdrawing}
-				<Alert>
-					<AlertDescription class="flex items-center gap-2">
-						{#if withdrawStep === "complete"}
-							<CheckCircle2 class="size-4 text-green-500" />
-						{:else}
-							<Loader2 class="size-4 animate-spin" />
-						{/if}
-						<div class="flex-1">
-							<div>{withdrawMessage}</div>
-							{#if withdrawStep !== "idle" && withdrawStep !== "complete"}
-								<div class="text-xs text-muted-foreground mt-1">
-									Step {getStepNumber(withdrawStep)}: {withdrawStep.replace(
-										"-",
-										" ",
-									)}
-								</div>
-							{/if}
+		<!-- Withdraw Progress -->
+		{#if isWithdrawing}
+			<div class="p-3 rounded-lg bg-[var(--swamp-deep)] border border-[rgba(130,226,102,0.2)]">
+				<div class="flex items-center gap-2">
+					{#if withdrawStep === "complete"}
+						<div class="size-7 rounded-full bg-[rgba(130,226,102,0.2)] flex items-center justify-center flex-shrink-0">
+							<CheckCircle2 class="size-4 text-[var(--toad-green)]" />
 						</div>
-					</AlertDescription>
-				</Alert>
-			{/if}
+					{:else}
+						<div class="size-7 rounded-full bg-[rgba(130,226,102,0.1)] flex items-center justify-center flex-shrink-0">
+							<Loader2 class="size-4 text-[var(--toad-green)] animate-spin" />
+						</div>
+					{/if}
+					<div class="flex-1 min-w-0">
+						<div class="text-xs text-[var(--foreground)]">{withdrawMessage}</div>
+						{#if withdrawStep !== "idle" && withdrawStep !== "complete"}
+							<div class="text-[0.65rem] text-[var(--muted-foreground)]">
+								Step {getStepNumber(withdrawStep)}
+							</div>
+						{/if}
+					</div>
+				</div>
 
-			<!-- Withdraw Button -->
-			<Button 
-				class="w-full" 
-				disabled={(!canWithdraw && !needsNetworkSwitch) || isWithdrawing} 
-				onclick={needsNetworkSwitch ? switchToTargetNetwork : withdraw}
-			>
+				<!-- Progress bar -->
+				{#if withdrawStep !== "idle"}
+					<div class="mt-2 h-1 bg-[var(--swamp-surface)] rounded-full overflow-hidden">
+						<div
+							class="h-full bg-gradient-to-r from-[var(--toad-green)] to-[var(--warp-purple)] rounded-full shimmer"
+							style="width: {withdrawStep === 'complete' ? 100 : (parseInt(getStepNumber(withdrawStep).split('/')[0]) / 6) * 100}%"
+						></div>
+					</div>
+				{/if}
+			</div>
+		{/if}
+
+		<!-- Withdraw Button -->
+		<button
+			class="w-full py-3 rounded-xl font-semibold text-sm transition-all duration-300 relative overflow-hidden group cursor-pointer
+				{canWithdraw || needsNetworkSwitch
+					? 'btn-warp'
+					: 'bg-[var(--swamp-surface)] text-[var(--muted-foreground)] cursor-not-allowed border border-[rgba(144,97,249,0.1)]'
+				}"
+			disabled={(!canWithdraw && !needsNetworkSwitch) || isWithdrawing}
+			onclick={needsNetworkSwitch ? switchToTargetNetwork : withdraw}
+		>
+			<span class="relative z-10 flex items-center justify-center gap-1.5">
 				{#if isWithdrawing}
+					<Loader2 class="size-4 animate-spin" />
 					Processing...
 				{:else if needsNetworkSwitch}
 					Switch to {selectedProof.targetChain}
 				{:else if isAztecToL1() || isSameChainL1()}
 					{#if useRelay}
-						Gasless Withdraw ({feePercentage}% fee)
+						<svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+							<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z" />
+						</svg>
+						Gasless Withdraw
 					{:else if autoUnwrap}
+						<Download class="size-4" />
 						Withdraw to Ethereum
 					{:else}
+						<Download class="size-4" />
 						Withdraw (Wrapped)
 					{/if}
 				{:else}
+					<Download class="size-4" />
 					Withdraw to {selectedProof.targetChain}
 				{/if}
-			</Button>
-		{/if}
+			</span>
+		</button>
+	{/if}
 
-		<!-- Success Message -->
-		{#if successMessage}
-			<Alert>
-				<AlertDescription class="flex items-center gap-2">
-					<CheckCircle2 class="size-4 text-green-500" />
-					<span>{successMessage}</span>
-				</AlertDescription>
-			</Alert>
-		{/if}
-	</CardContent>
-</Card>
+	<!-- Success Message -->
+	{#if successMessage}
+		<div class="p-3 rounded-lg bg-[var(--swamp-deep)] border border-[rgba(130,226,102,0.2)]">
+			<div class="flex items-center gap-2">
+				<div class="size-7 rounded-full bg-[rgba(130,226,102,0.2)] flex items-center justify-center flex-shrink-0">
+					<CheckCircle2 class="size-4 text-[var(--toad-green)]" />
+				</div>
+				<p class="text-xs font-medium text-[var(--foreground)]">{successMessage}</p>
+			</div>
+		</div>
+	{/if}
+</div>

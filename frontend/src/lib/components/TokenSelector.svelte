@@ -1,24 +1,19 @@
 <script lang="ts">
-	import {
-		Dialog,
-		DialogContent,
-		DialogHeader,
-		DialogTitle,
-	} from "$lib/components/ui/dialog/index.js";
-	import { Input } from "$lib/components/ui/input/index.js";
+	import { Popover } from "bits-ui";
 	import { proofStore } from "$lib/stores/proofs.svelte.js";
 	import {
-		TOKEN_COLORS,
+		TOKEN_STYLES,
 		TOKEN_NAMES,
 		type Token,
 		type Chain,
 	} from "$lib/types/bridge.js";
-	import { Search } from "@lucide/svelte";
+	import { ChevronDown } from "@lucide/svelte";
 
 	interface Props {
 		open?: boolean;
 		selectedToken: Token;
 		chain: Chain;
+		variant?: 'green' | 'purple';
 		onSelect: (token: Token) => void;
 	}
 
@@ -26,97 +21,71 @@
 		open = $bindable(false),
 		selectedToken,
 		chain,
+		variant = 'green',
 		onSelect,
 	}: Props = $props();
 
 	const tokens: Token[] = ["USDC", "DAI", "WBTC"];
-	let searchQuery = $state("");
-
-	let filteredTokens = $derived(
-		tokens.filter(
-			(token) =>
-				token.toLowerCase().includes(searchQuery.toLowerCase()) ||
-				TOKEN_NAMES[token]
-					.toLowerCase()
-					.includes(searchQuery.toLowerCase()),
-		),
-	);
 
 	function handleSelect(token: Token) {
 		onSelect(token);
 		open = false;
-		searchQuery = "";
 	}
 </script>
 
-<Dialog bind:open>
-	<DialogContent class="sm:max-w-[425px]">
-		<DialogHeader>
-			<DialogTitle>Select Token</DialogTitle>
-		</DialogHeader>
+<Popover.Root bind:open>
+	<Popover.Trigger
+		class="swamp-selector-btn {variant === 'purple' ? 'purple' : ''}"
+	>
+		<img
+			src={TOKEN_STYLES[selectedToken].logo}
+			alt={selectedToken}
+			class="swamp-selector-icon-img"
+			style="--icon-glow: {TOKEN_STYLES[selectedToken].glow};"
+		/>
+		<span class="text-sm font-semibold text-[var(--foreground)]">{selectedToken}</span>
+		<ChevronDown class="size-3.5 text-[var(--muted-foreground)] transition-transform {open ? 'rotate-180' : ''}" />
+	</Popover.Trigger>
 
-		<!-- Search Input -->
-		<div class="relative">
-			<Search
-				class="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground"
-			/>
-			<Input
-				type="text"
-				placeholder="Search tokens..."
-				bind:value={searchQuery}
-				class="pl-9"
-			/>
-		</div>
-
-		<!-- Token List -->
-		<div class="grid gap-2 max-h-[400px] overflow-y-auto">
-			{#each filteredTokens as token (token)}
+	<Popover.Portal>
+		<Popover.Content
+			class="swamp-popover {variant === 'purple' ? 'swamp-popover-purple' : 'swamp-popover-green'}"
+			sideOffset={8}
+			align="start"
+			style="z-index: 9999;"
+		>
+			{#each tokens as token (token)}
 				<button
-					class="flex items-center gap-3 p-4 border rounded-lg hover:bg-accent transition-colors text-left"
-					class:bg-accent={selectedToken === token}
-					class:border-primary={selectedToken === token}
+					class="swamp-selector-item w-full {variant === 'purple' ? 'purple' : ''} {selectedToken === token ? 'selected' : ''}"
 					onclick={() => handleSelect(token)}
 				>
-					<!-- Token Icon (Colored Circle) -->
-					<div
-						class="size-10 rounded-full {TOKEN_COLORS[
-							token
-						]} flex items-center justify-center"
-					>
-						<span class="text-white font-bold text-sm"
-							>{token.slice(0, 2)}</span
-						>
-					</div>
+					<img
+						src={TOKEN_STYLES[token].logo}
+						alt={token}
+						class="swamp-selector-item-icon-img"
+					/>
 
-					<!-- Token Info -->
-					<div class="flex-1">
-						<div class="font-semibold">{token}</div>
-						<div class="text-sm text-muted-foreground">
+					<div class="flex-1 text-left">
+						<div class="text-sm font-semibold text-[var(--foreground)]">{token}</div>
+						<div class="text-[0.65rem] text-[var(--muted-foreground)]">
 							{TOKEN_NAMES[token]}
 						</div>
 					</div>
 
-					<!-- Balance -->
 					<div class="text-right">
-						<div class="text-xs text-muted-foreground">Balance</div>
-						<div class="text-sm font-medium">
+						<div class="text-[0.6rem] text-[var(--muted-foreground)]">Balance</div>
+						<div class="text-xs font-medium font-mono text-[var(--foreground)]">
 							{#await proofStore.getBalance(token, chain)}
-								Loading balance…
+								...
 							{:then balance}
 								{balance}
-							{:catch err}
-								Failed to load balance
+							{:catch}
+								-
 							{/await}
 						</div>
 					</div>
 				</button>
 			{/each}
-		</div>
-
-		{#if filteredTokens.length === 0}
-			<div class="text-center py-8 text-muted-foreground">
-				No tokens found
-			</div>
-		{/if}
-	</DialogContent>
-</Dialog>
+		</Popover.Content>
+	</Popover.Portal>
+</Popover.Root>
