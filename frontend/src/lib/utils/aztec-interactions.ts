@@ -217,9 +217,9 @@ function createEvmClient(chainId: number, rpcUrl?: string): PublicClient {
 	if (chainId === L1_CONFIG.chainId || chainId === 31337) {
 		defaultRpcUrl = L1_CONFIG.rpcUrl;
 	} else if (chainId === 11155111) {
-		defaultRpcUrl = 'https://sepolia.drpc.org';
+		defaultRpcUrl = import.meta.env.VITE_SEPOLIA_RPC_URL;
 	} else if (chainId === 534351) {
-		defaultRpcUrl = 'https://sepolia-rpc.scroll.io';
+		defaultRpcUrl = import.meta.env.VITE_SCROLL_SEPOLIA_RPC_URL;
 	} else {
 		defaultRpcUrl = 'http://localhost:8545';
 	}
@@ -675,8 +675,11 @@ export async function getMerkleData(
 ): Promise<MerkleDataResult> {
 	const addresses = getContractAddresses(sourceChainId);
 
-	if (!addresses.L1WarpToad) {
-		throw new Error(`L1WarpToad address not found for chain ${sourceChainId}`);
+	// Use L2WarpToad for Scroll (534351), L1WarpToad for other chains
+	const warpToadAddress = addresses.L2WarpToad || addresses.L1WarpToad;
+	
+	if (!warpToadAddress) {
+		throw new Error(`WarpToad address not found for chain ${sourceChainId}`);
 	}
 	if (!addresses.GigaBridge) {
 		throw new Error(`GigaBridge address not found for chain ${sourceChainId}`);
@@ -690,7 +693,7 @@ export async function getMerkleData(
 	const localRootData = await getLocalRootData(
 		publicClient,
 		addresses.GigaBridge,
-		addresses.L1WarpToad,
+		warpToadAddress,
 		sourceChainId,
 		gigaRoot
 	);
@@ -700,7 +703,7 @@ export async function getMerkleData(
 	console.log('Building EVM merkle proof...');
 	const evmMerkleData = await getEvmMerkleData(
 		publicClient,
-		addresses.L1WarpToad,
+		warpToadAddress,
 		commitment,
 		sourceChainId,
 		localRootData.localRootBlockNumber,
@@ -795,7 +798,7 @@ export async function getAztecChainId(aztecWallet: Wallet): Promise<bigint> {
 // =============================================================================
 
 /**
- * Validate that a commitment exists in the L1WarpToad burn events
+ * Validate that a commitment exists in the WarpToad burn events
  */
 export async function validateCommitmentExists(
 	commitment: bigint,
@@ -803,7 +806,11 @@ export async function validateCommitmentExists(
 ): Promise<boolean> {
 	try {
 		const addresses = getContractAddresses(sourceChainId);
-		if (!addresses.L1WarpToad) {
+		
+		// Use L2WarpToad for Scroll (534351), L1WarpToad for other chains
+		const warpToadAddress = addresses.L2WarpToad || addresses.L1WarpToad;
+		
+		if (!warpToadAddress) {
 			return false;
 		}
 
@@ -811,7 +818,7 @@ export async function validateCommitmentExists(
 
 		// Query for specific commitment
 		const logs = await publicClient.getLogs({
-			address: addresses.L1WarpToad as `0x${string}`,
+			address: warpToadAddress as `0x${string}`,
 			event: {
 				type: 'event',
 				name: 'Burn',

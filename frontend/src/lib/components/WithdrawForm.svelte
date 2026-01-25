@@ -107,6 +107,18 @@
 
 	// Get source chain ID dynamically based on source chain
 	function getSourceChainId(): number {
+		if (!selectedProof) {
+			const ethereumChain = getEVMChain("Ethereum");
+			return ethereumChain?.chainId ?? 31337;
+		}
+		
+		// Get the actual source chain from the proof
+		const sourceChainDef = getEVMChain(selectedProof.sourceChain);
+		if (sourceChainDef) {
+			return sourceChainDef.chainId;
+		}
+		
+		// Fallback to Ethereum
 		const ethereumChain = getEVMChain("Ethereum");
 		return ethereumChain?.chainId ?? 31337;
 	}
