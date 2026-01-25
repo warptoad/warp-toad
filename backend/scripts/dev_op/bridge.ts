@@ -118,7 +118,7 @@ async function main() {
         ]).then((res) => console.log(`completed ${bridgeIteration}th bridge run`, res?.txHashes))
 
         if (args.repeat) {
-            await sleep(600000) // 10 min
+            await sleep(1200000) // 20 min
         }
     } while (args.repeat)
 

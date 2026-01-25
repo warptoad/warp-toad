@@ -78,18 +78,25 @@ export async function getL1ClaimDataScrollBridgeApi(l2BridgeInitiationContract: 
 
 export async function getClaimDataScroll(adapterContract: ethers.AddressLike, txHash?: ethers.BytesLike) {
     let claimData = undefined
+    const maxNoResultCount = 10;
+    let noResultsCount = 0
+    const sleepTime = 600000
     while (claimData === undefined) {
         const result = await getL1ClaimDataScrollBridgeApi(adapterContract, txHash)
         claimData = result && result.claim_info !== null ? result.claim_info : undefined
         if (claimData !== undefined) {
             break;
         } else {
-            // if (result) {
-            //     console.log(`results where found for address: ${adapterContract} with txHash ${txHash} but no claim_info, checking again in 30 minutes.`)
-            // } else {
-            //     console.log(`NO RESULTS FOUND for address: ${adapterContract} with txHash ${txHash}, checking again in 30 minutes.`)
-            // }
-            await sleep(1800000)
+            if (result) {
+                console.log(`results where found for address: ${adapterContract} with txHash ${txHash} but no claim_info, checking again in 10 minutes.`)
+                //console.log(result)
+            } else {
+                noResultsCount += 1
+                if (noResultsCount >= maxNoResultCount) {throw new Error(`scrolls api did not return any results for ${maxNoResultCount*sleepTime/1000/60/60} hours. It might be down`)}
+                console.log(`NO RESULTS FOUND for address: ${adapterContract} with txHash ${txHash}, checking again in 10 minutes.`)
+
+            }
+            await sleep(sleepTime)
         }
     }
     return claimData
@@ -97,9 +104,37 @@ export async function getClaimDataScroll(adapterContract: ethers.AddressLike, tx
 
 export async function claimL1WithdrawScroll(claimInfo: any, signer: ethers.Signer): Promise<ethers.ContractTransactionResponse> {
     const chainId = (await signer.provider?.getNetwork())?.chainId
+    console.log({chainId})
     const IS_MAINNET = chainId === 1n
     const L1_SCROLL_MESSENGER = IS_MAINNET ? L1_SCROLL_MESSENGER_MAINNET : L1_SCROLL_MESSENGER_SEPOLIA
-    const L1ScrollMessenger = IL1ScrollMessenger__factory.connect(L1_SCROLL_MESSENGER, signer)
+    const refreshedNonceManager = new NonceManager(signer)
+    const L1ScrollMessenger = IL1ScrollMessenger__factory.connect(L1_SCROLL_MESSENGER, refreshedNonceManager)
+    const tries = 10
+    const sleepTime = 15 * 1000
+    for (let index = 1; index < tries; index++) {
+        try {
+            const feeData =  await signer.provider?.getFeeData() 
+            const feeSettings = {maxPriorityFeePerGas:(feeData?.maxPriorityFeePerGas as bigint)*BigInt(index), maxFeePerGas:(feeData?.maxFeePerGas as bigint)*BigInt(index)}
+            console.log({feeSettings})
+            const tx = await L1ScrollMessenger.relayMessageWithProof(
+                ethers.getAddress(claimInfo.from),
+                ethers.getAddress(claimInfo.to),
+                BigInt(claimInfo.value),
+                BigInt(claimInfo.nonce),
+                ethers.hexlify(claimInfo.message),
+                {
+                    batchIndex: BigInt(claimInfo.proof.batch_index),
+                    merkleProof: ethers.hexlify(claimInfo.proof.merkle_proof)
+                },feeSettings
+            )
+            await tx.wait(10)
+            return tx
+        } catch (error) {
+            console.log(error)
+            await sleep(sleepTime)
+        }
+
+    }
     const tx = await L1ScrollMessenger.relayMessageWithProof(
         ethers.getAddress(claimInfo.from),
         ethers.getAddress(claimInfo.to),
@@ -111,8 +146,11 @@ export async function claimL1WithdrawScroll(claimInfo: any, signer: ethers.Signe
             merkleProof: ethers.hexlify(claimInfo.proof.merkle_proof)
         }
     )
+    await tx.wait(10)
     return tx
+
 }
+
 export async function bridgeEVMLocalRootToL1(L2Adapter: L2ScrollBridgeAdapter, signer: ethers.Signer, confirmations=3): Promise<ethers.TransactionReceipt> {
     // TODO
     const provider = L2Adapter.runner?.provider
@@ -120,9 +158,14 @@ export async function bridgeEVMLocalRootToL1(L2Adapter: L2ScrollBridgeAdapter, s
     switch (chainId) {
         case chainIds.scroll.testnet:
         case chainIds.scroll.mainnet:
+            console.log("sending sentLocalRootToL1 tx")
             const L2ToL1Tx = await (await L2Adapter["sentLocalRootToL1()"]()).wait(confirmations)
+            console.log(`confirmed sentLocalRootToL1 tx: ${L2ToL1Tx?.hash}`)
+            console.log(`waiting for claimDataScroll`)
             const claimData = await getClaimDataScroll(L2Adapter.target, L2ToL1Tx?.hash)
+            console.log(`got claimdata initiating message relay on L1`)
             const tx = await (await claimL1WithdrawScroll(claimData, signer)).wait(confirmations)
+            console.log(`L2 scroll message relayed to L1 at: ${tx?.hash}`)
             return tx as ethers.ContractTransactionReceipt
         default:
             throw new Error(`unknown chainId: ${Number(chainId)}`);
@@ -192,6 +235,7 @@ export async function bridgeAZTECLocalRootToL1(
         siblingPathArray
     ]
     const waitFunc = async () => await waitForBlocksAztec(blocksToWait, aztecNode, isSandBox, L2AztecBridgeAdapter, aztecWallet)
+    L1AztecBridgeAdapter = L1AztecBridgeAdapter__factory.connect(L1AztecBridgeAdapter.target as string, new NonceManager(L1AztecBridgeAdapter.runner as ethers.Signer))
     const refreshRootTx = await (await tryUntilItWorks(
         L1AztecBridgeAdapter,
         "getNewRootFromL2",
