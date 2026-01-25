@@ -40,7 +40,7 @@ async function main() {
     parser.add_argument('-L1', '--L1Rpc', { help: 'url for the ethereum L1 rpc', required: false, type: 'str', default: "http://localhost:8545" });
     parser.add_argument('-L2', '--L2Rpc', { help: 'url for L2 rpc', required: false, type: 'str', default: "http://localhost:8080" });
     parser.add_argument('-r', '--repeat', { help: 'if set repeatably bridges every 10 min', required: false, default: false, action: 'store_true' });
-    parser.add_argument('-t', '--sleepTime', { help: 'amount of minutes to sleep between bridge runs', required: false, type: 'number', default: 30 });
+    parser.add_argument('-t', '--sleepTime', { help: 'amount of minutes to sleep between bridge runs', required: false, type: 'int', default: 30 });
     parser.add_argument('-c', '--concurent', { help: 'if set, it wont wait until the other bridge is completed', required: false, default: false, action: 'store_true' });
 
     const args = parser.parse_args()
