@@ -6,15 +6,13 @@
 		DialogTitle,
 	} from "$lib/components/ui/dialog/index.js";
 	import { Button } from "$lib/components/ui/button/index.js";
-	import { Badge } from "$lib/components/ui/badge/index.js";
-	import { Separator } from "$lib/components/ui/separator/index.js";
-	import { Alert, AlertDescription } from "$lib/components/ui/alert/index.js";
 	import {
 		Wallet,
 		Shield,
 		Loader2,
 		AlertCircle,
 		CheckCircle2,
+		Zap,
 	} from "@lucide/svelte";
 	import { walletStore } from "$lib/stores/wallets.svelte.js";
 	import { balanceStore } from "$lib/stores/balances.svelte.js";
@@ -125,35 +123,40 @@
 </script>
 
 <Dialog bind:open>
-	<DialogContent class="sm:max-w-[600px]">
+	<DialogContent class="sm:max-w-[580px] bg-[var(--swamp-card)] border border-[rgba(255,255,255,0.08)] shadow-2xl">
 		<DialogHeader>
-			<DialogTitle>Connect Wallets</DialogTitle>
+			<DialogTitle class="text-lg font-semibold text-[var(--foreground)]">
+				Wallets
+			</DialogTitle>
 		</DialogHeader>
 
-		<div class="grid grid-cols-1 md:grid-cols-2 gap-6 py-4">
+		<div class="grid grid-cols-1 md:grid-cols-2 gap-3 py-3">
 			<!-- EVM Wallet Section -->
-			<div
-				class="flex flex-col items-center space-y-4 p-4 border rounded-lg"
-			>
-				<Wallet class="size-12" />
-				<h3 class="text-lg font-semibold">MetaMask / EVM</h3>
+			<div class="rounded-lg border border-[rgba(130,226,102,0.15)] bg-[var(--swamp-deep)] p-4 space-y-3">
+				<div class="flex items-center gap-2.5">
+					<div class="p-2 rounded-md bg-[rgba(130,226,102,0.1)]">
+						<Wallet class="size-4 text-[var(--toad-green)]" />
+					</div>
+					<div>
+						<h3 class="text-sm font-medium text-[var(--foreground)]">EVM</h3>
+						<p class="text-[0.65rem] text-[var(--muted-foreground)]">Ethereum & L2</p>
+					</div>
+				</div>
 
-				{#if walletStore.isEVMConnected}
-					<div class="flex flex-col items-center gap-2 w-full">
-						<Badge variant="default" class="font-mono text-xs">
-							{walletStore.formatAddress(walletStore.wallets.evm)}
-						</Badge>
+					{#if walletStore.isEVMConnected}
+				<div class="space-y-2">
+					<div class="font-mono text-xs text-[var(--toad-green)]">
+						{walletStore.formatAddress(walletStore.wallets.evm)}
+					</div>
 
 					{#if walletStore.chainName}
-						<div
-							class="flex items-center gap-1 text-xs text-muted-foreground"
-						>
-							<CheckCircle2 class="size-3" />
-							<span>{walletStore.chainName}</span>
+						<div class="text-[0.65rem] text-[var(--muted-foreground)]">
+							on <span class="text-[var(--foreground)]">{walletStore.chainName}</span>
 						</div>
 					{/if}
+
 					{#if walletStore.chainName && walletStore.chainName !== 'Aztec' && walletStore.chainName !== 'Scroll'}
-						<Button
+						<button
 							onclick={async () => {
 								const currentChain = walletStore.chainName;
 								if (currentChain) {
@@ -161,182 +164,165 @@
 									await balanceStore.refresh();
 								}
 							}}
+							class="cursor-pointer w-full py-1.5 px-3 rounded text-xs font-medium text-[var(--toad-green)] hover:bg-[rgba(130,226,102,0.1)] transition-colors flex items-center justify-center gap-1.5"
 						>
-							mint 100 test USDC
-						</Button>
+							<Zap class="size-3" />
+							Mint Test USDC
+						</button>
 					{/if}
-				</div>
 
-					<Button
-						variant="outline"
+					<button
 						onclick={handleDisconnectEVM}
 						disabled={walletStore.isConnecting}
+						class="cursor-pointer w-full py-1.5 px-3 rounded text-xs text-[var(--muted-foreground)] hover:text-red-400 hover:bg-[rgba(239,68,68,0.05)] transition-colors disabled:opacity-50"
 					>
 						Disconnect
-					</Button>
-				{:else if !walletStore.isWalletInstalled}
-					<div class="text-sm text-center text-muted-foreground">
-						No wallet detected. Please install <a
-							href="https://metamask.io/download/"
-							target="_blank"
-							rel="noopener noreferrer"
-							class="text-primary hover:underline">MetaMask</a
-						>
-					</div>
-				{:else}
-					<Button
-						variant="outline"
-						onclick={handleConnectEVM}
-						disabled={walletStore.isConnecting}
+					</button>
+				</div>
+			{:else if !walletStore.isWalletInstalled}
+				<div class="text-xs text-center text-[var(--muted-foreground)] py-2">
+					<p>No wallet detected.</p>
+					<a
+						href="https://metamask.io/download/"
+						target="_blank"
+						rel="noopener noreferrer"
+						class="text-[var(--toad-green)] hover:underline"
 					>
-						{#if walletStore.isConnecting}
-							<Loader2 class="size-4 mr-2 animate-spin" />
-							Connecting...
-						{:else}
-							Connect MetaMask
-						{/if}
-					</Button>
-				{/if}
+						Install MetaMask
+					</a>
+				</div>
+			{:else}
+				<button
+					onclick={handleConnectEVM}
+					disabled={walletStore.isConnecting}
+					class="cursor-pointer w-full py-2 rounded text-xs font-medium border border-[rgba(130,226,102,0.3)] text-[var(--toad-green)] hover:bg-[rgba(130,226,102,0.1)] transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+				>
+					{#if walletStore.isConnecting}
+						<Loader2 class="size-3 animate-spin" />
+						Connecting...
+					{:else}
+						Connect
+					{/if}
+				</button>
+			{/if}
 			</div>
 
 			<!-- Aztec Wallet Section -->
-			<div
-				class="flex flex-col items-center space-y-4 p-4 border rounded-lg"
-			>
-				<Shield class="size-12" />
-				<h3 class="text-lg font-semibold">Azguard / Aztec</h3>
+			<div class="rounded-lg border border-[rgba(144,97,249,0.15)] bg-[var(--swamp-deep)] p-4 space-y-3">
+				<div class="flex items-center gap-2.5">
+					<div class="p-2 rounded-md bg-[rgba(144,97,249,0.1)]">
+						<Shield class="size-4 text-[var(--warp-purple)]" />
+					</div>
+					<div>
+						<h3 class="text-sm font-medium text-[var(--foreground)]">Aztec</h3>
+						<p class="text-[0.65rem] text-[var(--muted-foreground)]">Private</p>
+					</div>
+				</div>
 
 				{#if walletStore.isAztecConnected}
-					<div class="flex flex-col items-center gap-2 w-full">
-						<Badge variant="default" class="font-mono text-xs">
-							{walletStore.formatAddress(
-								walletStore.wallets.aztec,
-							)}
-						</Badge>
-
-						<div
-							class="flex items-center gap-1 text-xs text-muted-foreground"
-						>
-							<CheckCircle2 class="size-3" />
-							<span>Connected</span>
+					<div class="space-y-2">
+						<div class="font-mono text-xs text-[var(--warp-purple)]">
+							{walletStore.formatAddress(walletStore.wallets.aztec)}
 						</div>
-					</div>
 
-					<Button
-						variant="outline"
-						onclick={handleDisconnectAztec}
-						disabled={walletStore.isConnectingAztec}
-					>
-						Disconnect
-					</Button>
+						<button
+							onclick={handleDisconnectAztec}
+							disabled={walletStore.isConnectingAztec}
+							class="cursor-pointer w-full py-1.5 px-3 rounded text-xs text-[var(--muted-foreground)] hover:text-red-400 hover:bg-[rgba(239,68,68,0.05)] transition-colors disabled:opacity-50"
+						>
+							Disconnect
+						</button>
+					</div>
 				{:else if !walletStore.isAzguardInstalled}
-					<div class="text-sm text-center text-muted-foreground">
-						No Azguard wallet detected. Please install <a
+					<div class="text-xs text-center text-[var(--muted-foreground)] py-2">
+						<p>Azguard not detected.</p>
+						<a
 							href="https://azguard.io"
 							target="_blank"
 							rel="noopener noreferrer"
-							class="text-primary hover:underline"
-							>Azguard Wallet</a
+							class="text-[var(--warp-purple)] hover:underline"
 						>
+							Install
+						</a>
 					</div>
 				{:else}
-					<Button
-						variant="outline"
+					<button
 						onclick={handleConnectAztec}
 						disabled={walletStore.isConnectingAztec}
+						class="cursor-pointer w-full py-2 rounded text-xs font-medium border border-[rgba(144,97,249,0.3)] text-[var(--warp-purple)] hover:bg-[rgba(144,97,249,0.1)] transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
 					>
 						{#if walletStore.isConnectingAztec}
-							<Loader2 class="size-4 mr-2 animate-spin" />
+							<Loader2 class="size-3 animate-spin" />
 							Connecting...
 						{:else}
-							Connect Azguard
+							Connect
 						{/if}
-					</Button>
+					</button>
 				{/if}
 			</div>
 		</div>
 
+		<!-- Error Messages -->
 		{#if walletStore.error}
-			<Alert variant="destructive">
-				<AlertCircle class="size-4" />
-				<AlertDescription>
-					{walletStore.error}
-				</AlertDescription>
-			</Alert>
+			<div class="flex items-center gap-2 p-2 rounded text-xs text-red-400 bg-[rgba(239,68,68,0.05)]">
+				<AlertCircle class="size-3 flex-shrink-0" />
+				<p>{walletStore.error}</p>
+			</div>
 		{/if}
 
 		{#if walletStore.aztecError}
-			<Alert variant="destructive">
-				<AlertCircle class="size-4" />
-				<AlertDescription>
-					{walletStore.aztecError}
-				</AlertDescription>
-			</Alert>
+			<div class="flex items-center gap-2 p-2 rounded text-xs text-red-400 bg-[rgba(239,68,68,0.05)]">
+				<AlertCircle class="size-3 flex-shrink-0" />
+				<p>{walletStore.aztecError}</p>
+			</div>
 		{/if}
 
 		{#if syncError}
-			<Alert variant="destructive">
-				<AlertCircle class="size-4" />
-				<AlertDescription>
-					{syncError}
-				</AlertDescription>
-			</Alert>
+			<div class="flex items-center gap-2 p-2 rounded text-xs text-red-400 bg-[rgba(239,68,68,0.05)]">
+				<AlertCircle class="size-3 flex-shrink-0" />
+				<p>{syncError}</p>
+			</div>
 		{/if}
 
 		{#if syncSuccess}
-			<Alert>
-				<CheckCircle2 class="size-4" />
-				<AlertDescription>
-					{syncSuccess}
-				</AlertDescription>
-			</Alert>
+			<div class="flex items-center gap-2 p-2 rounded text-xs text-[var(--toad-green)] bg-[rgba(130,226,102,0.05)]">
+				<CheckCircle2 class="size-3 flex-shrink-0" />
+				<p>{syncSuccess}</p>
+			</div>
 		{/if}
 
 		<!-- Network Management Section -->
 		{#if walletStore.isEVMConnected}
-			<Separator />
-			
-			<div class="space-y-3">
-				<h4 class="text-sm font-semibold">Network Management</h4>
-				
+			<div class="pt-2 border-t border-[rgba(255,255,255,0.05)]">
+				<p class="text-[0.65rem] text-[var(--muted-foreground)] mb-2">Switch Network</p>
+
 				{#if isOnUnsupportedNetwork}
-					<Alert variant="destructive">
-						<AlertCircle class="size-4" />
-						<AlertDescription>
-							<div class="space-y-2">
-								<p>You are connected to an unsupported network.</p>
-								<p class="text-xs">Please switch to a supported network to use the bridge.</p>
-							</div>
-						</AlertDescription>
-					</Alert>
+					<p class="text-xs text-red-400 mb-2">Unsupported network. Switch to continue.</p>
 				{/if}
 
-				<div class="flex flex-col gap-2">
-					<div class="text-xs text-muted-foreground">Quick Switch Network:</div>
-					<div class="grid grid-cols-2 gap-2">
-						{#each supportedNetworks as network}
-							<Button
-								size="sm"
-								variant={walletStore.chainName === network ? "default" : "outline"}
-								onclick={() => handleSwitchNetwork(network)}
-								disabled={walletStore.isConnecting || walletStore.chainName === network}
-								class="w-full"
-							>
-								{#if walletStore.chainName === network}
-									<CheckCircle2 class="size-3 mr-1" />
-								{/if}
-								{network}
-							</Button>
-						{/each}
-					</div>
+				<div class="flex gap-2">
+					{#each supportedNetworks as network}
+						<button
+							onclick={() => handleSwitchNetwork(network)}
+							disabled={walletStore.isConnecting || walletStore.chainName === network}
+							class="cursor-pointer flex-1 py-1.5 px-3 rounded text-xs transition-all disabled:opacity-50 {walletStore.chainName === network
+								? 'bg-[rgba(130,226,102,0.15)] text-[var(--toad-green)]'
+								: 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[rgba(255,255,255,0.03)]'}"
+						>
+							{network}
+						</button>
+					{/each}
 				</div>
 			</div>
 		{/if}
 
-		<Separator />
-
-		<div class="text-sm text-muted-foreground text-center">
-			Connect both wallets to use the bridge
-		</div>
+		<!-- Footer -->
+		{#if walletStore.isBothConnected}
+			<div class="pt-2 border-t border-[rgba(255,255,255,0.05)]">
+				<p class="text-[0.65rem] text-[var(--toad-green)] text-center">
+					✓ Ready to bridge
+				</p>
+			</div>
+		{/if}
 	</DialogContent>
 </Dialog>

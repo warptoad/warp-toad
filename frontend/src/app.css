@@ -1,76 +1,99 @@
 @import "tailwindcss";
-
 @import "tw-animate-css";
+
+/* ============================================
+   WARPTOAD - BIOLUMINESCENT SWAMP THEME
+   ============================================ */
+
+/* Fonts - Distinctive, not generic */
+@import url('https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* ========== BRAND COLORS (from logo) ========== */
+  --toad-green: #82e266;
+  --toad-green-glow: #a8ff7c;
+  --toad-green-dark: #5cb83a;
+  --toad-green-muted: #4a8f3a;
+
+  --warp-purple: #9061F9;
+  --warp-purple-glow: #b794ff;
+  --warp-purple-dark: #6b3fd4;
+  --warp-purple-muted: #5a3a9e;
+
+  --eye-yellow: #e0e266;
+  --eye-yellow-glow: #f0f280;
+
+  /* ========== SWAMP ATMOSPHERE ========== */
+  --swamp-black: #050708;
+  --swamp-deep: #0a0e12;
+  --swamp-surface: #0f151a;
+  --swamp-card: #141c24;
+  --swamp-elevated: #1a242e;
+
+  /* ========== SEMANTIC TOKENS ========== */
+  --radius: 0.75rem;
+  --background: var(--swamp-black);
+  --foreground: #e8f0e8;
+  --card: var(--swamp-card);
+  --card-foreground: #e8f0e8;
+  --popover: var(--swamp-elevated);
+  --popover-foreground: #e8f0e8;
+  --primary: var(--toad-green);
+  --primary-foreground: #050708;
+  --secondary: var(--swamp-elevated);
+  --secondary-foreground: #c8d8c8;
+  --muted: var(--swamp-surface);
+  --muted-foreground: #6b8b6b;
+  --accent: var(--warp-purple);
+  --accent-foreground: #ffffff;
+  --destructive: #ff4d4d;
+  --destructive-foreground: #ffffff;
+  --border: rgba(130, 226, 102, 0.12);
+  --input: rgba(130, 226, 102, 0.08);
+  --ring: var(--toad-green);
+
+  /* ========== GLOW EFFECTS ========== */
+  --glow-green: 0 0 20px rgba(130, 226, 102, 0.4), 0 0 40px rgba(130, 226, 102, 0.2);
+  --glow-green-intense: 0 0 30px rgba(130, 226, 102, 0.6), 0 0 60px rgba(130, 226, 102, 0.3);
+  --glow-purple: 0 0 20px rgba(144, 97, 249, 0.4), 0 0 40px rgba(144, 97, 249, 0.2);
+  --glow-purple-intense: 0 0 30px rgba(144, 97, 249, 0.6), 0 0 60px rgba(144, 97, 249, 0.3);
+  --glow-yellow: 0 0 15px rgba(224, 226, 102, 0.5);
+
+  /* ========== GRADIENTS ========== */
+  --gradient-brand: linear-gradient(135deg, var(--toad-green) 0%, var(--warp-purple) 100%);
+  --gradient-brand-reverse: linear-gradient(135deg, var(--warp-purple) 0%, var(--toad-green) 100%);
+  --gradient-swamp: linear-gradient(180deg, var(--swamp-black) 0%, var(--swamp-deep) 50%, var(--swamp-surface) 100%);
+  --gradient-glow-border: linear-gradient(135deg, rgba(130, 226, 102, 0.5) 0%, rgba(144, 97, 249, 0.5) 100%);
+
+  /* ========== TYPOGRAPHY ========== */
+  --font-display: 'Satoshi', system-ui, sans-serif;
+  --font-body: 'Satoshi', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
 }
 
+/* Dark mode is default for this theme */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: var(--swamp-black);
+  --foreground: #e8f0e8;
+  --card: var(--swamp-card);
+  --card-foreground: #e8f0e8;
+  --popover: var(--swamp-elevated);
+  --popover-foreground: #e8f0e8;
+  --primary: var(--toad-green);
+  --primary-foreground: #050708;
+  --secondary: var(--swamp-elevated);
+  --secondary-foreground: #c8d8c8;
+  --muted: var(--swamp-surface);
+  --muted-foreground: #6b8b6b;
+  --accent: var(--warp-purple);
+  --accent-foreground: #ffffff;
+  --destructive: #ff4d4d;
+  --border: rgba(130, 226, 102, 0.12);
+  --input: rgba(130, 226, 102, 0.08);
+  --ring: var(--toad-green);
 }
 
 @theme inline {
@@ -96,26 +119,792 @@
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
 }
+
+/* ============================================
+   BASE STYLES
+   ============================================ */
 
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
+
+  html {
+    font-family: var(--font-body);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
   body {
     @apply bg-background text-foreground;
+    font-family: var(--font-body);
+    background: var(--swamp-black);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Distinctive headings */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  /* Monospace for crypto data */
+  .font-mono, code, pre,
+  [class*="address"], [class*="hash"], [class*="balance"] {
+    font-family: var(--font-mono);
+    font-feature-settings: "liga" 0;
+  }
+}
+
+/* ============================================
+   GLASSMORPHISM CARDS
+   ============================================ */
+
+.glass-card {
+  background: linear-gradient(
+    135deg,
+    rgba(20, 28, 36, 0.8) 0%,
+    rgba(15, 21, 26, 0.9) 100%
+  );
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(130, 226, 102, 0.15);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(130, 226, 102, 0.1);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.glass-card:hover {
+  border-color: rgba(130, 226, 102, 0.3);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 0 30px rgba(130, 226, 102, 0.1),
+    inset 0 1px 0 rgba(130, 226, 102, 0.15);
+}
+
+.glass-card-purple {
+  background: linear-gradient(
+    135deg,
+    rgba(20, 28, 36, 0.8) 0%,
+    rgba(15, 21, 26, 0.9) 100%
+  );
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(144, 97, 249, 0.15);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(144, 97, 249, 0.1);
+}
+
+.glass-card-purple:hover {
+  border-color: rgba(144, 97, 249, 0.3);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 0 30px rgba(144, 97, 249, 0.1);
+}
+
+/* ============================================
+   SWAMP CARDS (Bridge Form)
+   Clean, minimal design without AI glow
+   ============================================ */
+
+.swamp-card-source,
+.swamp-card-target {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.swamp-card-source {
+  background: var(--swamp-card);
+  border: 1px solid rgba(130, 226, 102, 0.12);
+}
+
+.swamp-card-target {
+  background: var(--swamp-card);
+  border: 1px solid rgba(144, 97, 249, 0.12);
+}
+
+/* Subtle top accent line */
+.swamp-card-source::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 16px;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(130, 226, 102, 0.4) 50%,
+    transparent 100%
+  );
+}
+
+.swamp-card-target::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 16px;
+  right: 16px;
+  height: 1px;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(144, 97, 249, 0.4) 50%,
+    transparent 100%
+  );
+}
+
+.swamp-card-inner {
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* ============================================
+   GLOW EFFECTS
+   ============================================ */
+
+.glow-green {
+  box-shadow: var(--glow-green);
+}
+
+.glow-green-intense {
+  box-shadow: var(--glow-green-intense);
+}
+
+.glow-purple {
+  box-shadow: var(--glow-purple);
+}
+
+.glow-purple-intense {
+  box-shadow: var(--glow-purple-intense);
+}
+
+.glow-text-green {
+  text-shadow: 0 0 20px rgba(130, 226, 102, 0.5);
+}
+
+.glow-text-purple {
+  text-shadow: 0 0 20px rgba(144, 97, 249, 0.5);
+}
+
+/* Gradient border effect */
+.gradient-border {
+  position: relative;
+  background: var(--swamp-card);
+  border-radius: var(--radius);
+}
+
+.gradient-border::before {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: calc(var(--radius) + 1px);
+  background: var(--gradient-glow-border);
+  z-index: -1;
+  opacity: 0.5;
+  transition: opacity 0.3s ease;
+}
+
+.gradient-border:hover::before {
+  opacity: 1;
+}
+
+/* ============================================
+   ANIMATIONS
+   ============================================ */
+
+/* Clean border glow - no animation, just subtle presence */
+.animate-glow-pulse {
+  background: rgba(130, 226, 102, 0.12);
+  box-shadow: 0 0 30px rgba(130, 226, 102, 0.08);
+}
+
+/* Purple glow pulse */
+@keyframes glow-pulse-purple {
+  0%, 100% {
+    box-shadow: 0 0 20px rgba(144, 97, 249, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 35px rgba(144, 97, 249, 0.5), 0 0 50px rgba(144, 97, 249, 0.2);
+  }
+}
+
+.animate-glow-pulse-purple {
+  animation: glow-pulse-purple 3s ease-in-out infinite;
+}
+
+/* Floating animation (like lily pads) */
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+/* Ripple effect on water */
+@keyframes ripple {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+.ripple-effect {
+  position: relative;
+  overflow: hidden;
+}
+
+.ripple-effect::after {
+  content: '';
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background: radial-gradient(circle, rgba(130, 226, 102, 0.3) 0%, transparent 70%);
+  transform: scale(0);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.ripple-effect:active::after {
+  animation: ripple 0.6s ease-out;
+}
+
+/* Portal/warp spin effect */
+@keyframes portal-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-portal {
+  animation: portal-spin 20s linear infinite;
+}
+
+/* Shimmer effect */
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(130, 226, 102, 0.1) 50%,
+    transparent 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 3s ease-in-out infinite;
+}
+
+/* Firefly particles */
+@keyframes firefly {
+  0%, 100% {
+    opacity: 0.2;
+    transform: translateY(0) translateX(0);
+  }
+  25% {
+    opacity: 0.8;
+    transform: translateY(-10px) translateX(5px);
+  }
+  50% {
+    opacity: 0.4;
+    transform: translateY(-5px) translateX(-5px);
+  }
+  75% {
+    opacity: 0.9;
+    transform: translateY(-15px) translateX(3px);
+  }
+}
+
+/* ============================================
+   BUTTON STYLES
+   ============================================ */
+
+.btn-warp {
+  position: relative;
+  background: var(--gradient-brand);
+  color: var(--swamp-black);
+  font-family: var(--font-display);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  border: none;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-warp::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--gradient-brand-reverse);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.btn-warp:hover::before {
+  opacity: 1;
+}
+
+.btn-warp:hover {
+  box-shadow: var(--glow-green-intense);
+  transform: translateY(-1px);
+}
+
+.btn-warp:active {
+  transform: translateY(0);
+}
+
+.btn-warp-outline {
+  background: transparent;
+  border: 1px solid var(--toad-green);
+  color: var(--toad-green);
+  font-family: var(--font-display);
+  font-weight: 500;
+  transition: all 0.3s ease;
+}
+
+.btn-warp-outline:hover {
+  background: rgba(130, 226, 102, 0.1);
+  box-shadow: var(--glow-green);
+}
+
+/* ============================================
+   INPUT STYLES
+   ============================================ */
+
+.input-swamp {
+  background: rgba(10, 14, 18, 0.8);
+  border: 1px solid rgba(130, 226, 102, 0.2);
+  color: var(--foreground);
+  font-family: var(--font-mono);
+  transition: all 0.2s ease;
+}
+
+.input-swamp:focus {
+  border-color: var(--toad-green);
+  box-shadow: 0 0 0 3px rgba(130, 226, 102, 0.1), var(--glow-green);
+  outline: none;
+}
+
+.input-swamp::placeholder {
+  color: var(--muted-foreground);
+  opacity: 0.6;
+}
+
+/* Large amount input */
+.input-amount {
+  font-size: 1.5rem;
+  font-weight: 600;
+  background: transparent;
+  border: none;
+  color: var(--foreground);
+  font-family: var(--font-mono);
+}
+
+.input-amount:focus {
+  outline: none;
+}
+
+/* Hide number input spinners */
+.input-amount::-webkit-outer-spin-button,
+.input-amount::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.input-amount[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* ============================================
+   TAB STYLES (Lily Pad)
+   ============================================ */
+
+.tab-lily {
+  position: relative;
+  background: transparent;
+  border: none;
+  color: var(--muted-foreground);
+  font-family: var(--font-display);
+  font-weight: 500;
+  padding: 0.75rem 1.5rem;
+  transition: all 0.3s ease;
+}
+
+.tab-lily::before {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  width: 0;
+  height: 3px;
+  background: var(--gradient-brand);
+  border-radius: 2px;
+  transform: translateX(-50%);
+  transition: width 0.3s ease;
+}
+
+.tab-lily:hover {
+  color: var(--toad-green);
+}
+
+.tab-lily[data-state="active"] {
+  color: var(--foreground);
+}
+
+.tab-lily[data-state="active"]::before {
+  width: 60%;
+  box-shadow: 0 0 15px rgba(130, 226, 102, 0.5);
+}
+
+/* ============================================
+   BADGE STYLES
+   ============================================ */
+
+.badge-glow {
+  background: rgba(130, 226, 102, 0.15);
+  border: 1px solid rgba(130, 226, 102, 0.3);
+  color: var(--toad-green);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  transition: all 0.2s ease;
+}
+
+.badge-glow:hover {
+  background: rgba(130, 226, 102, 0.25);
+  box-shadow: var(--glow-green);
+}
+
+.badge-purple {
+  background: rgba(144, 97, 249, 0.15);
+  border: 1px solid rgba(144, 97, 249, 0.3);
+  color: var(--warp-purple);
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  padding: 0.25rem 0.75rem;
+  border-radius: 9999px;
+  transition: all 0.2s ease;
+}
+
+.badge-purple:hover {
+  background: rgba(144, 97, 249, 0.25);
+  box-shadow: var(--glow-purple);
+}
+
+/* ============================================
+   CHAIN/TOKEN SELECTOR
+   ============================================ */
+
+.chain-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(15, 21, 26, 0.8);
+  border: 1px solid rgba(130, 226, 102, 0.15);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.chain-selector:hover {
+  border-color: rgba(130, 226, 102, 0.4);
+  background: rgba(15, 21, 26, 0.95);
+}
+
+.chain-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.75rem;
+  color: white;
+}
+
+.chain-icon-eth {
+  background: linear-gradient(135deg, #627eea 0%, #3c4a9e 100%);
+}
+
+.chain-icon-scroll {
+  background: linear-gradient(135deg, #ffeeda 0%, #d4a574 100%);
+  color: #1a1a1a;
+}
+
+.chain-icon-aztec {
+  background: linear-gradient(135deg, var(--warp-purple) 0%, var(--warp-purple-dark) 100%);
+}
+
+/* ============================================
+   SWAMP POPOVERS
+   ============================================ */
+
+/* Base popover styling */
+.swamp-popover {
+  background: linear-gradient(
+    135deg,
+    rgba(20, 28, 36, 0.95) 0%,
+    rgba(15, 21, 26, 0.98) 100%
+  );
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-radius: var(--radius);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+  min-width: 180px;
+  z-index: 9999 !important;
+  position: relative;
+}
+
+/* Green variant (source section) */
+.swamp-popover-green {
+  border: 1px solid rgba(130, 226, 102, 0.25);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 0 30px rgba(130, 226, 102, 0.1),
+    inset 0 1px 0 rgba(130, 226, 102, 0.1);
+}
+
+/* Purple variant (target section) */
+.swamp-popover-purple {
+  border: 1px solid rgba(144, 97, 249, 0.25);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.5),
+    0 0 30px rgba(144, 97, 249, 0.1),
+    inset 0 1px 0 rgba(144, 97, 249, 0.1);
+}
+
+/* ============================================
+   SWAMP SELECTOR BUTTONS
+   ============================================ */
+
+.swamp-selector-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.625rem;
+  min-width: 110px;
+  background: rgba(15, 21, 26, 0.8);
+  border: 1px solid rgba(130, 226, 102, 0.15);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.swamp-selector-btn:hover {
+  border-color: rgba(130, 226, 102, 0.4);
+  background: rgba(15, 21, 26, 0.95);
+  box-shadow: 0 0 15px rgba(130, 226, 102, 0.1);
+}
+
+.swamp-selector-btn.purple {
+  border-color: rgba(144, 97, 249, 0.15);
+}
+
+.swamp-selector-btn.purple:hover {
+  border-color: rgba(144, 97, 249, 0.4);
+  box-shadow: 0 0 15px rgba(144, 97, 249, 0.1);
+}
+
+.swamp-selector-btn.static {
+  cursor: default;
+  opacity: 0.85;
+}
+
+.swamp-selector-btn.static:hover {
+  border-color: rgba(144, 97, 249, 0.15);
+  background: rgba(15, 21, 26, 0.8);
+  box-shadow: none;
+}
+
+/* Token/Chain icon in selector */
+.swamp-selector-icon {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.65rem;
+  color: white;
+  flex-shrink: 0;
+  transition: box-shadow 0.2s ease;
+}
+
+.swamp-selector-icon-img {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.swamp-selector-btn:hover .swamp-selector-icon,
+.swamp-selector-btn:hover .swamp-selector-icon-img {
+  box-shadow: 0 0 12px var(--icon-glow, rgba(130, 226, 102, 0.4));
+}
+
+/* ============================================
+   SWAMP SELECTOR ITEMS (inside popover)
+   ============================================ */
+
+.swamp-selector-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  border-left: 2px solid transparent;
+}
+
+.swamp-selector-item:hover {
+  background: rgba(130, 226, 102, 0.08);
+  border-left-color: var(--toad-green);
+}
+
+.swamp-selector-item.purple:hover {
+  background: rgba(144, 97, 249, 0.08);
+  border-left-color: var(--warp-purple);
+}
+
+.swamp-selector-item.selected {
+  background: rgba(130, 226, 102, 0.12);
+  border-left-color: var(--toad-green);
+}
+
+.swamp-selector-item.selected.purple {
+  background: rgba(144, 97, 249, 0.12);
+  border-left-color: var(--warp-purple);
+}
+
+.swamp-selector-item.disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.swamp-selector-item.disabled:hover {
+  background: transparent;
+  border-left-color: transparent;
+}
+
+.swamp-selector-item-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.7rem;
+  color: white;
+  flex-shrink: 0;
+}
+
+.swamp-selector-item-icon-img {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  transition: filter 0.2s ease;
+}
+
+.swamp-selector-item.disabled .swamp-selector-item-icon,
+.swamp-selector-item.disabled .swamp-selector-item-icon-img {
+  filter: grayscale(1);
+}
+
+/* ============================================
+   SCROLLBAR
+   ============================================ */
+
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--swamp-deep);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(130, 226, 102, 0.3);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(130, 226, 102, 0.5);
+}
+
+/* ============================================
+   UTILITIES
+   ============================================ */
+
+.text-brand {
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.bg-brand {
+  background: var(--gradient-brand);
+}
+
+.border-brand {
+  border-color: var(--toad-green);
+}
+
+/* Selection color */
+::selection {
+  background: rgba(130, 226, 102, 0.3);
+  color: var(--foreground);
+}
+
+/* Focus visible */
+:focus-visible {
+  outline: 2px solid var(--toad-green);
+  outline-offset: 2px;
+}
+
+/* Disable animations for reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

@@ -1,17 +1,14 @@
 <script lang="ts">
-	import {
-		Dialog,
-		DialogContent,
-		DialogHeader,
-		DialogTitle,
-	} from "$lib/components/ui/dialog/index.js";
-	import { CHAIN_COLORS, type Chain } from "$lib/types/bridge.js";
-	import { ALL_CHAINS, isChainAvailable, isChainDisabled, isTestMode } from "$lib/config/environment.js";
+	import { Popover } from "bits-ui";
+	import { CHAIN_STYLES, type Chain } from "$lib/types/bridge.js";
+	import { ALL_CHAINS, isChainDisabled, isTestMode } from "$lib/config/environment.js";
+	import { ChevronDown } from "@lucide/svelte";
 
 	interface Props {
 		open?: boolean;
 		selectedChain: Chain;
 		excludeChain?: Chain | null;
+		variant?: 'green' | 'purple';
 		onSelect: (chain: Chain) => void;
 	}
 
@@ -19,6 +16,7 @@
 		open = $bindable(false),
 		selectedChain,
 		excludeChain = null,
+		variant = 'green',
 		onSelect,
 	}: Props = $props();
 
@@ -30,7 +28,7 @@
 	function handleSelect(chain: Chain) {
 		// Don't allow selecting disabled chains
 		if (isChainDisabled(chain)) return;
-		
+
 		onSelect(chain);
 		open = false;
 	}
@@ -50,61 +48,78 @@
 		}
 		return "Layer 2";
 	}
+
+	function getNetworkBadge(chain: Chain): string | null {
+		if (isTestMode) {
+			if (chain === "Ethereum") return "Local";
+			if (chain === "Aztec") return "Sandbox";
+			return null;
+		}
+		return "Testnet";
+	}
 </script>
 
-<Dialog bind:open>
-	<DialogContent class="sm:max-w-[425px]">
-		<DialogHeader>
-			<DialogTitle>Select Chain</DialogTitle>
-		</DialogHeader>
+<Popover.Root bind:open>
+	<Popover.Trigger
+		class="swamp-selector-btn {variant === 'purple' ? 'purple' : ''}"
+	>
+		<img
+			src={CHAIN_STYLES[selectedChain].logo}
+			alt={selectedChain}
+			class="swamp-selector-icon-img"
+			style="--icon-glow: {CHAIN_STYLES[selectedChain].glow};"
+		/>
+		<span class="text-sm font-medium text-[var(--foreground)]">{selectedChain}</span>
+		<ChevronDown class="size-3.5 text-[var(--muted-foreground)] transition-transform {open ? 'rotate-180' : ''}" />
+	</Popover.Trigger>
 
-		<!-- Chain List -->
-		<div class="grid gap-2">
+	<Popover.Portal>
+		<Popover.Content
+			class="swamp-popover {variant === 'purple' ? 'swamp-popover-purple' : 'swamp-popover-green'}"
+			sideOffset={8}
+			align="start"
+			style="z-index: 9999;"
+		>
 			{#each availableChains as chain (chain)}
 				{@const disabled = isChainDisabled(chain)}
+				{@const badge = getNetworkBadge(chain)}
 				<button
-					class="flex items-center gap-3 p-4 border rounded-lg transition-colors text-left"
-					class:hover:bg-accent={!disabled}
-					class:bg-accent={selectedChain === chain && !disabled}
-					class:border-primary={selectedChain === chain && !disabled}
-					class:opacity-50={disabled}
-					class:cursor-not-allowed={disabled}
-					class:cursor-pointer={!disabled}
+					class="swamp-selector-item w-full {variant === 'purple' ? 'purple' : ''} {selectedChain === chain && !disabled ? 'selected' : ''} {disabled ? 'disabled' : ''}"
 					onclick={() => handleSelect(chain)}
 					{disabled}
 				>
-					<!-- Chain Icon (Colored Circle) -->
-					<div
-						class="size-12 rounded-full {CHAIN_COLORS[chain]} flex items-center justify-center"
+					<img
+						src={CHAIN_STYLES[chain].logo}
+						alt={chain}
+						class="swamp-selector-item-icon-img"
 						class:grayscale={disabled}
-					>
-						<span class="text-white font-bold"
-							>{chain.slice(0, 1)}</span
-						>
-					</div>
+					/>
 
-					<!-- Chain Info -->
-					<div class="flex-1">
-						<div class="font-semibold text-lg flex items-center gap-2">
-							{chain}
+					<div class="flex-1 text-left">
+						<div class="flex items-center gap-1.5">
+							<span class="text-sm font-semibold text-[var(--foreground)]">{chain}</span>
 							{#if disabled}
-								<span class="text-xs font-normal text-muted-foreground bg-muted px-2 py-0.5 rounded">
+								<span class="text-[0.6rem] font-normal text-[var(--muted-foreground)] bg-[var(--swamp-surface)] px-1 py-0.5 rounded">
 									Disabled
+								</span>
+							{:else if badge}
+								<span class="text-[0.6rem] font-medium {variant === 'purple' ? 'text-[var(--warp-purple)] bg-[rgba(144,97,249,0.15)]' : 'text-[var(--toad-green)] bg-[rgba(130,226,102,0.15)]'} px-1 py-0.5 rounded">
+									{badge}
 								</span>
 							{/if}
 						</div>
-						<div class="text-sm text-muted-foreground">
+						<div class="text-[0.65rem] text-[var(--muted-foreground)]">
 							{getChainDescription(chain)}
 						</div>
 					</div>
 				</button>
 			{/each}
-		</div>
-		
-		{#if isTestMode}
-			<div class="text-xs text-muted-foreground text-center mt-2">
-				Running in test mode (VITE_TEST_MODE=true)
-			</div>
-		{/if}
-	</DialogContent>
-</Dialog>
+
+			{#if isTestMode}
+				<div class="text-[0.55rem] text-[var(--muted-foreground)] text-center py-1.5 border-t border-[rgba(255,255,255,0.05)]">
+					Test mode
+				</div>
+			{/if}
+		</Popover.Content>
+	</Popover.Portal>
+</Popover.Root>
