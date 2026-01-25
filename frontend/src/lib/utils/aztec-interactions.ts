@@ -72,6 +72,7 @@ export interface MerkleDataResult {
 	originLocalRoot: bigint;
 	gigaMerkleData: EvmMerkleData;
 	evmMerkleData: EvmMerkleData;
+	actualGigaRoot?: bigint; // The gigaRoot actually used for proofs (may differ from Aztec's current gigaRoot for Scroll)
 }
 
 interface LocalRootData {
@@ -381,6 +382,228 @@ async function getGigaRootEvents(
 	}));
 }
 
+/**
+ * Query GigaRoot events within a specific block range
+ * Used for finding recent gigaRoots that might contain a commitment
+ */
+async function getGigaRootEventsInRange(
+	publicClient: PublicClient,
+	gigaBridgeAddress: string,
+	fromBlock: bigint,
+	toBlock: bigint
+): Promise<Array<{ gigaRoot: bigint; blockNumber: number; transactionHash: `0x${string}` }>> {
+	const logs = await publicClient.getLogs({
+		address: gigaBridgeAddress as `0x${string}`,
+		event: {
+			type: 'event',
+			name: 'ConstructedNewGigaRoot',
+			inputs: [
+				{ type: 'uint256', name: 'newGigaRoot', indexed: true },
+			],
+		},
+		fromBlock,
+		toBlock,
+	});
+
+	return logs.map((log: any) => ({
+		gigaRoot: log.args.newGigaRoot as bigint,
+		blockNumber: Number(log.blockNumber),
+		transactionHash: log.transactionHash,
+	}));
+}
+
+/**
+ * Check if a commitment exists in burn events up to a specific block
+ * Used to verify if a local root contains our commitment
+ */
+async function checkCommitmentInLocalRoot(
+	publicClient: PublicClient,
+	warpToadAddress: string,
+	commitment: bigint,
+	chainId: number,
+	localRootBlockNumber: number
+): Promise<boolean> {
+	const burnEvents = await getBurnEvents(
+		publicClient,
+		warpToadAddress,
+		chainId,
+		BigInt(localRootBlockNumber)
+	);
+
+	// Check if our commitment is in these events
+	return burnEvents.some(event => event.commitment === commitment);
+}
+
+/**
+ * Find a gigaRoot that contains the given commitment from a specific source chain.
+ * Searches recent gigaRoots on L1 (last ~6.5 hours) to find one that includes the commitment.
+ * 
+ * @param sourceChainId - Chain where the burn happened (e.g., 534351 for Scroll)
+ * @param commitment - The commitment to search for
+ * @param sourceWarpToadAddress - WarpToad contract address on source chain
+ * @returns Object with gigaRoot, localRoot, localRootIndex, and localRootBlockNumber
+ */
+async function findGigaRootWithCommitment(
+	sourceChainId: number,
+	commitment: bigint,
+	sourceWarpToadAddress: string
+): Promise<{
+	gigaRoot: bigint;
+	localRoot: bigint;
+	localRootIndex: number;
+	localRootBlockNumber: number;
+	gigaRootBlockNumber: number;
+}> {
+	const gigaBridgeChainId = getGigaBridgeChainId(sourceChainId);
+	const gigaBridgeClient = createEvmClient(gigaBridgeChainId);
+	const sourceClient = createEvmClient(sourceChainId);
+
+	const gigaBridgeAddresses = getContractAddresses(gigaBridgeChainId);
+	if (!gigaBridgeAddresses.GigaBridge) {
+		throw new Error('GigaBridge address not found');
+	}
+
+	// Determine which local root provider to query
+	let localRootProviderAddress: string;
+	if (sourceChainId === 534351) {
+		// For Scroll, use L1ScrollBridgeAdapter
+		if (!gigaBridgeAddresses.L1ScrollBridgeAdapter) {
+			throw new Error('L1ScrollBridgeAdapter address not found');
+		}
+		localRootProviderAddress = gigaBridgeAddresses.L1ScrollBridgeAdapter;
+	} else {
+		// For L1 chains, use L1WarpToad
+		if (!gigaBridgeAddresses.L1WarpToad) {
+			throw new Error('L1WarpToad address not found');
+		}
+		localRootProviderAddress = gigaBridgeAddresses.L1WarpToad;
+	}
+
+	console.log(`[findGigaRootWithCommitment] Searching for commitment ${commitment.toString()} from chain ${sourceChainId}`);
+	console.log(`[findGigaRootWithCommitment] Using local root provider: ${localRootProviderAddress}`);
+
+	// Get recent gigaRoots (last 2000 blocks ~ 6.5 hours on Sepolia)
+	const currentBlock = await gigaBridgeClient.getBlockNumber();
+	const searchFromBlock = currentBlock - 2000n;
+	
+	console.log(`[findGigaRootWithCommitment] Searching gigaRoots from block ${searchFromBlock} to ${currentBlock}`);
+
+	const gigaRootEvents = await getGigaRootEventsInRange(
+		gigaBridgeClient,
+		gigaBridgeAddresses.GigaBridge,
+		searchFromBlock,
+		currentBlock
+	);
+
+	console.log(`[findGigaRootWithCommitment] Found ${gigaRootEvents.length} gigaRoot events`);
+
+	if (gigaRootEvents.length === 0) {
+		throw new Error(
+			`No gigaRoot events found in the last 2000 blocks. The relayer may not have updated the gigaRoot recently. ` +
+			`Please wait 1-3 hours after your burn transaction and try again.`
+		);
+	}
+
+	// Search gigaRoots from newest to oldest
+	for (const gigaRootEvent of gigaRootEvents.reverse()) {
+		console.log(`[findGigaRootWithCommitment] Checking gigaRoot: ${gigaRootEvent.gigaRoot.toString()}`);
+
+		try {
+			// Get local root data for this gigaRoot
+			const localRootData = await getLocalRootData(
+				gigaBridgeClient,
+				gigaBridgeAddresses.GigaBridge,
+				localRootProviderAddress,
+				gigaBridgeChainId,
+				gigaRootEvent.gigaRoot
+			);
+
+			console.log(`[findGigaRootWithCommitment] Found local root: ${localRootData.localRoot.toString()} at index ${localRootData.localRootIndex}`);
+
+			// Check if this local root contains our commitment
+			const hasCommitment = await checkCommitmentInLocalRoot(
+				sourceClient,
+				sourceWarpToadAddress,
+				commitment,
+				sourceChainId,
+				localRootData.localRootBlockNumber
+			);
+
+			if (hasCommitment) {
+				console.log(`[findGigaRootWithCommitment] ✓ Found gigaRoot containing commitment!`);
+				return {
+					gigaRoot: gigaRootEvent.gigaRoot,
+					localRoot: localRootData.localRoot,
+					localRootIndex: localRootData.localRootIndex,
+					localRootBlockNumber: localRootData.localRootBlockNumber,
+					gigaRootBlockNumber: localRootData.gigaRootBlockNumber
+				};
+			}
+
+			console.log(`[findGigaRootWithCommitment] Commitment not in this local root, trying next gigaRoot...`);
+		} catch (error) {
+			console.log(`[findGigaRootWithCommitment] Error checking gigaRoot: ${error}`);
+			// Continue to next gigaRoot
+			continue;
+		}
+	}
+
+	// No gigaRoot found containing the commitment
+	throw new Error(
+		`Could not find a gigaRoot containing your commitment. This usually means:\n` +
+		`1. The L2→L1 message has not been relayed yet (Scroll takes 30min-3hrs)\n` +
+		`2. The relayer has not updated the gigaRoot after your L2→L1 message arrived\n` +
+		`3. The gigaRoot has not been sent to Aztec yet\n\n` +
+		`Please wait 1-3 hours after your burn transaction and try again.\n` +
+		`Commitment: ${commitment.toString()}\n` +
+		`Source Chain: ${sourceChainId}`
+	);
+}
+
+/**
+ * Find the Aztec block number where a specific gigaRoot was/is stored.
+ * For now, checks if the gigaRoot is the current one and returns current block.
+ * TODO: In future, search backwards through historical blocks to find exact block.
+ * 
+ * @param aztecWallet - Aztec wallet to query contract
+ * @param targetGigaRoot - The gigaRoot value to find
+ * @returns Aztec block number where this gigaRoot can be read
+ */
+async function getAztecBlockNumberForGigaRoot(
+	aztecWallet: Wallet,
+	targetGigaRoot: bigint
+): Promise<number> {
+	const aztecNode = await getAztecNode();
+	const contract = await getWarpToadContract(aztecWallet);
+	const accounts = await aztecWallet.getAccounts();
+	const from = accounts[0].item;
+
+	// Get current gigaRoot from Aztec contract
+	const currentGigaRoot = await contract.methods.get_giga_root().simulate({ from });
+	const currentGigaRootValue = typeof currentGigaRoot === 'bigint'
+		? currentGigaRoot
+		: BigInt(currentGigaRoot.toString());
+
+	console.log(`[getAztecBlockNumberForGigaRoot] Current Aztec gigaRoot: ${currentGigaRootValue.toString()}`);
+	console.log(`[getAztecBlockNumberForGigaRoot] Target gigaRoot: ${targetGigaRoot.toString()}`);
+
+	// If target gigaRoot is current, use current block number
+	if (currentGigaRootValue === targetGigaRoot) {
+		const currentBlock = await aztecNode.getBlockNumber();
+		console.log(`[getAztecBlockNumberForGigaRoot] Target gigaRoot is current, using block ${currentBlock}`);
+		return currentBlock;
+	}
+
+	// TODO: For historical gigaRoots, binary search backwards through blocks
+	// For now, throw error if not current
+	throw new Error(
+		`Target gigaRoot ${targetGigaRoot.toString()} is not the current gigaRoot on Aztec. ` +
+		`Current gigaRoot is ${currentGigaRootValue.toString()}. ` +
+		`The relayer may need to send the updated gigaRoot to Aztec. ` +
+		`Please wait 30 minutes and try again.`
+	);
+}
+
 // =============================================================================
 // MERKLE DATA GENERATION
 // =============================================================================
@@ -470,6 +693,9 @@ async function getGigaMerkleData(
 	expectedGigaRoot: bigint
 ): Promise<EvmMerkleData> {
 	// Get all local root events up to the giga root block
+	console.log(`[getGigaMerkleData] Querying localRoot events on chain ${chainId} up to block ${gigaRootBlockNumber}`);
+	console.log(`[getGigaMerkleData] Looking for localRoot: ${localRoot.toString()} at index ${localRootIndex}`);
+	
 	const localRootEvents = await getLocalRootEvents(
 		publicClient,
 		gigaBridgeAddress,
@@ -477,8 +703,14 @@ async function getGigaMerkleData(
 		BigInt(gigaRootBlockNumber)
 	);
 
+	console.log(`[getGigaMerkleData] Found ${localRootEvents.length} localRoot events`);
+	
 	if (localRootEvents.length === 0) {
-		throw new Error('No local root events found');
+		throw new Error(
+			`No local root events found when querying GigaBridge on chain ${chainId} ` +
+			`from deployment block to block ${gigaRootBlockNumber}. ` +
+			`This may indicate a rate limit error or incorrect chain/block parameters.`
+		);
 	}
 
 	// Group events by index and get the latest for each
@@ -657,13 +889,42 @@ async function getLocalRootData(
 }
 
 // =============================================================================
+// HELPER FUNCTIONS
+// =============================================================================
+
+/**
+ * Get L1 chain ID based on environment
+ * For Scroll L2, GigaBridge lives on L1 (Sepolia or Localhost)
+ */
+function getL1ChainId(): number {
+	// In test mode: localhost (31337)
+	// In testnet mode: Sepolia (11155111)
+	const isTestMode = import.meta.env.VITE_TEST_MODE === 'true';
+	return isTestMode ? 31337 : 11155111;
+}
+
+/**
+ * Determine which chain has the GigaBridge for a given source chain
+ * - L1 chains (31337, 11155111): GigaBridge is on same chain
+ * - L2 chains (534351 Scroll): GigaBridge is on L1
+ */
+function getGigaBridgeChainId(sourceChainId: number): number {
+	// Scroll Sepolia (534351) -> GigaBridge is on L1 (Sepolia/Localhost)
+	if (sourceChainId === 534351) {
+		return getL1ChainId();
+	}
+	// L1 chains have GigaBridge on same chain
+	return sourceChainId;
+}
+
+// =============================================================================
 // MAIN MERKLE DATA FUNCTION
 // =============================================================================
 
 /**
  * Get all merkle data needed for minting on Aztec
  * 
- * @param sourceChainId - The chain ID where the burn happened (e.g., 31337 for anvil)
+ * @param sourceChainId - The chain ID where the burn happened (e.g., 31337 for anvil, 534351 for Scroll)
  * @param commitment - The commitment hash from the burn
  * @param gigaRoot - The specific gigaRoot value from the Aztec contract (ensures consistency)
  * @returns Merkle data for the mint transaction
@@ -673,6 +934,8 @@ export async function getMerkleData(
 	commitment: bigint,
 	gigaRoot: bigint
 ): Promise<MerkleDataResult> {
+	console.log(`[getMerkleData] Source chain: ${sourceChainId}`);
+	
 	const addresses = getContractAddresses(sourceChainId);
 
 	// Use L2WarpToad for Scroll (534351), L1WarpToad for other chains
@@ -681,28 +944,86 @@ export async function getMerkleData(
 	if (!warpToadAddress) {
 		throw new Error(`WarpToad address not found for chain ${sourceChainId}`);
 	}
-	if (!addresses.GigaBridge) {
-		throw new Error(`GigaBridge address not found for chain ${sourceChainId}`);
+	
+	// For Scroll L2, GigaBridge lives on L1, not on Scroll itself
+	const gigaBridgeChainId = getGigaBridgeChainId(sourceChainId);
+	console.log(`[getMerkleData] GigaBridge chain: ${gigaBridgeChainId}`);
+	
+	const gigaBridgeAddresses = getContractAddresses(gigaBridgeChainId);
+	if (!gigaBridgeAddresses.GigaBridge) {
+		throw new Error(`GigaBridge address not found for chain ${gigaBridgeChainId}`);
 	}
 
-	const publicClient = createEvmClient(sourceChainId);
+	// Determine the correct local root provider address for GigaBridge queries
+	// The provider is the address that registered roots with GigaBridge
+	let localRootProviderAddress: string;
+	
+	if (sourceChainId === 534351) {
+		// For Scroll: Use L1ScrollBridgeAdapter (the provider registered with GigaBridge)
+		// Architecture: Scroll L2WarpToad → L2ScrollBridgeAdapter → L1ScrollBridgeAdapter → GigaBridge
+		if (!gigaBridgeAddresses.L1ScrollBridgeAdapter) {
+			throw new Error(`L1ScrollBridgeAdapter address not found for chain ${gigaBridgeChainId}`);
+		}
+		localRootProviderAddress = gigaBridgeAddresses.L1ScrollBridgeAdapter;
+		console.log(`[getMerkleData] Using L1ScrollBridgeAdapter as local root provider: ${localRootProviderAddress}`);
+	} else {
+		// For L1 chains: Use L1WarpToad directly
+		if (!gigaBridgeAddresses.L1WarpToad) {
+			throw new Error(`L1WarpToad address not found for chain ${gigaBridgeChainId}`);
+		}
+		localRootProviderAddress = gigaBridgeAddresses.L1WarpToad;
+		console.log(`[getMerkleData] Using L1WarpToad as local root provider: ${localRootProviderAddress}`);
+	}
 
-	// Step 1: Get local root data from GigaBridge for THIS SPECIFIC gigaRoot
-	// This ensures we build proofs against the exact gigaRoot stored on Aztec
-	console.log('Getting local root data from GigaBridge for gigaRoot:', gigaRoot.toString());
-	const localRootData = await getLocalRootData(
-		publicClient,
-		addresses.GigaBridge,
-		warpToadAddress,
-		sourceChainId,
-		gigaRoot
-	);
-	console.log('Local root data:', localRootData);
+	// Create clients for both source chain (for burn events) and GigaBridge chain
+	const sourceClient = createEvmClient(sourceChainId);
+	const gigaBridgeClient = createEvmClient(gigaBridgeChainId);
+
+	// Step 1: Get local root data
+	// For Scroll: Find a gigaRoot that contains the commitment (may differ from Aztec's current gigaRoot)
+	// For L1: Use the gigaRoot from Aztec contract directly
+	let localRootData: LocalRootData;
+	let actualGigaRoot: bigint;
+
+	if (sourceChainId === 534351) {
+		// Scroll case: Find ANY gigaRoot on L1 that contains our commitment
+		console.log('[getMerkleData] Scroll detected - searching for gigaRoot containing commitment...');
+		const foundData = await findGigaRootWithCommitment(
+			sourceChainId,
+			commitment,
+			warpToadAddress
+		);
+		
+		actualGigaRoot = foundData.gigaRoot;
+		localRootData = {
+			localRoot: foundData.localRoot,
+			localRootIndex: foundData.localRootIndex,
+			localRootBlockNumber: foundData.localRootBlockNumber,
+			gigaRootBlockNumber: foundData.gigaRootBlockNumber
+		};
+		
+		console.log(`[getMerkleData] Found gigaRoot: ${actualGigaRoot.toString()}`);
+		console.log(`[getMerkleData] Local root: ${localRootData.localRoot.toString()}`);
+		console.log(`[getMerkleData] GigaRoot block number: ${localRootData.gigaRootBlockNumber}`);
+	} else {
+		// L1 case: Use gigaRoot from Aztec contract (traditional flow)
+		console.log('[getMerkleData] L1 chain - using gigaRoot from Aztec:', gigaRoot.toString());
+		actualGigaRoot = gigaRoot;
+		localRootData = await getLocalRootData(
+			gigaBridgeClient,
+			gigaBridgeAddresses.GigaBridge!,
+			localRootProviderAddress,
+			sourceChainId,
+			gigaRoot
+		);
+		console.log('Local root data:', localRootData);
+	}
 
 	// Step 2: Get EVM merkle proof (commitment in local root)
+	// This queries the source chain (L1 or Scroll) for burn events
 	console.log('Building EVM merkle proof...');
 	const evmMerkleData = await getEvmMerkleData(
-		publicClient,
+		sourceClient,
 		warpToadAddress,
 		commitment,
 		sourceChainId,
@@ -712,21 +1033,22 @@ export async function getMerkleData(
 	console.log('EVM merkle proof built');
 
 	// Step 3: Get Giga merkle proof (local root in giga root)
+	// This queries GigaBridge (on L1) to prove local root is in gigaRoot
 	console.log('Building Giga merkle proof...');
 	const gigaMerkleData = await getGigaMerkleData(
-		publicClient,
-		addresses.GigaBridge,
+		gigaBridgeClient,
+		gigaBridgeAddresses.GigaBridge!,
 		localRootData.localRoot,
 		localRootData.localRootIndex,
-		sourceChainId,
+		gigaBridgeChainId,
 		localRootData.gigaRootBlockNumber,
-		gigaRoot
+		actualGigaRoot  // Use the actual gigaRoot we're building proofs against
 	);
 	console.log('Giga merkle proof built');
 
 	// Step 4: Get Aztec block number for historical state read
-	// Use current block number - the backend does this and it works
-	// The gigaRoot should already be stored at or before this block
+	// For L1: Use current block number (traditional flow)
+	// For Scroll: We need to return the actualGigaRoot so mintFromEVM can find its block number
 	const aztecNode = await getAztecNode();
 	const blockNumber = await aztecNode.getBlockNumber();
 
@@ -737,6 +1059,7 @@ export async function getMerkleData(
 		originLocalRoot: localRootData.localRoot,
 		gigaMerkleData,
 		evmMerkleData,
+		actualGigaRoot,  // Return the gigaRoot we actually used (may differ from parameter)
 	};
 }
 
@@ -816,6 +1139,11 @@ export async function validateCommitmentExists(
 
 		const publicClient = createEvmClient(sourceChainId);
 
+		// Use deployment block to avoid scanning entire blockchain history
+		const fromBlock = getDeploymentBlock(sourceChainId);
+		
+		console.log(`[validateCommitmentExists] Scanning for commitment ${commitment.toString()} from block ${fromBlock} to latest on chain ${sourceChainId}`);
+
 		// Query for specific commitment
 		const logs = await publicClient.getLogs({
 			address: warpToadAddress as `0x${string}`,
@@ -831,9 +1159,11 @@ export async function validateCommitmentExists(
 			args: {
 				commitment,
 			},
-			fromBlock: 0n,
+			fromBlock,
 			toBlock: 'latest',
 		});
+
+		console.log(`[validateCommitmentExists] Found ${logs.length} matching Burn events`);
 
 		return logs.length > 0;
 	} catch (error) {
@@ -1089,7 +1419,9 @@ export async function mintFromEVM(
 		merkleData.gigaMerkleData.hash_path.map(BigInt),
 	);
 
-	console.log('[mintFromEVM] Giga path recomputed root matches? :', gigaRootFromPath.toString() === gigaRoot.toString());
+	// For Scroll, merkleData.actualGigaRoot may differ from the gigaRoot parameter
+	const expectedGigaRoot = merkleData.actualGigaRoot || gigaRoot;
+	console.log('[mintFromEVM] Giga path recomputed root matches? :', gigaRootFromPath.toString() === expectedGigaRoot.toString());
 
 	console.log('[mintFromEVM] Raw merkleData:', {
 		blockNumber: merkleData.blockNumber,
@@ -1106,6 +1438,18 @@ export async function mintFromEVM(
 
 	// Step 3: Prepare recipient address
 	const recipient = AztecAddress.fromString(recipientAddress);
+
+	// Step 3.5: For Scroll, find the Aztec block number where actualGigaRoot is stored
+	// For L1, use the blockNumber from merkleData
+	let aztecBlockNumber: number;
+	if (merkleData.actualGigaRoot) {
+		console.log('[mintFromEVM] Scroll flow detected - finding Aztec block for gigaRoot:', merkleData.actualGigaRoot.toString());
+		aztecBlockNumber = await getAztecBlockNumberForGigaRoot(wallet, merkleData.actualGigaRoot);
+		console.log('[mintFromEVM] Found Aztec block number:', aztecBlockNumber);
+	} else {
+		aztecBlockNumber = merkleData.blockNumber;
+		console.log('[mintFromEVM] L1 flow - using block number from merkleData:', aztecBlockNumber);
+	}
 
 	// Step 4: Format merkle data for Aztec contract
 	// The Aztec contract expects Evm_merkle_data<D> which has { leaf_index: Field, hash_path: [Field; D] }
@@ -1125,7 +1469,7 @@ export async function mintFromEVM(
 		secret: commitmentData.secret.toString().slice(0, 10) + '...',
 		nullifier_preimage: commitmentData.nullifier_preimg.toString().slice(0, 10) + '...',
 		recipient: recipient.toString(),
-		block_number: merkleData.blockNumber,
+		block_number: aztecBlockNumber,
 		origin_local_root: merkleData.originLocalRoot.toString(),
 	});
 
@@ -1135,10 +1479,10 @@ export async function mintFromEVM(
 		originLocalRoot: merkleData.originLocalRoot.toString(),
 
 		// Noir checks: originLocalRoot -> gigaRoot
-		gigaRoot: gigaRoot.toString(),
+		gigaRoot: expectedGigaRoot.toString(),
 
 		// Historical read in Noir:
-		aztecBlockNumber: merkleData.blockNumber,
+		aztecBlockNumber: aztecBlockNumber,
 	});
 
 
@@ -1161,7 +1505,7 @@ export async function mintFromEVM(
 		commitmentData.secret,           // secret: Field
 		commitmentData.nullifier_preimg, // nullifier_preimage: Field
 		recipient,                       // recipient: AztecAddress
-		merkleData.blockNumber,          // block_number: u32
+		aztecBlockNumber,                // block_number: u32 (correct block for historical read)
 		merkleData.originLocalRoot,      // origin_local_root: Field
 		gigaMerkleDataFormatted,         // giga_merkle_data
 		evmMerkleDataFormatted,          // evm_merkle_data
