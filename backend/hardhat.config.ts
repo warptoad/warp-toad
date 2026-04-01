@@ -1,5 +1,5 @@
 import { defineConfig, configVariable } from "hardhat/config";
-import hardhatIgnitionViem from "@nomicfoundation/hardhat-ignition-viem";
+import hardhatToolboxViem from "@nomicfoundation/hardhat-toolbox-viem";
 
 const DEFAULT_PRIV_KEYS_ANVIL = [
   "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
@@ -25,7 +25,7 @@ export default defineConfig({
       evmVersion: "cancun",
     },
   },
-  plugins: [hardhatIgnitionViem],
+  plugins: [hardhatToolboxViem],
   paths: {
     sources: "./contracts",
     tests: "./test",

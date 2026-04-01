@@ -1,7 +1,5 @@
 use aztec::macros::aztec;
 mod warptoad_note;
-// from
-// https://github.com/privacy-scaling-explorations/zk-kit.noir/blob/fa5fdb0f0d0867e367388f85079db3b1f9a47590/packages/merkle-trees/src/merkle.nr#L3
 
 // token functionality based of: https://github.com/defi-wonderland/aztec-standards/tree/v2.0.3/src/token_contract
 #[aztec]
@@ -9,45 +7,34 @@ pub contract WarpToadCore {
 
     // local dep
     use crate::warptoad_note::WarpToadNote;
-    use dep::aztec::protocol_types::traits::{Serialize, ToField};
-    use dep::std::hash::pedersen_hash;
     use constants::{EVM_TREE_DEPTH, GIGA_TREE_DEPTH};
-    use hashing::{Evm_merkle_data, evm_merkle_verify};
-    use hashing::hash_commitment;
+    use hashing::{Evm_merkle_data, evm_merkle_verify, hash_commitment};
 
     use compressed_string::{CompressedString, FieldCompressedString};
-    use dep::aztec::state_vars::state_variable::StateVariable;
     use poseidon::poseidon;
 
-    use dep::aztec::note::note_getter::get_notes;
-    use aztec::context::{self, utility_context::UtilityContext};
     use aztec::{
-        history::public_storage::PublicStorageHistoricalRead,
-        macros::{events::event, functions::{external, initializer, view}, storage::storage},
+        history::storage::public_storage_historical_read,
+        macros::{
+            events::event,
+            functions::{external, initializer, view},
+            storage::storage,
+        },
         messages::message_delivery::MessageDelivery,
-        oracle::{
-            get_membership_witness::{get_note_hash_membership_witness, MembershipWitness},
-            notes::check_nullifier_exists,
+        note::note_getter_options::NoteGetterOptions,
+        oracle::get_membership_witness::get_note_hash_membership_witness,
+        oracle::nullifiers::check_nullifier_exists,
+        protocol::{
+            address::{AztecAddress, EthAddress},
+            constants::NOTE_HASH_TREE_HEIGHT,
+            merkle_tree::MembershipWitness,
+            traits::Serialize,
         },
-        protocol_types::{address::{AztecAddress, EthAddress}, constants::NOTE_HASH_TREE_HEIGHT},
-        state_vars::{
-            map::Map, private_set::PrivateSet, public_immutable::PublicImmutable,
-            public_mutable::PublicMutable,
-        },
-    };
-    use aztec::note::{
-        note_getter_options::{NoteGetterOptions, NoteStatus},
-        note_viewer_options::NoteViewerOptions,
+        state_vars::{Owned, PrivateSet, PublicImmutable, PublicMutable, StateVariable},
     };
     use balance_set::BalanceSet;
 
-    use aztec::note::retrieved_note::RetrievedNote;
-
-    use aztec::state_vars::owned::Owned;
-    use protocol_types::constants::MAX_NOTE_HASHES_PER_CALL;
-
-    // ---- Events yay! :D
-    #[derive(Serialize)]
+    // ---- Events
     #[event]
     struct Transfer {
         from: AztecAddress,
@@ -55,7 +42,6 @@ pub contract WarpToadCore {
         amount: u128,
     }
 
-    #[derive(Serialize)]
     #[event]
     struct Approval {
         owner: AztecAddress,
@@ -67,10 +53,9 @@ pub contract WarpToadCore {
     struct NewGigaRoot {
         giga_root: Field,
         block_number: u32,
-        // TODO technically ^ this doesn't need to be here but aztec js doesn't include this info
     }
 
-    // ---- Storage (AIP-20 style integrated) https://github.com/defi-wonderland/aztec-standards/tree/v2.0.3/src/token_contract
+    // ---- Storage
     #[storage]
     struct Storage<Context> {
         //Bridge
@@ -93,9 +78,6 @@ pub contract WarpToadCore {
         l1_bridge_adapter: PublicImmutable<EthAddress, Context>,
     }
 
-    /**
-     * initialize the contract's initial state variables.
-     */
     #[initializer]
     #[external("public")]
     fn constructor(native_token: EthAddress, _name: str<31>, _symbol: str<31>, _decimals: u8) {
@@ -103,16 +85,13 @@ pub contract WarpToadCore {
         self.storage.name.initialize(FieldCompressedString::from_string(_name));
         self.storage.symbol.initialize(FieldCompressedString::from_string(_symbol));
         self.storage.decimals.initialize(_decimals);
-        self.storage.deployer.initialize(self.context.msg_sender().expect(
-            f"Deployer must not be none!",
-        ));
+        self.storage.deployer.initialize(self.msg_sender());
     }
 
     #[external("public")]
     fn initialize(_giga_root_provider: AztecAddress, _l1_bridge_adapter: EthAddress) {
         assert(
-            self.context.msg_sender().expect(f"msg sender must not be none!")
-                == self.storage.deployer.read(),
+            self.msg_sender() == self.storage.deployer.read(),
             "not deployer",
         );
         self.storage.giga_root_provider.initialize(_giga_root_provider);
@@ -134,8 +113,7 @@ pub contract WarpToadCore {
     #[external("public")]
     fn receive_giga_root(giga_root: Field) {
         assert(
-            self.context.msg_sender().expect(f"Sender must not be none!")
-                == self.storage.giga_root_provider.read(),
+            self.msg_sender() == self.storage.giga_root_provider.read(),
             "not giga_root_provider",
         );
         self.storage.giga_root.write(giga_root);
@@ -144,8 +122,6 @@ pub contract WarpToadCore {
         );
     }
 
-    // a separate function for evm vs aztec since aztec uses poseidon2. But evm not yet
-    // this works without creating a gigaRoot history right? we just need to make sure the block number we provide matches what gigaRoot was at that time in here!
     #[external("private")]
     fn mint_giga_root_evm(
         amount: u128,
@@ -158,11 +134,12 @@ pub contract WarpToadCore {
         evm_merkle_data: Evm_merkle_data<EVM_TREE_DEPTH>,
     ) {
         let chain_id: Field = get_chain_id(self.context.version());
-        let giga_root_slot: Field = self.storage.giga_root.get_storage_slot();
-        let contract_address: AztecAddress = self.context.this_address();
         let historical_header = self.context.get_block_header_at(block_number);
-        let giga_root: Field =
-            historical_header.public_storage_historical_read(giga_root_slot, contract_address);
+        let giga_root: Field = public_storage_historical_read(
+            historical_header,
+            self.storage.giga_root.get_storage_slot(),
+            self.context.this_address(),
+        );
 
         let (commitment, nullifier) =
             hash_commitment(nullifier_preimage, secret, chain_id, (amount as Field));
@@ -174,7 +151,6 @@ pub contract WarpToadCore {
 
         self.context.push_nullifier(nullifier);
 
-        // TODO Mint into private balance
         self.storage.balances.at(recipient).add(amount).deliver(
             MessageDelivery.ONCHAIN_UNCONSTRAINED,
         );
@@ -187,10 +163,9 @@ pub contract WarpToadCore {
 
     #[external("private")]
     fn burn(amount: u128, destination_chain_id: Field, secret: Field, nullifier_preimage: Field) {
-        let sender = self.context.msg_sender().expect(f"Sender must not be none!");
+        let sender = self.msg_sender();
         let recipient = sender;
 
-        // Will fail if insufficient balance so no need for bal checkssssss
         self.storage.balances.at(sender).sub(amount).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
 
         let warptoad_note: WarpToadNote = WarpToadNote::new(
@@ -213,35 +188,29 @@ pub contract WarpToadCore {
     //-----------------------------------------------
 
     // -------------standard token things------------
-    // inspired by https://github.com/AztecProtocol/aztec-packages/tree/v0.86.0/noir-projects/noir-contracts/contracts/app/easy_private_token_contract
-    // TODO post hackathon make it more like: https://github.com/AztecProtocol/aztec-packages/blob/v0.86.0/noir-projects/noir-contracts/contracts/app/token_contract/src/main.nr
-    // so it can support u128 balances
-    // but simplified to reduce scope for the hackathon
 
-    // Transfers `amount` of tokens from `sender` to a `recipient`.
     #[external("private")]
     fn transfer_private_to_private(
-        from: AztecAddress, // TODO unused
+        from: AztecAddress,
         to: AztecAddress,
         amount: u128,
-        _nonce: Field, // TODO unused
+        _nonce: Field,
     ) {
-        let from = self.context.msg_sender().expect(f"From must not be none!");
+        let from = self.msg_sender();
 
-        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED); // reverts if insufficient funds
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
         self.storage.balances.at(to).add(amount).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
         self.emit(
-            Transfer { from: from, to: to, amount: amount },
+            Transfer { from, to, amount },
         )
             .deliver_to(to, MessageDelivery.ONCHAIN_UNCONSTRAINED);
     }
 
     #[external("private")]
     fn increase_allowance(spender: AztecAddress, added: u128) {
-        let owner = self.context.msg_sender().expect(f"Owner must not be none!");
+        let owner = self.msg_sender();
         self.storage.allowances.at(owner).add(added).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
         let _ = added;
-        // we emit delta for wallet UX; clients should track deltas or query via PXE.
         self.emit(Approval { owner, spender, amount: added }).deliver_to(
             owner,
             MessageDelivery.ONCHAIN_UNCONSTRAINED,
@@ -250,20 +219,19 @@ pub contract WarpToadCore {
 
     #[external("private")]
     fn decrease_allowance(spender: AztecAddress, subtracted: u128) {
-        let owner = self.context.msg_sender().expect(f"Owner must not be none!");
+        let owner = self.msg_sender();
         self.storage.allowances.at(owner).sub(subtracted).deliver(
             MessageDelivery.ONCHAIN_UNCONSTRAINED,
-        ); // underflow means revert
+        );
         self.emit(
-            Approval { owner, spender, amount: 0u128 }, // semantic: signal decrease occurred
+            Approval { owner, spender, amount: 0u128 },
         )
             .deliver_to(owner, MessageDelivery.ONCHAIN_UNCONSTRAINED);
     }
 
     #[external("private")]
     fn transfer_from(owner: AztecAddress, to: AztecAddress, amount: u128) {
-        let spender = self.context.msg_sender().expect(f"Spender must not be none!");
-        // Check & consume allowance (reverts on insufficient)
+        let spender = self.msg_sender();
         self.storage.allowances.at(spender).sub(amount).deliver(
             MessageDelivery.ONCHAIN_UNCONSTRAINED,
         );
@@ -280,13 +248,12 @@ pub contract WarpToadCore {
     // utility
     #[external("private")]
     fn get_root_from_block(block_number: u32) -> pub Field {
-        let giga_root_slot: Field = self.storage.giga_root.get_storage_slot();
-
-        let contract_address: AztecAddress = self.context.this_address();
-
         let historical_header = self.context.get_block_header_at(block_number);
-
-        historical_header.public_storage_historical_read(giga_root_slot, contract_address)
+        public_storage_historical_read(
+            historical_header,
+            self.storage.giga_root.get_storage_slot(),
+            self.context.this_address(),
+        )
     }
 
     #[external("utility")]
@@ -294,14 +261,16 @@ pub contract WarpToadCore {
         self.storage.giga_root.read()
     }
 
-    // it allows us to do a eth_getProof like thing for a commitment. Kinda cringe that i cant just call a api in js like on ethereum? Maybe you can?
-    #[external("utility")]
-    unconstrained fn get_note_proof(
+    // Note: get_note_proof moved to private since UtilityContext can't access block headers.
+    // Alternatively, use aztec.js client-side to fetch membership witnesses.
+    #[external("private")]
+    fn get_note_proof(
         block_number: u32,
         note_hash: Field,
-    ) -> pub MembershipWitness<NOTE_HASH_TREE_HEIGHT, NOTE_HASH_TREE_HEIGHT + 1> {
-        let witness = get_note_hash_membership_witness(block_number, note_hash);
-        witness
+    ) -> pub MembershipWitness<NOTE_HASH_TREE_HEIGHT> {
+        let block_header = self.context.get_block_header_at(block_number);
+        // Safety: oracle call to get membership witness from the note hash tree
+        unsafe { get_note_hash_membership_witness(block_header, note_hash) }
     }
 
     #[external("utility")]
@@ -309,9 +278,6 @@ pub contract WarpToadCore {
         self.storage.l1_bridge_adapter.read()
     }
 
-    // we hallucinate our own chainId since we just need a unique identifier to identify the chain
-    // maybe we can just use the self.context.version as our chainId since it looks like it doesn't collide with existing chainIds?
-    // also is self.context.version even safe?? will it update with network upgrades??
     #[contract_library_method]
     fn get_chain_id(aztec_version: Field) -> Field {
         let salt: CompressedString<32, 24> =
@@ -329,7 +295,6 @@ pub contract WarpToadCore {
         self.context.version()
     }
 
-    //------old warptoad name getter (still used in ui and test)-------------------------------------------
     #[external("utility")]
     unconstrained fn public_get_name() -> pub FieldCompressedString {
         self.storage.name.read()
@@ -345,52 +310,44 @@ pub contract WarpToadCore {
         self.storage.decimals.read()
     }
 
-    //----------these are from wonderland, the above does the exact same but is our own naming and should be removed but ui and test still use it :/
-    /// @notice Returns the name of the token
-    /// @return The name of the token
     #[external("public")]
     #[view]
     fn name() -> FieldCompressedString {
         self.storage.name.read()
     }
 
-    /// @notice Returns the symbol of the token
-    /// @return The symbol of the token
     #[external("public")]
     #[view]
     fn symbol() -> FieldCompressedString {
         self.storage.symbol.read()
     }
 
-    /// @notice Returns the decimals of the token
-    /// @return The decimals of the token
     #[external("public")]
     #[view]
     fn decimals() -> u8 {
         self.storage.decimals.read()
     }
-    //-------------------------------------------------
 
-    // @TODO this a duplicate of balance_of_private and should be removed. However tests and ui still use this function!
     #[external("utility")]
     unconstrained fn balance_of(owner: AztecAddress) -> u128 {
-        let balance = self.storage.balances.at(owner).balance_of();
-        balance
+        self.storage.balances.at(owner).balance_of()
     }
 
     #[external("utility")]
     unconstrained fn balance_of_private(owner: AztecAddress) -> u128 {
-        let balance = self.storage.balances.at(owner).balance_of();
-        balance
+        self.storage.balances.at(owner).balance_of()
     }
 
+    // Note: In v4, get_notes returns ConfirmedNote which wraps the actual note.
+    // We use pop_notes to consume and return the raw notes directly.
     #[external("private")]
-    fn get_notes_util(slot: Field) -> BoundedVec<RetrievedNote<WarpToadNote>, 16> {
-        let owner = self.context.msg_sender().unwrap();
-        let retrieved_notes = self.storage.commitments.at(owner).get_notes(
+    fn get_notes_util(slot: Field) -> BoundedVec<WarpToadNote, 16> {
+        let owner = self.msg_sender();
+        // pop_notes consumes the notes (nullifies them) and returns raw note data
+        let notes = self.storage.commitments.at(owner).pop_notes(
             NoteGetterOptions::<WarpToadNote, 4, _, _>::new(),
         );
-        retrieved_notes
+        notes
     }
 
     #[external("utility")]
@@ -398,41 +355,33 @@ pub contract WarpToadCore {
         check_nullifier_exists(nullifier)
     }
 
-    //------------TODO to be implemented -------
-
-    /// @notice Returns the public balance of `owner`
-    /// @param owner The address of the owner
-    /// @return The balance of the public balance of `owner`
     #[external("public")]
     #[view]
     fn balance_of_public(owner: AztecAddress) -> u128 {
-        696969696 //TODO not implemented (azguard needs this)
+        696969696 //TODO not implemented
     }
 
     #[external("private")]
     fn transfer_private_to_public(
-        from: AztecAddress, // TODO unused
+        from: AztecAddress,
         to: AztecAddress,
         amount: u128,
-        _nonce: Field, // TODO unused
+        _nonce: Field,
     ) {}
 
     #[external("private")]
     fn transfer_public_to_private(
-        from: AztecAddress, // TODO unused
+        from: AztecAddress,
         to: AztecAddress,
         amount: u128,
-        _nonce: Field, // TODO unused
+        _nonce: Field,
     ) {}
 
     #[external("public")]
     fn transfer_public_to_public(
-        from: AztecAddress, // TODO unused
+        from: AztecAddress,
         to: AztecAddress,
         amount: u128,
-        _nonce: Field, // TODO unused
+        _nonce: Field,
     ) {}
-
-    //---------------------------
-
 }
