@@ -40,10 +40,9 @@
     "vite": "^7.2.4"
   },
   "dependencies": {
-    "@azguardwallet/aztec-wallet": "4.2.0-aztecnr-rc.2",
     "@aztec/aztec.js": "4.2.0-aztecnr-rc.2",
     "@aztec/stdlib": "4.2.0-aztecnr-rc.2",
-    "@aztec/bb.js": "3.0.0-nightly",
+    "@aztec/bb.js": "4.2.0-aztecnr-rc.2",
     "@noir-lang/noir_js": "1.0.0-beta.15",
     "@zkpassport/poseidon2": "^0.6.2",
     "fixed-merkle-tree": "^0.7.3",
