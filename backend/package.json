@@ -1,83 +1,55 @@
 {
   "name": "@warp-toad/backend",
   "private": false,
-  "version": "0.0.4",
-  "repository": "https://github.com/warptoad/warp-toad/tree/backend-npm-package/backend",
+  "version": "0.0.5",
+  "type": "module",
+  "repository": "https://github.com/warptoad/warp-toad/tree/main/backend",
   "author": "Jim Jim Valkema",
   "license": "MIT",
   "scripts": {
-    "cp-deployments:esm": "cp -r ignition/deployments/ dist/esm/ignition/; cp -r scripts/deploy/aztec/aztecDeployments/ dist/esm/scripts/deploy/aztec/;",
-    "cp-deployments:cjs": "cp -r ignition/deployments/ dist/cjs/ignition/; cp -r scripts/deploy/aztec/aztecDeployments/ dist/cjs/scripts/deploy/aztec/;",
-    "cp-deployments:browser": "cp -r ignition/deployments/ dist/browser/ignition/; cp -r scripts/deploy/aztec/aztecDeployments/ dist/browser/scripts/deploy/aztec/;",
-    "cp-deployments": "pnpm cp-deployments:esm && pnpm cp-deployments:cjs && pnpm cp-deployments:browser",
+    "compile": "hardhat compile",
+    "test": "hardhat test",
     "build:esm": "tsc -p tsconfig.json",
     "build:cjs": "tsc -p tsconfig.cjs.json",
     "build:browser": "tsc -p tsconfig.browser.json",
     "build": "pnpm build:esm && pnpm build:cjs && pnpm build:browser",
-    "bridge:runner": "ts-node ./scripts/dev_op/services/bridger.ts"
+    "cp-deployments:esm": "cp -r deploy/ignition/deployments/ dist/esm/deploy/ignition/; cp -r deploy/aztec/aztecDeployments/ dist/esm/deploy/aztec/;",
+    "cp-deployments:cjs": "cp -r deploy/ignition/deployments/ dist/cjs/deploy/ignition/; cp -r deploy/aztec/aztecDeployments/ dist/cjs/deploy/aztec/;",
+    "cp-deployments:browser": "cp -r deploy/ignition/deployments/ dist/browser/deploy/ignition/; cp -r deploy/aztec/aztecDeployments/ dist/browser/deploy/aztec/;",
+    "cp-deployments": "pnpm cp-deployments:esm && pnpm cp-deployments:cjs && pnpm cp-deployments:browser",
+    "bridge:runner": "tsx ./scripts/services/bridger.ts"
   },
   "devDependencies": {
-    "@nomicfoundation/hardhat-chai-matchers": "^2.0.8",
-    "@nomicfoundation/hardhat-ethers": "^3.0.8",
-    "@nomicfoundation/hardhat-ignition": "^0.15.10",
-    "@nomicfoundation/hardhat-ignition-ethers": "^0.15.10",
-    "@nomicfoundation/hardhat-network-helpers": "^1.0.12",
-    "@nomicfoundation/hardhat-toolbox": "^5.0.0",
-    "@nomicfoundation/hardhat-verify": "^2.0.14",
-    "@nomicfoundation/ignition-core": "^0.15.10",
-    "@typechain/ethers-v6": "^0.5.1",
-    "@typechain/hardhat": "^9.1.0",
-    "@types/chai": "4.3.20",
-    "@types/mocha": "^10.0.10",
+    "@nomicfoundation/hardhat-ignition-viem": "^0.15.10",
+    "@nomicfoundation/hardhat-toolbox-viem": "^3.0.0",
     "@types/node": "^24.0.10",
-    "chai": "4.5.0",
-    "ethers": "^6.13.5",
-    "hardhat": "^2.26.0",
-    "hardhat-gas-reporter": "1.0.10",
-    "jest": "^29.7.0",
-    "patch-package": "^8.0.0",
-    "readline": "^1.3.0",
-    "solidity-coverage": "^0.8.14",
-    "ts-node": "^10.9.2",
-    "typechain": "^8.3.2",
+    "hardhat": "^3.0.0",
+    "tsx": "^4.7.0",
     "typescript": "^5.8.2"
   },
   "dependencies": {
-    "@aztec/accounts": "3.0.0-devnet.20251212",
-    "@aztec/aztec.js": "3.0.0-devnet.20251212",
-    "@aztec/bb.js": "0.72.1",
-    "@aztec/ethereum": "3.0.0-devnet.20251212",
-    "@aztec/foundation": "3.0.0-devnet.20251212",
-    "@aztec/kv-store": "3.0.0-devnet.20251212",
-    "@aztec/noir-contracts.js": "3.0.0-devnet.20251212",
-    "@aztec/pxe": "3.0.0-devnet.20251212",
-    "@aztec/test-wallet": "3.0.0-devnet.20251212",
-    "@noir-lang/noir_js": "1.0.0-beta.5",
-    "@noir-lang/noir_wasm": "1.0.0-beta.5",
+    "@aztec/accounts": "4.2.0-aztecnr-rc.2",
+    "@aztec/aztec.js": "4.2.0-aztecnr-rc.2",
+    "@aztec/bb.js": "3.0.0-nightly",
+    "@aztec/ethereum": "4.2.0-aztecnr-rc.2",
+    "@aztec/foundation": "4.2.0-aztecnr-rc.2",
+    "@aztec/noir-contracts.js": "4.2.0-aztecnr-rc.2",
+    "@aztec/pxe": "4.2.0-aztecnr-rc.2",
+    "@aztec/wallets": "4.2.0-aztecnr-rc.2",
+    "@noir-lang/noir_js": "1.0.0-beta.15",
     "@openzeppelin/contracts": "^5.2.0",
     "@scroll-tech/contracts": "^2.0.1",
-    "@types/argparse": "^2.0.17",
-    "@types/express": "^5.0.6",
     "@zk-kit/imt": "^2.0.0-beta.8",
     "@zk-kit/lazy-imt.sol": "^2.0.0-beta.12",
     "@zkpassport/poseidon2": "^0.6.1",
     "argparse": "^2.0.1",
-    "bun": "^1.2.12",
-    "express": "^5.2.1",
     "fixed-merkle-tree": "^0.7.3",
-    "i": "^0.3.7",
-    "minimatch": "^10.0.3",
     "poseidon-lite": "^0.3.0",
-    "ts-node": "^10.9.2"
+    "viem": "^2.41.2"
   },
   "files": [
     "dist"
   ],
-  "default": "dist/cjs/index.js",
-  "require": "dist/cjs/index.js",
-  "node": "dist/esm/index.js",
-  "import": "dist/browser/index.js",
-  "types": "dist/types/index.d.ts",
   "exports": {
     ".": {
       "node": "./dist/esm/index.js",
@@ -86,59 +58,52 @@
       "types": "./dist/types/index.d.ts"
     },
     "./aztec/L2AztecBridgeAdapter": {
-      "node": "./dist/esm/contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.js",
-      "require": "./dist/cjs/contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.js",
-      "import": "./dist/browser/contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.js",
-      "types": "./dist/types/contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.d.ts"
+      "node": "./dist/esm/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.js",
+      "require": "./dist/cjs/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.js",
+      "import": "./dist/browser/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.js",
+      "types": "./dist/types/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.d.ts"
     },
     "./aztec/WarpToadCore": {
-      "node": "./dist/esm/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore.js",
-      "require": "./dist/cjs/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore.js",
-      "import": "./dist/browser/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore.js",
-      "types": "./dist/types/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore.d.ts"
-    },
-    "./ethers/typechain-types": {
-      "node": "./dist/esm/typechain-types/index.js",
-      "require": "./dist/cjs/typechain-types/index.js",
-      "import": "./dist/browser/typechain-types/index.js",
-      "types": "./dist/types/typechain-types/index.d.ts"
+      "node": "./dist/esm/aztec/WarpToadCore/src/artifacts/WarpToadCore.js",
+      "require": "./dist/cjs/aztec/WarpToadCore/src/artifacts/WarpToadCore.js",
+      "import": "./dist/browser/aztec/WarpToadCore/src/artifacts/WarpToadCore.js",
+      "types": "./dist/types/aztec/WarpToadCore/src/artifacts/WarpToadCore.d.ts"
     },
     "./bridging": {
-      "node": "./dist/esm/scripts/lib/bridging.js",
-      "require": "./dist/cjs/scripts/lib/bridging.js",
-      "import": "./dist/browser/scripts/lib/bridging.js",
-      "types": "./dist/types/scripts/lib/bridging.d.ts"
+      "node": "./dist/esm/lib/bridging.js",
+      "require": "./dist/cjs/lib/bridging.js",
+      "import": "./dist/browser/lib/bridging.js",
+      "types": "./dist/types/lib/bridging.d.ts"
     },
     "./constants": {
-      "node": "./dist/esm/scripts/lib/constants.js",
-      "require": "./dist/cjs/scripts/lib/constants.js",
-      "import": "./dist/browser/scripts/lib/constants.js",
-      "types": "./dist/types/scripts/lib/constants.d.ts"
+      "node": "./dist/esm/lib/constants.js",
+      "require": "./dist/cjs/lib/constants.js",
+      "import": "./dist/browser/lib/constants.js",
+      "types": "./dist/types/lib/constants.d.ts"
     },
     "./hashing": {
-      "node": "./dist/esm/scripts/lib/hashing.js",
-      "require": "./dist/cjs/scripts/lib/hashing.js",
-      "import": "./dist/browser/scripts/lib/hashing.js",
-      "types": "./dist/types/scripts/lib/hashing.d.ts"
+      "node": "./dist/esm/lib/hashing.js",
+      "require": "./dist/cjs/lib/hashing.js",
+      "import": "./dist/browser/lib/hashing.js",
+      "types": "./dist/types/lib/hashing.d.ts"
     },
     "./proving": {
-      "node": "./dist/esm/scripts/lib/proving.js",
-      "require": "./dist/cjs/scripts/lib/proving.js",
-      "import": "./dist/browser/scripts/lib/proving.js",
-      "types": "./dist/types/scripts/lib/proving.d.ts"
+      "node": "./dist/esm/lib/proving.js",
+      "require": "./dist/cjs/lib/proving.js",
+      "import": "./dist/browser/lib/proving.js",
+      "types": "./dist/types/lib/proving.d.ts"
     },
     "./types": {
-      "node": "./dist/esm/scripts/lib/types.js",
-      "require": "./dist/cjs/scripts/lib/types.js",
-      "import": "./dist/browser/scripts/lib/types.js",
-      "types": "./dist/types/scripts/lib/types.d.ts"
+      "node": "./dist/esm/lib/types.js",
+      "require": "./dist/cjs/lib/types.js",
+      "import": "./dist/browser/lib/types.js",
+      "types": "./dist/types/lib/types.d.ts"
     },
     "./deployment": {
-      "node": "./dist/esm/scripts/dev_op/deployment.js",
-      "require": "./dist/cjs/scripts/dev_op/deployment.js",
-      "import": "./dist/browser/scripts/dev_op/deployment.js",
-      "types": "./dist/types/scripts/dev_op/deployment.d.ts"
+      "node": "./dist/esm/scripts/deployment.js",
+      "require": "./dist/cjs/scripts/deployment.js",
+      "import": "./dist/browser/scripts/deployment.js",
+      "types": "./dist/types/scripts/deployment.d.ts"
     }
-  },
-  "packageManager": "pnpm@10.8.1"
+  }
 }

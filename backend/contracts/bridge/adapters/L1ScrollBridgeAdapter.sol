@@ -2,8 +2,8 @@
 
 pragma solidity 0.8.29;
 
-import {ILocalRootProvider, IGigaRootRecipient, IGigaRootProvider} from  "../interfaces/IRootMessengers.sol";
-import {IL1BridgeAdapter} from "../interfaces/IL1BridgeAdapter.sol";
+import {ILocalRootProvider, IGigaRootRecipient, IGigaRootProvider} from  "../../interfaces/IRootMessengers.sol";
+import {IL1BridgeAdapter} from "../../interfaces/IL1BridgeAdapter.sol";
 import {IL1ScrollMessenger} from "@scroll-tech/contracts/L1/IL1ScrollMessenger.sol";
 
 // no IGigaRootRecipient because we have L1SLOAD!

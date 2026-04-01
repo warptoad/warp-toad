@@ -4,7 +4,7 @@ services:
   relayer-service:
     build:
       context: ..
-      dockerfile: relayService/Dockerfile
+      dockerfile: relay-service/Dockerfile
     container_name: relayer-service
     ports:
       - "127.0.0.1:7777:7777"

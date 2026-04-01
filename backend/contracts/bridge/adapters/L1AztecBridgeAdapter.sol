@@ -3,15 +3,15 @@
 pragma solidity 0.8.29;
 
 // Messaging
-import {IRegistry} from "../aztec-interfaces/IRegistry.sol";
-import {IInbox} from "../aztec-interfaces/messagebridge/IInbox.sol";
-import {IOutbox} from "../aztec-interfaces/messagebridge/IOutbox.sol";
-import {IRollup} from "../aztec-interfaces/IRollup.sol";
-import {DataStructures} from "../aztec-interfaces/CoreDataStructures.sol";
-import {ILocalRootProvider, IGigaRootRecipient} from  "../interfaces/IRootMessengers.sol";
+import {IRegistry} from "../../interfaces/aztec/IRegistry.sol";
+import {IInbox} from "../../interfaces/aztec/messagebridge/IInbox.sol";
+import {IOutbox} from "../../interfaces/aztec/messagebridge/IOutbox.sol";
+import {IRollup} from "../../interfaces/aztec/IRollup.sol";
+import {DataStructures} from "../../interfaces/aztec/CoreDataStructures.sol";
+import {ILocalRootProvider, IGigaRootRecipient} from  "../../interfaces/IRootMessengers.sol";
 // hash for message passing to L2
-import {Hash} from "../aztec-interfaces/crypto/Hash.sol";
-import {IL1BridgeAdapter} from "../interfaces/IL1BridgeAdapter.sol";
+import {Hash} from "../../interfaces/aztec/crypto/Hash.sol";
+import {IL1BridgeAdapter} from "../../interfaces/IL1BridgeAdapter.sol";
 
 contract L1AztecBridgeAdapter is IL1BridgeAdapter, ILocalRootProvider, IGigaRootRecipient {
     event NewGigaRootSentToAztec(bytes32 indexed newGigaRoot, bytes32 key, uint256 index); //newGigaRoot is also the content hash! wow!'

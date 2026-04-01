@@ -2,8 +2,8 @@
 
 pragma solidity 0.8.29;
 
-import {IGigaBridge} from "./interfaces/IGigaBridge.sol";
-import {IGigaRootProvider, ILocalRootRecipient, ILocalRootProvider, IGigaRootRecipient} from "./interfaces/IRootMessengers.sol";
+import {IGigaBridge} from "../interfaces/IGigaBridge.sol";
+import {IGigaRootProvider, ILocalRootRecipient, ILocalRootProvider, IGigaRootRecipient} from "../interfaces/IRootMessengers.sol";
 import {PoseidonT3} from "poseidon-solidity/PoseidonT3.sol";
 import {LazyIMT, LazyIMTData} from "@zk-kit/lazy-imt.sol/LazyIMT.sol";
 

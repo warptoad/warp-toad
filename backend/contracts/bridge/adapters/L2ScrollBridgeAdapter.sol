@@ -3,8 +3,8 @@
 pragma solidity 0.8.29;
 
 import {IL2ScrollMessenger} from "@scroll-tech/contracts/L2/IL2ScrollMessenger.sol";
-import {IGigaRootProvider, IGigaRootRecipient, ILocalRootRecipient, ILocalRootProvider} from "../interfaces/IRootMessengers.sol";
-import {IL2BridgeAdapter} from "../interfaces/IL2BridgeAdapter.sol";
+import {IGigaRootProvider, IGigaRootRecipient, ILocalRootRecipient, ILocalRootProvider} from "../../interfaces/IRootMessengers.sol";
+import {IL2BridgeAdapter} from "../../interfaces/IL2BridgeAdapter.sol";
 
 contract L2ScrollBridgeAdapter is
     IL2BridgeAdapter,

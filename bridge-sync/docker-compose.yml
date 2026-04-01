@@ -4,7 +4,7 @@ services:
   bridge-sync:
     build:
       context: ..
-      dockerfile: bridgeSync/Dockerfile
+      dockerfile: bridge-sync/Dockerfile
     container_name: bridge-sync
     ports:
       - "127.0.0.1:6969:6969"
@@ -14,8 +14,8 @@ services:
     env_file:
       - .env
     volumes:
-      - ./logs:/app/bridgeSync/logs
-      - ./db:/app/bridgeSync/db
+      - ./logs:/app/bridge-sync/logs
+      - ./db:/app/bridge-sync/db
     restart: unless-stopped
     networks:
       - bridge-network

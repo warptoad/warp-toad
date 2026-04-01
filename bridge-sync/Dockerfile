@@ -11,7 +11,7 @@ RUN corepack enable && corepack prepare pnpm@10.8.1 --activate
 # Copy root workspace files
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY backend/package.json ./backend/
-COPY bridgeSync/package.json ./bridgeSync/
+COPY bridge-sync/package.json ./bridge-sync/
 
 # Install all workspace dependencies
 RUN pnpm install --frozen-lockfile
@@ -19,22 +19,22 @@ RUN pnpm install --frozen-lockfile
 # Copy backend source (needed for bridge script execution)
 COPY backend ./backend
 
-# Copy bridgeSync source
-COPY bridgeSync ./bridgeSync
+# Copy bridge-sync source
+COPY bridge-sync ./bridge-sync
 
 # Build backend TypeScript
 WORKDIR /app/backend
 RUN pnpm build || echo "Backend build completed with warnings"
 
-# Build bridgeSync TypeScript
-WORKDIR /app/bridgeSync
+# Build bridge-sync TypeScript
+WORKDIR /app/bridge-sync
 RUN pnpm build
 
 # Create directories
-RUN mkdir -p /app/bridgeSync/logs /app/bridgeSync/db
+RUN mkdir -p /app/bridge-sync/logs /app/bridge-sync/db
 
-# Set working directory to bridgeSync for runtime
-WORKDIR /app/bridgeSync
+# Set working directory to bridge-sync for runtime
+WORKDIR /app/bridge-sync
 
 # Expose port
 EXPOSE 6969
