@@ -1,20 +1,22 @@
-FROM node:20-alpine
+FROM node:24-alpine
 WORKDIR /app
 
-RUN corepack enable
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@10.8.1 --activate
 
-COPY package.json yarn.lock ./
+# Copy root workspace files
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY relayService/package.json ./relayService/
 
-RUN yarn install --frozen-lockfile
+# Install dependencies
+RUN pnpm install --frozen-lockfile
 
+# Copy relayService source
 COPY relayService ./relayService
 
-# IMPORTANT: run build from root via workspace
-WORKDIR /app
-RUN yarn workspace @warp-toad/relay-service build
+# Build
+RUN pnpm --filter @warp-toad/relay-service build
 
 EXPOSE 7777
 
-# also start via workspace (more reliable)
-CMD ["yarn", "workspace", "@warp-toad/relay-service", "start"]
+CMD ["pnpm", "--filter", "@warp-toad/relay-service", "start"]

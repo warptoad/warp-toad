@@ -9,11 +9,11 @@
     "cp-deployments:esm": "cp -r ignition/deployments/ dist/esm/ignition/; cp -r scripts/deploy/aztec/aztecDeployments/ dist/esm/scripts/deploy/aztec/;",
     "cp-deployments:cjs": "cp -r ignition/deployments/ dist/cjs/ignition/; cp -r scripts/deploy/aztec/aztecDeployments/ dist/cjs/scripts/deploy/aztec/;",
     "cp-deployments:browser": "cp -r ignition/deployments/ dist/browser/ignition/; cp -r scripts/deploy/aztec/aztecDeployments/ dist/browser/scripts/deploy/aztec/;",
-    "cp-deployments": "yarn cp-deployments:esm && yarn cp-deployments:cjs && yarn cp-deployments:browser",
+    "cp-deployments": "pnpm cp-deployments:esm && pnpm cp-deployments:cjs && pnpm cp-deployments:browser",
     "build:esm": "tsc -p tsconfig.json",
     "build:cjs": "tsc -p tsconfig.cjs.json",
     "build:browser": "tsc -p tsconfig.browser.json",
-    "build": "yarn build:esm && yarn build:cjs && yarn build:browser",
+    "build": "pnpm build:esm && pnpm build:cjs && pnpm build:browser",
     "bridge:runner": "ts-node ./scripts/dev_op/services/bridger.ts"
   },
   "devDependencies": {
@@ -140,5 +140,5 @@
       "types": "./dist/types/scripts/dev_op/deployment.d.ts"
     }
   },
-  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+  "packageManager": "pnpm@10.8.1"
 }

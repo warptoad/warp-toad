@@ -2,44 +2,38 @@
   "name": "warp-toad",
   "version": "1.0.0",
   "private": true,
-  "workspaces": {
-    "packages": ["backend","frontend","bridgeSync","relayService"],
-    "nohoist": ["backend","frontend","bridgeSync","relayService"]
+  "packageManager": "pnpm@10.8.1",
+  "engines": {
+    "node": ">=24"
   },
   "scripts": {
-    "f:prep": "cd frontend && yarn generate:abis && yarn pull:addresses",
-    "f:dev": "cd frontend && yarn dev",
-    "f:run": "cd frontend && yarn build && yarn preview",
+    "f:prep": "pnpm --filter frontend generate:abis && pnpm --filter frontend pull:addresses",
+    "f:dev": "pnpm --filter frontend dev",
+    "f:run": "pnpm --filter frontend build && pnpm --filter frontend preview",
     "b:warptoad:compile": "cd backend/contracts/aztec/WarpToadCore && aztec compile && aztec codegen -o src/artifacts target",
     "b:rootbridge:compile": "cd backend/contracts/aztec/L2AztecBridgeAdapter && aztec compile && aztec codegen -o src/artifacts target",
-    "b:compile:aztec": "yarn b:warptoad:compile && yarn b:rootbridge:compile",
-    "b:contract:gen": "cd backend/circuits/withdraw/; nargo compile; bb write_vk -b ./target/withdraw.json; bb contract && cd ../../..;",
+    "b:compile:aztec": "pnpm b:warptoad:compile && pnpm b:rootbridge:compile",
+    "b:contract:gen": "cd backend/circuits/withdraw && nargo compile && bb write_vk -b ./target/withdraw.json && bb contract",
     "b:contract:move": "mv backend/circuits/withdraw/target/contract.sol backend/contracts/evm/WithdrawVerifier.sol",
-    "b:contract:rename":"yarn workspace @warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file ./contracts/evm/WithdrawVerifier.sol --remove 'contract UltraVerifier is BaseUltraVerifier {' --replace 'contract WithdrawVerifier is BaseUltraVerifier {'",
-    "b:circuit": "yarn b:contract:gen && yarn b:contract:move && yarn b:contract:rename",
-    "b:sandbox": "VERSION=3.0.0-devnet.20251212 aztec start --local-network",
-    "bridge:dev": "cd bridgeSync && yarn dev",
-    "bridge:build": "cd bridgeSync && yarn build",
-    "bridge:start": "cd bridgeSync && yarn start",
-    "bridge:docker": "cd bridgeSync && yarn docker:build",
-    "bridge:docker:run": "cd bridgeSync && yarn docker:run",
-    "bridge:docker:logs": "cd bridgeSync && yarn docker:logs",
-    "bridge:docker:down": "cd bridgeSync && yarn docker:down",
-    "relayer:dev": "cd relayService && yarn dev",
-    "relayer:build": "cd relayService && yarn build",
-    "relayer:start": "cd relayService && yarn start",
-    "relayer:docker": "cd relayService && yarn docker:build",
-    "relayer:docker:run": "cd relayService && yarn docker:run",
-    "relayer:docker:logs": "cd relayService && yarn docker:logs",
-    "relayer:docker:down": "cd relayService && yarn docker:down"
+    "b:contract:rename": "pnpm --filter @warp-toad/backend ts-node ./scripts/dev_op/replaceLine.ts --file ./contracts/evm/WithdrawVerifier.sol --remove 'contract UltraVerifier is BaseUltraVerifier {' --replace 'contract WithdrawVerifier is BaseUltraVerifier {'",
+    "b:circuit": "pnpm b:contract:gen && pnpm b:contract:move && pnpm b:contract:rename",
+    "b:sandbox": "aztec start --local-network",
+    "bridge:dev": "pnpm --filter @warp-toad/bridge-sync dev",
+    "bridge:build": "pnpm --filter @warp-toad/bridge-sync build",
+    "bridge:start": "pnpm --filter @warp-toad/bridge-sync start",
+    "bridge:docker": "pnpm --filter @warp-toad/bridge-sync docker:build",
+    "bridge:docker:run": "pnpm --filter @warp-toad/bridge-sync docker:run",
+    "bridge:docker:logs": "pnpm --filter @warp-toad/bridge-sync docker:logs",
+    "bridge:docker:down": "pnpm --filter @warp-toad/bridge-sync docker:down",
+    "relayer:dev": "pnpm --filter @warp-toad/relay-service dev",
+    "relayer:build": "pnpm --filter @warp-toad/relay-service build",
+    "relayer:start": "pnpm --filter @warp-toad/relay-service start",
+    "relayer:docker": "pnpm --filter @warp-toad/relay-service docker:build",
+    "relayer:docker:run": "pnpm --filter @warp-toad/relay-service docker:run",
+    "relayer:docker:logs": "pnpm --filter @warp-toad/relay-service docker:logs",
+    "relayer:docker:down": "pnpm --filter @warp-toad/relay-service docker:down"
   },
   "repository": "https://github.com/JossDuff/warp-toad.git",
   "author": "jossduff <jduff360@gmail.com>",
-  "license": "MIT",
-  "engines": {
-    "node": ">=20 <21"
-  },
-  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+  "license": "MIT"
 }
-
-

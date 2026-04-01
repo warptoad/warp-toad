@@ -1,17 +1,20 @@
-FROM node:20-alpine
+FROM node:24-alpine
 
 WORKDIR /app
 
 # Install build dependencies (needed for some native modules)
 RUN apk add --no-cache python3 make g++
 
-# Copy root package files for workspace setup
-COPY package.json yarn.lock ./
+# Install pnpm
+RUN corepack enable && corepack prepare pnpm@10.8.1 --activate
+
+# Copy root workspace files
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY backend/package.json ./backend/
 COPY bridgeSync/package.json ./bridgeSync/
 
 # Install all workspace dependencies
-RUN yarn install --frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
 # Copy backend source (needed for bridge script execution)
 COPY backend ./backend
@@ -21,11 +24,11 @@ COPY bridgeSync ./bridgeSync
 
 # Build backend TypeScript
 WORKDIR /app/backend
-RUN yarn build || echo "Backend build completed with warnings"
+RUN pnpm build || echo "Backend build completed with warnings"
 
 # Build bridgeSync TypeScript
 WORKDIR /app/bridgeSync
-RUN yarn build
+RUN pnpm build
 
 # Create directories
 RUN mkdir -p /app/bridgeSync/logs /app/bridgeSync/db
