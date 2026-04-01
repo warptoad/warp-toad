@@ -40,10 +40,11 @@
     "vite": "^7.2.4"
   },
   "dependencies": {
-    "@azguardwallet/aztec-wallet": "3.0.0-devnet.20251212",
-    "@aztec/aztec.js": "3.0.0-devnet.20251212",
-    "@aztec/bb.js": "0.72.1",
-    "@noir-lang/noir_js": "1.0.0-beta.5",
+    "@azguardwallet/aztec-wallet": "4.2.0-aztecnr-rc.2",
+    "@aztec/aztec.js": "4.2.0-aztecnr-rc.2",
+    "@aztec/stdlib": "4.2.0-aztecnr-rc.2",
+    "@aztec/bb.js": "3.0.0-nightly",
+    "@noir-lang/noir_js": "1.0.0-beta.15",
     "@zkpassport/poseidon2": "^0.6.2",
     "fixed-merkle-tree": "^0.7.3",
     "poseidon-lite": "^0.3.0",

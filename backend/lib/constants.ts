@@ -1,6 +1,3 @@
-import {  Fr} from '@aztec/aztec.js/fields';
-
-
 import { ProofInputs, EvmMerkleData, AztecMerkleData, gasCosts} from "./types";
 import { ethers } from "ethers";
 // @ts-ignore

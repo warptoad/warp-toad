@@ -1,18 +1,12 @@
-//@ts-ignore
-import {  AztecAddress, Fr} from '@aztec/aztec.js';
-
-//@ts-ignore
-import { IMT } from "@zk-kit/imt"
-import { poseidon1,poseidon2,poseidon3 } from "poseidon-lite"
-
+import { AztecAddress, Fr } from '@aztec/aztec.js';
+import { poseidon1, poseidon2, poseidon3 } from "poseidon-lite"
 import { MerkleTree, PartialMerkleTree, Element } from 'fixed-merkle-tree'
 import { ethers } from "ethers";
-
-// we really need hardhat 3 to be in beta so we can just put `type:"module"` in our package.json >:(
-const zkpassPoseidon2 = import("@zkpassport/poseidon2")
-import { GENERATOR_INDEX__NOTE_HASH_NONCE, GENERATOR_INDEX__SILOED_NOTE_HASH ,GENERATOR_INDEX__UNIQUE_NOTE_HASH} from './constants';
-import { WarpToadCore as WarpToadCoreEvm } from '../../typechain-types';
-import { WarpToadCoreContract as WarpToadCoreAztec } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore';
+import { poseidon2Hash } from "@zkpassport/poseidon2";
+import { GENERATOR_INDEX__NOTE_HASH_NONCE, GENERATOR_INDEX__SILOED_NOTE_HASH, GENERATOR_INDEX__UNIQUE_NOTE_HASH } from './constants';
+// TODO: Update these imports once Hardhat v3 typed artifacts and Aztec codegen are generated
+// import { WarpToadCore as WarpToadCoreEvm } from '../artifacts/...';
+// import { WarpToadCoreContract as WarpToadCoreAztec } from '../aztec/WarpToadCore/src/artifacts/WarpToadCore';
 
 export function hashPreCommitment(nullifierPreimage: bigint, secret: bigint, chainId: bigint): bigint {
     return poseidon3([nullifierPreimage, secret, chainId])
@@ -42,7 +36,6 @@ export async function hashNoteHashNonce(first_nullifier_in_tx: bigint, note_inde
 
 
 export async function poseidon2HashWithSeparator(inputs:bigint[], separator: bigint):Promise<bigint> {
-    const {poseidon2Hash} = await zkpassPoseidon2
     let inputs_with_separator = [separator, ...inputs];
     return poseidon2Hash(inputs_with_separator)
 }
@@ -92,7 +85,6 @@ export async function hashSiloedNoteHash(contractAddress:bigint, plainNoteHash:b
  * @returns 
  */
 export async function findUniqueNoteHash(contractAddress:AztecAddress,noteHashesInTx: Fr[], plainNoteHash: Fr,firstNullifierInTx:Fr) {
-    const {poseidon2Hash} = await zkpassPoseidon2
     const uniqueNoteIndex = await findNoteHashIndex(contractAddress,noteHashesInTx, plainNoteHash,firstNullifierInTx)
     const nonce = await hashNoteHashNonce(firstNullifierInTx.toBigInt(),BigInt(uniqueNoteIndex));
     const siloed_note_hash =await hashSiloedNoteHash(contractAddress.toBigInt(), plainNoteHash.toBigInt());

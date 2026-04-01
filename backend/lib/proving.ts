@@ -1,13 +1,12 @@
-
-import { UltraHonkBackend, UltraPlonkBackend } from "@aztec/bb.js";
+import { UltraHonkBackend, UltraPlonkBackend, ProofData } from "@aztec/bb.js";
 import { CompiledCircuit, Noir, InputMap } from "@noir-lang/noir_js";
 import os from 'os';
 // @ts-ignore
-import circuit from "../../circuits/withdraw/target/withdraw.json"  with { type: 'json' }
-import { ProofData } from "@aztec/bb.js";
+import circuit from "../circuits/withdraw/target/withdraw.json" with { type: 'json' }
 
-import { GigaBridge, WarpToadCore as WarpToadEvm } from "../../typechain-types";
-import { WarpToadCoreContract as WarpToadAztec, NewGigaRoot,  } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
+// TODO: Update these imports once Hardhat v3 typed artifacts and Aztec codegen are generated
+// import { GigaBridge, WarpToadCore as WarpToadEvm } from '../artifacts/...';
+// import { WarpToadCoreContract as WarpToadAztec, NewGigaRoot } from '../aztec/WarpToadCore/src/artifacts/WarpToadCore';
 import { BytesLike, ethers } from "ethers";
 import { MerkleTree, Element } from "fixed-merkle-tree";
 

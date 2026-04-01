@@ -1,7 +1,5 @@
 import { AztecNode, createAztecNodeClient } from "@aztec/aztec.js/node";
-import { createStore } from "@aztec/kv-store/lmdb";
 import { createPXE, getPXEConfig, PXE } from "@aztec/pxe/server";
-import { TestWallet } from "@aztec/test-wallet/server";
 import { getInitialTestAccountsData } from "@aztec/accounts/testing";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { ContractInstanceWithAddress, getContractInstanceFromInstantiationParams} from "@aztec/aztec.js/contracts";
@@ -19,7 +17,7 @@ import { ContractDeployer } from "@aztec/aztec.js/deployment";
 import { PublicKeys } from "@aztec/aztec.js/keys";
 import { ContractArtifact } from "@aztec/aztec.js/abi";
 import { Wallet } from "@aztec/aztec.js/wallet";
-import { ethers } from "hardhat";
+import { ethers } from "ethers";
 import { BytesLike, toBeHex } from "ethers";
 export interface DeploymentArtifact {
   // these are things you need to store at deployment
@@ -68,11 +66,7 @@ export async function initPXE(node: AztecNode, chainId: bigint): Promise<PXE> {
         const fullConfig = { ...config, l1Contracts };
         fullConfig.proverEnabled = proverEnabled
 
-        const store = await createStore("pxe", {
-            dataDirectory: "store",
-            dataStoreMapSizeKb: 1e6,
-        });
-        const pxe = await createPXE(node, fullConfig, { store });
+        const pxe = await createPXE(node, fullConfig);
         return pxe
 
     } catch (error) {

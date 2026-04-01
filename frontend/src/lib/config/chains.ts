@@ -79,7 +79,7 @@ export interface AztecChainDefinition {
 	type: 'Aztec';
 	role: ChainRole;
 	nodeUrl: string;
-	network: 'sandbox' | 'devnet';
+	network: 'sandbox' | 'devnet' | 'testnet';
 	contracts: AztecChainContracts;
 	enabled: boolean;
 }
@@ -176,11 +176,11 @@ const AZTEC_CHAIN: AztecChainDefinition = isTestMode
 	}
 	: {
 		id: 'Aztec',
-		name: 'Devnet',
+		name: 'Testnet',
 		type: 'Aztec',
 		role: 'Privacy',
-		nodeUrl: import.meta.env.VITE_AZTEC_NODE_URL || 'https://next.devnet.aztec-labs.com',
-		network: 'devnet',
+		nodeUrl: import.meta.env.VITE_AZTEC_NODE_URL || 'https://rpc.testnet.aztec-labs.com',
+		network: 'testnet',
 		contracts: {
 			warpToad: {
 				address: TestnetAztecDeployments.AztecWarpToad.address,

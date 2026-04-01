@@ -25,7 +25,7 @@ export async function lineReplacer(filePath:string, lineReplacements: lineReplac
 async function main() {
     const parser = new ArgumentParser({
         description: 'quick lil script to replace 1 line',
-        usage: `yarn ts-node scripts_dev_op/replaceLine.ts --file contracts/evm/WithdrawVerifier.sol --remove "contract UltraVerifier is BaseUltraVerifier {" --replace "contract WithdrawVerifier is BaseUltraVerifier {"`
+        usage: `yarn ts-node scripts_scripts/replaceLine.ts --file contracts/evm/WithdrawVerifier.sol --remove "contract UltraVerifier is BaseUltraVerifier {" --replace "contract WithdrawVerifier is BaseUltraVerifier {"`
     });
     parser.add_argument('-f', '--file', { help: 'file to read', required: true, type: 'str' });
     parser.add_argument('-r', '--remove', { help: 'specify what line to replace', required: true, type: 'str' });

@@ -1,8 +1,7 @@
 import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee/testing";
-//@ts-ignore
-import { L2AztecBridgeAdapterContract } from '../../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter'
-
-import { TestWallet } from "@aztec/test-wallet/server";
+// TODO: Update import once Aztec codegen is generated
+// import { L2AztecBridgeAdapterContract } from '../../aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter';
+// TODO: TestWallet was removed in v4, use @aztec/wallets equivalent
 import { EthAddressLike } from "@aztec/aztec.js/abi";
 import { Fr } from "@aztec/aztec.js/fields";
 import { deployAndCreateDeploymentArtifact } from "../utils/aztecUtilsNoEnv";

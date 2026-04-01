@@ -26,7 +26,8 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 import type { AztecNode } from '@aztec/aztec.js/node';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
-import { WarpToadCoreContract, WarpToadCoreContractArtifact } from '../../../../backend/contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore';
+// TODO: Update import once Aztec codegen is regenerated for v4
+// import { WarpToadCoreContract, WarpToadCoreContractArtifact } from '../../../../backend/aztec/WarpToadCore/src/artifacts/WarpToadCore';
 import { loadContractArtifact } from '@aztec/aztec.js/abi';
 import { getContractInstanceFromInstantiationParams, type ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
 import { AZTEC_CONTRACTS, AZTEC_CONFIG, L1_CONFIG } from '$lib/config/environment.js';

@@ -7,9 +7,9 @@ import { deployPoseidon } from "../poseidon";
 import L2WarpToadModule from "../../../ignition/modules/L2WarpToad"
 import L1InfraModule from "../../../ignition/modules/L1Infra"
 
-import { ERC20__factory, L1AztecBridgeAdapter__factory, L1ScrollBridgeAdapter__factory, L2WarpToad__factory, USDcoin__factory } from "../../../typechain-types";
+import { ERC20__factory, L1AztecBridgeAdapter__factory, L1ScrollBridgeAdapter__factory, L2WarpToad__factory, USDcoin__factory } from "../../artifacts/typechain-types";
 //@ts-ignore
-import er20Abi from "../../dev_op/erc20ABI.json"  with { type: 'json' }
+import er20Abi from "../../scripts/erc20ABI.json"  with { type: 'json' }
 //@ts-ignore
 import { createPXEClient, waitForPXE } from "@aztec/aztec.js";
 //@ts-ignore
@@ -18,8 +18,8 @@ import { getInitialTestAccountsWallets } from "@aztec/accounts/testing";
 import fs from "fs/promises";
 
 import { vars } from "hardhat/config.js";
-import { evmDeployments } from "../../dev_op/deployment";
-import { getContractAddressesAztec } from "../../dev_op/utils";
+import { evmDeployments } from "../../scripts/deployment";
+import { getContractAddressesAztec } from "../../scripts/utils";
 const SEPOLIA_URL = vars.get("SEPOLIA_URL")
 
 // function getArgs() {

@@ -47,10 +47,10 @@ impl NoteHash for WarpToadNote {
         poseidon::bn254::hash_1([self.nullifier_preimage])
     }
 
-    unconstrained fn compute_nullifier_unconstrained(self,owner:AztecAddress, note_hash_for_nullification: Field) -> Field {
+    unconstrained fn compute_nullifier_unconstrained(self,owner:AztecAddress, note_hash_for_nullification: Field) -> Option<Field> {
         let _ = note_hash_for_nullification;
         let _ = owner;
-        poseidon::bn254::hash_1([self.nullifier_preimage])
+        Option::some(poseidon::bn254::hash_1([self.nullifier_preimage]))
     }
 }
 

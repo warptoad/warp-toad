@@ -16,12 +16,10 @@ import { SCROLL_CHAINID_MAINNET, SCROLL_CHAINID_SEPOLIA } from '../lib/constants
 
 import { initNodeClientNoEnv, getAztecTestAccountNoEnv, getContractInstanceFromAddressNoEnv, initPXE, DeploymentArtifact, DeploymentStringyfiedArtifact } from '../deploy/utils/aztecUtilsNoEnv';
 
-// evm 
-import { L2ScrollBridgeAdapter, GigaBridge__factory, L1AztecBridgeAdapter__factory, L1ScrollBridgeAdapter__factory, L2ScrollBridgeAdapter__factory, L2WarpToad as L2EvmWarpToad, L2WarpToad__factory, L1WarpToad__factory } from '../../typechain-types';
-
-// aztec
-import { WarpToadCoreContract as L2AztecWarpToad, WarpToadCoreContract, WarpToadCoreContractArtifact } from '../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
-import { L2AztecBridgeAdapterContract, L2AztecBridgeAdapterContractArtifact } from '../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter';
+// TODO: Update these imports once Hardhat v3 typed artifacts and Aztec codegen are generated
+// import { L2ScrollBridgeAdapter, GigaBridge__factory, L1AztecBridgeAdapter__factory, L1ScrollBridgeAdapter__factory, L2ScrollBridgeAdapter__factory, L2WarpToad as L2EvmWarpToad, L2WarpToad__factory, L1WarpToad__factory } from '../artifacts/...';
+// import { WarpToadCoreContract as L2AztecWarpToad, WarpToadCoreContract, WarpToadCoreContractArtifact } from '../aztec/WarpToadCore/src/artifacts/WarpToadCore';
+// import { L2AztecBridgeAdapterContract, L2AztecBridgeAdapterContractArtifact } from '../aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter';
 
 //@ts-ignore
 import aztecDeploymentsSepolia from "../deploy/aztec/aztecDeployments/11155111/deployed_addresses.json" with { type: 'json' };

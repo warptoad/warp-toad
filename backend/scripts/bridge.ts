@@ -2,7 +2,7 @@ import { ethers, NonceManager } from 'ethers';
 import { ArgumentParser } from 'argparse';
 
 // local
-import { getL1Contracts, getL2Contracts, getAztecTestWallet } from "../dev_op/deployment"//'@warp-toad/backend/deployment';
+import { getL1Contracts, getL2Contracts, getAztecTestWallet } from "../scripts/deployment"//'@warp-toad/backend/deployment';
 import { getLocalRootProviders, getPayableGigaRootRecipients, bridgeBetweenL1AndL2, sleep } from "../lib/bridging"//'@warp-toad/backend/bridging';
 import { PXE } from '@aztec/pxe/server';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';

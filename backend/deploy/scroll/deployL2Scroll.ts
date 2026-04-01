@@ -5,9 +5,9 @@ import { deployPoseidon } from "../poseidon";
 
 import L2Scroll from "../../../ignition/modules/L2Scroll"
 //@ts-ignore
-import er20Abi from "../../dev_op/erc20ABI.json"  with { type: 'json' }
-import { evmDeployments } from "../../dev_op/deployment";
-import {  checkFileExists, getEvmDeployedAddressesFilePath, getEvmDeployedAddressesFolderPath, promptBool } from "../../dev_op/utils";
+import er20Abi from "../../scripts/erc20ABI.json"  with { type: 'json' }
+import { evmDeployments } from "../../scripts/deployment";
+import {  checkFileExists, getEvmDeployedAddressesFilePath, getEvmDeployedAddressesFolderPath, promptBool } from "../../scripts/utils";
 
 import { readFile } from 'fs/promises';
 import fs from 'fs/promises';

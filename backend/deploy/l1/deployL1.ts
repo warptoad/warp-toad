@@ -5,12 +5,12 @@ import L1WarpToadModule from "../../../ignition/modules/L1WarpToad"
 import L1InfraModule from "../../../ignition/modules/L1Infra"
 import { readFile } from 'fs/promises';
 
-import { ERC20__factory, USDcoin__factory } from "../../../typechain-types";
+import { ERC20__factory, USDcoin__factory } from "../../artifacts/typechain-types";
 //@ts-ignore
-import er20Abi from "../../dev_op/erc20ABI.json"  with { type: 'json' }
+import er20Abi from "../../scripts/erc20ABI.json"  with { type: 'json' }
 import { L1_SCROLL_MESSENGER_MAINNET, L1_SCROLL_MESSENGER_SEPOLIA } from "../../lib/constants";
 import fs from "fs/promises";
-import {  checkFileExists, getContractAddressesAztec, getContractAddressesEvm, getEvmDeployedAddressesFilePath, getEvmDeployedAddressesFolderPath, promptBool } from "../../dev_op/utils";
+import {  checkFileExists, getContractAddressesAztec, getContractAddressesEvm, getEvmDeployedAddressesFilePath, getEvmDeployedAddressesFolderPath, promptBool } from "../../scripts/utils";
 import hre from "hardhat";
 import { ethers } from "hardhat";
 import { SolidityParameterType } from "@nomicfoundation/ignition-core";

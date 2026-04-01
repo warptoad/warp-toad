@@ -4,14 +4,15 @@ import * as hre from "hardhat";
 
 
 //@ts-ignore
-import er20Abi from "../../dev_op/erc20ABI.json"  with { type: 'json' }
-import { checkFileExists, getAztecDeployedAddressesFilePath, getAztecDeployedAddressesFolderPath, getContractAddressesEvm, promptBool } from "../../dev_op/utils";
+import er20Abi from "../../scripts/erc20ABI.json" with { type: 'json' }
+import { checkFileExists, getAztecDeployedAddressesFilePath, getAztecDeployedAddressesFolderPath, getContractAddressesEvm, promptBool } from "../../scripts/utils";
 import fs from "fs/promises";
 import { deployAztecWarpToad } from "./aztecToadWarp";
 import { deployL2AztecBridgeAdapter } from "./L2AztecBridgeAdapter";
 import { getAztecTestAccount, getEnvArgs, initNodeClient, } from "../utils/aztecUtils";
 import { createAztecNodeClient } from "@aztec/aztec.js/node";
-import { TestWallet } from "@aztec/test-wallet/server";
+// TODO: TestWallet was removed in v4, use @aztec/wallets equivalent
+// import { TestWallet } from "@aztec/wallets";
 import { getInitialTestAccountsData } from "@aztec/accounts/testing";
 import { getFeeJuiceBalance } from '@aztec/aztec.js/utils';
 import { getAztecWallet } from "../utils/aztecUtilsNoEnv";

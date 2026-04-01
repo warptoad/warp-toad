@@ -1,9 +1,9 @@
 
 import { SponsoredFeePaymentMethod } from "@aztec/aztec.js/fee/testing";
-import { WarpToadCoreContract as AztecWarpToad } from '../../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore'
-//@ts-ignore
-import { USDcoin } from '../../../typechain-types';
-import { TestWallet } from "@aztec/test-wallet/server";
+// TODO: Update these imports once Aztec codegen and Hardhat v3 typed artifacts are generated
+// import { WarpToadCoreContract as AztecWarpToad } from '../../aztec/WarpToadCore/src/artifacts/WarpToadCore';
+// import { USDcoin } from '../../artifacts/...';
+// TODO: TestWallet was removed in v4, use @aztec/wallets equivalent
 import { EthAddressLike } from "@aztec/aztec.js/abi";
 import { Fr } from '@aztec/aztec.js/fields';
 import { deployAndCreateDeploymentArtifact } from "../utils/aztecUtilsNoEnv";

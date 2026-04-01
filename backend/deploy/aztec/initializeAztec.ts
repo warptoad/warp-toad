@@ -1,16 +1,16 @@
 // initializing more than one contract? use try and catch!
-import { WarpToadCoreContract, WarpToadCoreContractArtifact } from "../../../contracts/aztec/WarpToadCore/src/artifacts/WarpToadCore";
+import { WarpToadCoreContract, WarpToadCoreContractArtifact } from "../../aztec/WarpToadCore/src/artifacts/WarpToadCore";
 import { getAztecTestAccount, getContractInstanceFromAddress, initNodeClient } from "../utils/aztecUtils";
 import * as hre from "hardhat";
-import { aztecDeployments, evmDeployments } from "../../dev_op/deployment";
+import { aztecDeployments, evmDeployments } from "../../scripts/deployment";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
-import { L2AztecBridgeAdapterContractArtifact } from "../../../contracts/aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter";
+import { L2AztecBridgeAdapterContractArtifact } from "../../aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter";
 import { Contract, ContractInstanceWithAddress, getContractInstanceFromInstantiationParams } from "@aztec/aztec.js/contracts";
 import { error } from "console";
 import { getAztecWallet, initPXE } from "../utils/aztecUtilsNoEnv";
 import { getInitialTestAccountsData } from "@aztec/accounts/testing";
 import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
-import { getDeploymentArtifactAztec } from "../../dev_op/utils";
+import { getDeploymentArtifactAztec } from "../../scripts/utils";
 
 export const delay = async (timeInMs: number) => await new Promise((resolve) => setTimeout(resolve, timeInMs))
 

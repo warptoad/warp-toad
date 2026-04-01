@@ -15,16 +15,13 @@ pub contract WarpToadCore {
     use hashing::{Evm_merkle_data, evm_merkle_verify};
     use hashing::hash_commitment;
 
-    use aztec::event::event_emission::emit_event_in_public;
     use compressed_string::{CompressedString, FieldCompressedString};
-    //use easy_private_state::EasyPrivateUint;
     use dep::aztec::state_vars::state_variable::StateVariable;
     use poseidon::poseidon;
 
     use dep::aztec::note::note_getter::get_notes;
     use aztec::context::{self, utility_context::UtilityContext};
     use aztec::{
-        event::event_emission::emit_event_in_private,
         history::public_storage::PublicStorageHistoricalRead,
         macros::{events::event, functions::{external, initializer, view}, storage::storage},
         messages::message_delivery::MessageDelivery,
@@ -44,7 +41,6 @@ pub contract WarpToadCore {
     };
     use balance_set::BalanceSet;
 
-    //use aztec::note::note_getter_options::return_all_notes;
     use aztec::note::retrieved_note::RetrievedNote;
 
     use aztec::state_vars::owned::Owned;
@@ -128,12 +124,11 @@ pub contract WarpToadCore {
     // @TODO @WARNING remove this in prod!! Do minting from giga root instead
     #[external("private")]
     fn mint_for_testing(amount: u128, recipient: AztecAddress) {
-        self.storage.balances.at(recipient).add(amount).deliver(MessageDelivery.CONSTRAINED_ONCHAIN);
-        emit_event_in_private(
-            self.context,
+        self.storage.balances.at(recipient).add(amount).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
+        self.emit(
             Transfer { from: self.context.this_address(), to: recipient, amount },
         )
-            .deliver_to(recipient, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+            .deliver_to(recipient, MessageDelivery.ONCHAIN_UNCONSTRAINED);
     }
 
     #[external("public")]
@@ -144,8 +139,7 @@ pub contract WarpToadCore {
             "not giga_root_provider",
         );
         self.storage.giga_root.write(giga_root);
-        emit_event_in_public(
-            self.context,
+        self.emit(
             NewGigaRoot { giga_root, block_number: self.context.block_number() },
         );
     }
@@ -182,14 +176,13 @@ pub contract WarpToadCore {
 
         // TODO Mint into private balance
         self.storage.balances.at(recipient).add(amount).deliver(
-            MessageDelivery.UNCONSTRAINED_ONCHAIN,
+            MessageDelivery.ONCHAIN_UNCONSTRAINED,
         );
 
-        emit_event_in_private(
-            self.context,
+        self.emit(
             Transfer { from: self.context.this_address(), to: recipient, amount },
         )
-            .deliver_to(recipient, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+            .deliver_to(recipient, MessageDelivery.ONCHAIN_UNCONSTRAINED);
     }
 
     #[external("private")]
@@ -198,7 +191,7 @@ pub contract WarpToadCore {
         let recipient = sender;
 
         // Will fail if insufficient balance so no need for bal checkssssss
-        self.storage.balances.at(sender).sub(amount).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        self.storage.balances.at(sender).sub(amount).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
 
         let warptoad_note: WarpToadNote = WarpToadNote::new(
             nullifier_preimage,
@@ -208,14 +201,13 @@ pub contract WarpToadCore {
         );
 
         self.storage.commitments.at(recipient).insert(warptoad_note).deliver(
-            MessageDelivery.UNCONSTRAINED_ONCHAIN,
+            MessageDelivery.ONCHAIN_UNCONSTRAINED,
         );
 
-        emit_event_in_private(
-            self.context,
+        self.emit(
             Transfer { from: sender, to: self.context.this_address(), amount },
         )
-            .deliver_to(sender, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+            .deliver_to(sender, MessageDelivery.ONCHAIN_UNCONSTRAINED);
     }
 
     //-----------------------------------------------
@@ -236,58 +228,52 @@ pub contract WarpToadCore {
     ) {
         let from = self.context.msg_sender().expect(f"From must not be none!");
 
-        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN); // reverts if insufficient funds
-        self.storage.balances.at(to).add(amount).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
-        emit_event_in_private(
-            self.context,
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED); // reverts if insufficient funds
+        self.storage.balances.at(to).add(amount).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
+        self.emit(
             Transfer { from: from, to: to, amount: amount },
         )
-            .deliver_to(to, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+            .deliver_to(to, MessageDelivery.ONCHAIN_UNCONSTRAINED);
     }
 
     #[external("private")]
     fn increase_allowance(spender: AztecAddress, added: u128) {
         let owner = self.context.msg_sender().expect(f"Owner must not be none!");
-        //idk why the old code did the key like this? ask danish
-        //let key = pedersen_hash([owner.to_field(), spender.to_field()]);
-        self.storage.allowances.at(owner).add(added).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        self.storage.allowances.at(owner).add(added).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
         let _ = added;
         // we emit delta for wallet UX; clients should track deltas or query via PXE.
-        emit_event_in_private(self.context, Approval { owner, spender, amount: added }).deliver_to(
+        self.emit(Approval { owner, spender, amount: added }).deliver_to(
             owner,
-            MessageDelivery.UNCONSTRAINED_ONCHAIN,
+            MessageDelivery.ONCHAIN_UNCONSTRAINED,
         );
     }
 
     #[external("private")]
     fn decrease_allowance(spender: AztecAddress, subtracted: u128) {
         let owner = self.context.msg_sender().expect(f"Owner must not be none!");
-        //let key = pedersen_hash([owner.to_field(), spender.to_field()]);
         self.storage.allowances.at(owner).sub(subtracted).deliver(
-            MessageDelivery.UNCONSTRAINED_ONCHAIN,
+            MessageDelivery.ONCHAIN_UNCONSTRAINED,
         ); // underflow means revert
-        emit_event_in_private(
-            self.context,
+        self.emit(
             Approval { owner, spender, amount: 0u128 }, // semantic: signal decrease occurred
         )
-            .deliver_to(owner, MessageDelivery.UNCONSTRAINED_ONCHAIN);
+            .deliver_to(owner, MessageDelivery.ONCHAIN_UNCONSTRAINED);
     }
 
     #[external("private")]
     fn transfer_from(owner: AztecAddress, to: AztecAddress, amount: u128) {
         let spender = self.context.msg_sender().expect(f"Spender must not be none!");
-        //let key = pedersen_hash([owner.to_field(), spender.to_field()]);
         // Check & consume allowance (reverts on insufficient)
         self.storage.allowances.at(spender).sub(amount).deliver(
-            MessageDelivery.UNCONSTRAINED_ONCHAIN,
+            MessageDelivery.ONCHAIN_UNCONSTRAINED,
         );
 
-        self.storage.balances.at(owner).sub(amount).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
-        self.storage.balances.at(to).add(amount).deliver(MessageDelivery.UNCONSTRAINED_ONCHAIN);
+        self.storage.balances.at(owner).sub(amount).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
+        self.storage.balances.at(to).add(amount).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
 
-        emit_event_in_private(self.context, Transfer { from: owner, to, amount }).deliver_to(
+        self.emit(Transfer { from: owner, to, amount }).deliver_to(
             to,
-            MessageDelivery.UNCONSTRAINED_ONCHAIN,
+            MessageDelivery.ONCHAIN_UNCONSTRAINED,
         );
     }
 
@@ -359,7 +345,7 @@ pub contract WarpToadCore {
         self.storage.decimals.read()
     }
 
-    //----------these are from wonderland, the above does the exact same but is our own naming and should be removed but ui and test still use it :/ 
+    //----------these are from wonderland, the above does the exact same but is our own naming and should be removed but ui and test still use it :/
     /// @notice Returns the name of the token
     /// @return The name of the token
     #[external("public")]
@@ -422,7 +408,7 @@ pub contract WarpToadCore {
     fn balance_of_public(owner: AztecAddress) -> u128 {
         696969696 //TODO not implemented (azguard needs this)
     }
-    
+
     #[external("private")]
     fn transfer_private_to_public(
         from: AztecAddress, // TODO unused

@@ -3,7 +3,7 @@ const hre = require("hardhat")
 import poseidonSolidity from 'poseidon-solidity'
 import { poseidon2 } from "poseidon-lite";
 import { ethers } from 'ethers';
-import { PoseidonT3__factory } from '../../typechain-types';
+import { PoseidonT3__factory } from '../../artifacts/typechain-types';
 
 
 export async function deployPoseidon() {

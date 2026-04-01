@@ -1,11 +1,9 @@
 
 import { ethers } from "ethers";
 import { Wallet as AztecWallet } from "@aztec/aztec.js/wallet"
-import { createStore } from "@aztec/kv-store/lmdb";
 import { AztecNode, createAztecNodeClient } from "@aztec/aztec.js/node";
 import { createPXE, getPXEConfig, PXE } from "@aztec/pxe/server";
 import { getInitialTestAccountsData, InitialAccountData } from '@aztec/accounts/testing';
-import { TestWallet } from "@aztec/test-wallet/server";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { ContractInstanceWithAddress } from "@aztec/aztec.js/contracts";
 import { setupWallet } from "./aztecUtilsNoEnv";

@@ -1,9 +1,9 @@
 // initializing more than one contract? use try and catch!
 import * as hre from "hardhat";
 
-import { L1AztecBridgeAdapter__factory, L1ScrollBridgeAdapter__factory, L1WarpToad__factory } from "../../../typechain-types";
+import { L1AztecBridgeAdapter__factory, L1ScrollBridgeAdapter__factory, L1WarpToad__factory } from "../../artifacts/typechain-types";
 
-import { getContractAddressesAztec, getContractAddressesEvm } from "../../dev_op/utils";
+import { getContractAddressesAztec, getContractAddressesEvm } from "../../scripts/utils";
 import { initNodeClient } from "../utils/aztecUtils";
 import { BytesLike, toBigInt } from "ethers";
 
