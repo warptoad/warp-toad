@@ -15,15 +15,19 @@ const DEFAULT_PRIV_KEYS_ANVIL = [
 ];
 
 export default defineConfig({
+  defaultNetwork: "local",
   solidity: {
     version: "0.8.29",
     settings: {
       optimizer: {
         enabled: true,
-        runs: 1000,
+        runs: 100,
       },
       evmVersion: "cancun",
     },
+    npmFilesToBuild: [
+      "poseidon-solidity/PoseidonT3.sol",
+    ],
   },
   plugins: [hardhatToolboxViem],
   paths: {
@@ -36,6 +40,7 @@ export default defineConfig({
     local: {
       type: "edr-simulated",
       chainType: "l1",
+      allowUnlimitedContractSize: true,
       accounts: DEFAULT_PRIV_KEYS_ANVIL.map((key) => ({
         privateKey: key,
         balance: "10000000000000000000000",

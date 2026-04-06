@@ -36,6 +36,10 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 
 import * as fs from 'fs';
 import * as path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 import { getDeploymentArtifactAztec } from './utils';
 
 interface deployments {
@@ -45,7 +49,7 @@ interface deployments {
 // Function to load deployments safely
 function loadDeployments(): deployments {
     const deployments: deployments = {};
-    const deploymentsDir = path.join(__dirname, '../../ignition/deployments');
+    const deploymentsDir = path.join(__dirname, '../deploy/ignition/deployments');
     
     // Try to load chain-31337 (local)
     try {

@@ -40,7 +40,7 @@
     "@aztec/noir-contracts.js": "4.2.0-aztecnr-rc.2",
     "@aztec/pxe": "4.2.0-aztecnr-rc.2",
     "@aztec/wallets": "4.2.0-aztecnr-rc.2",
-    "@noir-lang/noir_js": "1.0.0-beta.15",
+    "@noir-lang/noir_js": "1.0.0-beta.19",
     "@openzeppelin/contracts": "^5.2.0",
     "@scroll-tech/contracts": "^2.0.1",
     "@zk-kit/imt": "^2.0.0-beta.8",

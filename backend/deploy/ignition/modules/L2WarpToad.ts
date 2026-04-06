@@ -17,9 +17,12 @@ export default buildModule("L2WarpToadModule", (m: any) => {
     },
   });
 
-  const withdrawVerifier = m.contract("WithdrawVerifier", [], {
+  const ZKTranscriptLib = m.library("ZKTranscriptLib");
+
+  const withdrawVerifier = m.contract("HonkVerifier", [], {
     value: 0n,
     libraries: {
+      ZKTranscriptLib: ZKTranscriptLib,
     },
   });
 

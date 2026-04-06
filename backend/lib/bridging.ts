@@ -2,10 +2,17 @@
 
 import { ethers, getBytes, hexlify, NonceManager, toBeHex, toUtf8Bytes } from "ethers";
 
-// TODO: Update these imports once Hardhat v3 typed artifacts and Aztec codegen are generated
-// import { WarpToadCore as WarpToadEvm, USDcoin, PoseidonT3, LazyIMT, L1AztecBridgeAdapter, GigaBridge, L2ScrollBridgeAdapter, ILocalRootProvider__factory, IL1BridgeAdapter__factory, L1AztecBridgeAdapter__factory, IL1ScrollMessenger__factory, L1ScrollBridgeAdapter, L2WarpToad as L2WarpToadEVM } from '../artifacts/...';
-// import { L2AztecBridgeAdapterContract } from '../aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter';
-// import { WarpToadCoreContract as L2WarpToadAZTEC } from '../aztec/WarpToadCore/src/artifacts/WarpToadCore';
+import { L2AztecBridgeAdapterContract } from '../aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter';
+import { WarpToadCoreContract as L2WarpToadAZTEC } from '../aztec/WarpToadCore/src/artifacts/WarpToadCore';
+
+// EVM contract types — use ethers.Contract (untyped) until typed wrappers are set up
+type WarpToadEvm = ethers.Contract;
+type L1AztecBridgeAdapter = ethers.Contract;
+type L1ScrollBridgeAdapter = ethers.Contract;
+type L2ScrollBridgeAdapter = ethers.Contract;
+type L2WarpToadEVM = ethers.Contract;
+type GigaBridge = ethers.Contract;
+type USDcoin = ethers.Contract;
 
 import { evmDeployments } from "../scripts/deployment";
 import { L1_SCROLL_MESSENGER_MAINNET, L1_SCROLL_MESSENGER_SEPOLIA } from "./constants";

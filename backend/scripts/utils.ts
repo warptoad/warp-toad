@@ -22,10 +22,15 @@ export async function promptBool(question: string): Promise<boolean> {
     return ans === 'yes' || ans === 'y' || ans === '';
 }
 
-const projectRootEVM = `${__dirname}/../..`
-const projectRootAZTEC = `${__dirname}/../..`
-export const AZTEC_DEPLOYED_FOLDER_PATH = `${projectRootAZTEC}/scripts/deploy/aztec/aztecDeployments`
-export const EVM_DEPLOYMENT_FOLDER_PATH = `${projectRootEVM}/ignition/deployments`
+import { fileURLToPath } from 'url';
+import path from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const projectRoot = path.resolve(__dirname, '..');
+export const AZTEC_DEPLOYED_FOLDER_PATH = path.join(projectRoot, 'deploy/aztec/aztecDeployments');
+export const EVM_DEPLOYMENT_FOLDER_PATH = path.join(projectRoot, 'deploy/ignition/deployments');
 
 
 export function getAztecDeployedAddressesFolderPath(chainId: bigint) {

@@ -4,10 +4,6 @@ import { MerkleTree, PartialMerkleTree, Element } from 'fixed-merkle-tree'
 import { ethers } from "ethers";
 import { poseidon2Hash } from "@zkpassport/poseidon2";
 import { GENERATOR_INDEX__NOTE_HASH_NONCE, GENERATOR_INDEX__SILOED_NOTE_HASH, GENERATOR_INDEX__UNIQUE_NOTE_HASH } from './constants';
-// TODO: Update these imports once Hardhat v3 typed artifacts and Aztec codegen are generated
-// import { WarpToadCore as WarpToadCoreEvm } from '../artifacts/...';
-// import { WarpToadCoreContract as WarpToadCoreAztec } from '../aztec/WarpToadCore/src/artifacts/WarpToadCore';
-
 export function hashPreCommitment(nullifierPreimage: bigint, secret: bigint, chainId: bigint): bigint {
     return poseidon3([nullifierPreimage, secret, chainId])
 }

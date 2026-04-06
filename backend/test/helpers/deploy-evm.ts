@@ -1,117 +1,133 @@
 /**
  * EVM contract deployment helpers for tests
  *
- * Deploys all Solidity contracts needed for the WarpToad bridge system.
- * Uses Hardhat v3 viem APIs.
+ * Deploys all Solidity contracts on Hardhat's EDR network using viem,
+ * then wraps them as ethers Contract instances for the lib layer.
+ * Everything runs on a single in-process network.
  */
 
-import hre from "hardhat";
+import { ethers } from "ethers";
 import { type Address } from "viem";
+import {
+  getViemClients,
+  deployFromArtifact,
+  deployLibFromBuildInfo,
+  toEthersContract,
+  getEthersSigners,
+  getEthersProvider,
+} from "./artifacts";
 import { EVM_TREE_DEPTH, GIGA_TREE_DEPTH } from "./constants";
 
 export interface EvmDeployment {
-  nativeToken: any;        // USDcoin contract instance
-  poseidonT3: any;         // PoseidonT3 library
-  lazyIMT: any;            // LazyIMT library
-  withdrawVerifier: any;   // WithdrawVerifier contract
-  l1WarpToad: any;         // L1WarpToad contract
-  gigaBridge: any;         // GigaBridge contract
-  l1AztecBridgeAdapter: any; // L1AztecBridgeAdapter contract
-}
-
-/** Deploy PoseidonT3 and LazyIMT libraries */
-async function deployLibraries() {
-  const poseidonT3 = await hre.viem.deployContract("PoseidonT3");
-  const lazyIMT = await hre.viem.deployContract("LazyIMT", [], {
-    libraries: { PoseidonT3: poseidonT3.address },
-  });
-  return { poseidonT3, lazyIMT };
-}
-
-/** Deploy the native token (test USDC) */
-async function deployNativeToken() {
-  return await hre.viem.deployContract("USDcoin");
-}
-
-/** Deploy L1WarpToad with its verifier */
-async function deployL1WarpToad(
-  nativeTokenAddress: Address,
-  lazyIMTAddress: Address,
-  poseidonT3Address: Address,
-) {
-  const withdrawVerifier = await hre.viem.deployContract("WithdrawVerifier");
-
-  const name = await (await hre.viem.getContractAt("USDcoin", nativeTokenAddress)).read.name();
-  const symbol = await (await hre.viem.getContractAt("USDcoin", nativeTokenAddress)).read.symbol();
-
-  const l1WarpToad = await hre.viem.deployContract(
-    "L1WarpToad",
-    [EVM_TREE_DEPTH, withdrawVerifier.address, nativeTokenAddress, `wrpToad-${symbol}`, `wrpToad-${name}`],
-    {
-      libraries: {
-        LazyIMT: lazyIMTAddress,
-        PoseidonT3: poseidonT3Address,
-      },
-    },
-  );
-
-  return { l1WarpToad, withdrawVerifier };
-}
-
-/** Deploy GigaBridge with local root providers */
-async function deployGigaBridge(
-  lazyIMTAddress: Address,
-  gigaRootRecipients: Address[],
-) {
-  return await hre.viem.deployContract("GigaBridge", [gigaRootRecipients, GIGA_TREE_DEPTH], {
-    libraries: { LazyIMT: lazyIMTAddress },
-  });
-}
-
-/** Deploy L1AztecBridgeAdapter */
-async function deployL1AztecBridgeAdapter() {
-  return await hre.viem.deployContract("L1AztecBridgeAdapter");
+  nativeToken: ethers.Contract;
+  withdrawVerifier: ethers.Contract;
+  l1WarpToad: ethers.Contract;
+  gigaBridge: ethers.Contract;
+  l1AztecBridgeAdapter: ethers.Contract | null;
+  provider: ethers.BrowserProvider;
+  signers: ethers.Signer[];
 }
 
 /**
  * Deploy all EVM contracts and wire them together.
- *
- * @param opts.withAztecAdapter - Whether to deploy the L1AztecBridgeAdapter (default: false)
- * @param opts.aztecWarptoadAddress - Aztec WarpToad address (as bigint) for L1 initialization
  */
 export async function deployEvmContracts(opts?: {
   withAztecAdapter?: boolean;
   aztecWarptoadAddress?: bigint;
 }): Promise<EvmDeployment> {
-  const { poseidonT3, lazyIMT } = await deployLibraries();
-  const nativeToken = await deployNativeToken();
-  const { l1WarpToad, withdrawVerifier } = await deployL1WarpToad(
-    nativeToken.address,
-    lazyIMT.address,
-    poseidonT3.address,
+  const { deployer, publicClient, viem } = await getViemClients();
+  const provider = await getEthersProvider();
+  const signers = await getEthersSigners();
+
+  // 1. Deploy libraries
+  const poseidonT3Addr = await deployLibFromBuildInfo(
+    "npm/poseidon-solidity@0.0.5/PoseidonT3.sol",
+    "PoseidonT3",
+    deployer,
+    publicClient,
   );
 
-  let l1AztecBridgeAdapter: any = null;
-  const gigaRootRecipients: Address[] = [l1WarpToad.address];
+  const lazyIMTAddr = await deployLibFromBuildInfo(
+    "npm/@zk-kit/lazy-imt.sol@2.0.0-beta.12/LazyIMT.sol",
+    "LazyIMT",
+    deployer,
+    publicClient,
+    { PoseidonT3: poseidonT3Addr },
+  );
+
+  const libs: Record<string, Address> = {
+    LazyIMT: lazyIMTAddr,
+    PoseidonT3: poseidonT3Addr,
+  };
+
+  // 2. Deploy native token
+  const nativeTokenDeploy = await deployFromArtifact("USDcoin", [], deployer, publicClient);
+
+  // 3. Deploy verifier (HonkVerifier depends on ZKTranscriptLib)
+  const zkTranscriptLibDeploy = await deployFromArtifact("ZKTranscriptLib", [], deployer, publicClient);
+  const verifierDeploy = await deployFromArtifact("HonkVerifier", [], deployer, publicClient, {
+    ZKTranscriptLib: zkTranscriptLibDeploy.address,
+  });
+
+  // 4. Get token metadata for WarpToad name/symbol
+  const nativeTokenViem = await viem.getContractAt("USDcoin", nativeTokenDeploy.address);
+  const tokenName = await nativeTokenViem.read.name();
+  const tokenSymbol = await nativeTokenViem.read.symbol();
+
+  // 5. Deploy L1WarpToad (needs libraries)
+  const l1WarpToadDeploy = await deployFromArtifact(
+    "L1WarpToad",
+    [EVM_TREE_DEPTH, verifierDeploy.address, nativeTokenDeploy.address, `wrpToad-${tokenSymbol}`, `wrpToad-${tokenName}`],
+    deployer,
+    publicClient,
+    libs,
+  );
+
+  // 6. Deploy L1AztecBridgeAdapter (optional)
+  let l1AztecAdapterDeploy: { address: Address; abi: any[] } | null = null;
+  const gigaRootRecipients: Address[] = [l1WarpToadDeploy.address];
 
   if (opts?.withAztecAdapter) {
-    l1AztecBridgeAdapter = await deployL1AztecBridgeAdapter();
-    gigaRootRecipients.push(l1AztecBridgeAdapter.address);
+    l1AztecAdapterDeploy = await deployFromArtifact("L1AztecBridgeAdapter", [], deployer, publicClient);
+    gigaRootRecipients.push(l1AztecAdapterDeploy.address);
   }
 
-  const gigaBridge = await deployGigaBridge(lazyIMT.address, gigaRootRecipients);
+  // 7. Deploy GigaBridge (needs LazyIMT)
+  const gigaBridgeDeploy = await deployFromArtifact(
+    "GigaBridge",
+    [gigaRootRecipients, GIGA_TREE_DEPTH],
+    deployer,
+    publicClient,
+    { LazyIMT: lazyIMTAddr },
+  );
 
-  // Initialize L1WarpToad: connect to GigaBridge, itself as L1 adapter, Aztec address
+  // 8. Wrap as ethers Contracts
+  const nativeToken = await toEthersContract(nativeTokenDeploy.abi, nativeTokenDeploy.address);
+  const withdrawVerifier = await toEthersContract(verifierDeploy.abi, verifierDeploy.address);
+  const l1WarpToad = await toEthersContract(l1WarpToadDeploy.abi, l1WarpToadDeploy.address);
+  const gigaBridge = await toEthersContract(gigaBridgeDeploy.abi, gigaBridgeDeploy.address);
+
+  let l1AztecBridgeAdapter: ethers.Contract | null = null;
+  if (l1AztecAdapterDeploy) {
+    l1AztecBridgeAdapter = await toEthersContract(l1AztecAdapterDeploy.abi, l1AztecAdapterDeploy.address);
+  }
+
+  // 9. Initialize L1WarpToad
   const aztecAddr = opts?.aztecWarptoadAddress ?? 0n;
-  await l1WarpToad.write.initialize([gigaBridge.address, l1WarpToad.address, aztecAddr]);
+  const initTx = await l1WarpToad.initialize(
+    await gigaBridge.getAddress(),
+    await l1WarpToad.getAddress(),
+    aztecAddr,
+  );
+  await initTx.wait();
 
   return {
     nativeToken,
-    poseidonT3,
-    lazyIMT,
     withdrawVerifier,
     l1WarpToad,
     gigaBridge,
     l1AztecBridgeAdapter,
+    provider,
+    signers,
   };
 }

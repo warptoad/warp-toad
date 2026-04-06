@@ -1,10 +1,10 @@
 export { deployEvmContracts, type EvmDeployment } from "./deploy-evm";
-export { deployAztecContracts, createNode, type AztecDeployment } from "./deploy-aztec";
 export {
-  setupFullEnvironment,
   setupEvmOnlyEnvironment,
+  setupFullEnvironment,
   getTestFeeFactor,
   createCommitment,
+  type EvmOnlyDeployment,
   type FullDeployment,
 } from "./setup";
 export {
@@ -17,3 +17,11 @@ export {
   TEST_COMMITMENT_2,
   INITIAL_BALANCE,
 } from "./constants";
+export {
+  getViemClients,
+  deployFromArtifact,
+  deployLibFromBuildInfo,
+  toEthersContract,
+  getEthersSigners,
+  getEthersProvider,
+} from "./artifacts";

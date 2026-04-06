@@ -1,12 +1,14 @@
-import { UltraHonkBackend, UltraPlonkBackend, ProofData } from "@aztec/bb.js";
+import { UltraHonkBackend, Barretenberg, ProofData } from "@aztec/bb.js";
 import { CompiledCircuit, Noir, InputMap } from "@noir-lang/noir_js";
 import os from 'os';
 // @ts-ignore
 import circuit from "../circuits/withdraw/target/withdraw.json" with { type: 'json' }
 
-// TODO: Update these imports once Hardhat v3 typed artifacts and Aztec codegen are generated
-// import { GigaBridge, WarpToadCore as WarpToadEvm } from '../artifacts/...';
-// import { WarpToadCoreContract as WarpToadAztec, NewGigaRoot } from '../aztec/WarpToadCore/src/artifacts/WarpToadCore';
+import { WarpToadCoreContract as WarpToadAztec } from '../aztec/WarpToadCore/src/artifacts/WarpToadCore';
+
+// EVM contract types — use ethers.Contract (untyped) until we set up typed wrappers
+type WarpToadEvm = ethers.Contract;
+type GigaBridge = ethers.Contract;
 import { BytesLike, ethers } from "ethers";
 import { MerkleTree, Element } from "fixed-merkle-tree";
 
@@ -417,10 +419,15 @@ export async function createProof(proofInputs: ProofInputs, threads: number | un
     const noir = new Noir(circuit as CompiledCircuit);
     console.log({ threads })
 
-    const backend = new UltraPlonkBackend(circuit.bytecode, { threads: threads });
+    const bbPath = process.env.BB_BINARY_PATH || undefined;
+    const api = await Barretenberg.new({
+        threads: threads,
+        ...(bbPath ? { bbBinaryPath: bbPath } : {}),
+    });
+    const backend = new UltraHonkBackend(circuit.bytecode, api);
     const executeRes = await noir.execute(proofInputs as any as InputMap);
-    const proof = await backend.generateProof(executeRes.witness);
-    const verifiedJs = await backend.verifyProof(proof)
+    const proof = await backend.generateProof(executeRes.witness, { verifierTarget: 'evm' });
+    const verifiedJs = await backend.verifyProof(proof, { verifierTarget: 'evm' })
     console.log({verifiedJs})
 
     return proof

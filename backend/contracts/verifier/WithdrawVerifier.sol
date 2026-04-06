@@ -1,2777 +1,2461 @@
-// Verification Key Hash: a0ee87e75cde66c2699084a6247444bd20c4af1f0d2c56cf14aefbe0149d73df
 // SPDX-License-Identifier: Apache-2.0
 // Copyright 2022 Aztec
-pragma solidity >=0.8.4;
+pragma solidity >=0.8.21;
 
-library UltraVerificationKey {
-    function verificationKeyHash() internal pure returns(bytes32) {
-        return 0xa0ee87e75cde66c2699084a6247444bd20c4af1f0d2c56cf14aefbe0149d73df;
+uint256 constant N = 131072;
+uint256 constant LOG_N = 17;
+uint256 constant NUMBER_OF_PUBLIC_INPUTS = 19;
+uint256 constant VK_HASH = 0x0d77c42da67482e75d9ca510df4ff6c3ca6990d5c07c4afdc6477bb60f7d5e90;
+library HonkVerificationKey {
+    function loadVerificationKey() internal pure returns (Honk.VerificationKey memory) {
+        Honk.VerificationKey memory vk = Honk.VerificationKey({
+            circuitSize: uint256(131072),
+            logCircuitSize: uint256(17),
+            publicInputsSize: uint256(19),
+            ql: Honk.G1Point({ 
+               x: uint256(0x0e3756dd40fe8b396c048c49251a9414eab79f9ad76038dbe20788cb33511d99),
+               y: uint256(0x0a954b23951121b6dd28a1483cd955e9106a2d9f49748dda5b6d25f473c9d059)
+            }),
+            qr: Honk.G1Point({ 
+               x: uint256(0x235b3f4b02c58fdeb709e0a3b9318a0667be043462dd422c01973da51096fbbc),
+               y: uint256(0x09b0b598e8ca64485e0abbdbffe9c0f7a3e866a54d4764f3e1ac23500c85da90)
+            }),
+            qo: Honk.G1Point({ 
+               x: uint256(0x0d82ad6df6aa0737569413f4b885645ed984f495fe6da5351a7209a7160ee519),
+               y: uint256(0x0ebe1298c07ba55e493da0075a1f29d634dd92ca409208f6622a3ebbc48fdcf9)
+            }),
+            q4: Honk.G1Point({ 
+               x: uint256(0x0f3fc8de23774aad82e6a15b1b2ba55d014c35232ae4386d740c10a4ec79f1b9),
+               y: uint256(0x1268145ee5c8508e592c729e953f4c402549521a30ea6523565a789f1d4f8f33)
+            }),
+            qm: Honk.G1Point({ 
+               x: uint256(0x2ab5aadbd0ec3dfbef87311252a0db8e844ec3d7937188d95f8437dc61e63f40),
+               y: uint256(0x2706f925c01112b4a3b11a54b64558f4ab2ff8e4ed1c61a3c2911cb2581a86f0)
+            }),
+            qc: Honk.G1Point({ 
+               x: uint256(0x0480d26f471db998672b1d073bf43ccd6a1b0e1390408aa7b92ee5a9f54ef23d),
+               y: uint256(0x234c07203ecdf180e2c4dd4701feaf403db737ced2014777ad612b3392731ca3)
+            }),
+            qLookup: Honk.G1Point({ 
+               x: uint256(0x0073e7c223dd4f3e4734c4d9d9c9df394bd2eee2e12bac2fc49429a0443ec8b0),
+               y: uint256(0x20fac57db30195c2427a75a4d67231c1d1c74c8f84f009ab21d3c88e9657403d)
+            }),
+            qArith: Honk.G1Point({ 
+               x: uint256(0x001907b085c790ff180b0fa7aebe12702d07fe9088c0a423db2a4ac72d686785),
+               y: uint256(0x0f5c5eb2ddc52dc89de5fb01c4c293cb37f8e85dd86f93e982d8cfa23f41dca7)
+            }),
+            qDeltaRange: Honk.G1Point({ 
+               x: uint256(0x008c24c5fb8f74ba500791ca4dfb07e620ac2405d868a0f515168fbb00bf0854),
+               y: uint256(0x0c1691055f8c4e8f6b75de8055f058f42d5f93bceb82400ca1ba8871a53a519f)
+            }),
+            qElliptic: Honk.G1Point({ 
+               x: uint256(0x07670564f27208721c309e9d60ebbbd45edad95ce14cab3b6f8e71060464ea61),
+               y: uint256(0x07597a0ae1ebeea6024fd44006751bd7bfa5487a7fc6349b19364afd8e5083e1)
+            }),
+            qMemory: Honk.G1Point({ 
+               x: uint256(0x2d461938317df5d6c71de4cf7088797975044c49c331a63f2b781e38b8e9496e),
+               y: uint256(0x25e814656cba3ba3b1e44dd7eaff82c66118a6afd386a487890581304e68c5e5)
+            }),
+            qNnf: Honk.G1Point({ 
+               x: uint256(0x1451b76f62999b297de3bdac0b785ee0d00e9b54724ec8de50301aa173feffa5),
+               y: uint256(0x00de9a42a23115989722360efb3baab8f7d0f66570cbbd5c172bcab73b7044e0)
+            }),
+            qPoseidon2External: Honk.G1Point({ 
+               x: uint256(0x183d5dcf0041d66d5783632f1ea4ad9eec76bb17c9ba92fb1b83a567aa5d4418),
+               y: uint256(0x11f9abf60f4e00190cd6fa12e831c90136cbe6c8751583366026b431e8c5577a)
+            }),
+            qPoseidon2Internal: Honk.G1Point({ 
+               x: uint256(0x2205a12509fa2b41e012cffbd5be50253d407c4bec644d4d9c39c719475fb6c0),
+               y: uint256(0x16789fa92119e609ee73b2a065f88a57d663ad1524bb39053d8b6eb878554410)
+            }),
+            s1: Honk.G1Point({ 
+               x: uint256(0x0ab9f7b1210cc8364639154544745b1afb8d8bfd894090046d3e940d2881ed19),
+               y: uint256(0x27386c4134410cf8b6bc1fdca54883c13898193ac6b0bc95b5cce8c36bd7e43a)
+            }),
+            s2: Honk.G1Point({ 
+               x: uint256(0x013b647ab56462975d5053ebc8a34abfbd835fcb49ee6262d0ff4c931d1c7715),
+               y: uint256(0x172057a5b9782a584bd43f28260a0f9874014e47afc82b50ed64ad150a811d25)
+            }),
+            s3: Honk.G1Point({ 
+               x: uint256(0x04fc03efa3e7c2c8f253d5c448d184eec7571a072bb323a6535da6dd609b21bd),
+               y: uint256(0x045491059ce49bb30b7fc9614db5a877caeb0270de40d5033642ede268c6a930)
+            }),
+            s4: Honk.G1Point({ 
+               x: uint256(0x1d8608edc6a5136804703f016e1465600c677bc8bd671a41aea14697ad2557be),
+               y: uint256(0x1471b17561702e3b072e833f65cf73e8eb199b9fce9854a8d4411826575d4f74)
+            }),
+            t1: Honk.G1Point({ 
+               x: uint256(0x099e3bd5a0a00ab7fe18040105b9b395b5d8b7b4a63b05df652b0d10ef146d26),
+               y: uint256(0x0015b8d2515d76e2ccec99dcd194592129af3a637f5a622a32440f860d1e2a7f)
+            }),
+            t2: Honk.G1Point({ 
+               x: uint256(0x1b917517920bad3d8bc01c9595092a222b888108dc25d1aa450e0b4bc212c37e),
+               y: uint256(0x305e8992b148eedb22e6e992077a84482141c7ebe42000a1d58ccb74381f6d19)
+            }),
+            t3: Honk.G1Point({ 
+               x: uint256(0x16465a5ccbb550cd2c63bd58116fe47c86847618681dc29d8a9363ab7c40e1c3),
+               y: uint256(0x2e24d420fbf9508ed31de692db477b439973ac12d7ca796d6fe98ca40e6ca6b7)
+            }),
+            t4: Honk.G1Point({ 
+               x: uint256(0x043d063b130adfb37342af45d0155a28edd1a7e46c840d9c943fdf45521c64ce),
+               y: uint256(0x261522c4089330646aff96736194949330952ae74c573d1686d9cb4a00733854)
+            }),
+            id1: Honk.G1Point({ 
+               x: uint256(0x204c52ee0ca2ef43771ce1b63307dbfe50cf076aff97d1440d5ffc51e9dd453c),
+               y: uint256(0x11c8303cff0a938845ffbc96d1903e5a94b1f44eb7db072c0000d3d9473800bf)
+            }),
+            id2: Honk.G1Point({ 
+               x: uint256(0x12db90d72c43d2e2c6ad40a7588316f88eef99078d0f9eca41fbdea6f7d44ead),
+               y: uint256(0x249f3fe41cb1f3342aab2f621007d2c96eea30d59d3ea0cf414412f0e3cc24e0)
+            }),
+            id3: Honk.G1Point({ 
+               x: uint256(0x240b5de7e8c38b872b033d05913d340d698880d55179d28389d92923b5337598),
+               y: uint256(0x23b998dea4883ec78ed766663c9c8980f3e93250e72a5f837113e1ee7b5e0947)
+            }),
+            id4: Honk.G1Point({ 
+               x: uint256(0x235cefec6e74b4456a6d29015b92e1dfa3f2f04d819254ac02a58628dcc907ba),
+               y: uint256(0x0bb5f9db1056e266916450141b5fb74f28fd29c77a67d5b30d73f6e0d69bd8db)
+            }),
+            lagrangeFirst: Honk.G1Point({ 
+               x: uint256(0x0000000000000000000000000000000000000000000000000000000000000001),
+               y: uint256(0x0000000000000000000000000000000000000000000000000000000000000002)
+            }),
+            lagrangeLast: Honk.G1Point({ 
+               x: uint256(0x1b3e99196775ee3c45fa0a30e06a050e8ed411ff1d7af07f92b53a563d77630a),
+               y: uint256(0x0d7527ea9b9d8b1f1ebfb348e95e8a19e571b0ecf3ec7d72fc54902f13feff38)
+            })
+        });
+        return vk;
     }
+}
 
-    function loadVerificationKey(uint256 _vk, uint256 _omegaInverseLoc) internal pure {
-        assembly {
-            mstore(add(_vk, 0x00), 0x0000000000000000000000000000000000000000000000000000000000020000) // vk.circuit_size
-            mstore(add(_vk, 0x20), 0x000000000000000000000000000000000000000000000000000000000000000b) // vk.num_inputs
-            mstore(add(_vk, 0x40), 0x1bf82deba7d74902c3708cc6e70e61f30512eca95655210e276e5858ce8f58e5) // vk.work_root
-            mstore(add(_vk, 0x60), 0x30643640b9f82f90e83b698e5ea6179c7c05542e859533b48b9953a2f5360801) // vk.domain_inverse
-            mstore(add(_vk, 0x80), 0x2f078ee186d1013d7e3badfde0d17665081d9a26a74bfb92b953e17125e2ea40) // vk.Q1.x
-            mstore(add(_vk, 0xa0), 0x08147a91608695fb3ae4235fce4dc3c6727ae72a720a2c71708857d76fa6f292) // vk.Q1.y
-            mstore(add(_vk, 0xc0), 0x25efddd5ac62d85bc2dcafb76bccda474a2db27b4a91948a094ef3874586f1bd) // vk.Q2.x
-            mstore(add(_vk, 0xe0), 0x2e6573a4dc967fc7c8297f3bb3844140bc93565a5be050064cd818dcfcb6c870) // vk.Q2.y
-            mstore(add(_vk, 0x100), 0x280e13ee78eb877be2b1f319945f44c0bed379a5ff5d7af1bfda7a8f7bf03548) // vk.Q3.x
-            mstore(add(_vk, 0x120), 0x042475ce5341caef34c7c3f1b4f5f7009136b238b8d2625089184e892c6743ef) // vk.Q3.y
-            mstore(add(_vk, 0x140), 0x25481f81ae81eab1d5f4372ee4adab60663e453f9f3ea8fa40523aa1c1b42d9b) // vk.Q4.x
-            mstore(add(_vk, 0x160), 0x287945f9ef6cef2e4bff6d49249abcbeb2f4ac7c776c923e21dcaf8309a84b3d) // vk.Q4.y
-            mstore(add(_vk, 0x180), 0x244ec43d978542b61adebebc6105bd746204345cf1e1177904835d1029a80300) // vk.Q_M.x
-            mstore(add(_vk, 0x1a0), 0x29791ec767660fa1275491ba708e3c24b283da2322bf3c006c1162cbc38df571) // vk.Q_M.y
-            mstore(add(_vk, 0x1c0), 0x04d879b2f9248a88a5326c915fc16fc122effced093876a8020fa2acfd12f526) // vk.Q_C.x
-            mstore(add(_vk, 0x1e0), 0x2bbb523b244b99ff1b48f7ef7c6229af8190bcbdc285b3df8e49aab0f01c4ec6) // vk.Q_C.y
-            mstore(add(_vk, 0x200), 0x2b6c3cd0855092329ca988f41a9b9249dbd7d5be1fcb57c356587d3503ae8ef1) // vk.Q_ARITHMETIC.x
-            mstore(add(_vk, 0x220), 0x121be618c36d5506e644393f64dc45d6b8ff5eb05ee361ab661c561a4e595ce8) // vk.Q_ARITHMETIC.y
-            mstore(add(_vk, 0x240), 0x22dda2aa39ca4cb70b3c9d5f11f8b5226a6e4dd2662e0e330a4dd491b7f4bf8c) // vk.QSORT.x
-            mstore(add(_vk, 0x260), 0x1383b5b0674cd61ef018d16fe6199e42283d4111379378506df1010f2c5f0670) // vk.QSORT.y
-            mstore(add(_vk, 0x280), 0x1414af76247139fa9e8fef8b393a3e03227ee3a6fedb1e55f5db82cb2352782a) // vk.Q_ELLIPTIC.x
-            mstore(add(_vk, 0x2a0), 0x2c7895a68d2fab5b2bce4d7703daebf9011e63d675bc6898c7f06087d6d83d99) // vk.Q_ELLIPTIC.y
-            mstore(add(_vk, 0x2c0), 0x1fd912d00da77afb70848e4442324157606f77f54ebc05d1a1a5fc2030836b13) // vk.Q_AUX.x
-            mstore(add(_vk, 0x2e0), 0x1b1c85cc22723d352d37c86cfd66d45e809a813b99a452fe452c7ae975de2286) // vk.Q_AUX.y
-            mstore(add(_vk, 0x300), 0x015672ae5e43aa9d712f92bcc3ed8759b62300ab38bb6ccbb62f888050608257) // vk.SIGMA1.x
-            mstore(add(_vk, 0x320), 0x258bc36abd740c8b5a49a11c9271e5a3db17a066d66acdb4df32a9912ea45d1f) // vk.SIGMA1.y
-            mstore(add(_vk, 0x340), 0x2393d91cce233b28b96808fc74e79d54659a94c7b4eebb10555e128122f50b8b) // vk.SIGMA2.x
-            mstore(add(_vk, 0x360), 0x17765c3ac8b7b95638b865526619fe11f85d27b8a4ca857d19e7cf1a3243e275) // vk.SIGMA2.y
-            mstore(add(_vk, 0x380), 0x06803311886d196216c38e1253aaa1a71edeb143cbd1412aa9216e7a4b017ab1) // vk.SIGMA3.x
-            mstore(add(_vk, 0x3a0), 0x11802b466553576e365f44340501d37d9e3dd19ca19e1fd9ebba49b80892334d) // vk.SIGMA3.y
-            mstore(add(_vk, 0x3c0), 0x2d0ea2979b09f3fe0722b9d511f30d6daf1ea000fa25bb024ae2c5898ddf4884) // vk.SIGMA4.x
-            mstore(add(_vk, 0x3e0), 0x2618ef272a1a5f843bc0080ffc8c8d5b438e076b3263933c19b7dec3fdd316e3) // vk.SIGMA4.y
-            mstore(add(_vk, 0x400), 0x28faa42b5c13a5e9927d13e54a2ed806854cd23c6662b320439aa3168beffe03) // vk.TABLE1.x
-            mstore(add(_vk, 0x420), 0x1e5c18afa66b4c0d19473e0536e64f678c1b094d1b2eff1d7f499dc289efc084) // vk.TABLE1.y
-            mstore(add(_vk, 0x440), 0x10a001251e9f3a9f283ff8f6bd14cba9c706f3c5040ec8ef10ff44988441251c) // vk.TABLE2.x
-            mstore(add(_vk, 0x460), 0x12138fab93fce066ddb2f9be4eff97b0fe128a2a2c079f749b8452698cace8bf) // vk.TABLE2.y
-            mstore(add(_vk, 0x480), 0x133738f359ce2e0f909a0b76a78c602e66e39c41d99f65bfea25f47998283ccd) // vk.TABLE3.x
-            mstore(add(_vk, 0x4a0), 0x2dd03593caea05125f520c0d02a3bbbdc5519822ba0e0b00984c5a9281143a81) // vk.TABLE3.y
-            mstore(add(_vk, 0x4c0), 0x09ec9b0aca4e9671903e0577f2a4efd36f7a58af0a5102f5a42e1b8061f62421) // vk.TABLE4.x
-            mstore(add(_vk, 0x4e0), 0x15affeadf66c8428f4f44d2ebe66e9dc0f04215bef81efbbee166d3f4544feab) // vk.TABLE4.y
-            mstore(add(_vk, 0x500), 0x1a3cbf0dc620735762652e441d934293dfc7618d57318323d278ba6d587f66b3) // vk.TABLE_TYPE.x
-            mstore(add(_vk, 0x520), 0x1822f3b9fc82ef44022c41324e3dd28e888c696c8f95e0e5dcaf80a1167a57b9) // vk.TABLE_TYPE.y
-            mstore(add(_vk, 0x540), 0x218780f6fa78db4d15c9cf2b8d63c21be976bb83b80c6519ec5e547455ff1a2c) // vk.ID1.x
-            mstore(add(_vk, 0x560), 0x1c930d111a02dbc7076471b4951d48f3d35869b08e3bafd8c3b6fe18f74f6482) // vk.ID1.y
-            mstore(add(_vk, 0x580), 0x12033011bbc85a7b89b7558116e3c6f3060b83680d3e2df65938885fb16cf985) // vk.ID2.x
-            mstore(add(_vk, 0x5a0), 0x1362ba58cefed379d45c428cde40deb78f3c43cf97818ee7af9f1521e273e5b0) // vk.ID2.y
-            mstore(add(_vk, 0x5c0), 0x22a17dd2e45f3cbe562b2af43ced5d6e4193e470cff2f237b900f9287f5719dc) // vk.ID3.x
-            mstore(add(_vk, 0x5e0), 0x00f8ae8fbdf9690cf4dee3b54327b65e9dbf7fac8b76d46a07f33fa24d442022) // vk.ID3.y
-            mstore(add(_vk, 0x600), 0x06fba9d701c4b5ada09e4c772b666e5df2b06543d20b5ac6bc7d430c1c4a8b76) // vk.ID4.x
-            mstore(add(_vk, 0x620), 0x255f51a90286dd5741bf327d77c5a985438bed3bbd778a1605dc95883cd4e6a1) // vk.ID4.y
-            mstore(add(_vk, 0x640), 0x00) // vk.contains_pairing_point_accumulator
-            mstore(add(_vk, 0x660), 0) // vk.pairing_point_accumulator_public_input_indices
-            mstore(add(_vk, 0x680), 0x260e01b251f6f1c7e7ff4e580791dee8ea51d87a358e038b4efe30fac09383c1) // vk.g2_x.X.c1 
-            mstore(add(_vk, 0x6a0), 0x0118c4d5b837bcc2bc89b5b398b5974e9f5944073b32078b7e231fec938883b0) // vk.g2_x.X.c0 
-            mstore(add(_vk, 0x6c0), 0x04fc6369f7110fe3d25156c1bb9a72859cf2a04641f99ba4ee413c80da6a5fe4) // vk.g2_x.Y.c1 
-            mstore(add(_vk, 0x6e0), 0x22febda3c0c0632a56475b4214e5615e11e6dd3f96e6cea2854a87d4dacc5e55) // vk.g2_x.Y.c0 
-            mstore(_omegaInverseLoc, 0x244cf010c43ca87237d8b00bf9dd50c4c01c7f086bd4e8c920e75251d96f0d22) // vk.work_root_inverse
-        }
-    }
+pragma solidity ^0.8.27;
+
+interface IVerifier {
+    function verify(bytes calldata _proof, bytes32[] calldata _publicInputs) external view returns (bool);
 }
 
 /**
- * @title Ultra Plonk proof verification contract
- * @dev Top level Plonk proof verification contract, which allows Plonk proof to be verified
+ * @notice  Library of error codes
+ * @dev     You can run `forge inspect Errors errors` to get the selectors for the optimised verifier
  */
-abstract contract BaseUltraVerifier {
-    // VERIFICATION KEY MEMORY LOCATIONS
-    uint256 internal constant N_LOC = 0x380;
-    uint256 internal constant NUM_INPUTS_LOC = 0x3a0;
-    uint256 internal constant OMEGA_LOC = 0x3c0;
-    uint256 internal constant DOMAIN_INVERSE_LOC = 0x3e0;
-    uint256 internal constant Q1_X_LOC = 0x400;
-    uint256 internal constant Q1_Y_LOC = 0x420;
-    uint256 internal constant Q2_X_LOC = 0x440;
-    uint256 internal constant Q2_Y_LOC = 0x460;
-    uint256 internal constant Q3_X_LOC = 0x480;
-    uint256 internal constant Q3_Y_LOC = 0x4a0;
-    uint256 internal constant Q4_X_LOC = 0x4c0;
-    uint256 internal constant Q4_Y_LOC = 0x4e0;
-    uint256 internal constant QM_X_LOC = 0x500;
-    uint256 internal constant QM_Y_LOC = 0x520;
-    uint256 internal constant QC_X_LOC = 0x540;
-    uint256 internal constant QC_Y_LOC = 0x560;
-    uint256 internal constant QARITH_X_LOC = 0x580;
-    uint256 internal constant QARITH_Y_LOC = 0x5a0;
-    uint256 internal constant QSORT_X_LOC = 0x5c0;
-    uint256 internal constant QSORT_Y_LOC = 0x5e0;
-    uint256 internal constant QELLIPTIC_X_LOC = 0x600;
-    uint256 internal constant QELLIPTIC_Y_LOC = 0x620;
-    uint256 internal constant QAUX_X_LOC = 0x640;
-    uint256 internal constant QAUX_Y_LOC = 0x660;
-    uint256 internal constant SIGMA1_X_LOC = 0x680;
-    uint256 internal constant SIGMA1_Y_LOC = 0x6a0;
-    uint256 internal constant SIGMA2_X_LOC = 0x6c0;
-    uint256 internal constant SIGMA2_Y_LOC = 0x6e0;
-    uint256 internal constant SIGMA3_X_LOC = 0x700;
-    uint256 internal constant SIGMA3_Y_LOC = 0x720;
-    uint256 internal constant SIGMA4_X_LOC = 0x740;
-    uint256 internal constant SIGMA4_Y_LOC = 0x760;
-    uint256 internal constant TABLE1_X_LOC = 0x780;
-    uint256 internal constant TABLE1_Y_LOC = 0x7a0;
-    uint256 internal constant TABLE2_X_LOC = 0x7c0;
-    uint256 internal constant TABLE2_Y_LOC = 0x7e0;
-    uint256 internal constant TABLE3_X_LOC = 0x800;
-    uint256 internal constant TABLE3_Y_LOC = 0x820;
-    uint256 internal constant TABLE4_X_LOC = 0x840;
-    uint256 internal constant TABLE4_Y_LOC = 0x860;
-    uint256 internal constant TABLE_TYPE_X_LOC = 0x880;
-    uint256 internal constant TABLE_TYPE_Y_LOC = 0x8a0;
-    uint256 internal constant ID1_X_LOC = 0x8c0;
-    uint256 internal constant ID1_Y_LOC = 0x8e0;
-    uint256 internal constant ID2_X_LOC = 0x900;
-    uint256 internal constant ID2_Y_LOC = 0x920;
-    uint256 internal constant ID3_X_LOC = 0x940;
-    uint256 internal constant ID3_Y_LOC = 0x960;
-    uint256 internal constant ID4_X_LOC = 0x980;
-    uint256 internal constant ID4_Y_LOC = 0x9a0;
-    uint256 internal constant CONTAINS_RECURSIVE_PROOF_LOC = 0x9c0;
-    uint256 internal constant RECURSIVE_PROOF_PUBLIC_INPUT_INDICES_LOC = 0x9e0;
-    uint256 internal constant G2X_X0_LOC = 0xa00;
-    uint256 internal constant G2X_X1_LOC = 0xa20;
-    uint256 internal constant G2X_Y0_LOC = 0xa40;
-    uint256 internal constant G2X_Y1_LOC = 0xa60;
+library Errors {
+    error ValueGeLimbMax();
+    error ValueGeGroupOrder();
+    error ValueGeFieldOrder();
 
-    // ### PROOF DATA MEMORY LOCATIONS
-    uint256 internal constant W1_X_LOC = 0x1200;
-    uint256 internal constant W1_Y_LOC = 0x1220;
-    uint256 internal constant W2_X_LOC = 0x1240;
-    uint256 internal constant W2_Y_LOC = 0x1260;
-    uint256 internal constant W3_X_LOC = 0x1280;
-    uint256 internal constant W3_Y_LOC = 0x12a0;
-    uint256 internal constant W4_X_LOC = 0x12c0;
-    uint256 internal constant W4_Y_LOC = 0x12e0;
-    uint256 internal constant S_X_LOC = 0x1300;
-    uint256 internal constant S_Y_LOC = 0x1320;
-    uint256 internal constant Z_X_LOC = 0x1340;
-    uint256 internal constant Z_Y_LOC = 0x1360;
-    uint256 internal constant Z_LOOKUP_X_LOC = 0x1380;
-    uint256 internal constant Z_LOOKUP_Y_LOC = 0x13a0;
-    uint256 internal constant T1_X_LOC = 0x13c0;
-    uint256 internal constant T1_Y_LOC = 0x13e0;
-    uint256 internal constant T2_X_LOC = 0x1400;
-    uint256 internal constant T2_Y_LOC = 0x1420;
-    uint256 internal constant T3_X_LOC = 0x1440;
-    uint256 internal constant T3_Y_LOC = 0x1460;
-    uint256 internal constant T4_X_LOC = 0x1480;
-    uint256 internal constant T4_Y_LOC = 0x14a0;
+    error InvertOfZero();
+    error NotPowerOfTwo();
+    error ModExpFailed();
 
-    uint256 internal constant W1_EVAL_LOC = 0x1600;
-    uint256 internal constant W2_EVAL_LOC = 0x1620;
-    uint256 internal constant W3_EVAL_LOC = 0x1640;
-    uint256 internal constant W4_EVAL_LOC = 0x1660;
-    uint256 internal constant S_EVAL_LOC = 0x1680;
-    uint256 internal constant Z_EVAL_LOC = 0x16a0;
-    uint256 internal constant Z_LOOKUP_EVAL_LOC = 0x16c0;
-    uint256 internal constant Q1_EVAL_LOC = 0x16e0;
-    uint256 internal constant Q2_EVAL_LOC = 0x1700;
-    uint256 internal constant Q3_EVAL_LOC = 0x1720;
-    uint256 internal constant Q4_EVAL_LOC = 0x1740;
-    uint256 internal constant QM_EVAL_LOC = 0x1760;
-    uint256 internal constant QC_EVAL_LOC = 0x1780;
-    uint256 internal constant QARITH_EVAL_LOC = 0x17a0;
-    uint256 internal constant QSORT_EVAL_LOC = 0x17c0;
-    uint256 internal constant QELLIPTIC_EVAL_LOC = 0x17e0;
-    uint256 internal constant QAUX_EVAL_LOC = 0x1800;
-    uint256 internal constant TABLE1_EVAL_LOC = 0x1840;
-    uint256 internal constant TABLE2_EVAL_LOC = 0x1860;
-    uint256 internal constant TABLE3_EVAL_LOC = 0x1880;
-    uint256 internal constant TABLE4_EVAL_LOC = 0x18a0;
-    uint256 internal constant TABLE_TYPE_EVAL_LOC = 0x18c0;
-    uint256 internal constant ID1_EVAL_LOC = 0x18e0;
-    uint256 internal constant ID2_EVAL_LOC = 0x1900;
-    uint256 internal constant ID3_EVAL_LOC = 0x1920;
-    uint256 internal constant ID4_EVAL_LOC = 0x1940;
-    uint256 internal constant SIGMA1_EVAL_LOC = 0x1960;
-    uint256 internal constant SIGMA2_EVAL_LOC = 0x1980;
-    uint256 internal constant SIGMA3_EVAL_LOC = 0x19a0;
-    uint256 internal constant SIGMA4_EVAL_LOC = 0x19c0;
-    uint256 internal constant W1_OMEGA_EVAL_LOC = 0x19e0;
-    uint256 internal constant W2_OMEGA_EVAL_LOC = 0x2000;
-    uint256 internal constant W3_OMEGA_EVAL_LOC = 0x2020;
-    uint256 internal constant W4_OMEGA_EVAL_LOC = 0x2040;
-    uint256 internal constant S_OMEGA_EVAL_LOC = 0x2060;
-    uint256 internal constant Z_OMEGA_EVAL_LOC = 0x2080;
-    uint256 internal constant Z_LOOKUP_OMEGA_EVAL_LOC = 0x20a0;
-    uint256 internal constant TABLE1_OMEGA_EVAL_LOC = 0x20c0;
-    uint256 internal constant TABLE2_OMEGA_EVAL_LOC = 0x20e0;
-    uint256 internal constant TABLE3_OMEGA_EVAL_LOC = 0x2100;
-    uint256 internal constant TABLE4_OMEGA_EVAL_LOC = 0x2120;
+    error ProofLengthWrong();
+    error ProofLengthWrongWithLogN(uint256 logN, uint256 actualLength, uint256 expectedLength);
+    error PublicInputsLengthWrong();
+    error SumcheckFailed();
+    error ShpleminiFailed();
 
-    uint256 internal constant PI_Z_X_LOC = 0x2300;
-    uint256 internal constant PI_Z_Y_LOC = 0x2320;
-    uint256 internal constant PI_Z_OMEGA_X_LOC = 0x2340;
-    uint256 internal constant PI_Z_OMEGA_Y_LOC = 0x2360;
+    error PointAtInfinity();
 
-    // Used for elliptic widget. These are alias names for wire + shifted wire evaluations
-    uint256 internal constant X1_EVAL_LOC = W2_EVAL_LOC;
-    uint256 internal constant X2_EVAL_LOC = W1_OMEGA_EVAL_LOC;
-    uint256 internal constant X3_EVAL_LOC = W2_OMEGA_EVAL_LOC;
-    uint256 internal constant Y1_EVAL_LOC = W3_EVAL_LOC;
-    uint256 internal constant Y2_EVAL_LOC = W4_OMEGA_EVAL_LOC;
-    uint256 internal constant Y3_EVAL_LOC = W3_OMEGA_EVAL_LOC;
-    uint256 internal constant QBETA_LOC = Q3_EVAL_LOC;
-    uint256 internal constant QBETA_SQR_LOC = Q4_EVAL_LOC;
-    uint256 internal constant QSIGN_LOC = Q1_EVAL_LOC;
+    error ConsistencyCheckFailed();
+    error GeminiChallengeInSubgroup();
+}
 
-    // ### CHALLENGES MEMORY OFFSETS
+type Fr is uint256;
 
-    uint256 internal constant C_BETA_LOC = 0x2600;
-    uint256 internal constant C_GAMMA_LOC = 0x2620;
-    uint256 internal constant C_ALPHA_LOC = 0x2640;
-    uint256 internal constant C_ETA_LOC = 0x2660;
-    uint256 internal constant C_ETA_SQR_LOC = 0x2680;
-    uint256 internal constant C_ETA_CUBE_LOC = 0x26a0;
+using {add as +} for Fr global;
+using {sub as -} for Fr global;
+using {mul as *} for Fr global;
 
-    uint256 internal constant C_ZETA_LOC = 0x26c0;
-    uint256 internal constant C_CURRENT_LOC = 0x26e0;
-    uint256 internal constant C_V0_LOC = 0x2700;
-    uint256 internal constant C_V1_LOC = 0x2720;
-    uint256 internal constant C_V2_LOC = 0x2740;
-    uint256 internal constant C_V3_LOC = 0x2760;
-    uint256 internal constant C_V4_LOC = 0x2780;
-    uint256 internal constant C_V5_LOC = 0x27a0;
-    uint256 internal constant C_V6_LOC = 0x27c0;
-    uint256 internal constant C_V7_LOC = 0x27e0;
-    uint256 internal constant C_V8_LOC = 0x2800;
-    uint256 internal constant C_V9_LOC = 0x2820;
-    uint256 internal constant C_V10_LOC = 0x2840;
-    uint256 internal constant C_V11_LOC = 0x2860;
-    uint256 internal constant C_V12_LOC = 0x2880;
-    uint256 internal constant C_V13_LOC = 0x28a0;
-    uint256 internal constant C_V14_LOC = 0x28c0;
-    uint256 internal constant C_V15_LOC = 0x28e0;
-    uint256 internal constant C_V16_LOC = 0x2900;
-    uint256 internal constant C_V17_LOC = 0x2920;
-    uint256 internal constant C_V18_LOC = 0x2940;
-    uint256 internal constant C_V19_LOC = 0x2960;
-    uint256 internal constant C_V20_LOC = 0x2980;
-    uint256 internal constant C_V21_LOC = 0x29a0;
-    uint256 internal constant C_V22_LOC = 0x29c0;
-    uint256 internal constant C_V23_LOC = 0x29e0;
-    uint256 internal constant C_V24_LOC = 0x2a00;
-    uint256 internal constant C_V25_LOC = 0x2a20;
-    uint256 internal constant C_V26_LOC = 0x2a40;
-    uint256 internal constant C_V27_LOC = 0x2a60;
-    uint256 internal constant C_V28_LOC = 0x2a80;
-    uint256 internal constant C_V29_LOC = 0x2aa0;
-    uint256 internal constant C_V30_LOC = 0x2ac0;
+using {notEqual as !=} for Fr global;
+using {equal as ==} for Fr global;
 
-    uint256 internal constant C_U_LOC = 0x2b00;
+uint256 constant SUBGROUP_SIZE = 256;
+uint256 constant MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617; // Prime field order
+uint256 constant P = MODULUS;
+Fr constant SUBGROUP_GENERATOR = Fr.wrap(0x07b0c561a6148404f086204a9f36ffb0617942546750f230c893619174a57a76);
+Fr constant SUBGROUP_GENERATOR_INVERSE = Fr.wrap(0x204bd3277422fad364751ad938e2b5e6a54cf8c68712848a692c553d0329f5d6);
+Fr constant MINUS_ONE = Fr.wrap(MODULUS - 1);
+Fr constant ONE = Fr.wrap(1);
+Fr constant ZERO = Fr.wrap(0);
+// Instantiation
 
-    // ### LOCAL VARIABLES MEMORY OFFSETS
-    uint256 internal constant DELTA_NUMERATOR_LOC = 0x3000;
-    uint256 internal constant DELTA_DENOMINATOR_LOC = 0x3020;
-    uint256 internal constant ZETA_POW_N_LOC = 0x3040;
-    uint256 internal constant PUBLIC_INPUT_DELTA_LOC = 0x3060;
-    uint256 internal constant ZERO_POLY_LOC = 0x3080;
-    uint256 internal constant L_START_LOC = 0x30a0;
-    uint256 internal constant L_END_LOC = 0x30c0;
-    uint256 internal constant R_ZERO_EVAL_LOC = 0x30e0;
+library FrLib {
+    bytes4 internal constant FRLIB_MODEXP_FAILED_SELECTOR = 0xf8d61709;
 
-    uint256 internal constant PLOOKUP_DELTA_NUMERATOR_LOC = 0x3100;
-    uint256 internal constant PLOOKUP_DELTA_DENOMINATOR_LOC = 0x3120;
-    uint256 internal constant PLOOKUP_DELTA_LOC = 0x3140;
+    function invert(Fr value) internal view returns (Fr) {
+        uint256 v = Fr.unwrap(value);
+        require(v != 0, Errors.InvertOfZero());
 
-    uint256 internal constant ACCUMULATOR_X_LOC = 0x3160;
-    uint256 internal constant ACCUMULATOR_Y_LOC = 0x3180;
-    uint256 internal constant ACCUMULATOR2_X_LOC = 0x31a0;
-    uint256 internal constant ACCUMULATOR2_Y_LOC = 0x31c0;
-    uint256 internal constant PAIRING_LHS_X_LOC = 0x31e0;
-    uint256 internal constant PAIRING_LHS_Y_LOC = 0x3200;
-    uint256 internal constant PAIRING_RHS_X_LOC = 0x3220;
-    uint256 internal constant PAIRING_RHS_Y_LOC = 0x3240;
+        uint256 result;
 
-    // misc stuff
-    uint256 internal constant OMEGA_INVERSE_LOC = 0x3300;
-    uint256 internal constant C_ALPHA_SQR_LOC = 0x3320;
-    uint256 internal constant C_ALPHA_CUBE_LOC = 0x3340;
-    uint256 internal constant C_ALPHA_QUAD_LOC = 0x3360;
-    uint256 internal constant C_ALPHA_BASE_LOC = 0x3380;
-
-    // ### RECURSION VARIABLE MEMORY LOCATIONS
-    uint256 internal constant RECURSIVE_P1_X_LOC = 0x3400;
-    uint256 internal constant RECURSIVE_P1_Y_LOC = 0x3420;
-    uint256 internal constant RECURSIVE_P2_X_LOC = 0x3440;
-    uint256 internal constant RECURSIVE_P2_Y_LOC = 0x3460;
-    uint256 internal constant PUBLIC_INPUTS_HASH_LOCATION = 0x3480;
-
-    // sub-identity storage
-    uint256 internal constant PERMUTATION_IDENTITY = 0x3500;
-    uint256 internal constant PLOOKUP_IDENTITY = 0x3520;
-    uint256 internal constant ARITHMETIC_IDENTITY = 0x3540;
-    uint256 internal constant SORT_IDENTITY = 0x3560;
-    uint256 internal constant ELLIPTIC_IDENTITY = 0x3580;
-    uint256 internal constant AUX_IDENTITY = 0x35a0;
-    uint256 internal constant AUX_NON_NATIVE_FIELD_EVALUATION = 0x35c0;
-    uint256 internal constant AUX_LIMB_ACCUMULATOR_EVALUATION = 0x35e0;
-    uint256 internal constant AUX_RAM_CONSISTENCY_EVALUATION = 0x3600;
-    uint256 internal constant AUX_ROM_CONSISTENCY_EVALUATION = 0x3620;
-    uint256 internal constant AUX_MEMORY_EVALUATION = 0x3640;
-
-    uint256 internal constant QUOTIENT_EVAL_LOC = 0x3660;
-    uint256 internal constant ZERO_POLY_INVERSE_LOC = 0x3680;
-
-    // when hashing public inputs we use memory at NU_CHALLENGE_INPUT_LOC_A, as the hash input size is unknown at compile time
-    uint256 internal constant NU_CHALLENGE_INPUT_LOC_A = 0x36a0;
-    uint256 internal constant NU_CHALLENGE_INPUT_LOC_B = 0x36c0;
-    uint256 internal constant NU_CHALLENGE_INPUT_LOC_C = 0x36e0;
-
-    bytes4 internal constant INVALID_VERIFICATION_KEY_SELECTOR = 0x7e5769bf;
-    bytes4 internal constant POINT_NOT_ON_CURVE_SELECTOR = 0xa3dad654;
-    bytes4 internal constant PUBLIC_INPUT_INVALID_BN128_G1_POINT_SELECTOR = 0xeba9f4a6;
-    bytes4 internal constant PUBLIC_INPUT_GE_P_SELECTOR = 0x374a972f;
-    bytes4 internal constant MOD_EXP_FAILURE_SELECTOR = 0xf894a7bc;
-    bytes4 internal constant PAIRING_PREAMBLE_FAILED_SELECTOR = 0x01882d81;
-    bytes4 internal constant OPENING_COMMITMENT_FAILED_SELECTOR = 0x4e719763;
-    bytes4 internal constant PAIRING_FAILED_SELECTOR = 0xd71fd263;
-
-    uint256 internal constant ETA_INPUT_LENGTH = 0xc0; // W1, W2, W3 = 6 * 0x20 bytes
-
-    // We need to hash 41 field elements when generating the NU challenge
-    // w1, w2, w3, w4, s, z, z_lookup, q1, q2, q3, q4, qm, qc, qarith (14)
-    // qsort, qelliptic, qaux, sigma1, sigma2, sigma, sigma4, (7)
-    // table1, table2, table3, table4, tabletype, id1, id2, id3, id4, (9)
-    // w1_omega, w2_omega, w3_omega, w4_omega, s_omega, z_omega, z_lookup_omega, (7)
-    // table1_omega, table2_omega, table3_omega, table4_omega (4)
-    uint256 internal constant NU_INPUT_LENGTH = 0x520; // 0x520 = 41 * 0x20
-
-    // There are ELEVEN G1 group elements added into the transcript in the `beta` round, that we need to skip over
-    // W1, W2, W3, W4, S, Z, Z_LOOKUP, T1, T2, T3, T4
-    uint256 internal constant NU_CALLDATA_SKIP_LENGTH = 0x2c0; // 11 * 0x40 = 0x2c0
-
-    uint256 internal constant NEGATIVE_INVERSE_OF_2_MODULO_P =
-        0x183227397098d014dc2822db40c0ac2e9419f4243cdcb848a1f0fac9f8000000;
-    uint256 internal constant LIMB_SIZE = 0x100000000000000000; // 2<<68
-    uint256 internal constant SUBLIMB_SHIFT = 0x4000; // 2<<14
-
-    // y^2 = x^3 + ax + b
-    // for Grumpkin, a = 0 and b = -17. We use b in a custom gate relation that evaluates elliptic curve arithmetic
-    uint256 internal constant GRUMPKIN_CURVE_B_PARAMETER_NEGATED = 17;
-
-    error INVALID_VERIFICATION_KEY();
-    error POINT_NOT_ON_CURVE();
-    error PUBLIC_INPUT_COUNT_INVALID(uint256 expected, uint256 actual);
-    error PUBLIC_INPUT_INVALID_BN128_G1_POINT();
-    error PUBLIC_INPUT_GE_P();
-    error MOD_EXP_FAILURE();
-    error PAIRING_PREAMBLE_FAILED();
-    error OPENING_COMMITMENT_FAILED();
-    error PAIRING_FAILED();
-
-    function getVerificationKeyHash() public pure virtual returns (bytes32);
-
-    /**
-     * @dev We assume that the verification key loaded by this function is constant as we only verify it on deployment
-     */
-    function loadVerificationKey(uint256 _vk, uint256 _omegaInverseLoc) internal pure virtual;
-
-    constructor() { 
-        loadVerificationKey(N_LOC, OMEGA_INVERSE_LOC);
-
-        // We verify that all of the EC points in the verification key lie on the bn128 curve. 
+        // Call the modexp precompile to invert in the field
         assembly {
-            let q := 21888242871839275222246405745257275088696311157297823662689037894645226208583 // EC group order
-
-            let success := 1
-
-            // VALIDATE Q1
-            {
-                let x := mload(Q1_X_LOC)
-                let y := mload(Q1_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
-            }
-            // VALIDATE Q2
-            {
-                let x := mload(Q2_X_LOC)
-                let y := mload(Q2_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
-            }
-            // VALIDATE Q3
-            {
-                let x := mload(Q3_X_LOC)
-                let y := mload(Q3_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
-            }
-            // VALIDATE Q4
-            {
-                let x := mload(Q4_X_LOC)
-                let y := mload(Q4_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
-                mstore(0x00, x)
-                mstore(0x20, y)
-            }
-            // VALIDATE QM
-            {
-                let x := mload(QM_X_LOC)
-                let y := mload(QM_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
-            }
-            // VALIDATE QC
-            {
-                let x := mload(QC_X_LOC)
-                let y := mload(QC_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
-            }
-            // VALIDATE QARITH
-            {
-                let x := mload(QARITH_X_LOC)
-                let y := mload(QARITH_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
-            }
-            // VALIDATE QSORT
-            {
-                let x := mload(QSORT_X_LOC)
-                let y := mload(QSORT_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
-            }
-            // VALIDATE QELLIPTIC
-            {
-                let x := mload(QELLIPTIC_X_LOC)
-                let y := mload(QELLIPTIC_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
-            }
-            // VALIDATE QAUX
-            {
-                let x := mload(QAUX_X_LOC)
-                let y := mload(QAUX_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
-            }
-            // VALIDATE SIGMA1
-            {
-                let x := mload(SIGMA1_X_LOC)
-                let y := mload(SIGMA1_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
-            }
-            // VALIDATE SIGMA2
-            {
-                let x := mload(SIGMA2_X_LOC)
-                let y := mload(SIGMA2_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
-            }
-            // VALIDATE SIGMA3
-            {
-                let x := mload(SIGMA3_X_LOC)
-                let y := mload(SIGMA3_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
-            }
-            // VALIDATE SIGMA4
-            {
-                let x := mload(SIGMA4_X_LOC)
-                let y := mload(SIGMA4_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
-            }
-            // VALIDATE TABLE1
-            {
-                let x := mload(TABLE1_X_LOC)
-                let y := mload(TABLE1_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
-            } 
-            // VALIDATE TABLE2
-            {
-                let x := mload(TABLE2_X_LOC)
-                let y := mload(TABLE2_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
-            } 
-            // VALIDATE TABLE3
-            {
-                let x := mload(TABLE3_X_LOC)
-                let y := mload(TABLE3_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
-            } 
-            // VALIDATE TABLE4
-            {
-                let x := mload(TABLE4_X_LOC)
-                let y := mload(TABLE4_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
-            } 
-            // VALIDATE TABLE_TYPE
-            {
-                let x := mload(TABLE_TYPE_X_LOC)
-                let y := mload(TABLE_TYPE_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
-            }
-            // VALIDATE ID1
-            {
-                let x := mload(ID1_X_LOC)
-                let y := mload(ID1_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
-            }
-            // VALIDATE ID2
-            {
-                let x := mload(ID2_X_LOC)
-                let y := mload(ID2_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
-            }
-            // VALIDATE ID3
-            {
-                let x := mload(ID3_X_LOC)
-                let y := mload(ID3_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
-            }
-            // VALIDATE ID4
-            {
-                let x := mload(ID4_X_LOC)
-                let y := mload(ID4_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                success := and(success, eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q)))
-            }
-
+            let free := mload(0x40)
+            mstore(free, 0x20)
+            mstore(add(free, 0x20), 0x20)
+            mstore(add(free, 0x40), 0x20)
+            mstore(add(free, 0x60), v)
+            mstore(add(free, 0x80), sub(MODULUS, 2)) 
+            mstore(add(free, 0xa0), MODULUS)
+            let success := staticcall(gas(), 0x05, free, 0xc0, 0x00, 0x20)
             if iszero(success) {
-                mstore(0x0, INVALID_VERIFICATION_KEY_SELECTOR)
-                revert(0x00, 0x04)
+                mstore(0x00, FRLIB_MODEXP_FAILED_SELECTOR)
+                revert(0, 0x04)
             }
+            result := mload(0x00)
+            mstore(0x40, add(free, 0xc0))
+        }
+
+        return Fr.wrap(result);
+    }
+
+    function pow(Fr base, uint256 v) internal view returns (Fr) {
+        uint256 b = Fr.unwrap(base);
+        // Only works for power of 2
+        require(v > 0 && (v & (v - 1)) == 0, Errors.NotPowerOfTwo());
+        uint256 result;
+
+        // Call the modexp precompile to invert in the field
+        assembly {
+            let free := mload(0x40)
+            mstore(free, 0x20)
+            mstore(add(free, 0x20), 0x20)
+            mstore(add(free, 0x40), 0x20)
+            mstore(add(free, 0x60), b)
+            mstore(add(free, 0x80), v) 
+            mstore(add(free, 0xa0), MODULUS)
+            let success := staticcall(gas(), 0x05, free, 0xc0, 0x00, 0x20)
+            if iszero(success) {
+                mstore(0x00, FRLIB_MODEXP_FAILED_SELECTOR)
+                revert(0, 0x04)
+            }
+            result := mload(0x00)
+            mstore(0x40, add(free, 0xc0))
+        }
+
+        return Fr.wrap(result);
+    }
+
+    function div(Fr numerator, Fr denominator) internal view returns (Fr) {
+        unchecked {
+            return numerator * invert(denominator);
         }
     }
 
-    /**
-     * @notice Verify a Ultra Plonk proof
-     * @param _proof - The serialized proof
-     * @param _publicInputs - An array of the public inputs
-     * @return True if proof is valid, reverts otherwise
-     */
-    function verify(bytes calldata _proof, bytes32[] calldata _publicInputs) external view returns (bool) {
-        loadVerificationKey(N_LOC, OMEGA_INVERSE_LOC);
-
-        uint256 requiredPublicInputCount;
-        assembly {
-            requiredPublicInputCount := mload(NUM_INPUTS_LOC)
+    function sqr(Fr value) internal pure returns (Fr) {
+        unchecked {
+            return value * value;
         }
-        if (requiredPublicInputCount != _publicInputs.length) {
-            revert PUBLIC_INPUT_COUNT_INVALID(requiredPublicInputCount, _publicInputs.length);
+    }
+
+    function unwrap(Fr value) internal pure returns (uint256) {
+        unchecked {
+            return Fr.unwrap(value);
         }
-
-        assembly {
-            let q := 21888242871839275222246405745257275088696311157297823662689037894645226208583 // EC group order
-            let p := 21888242871839275222246405745257275088548364400416034343698204186575808495617 // Prime field order
-
-            /**
-             * LOAD PROOF FROM CALLDATA
-             */
-            {
-                let data_ptr := add(calldataload(0x04), 0x24)
-
-                mstore(W1_Y_LOC, mod(calldataload(data_ptr), q))
-                mstore(W1_X_LOC, mod(calldataload(add(data_ptr, 0x20)), q))
-
-                mstore(W2_Y_LOC, mod(calldataload(add(data_ptr, 0x40)), q))
-                mstore(W2_X_LOC, mod(calldataload(add(data_ptr, 0x60)), q))
-
-                mstore(W3_Y_LOC, mod(calldataload(add(data_ptr, 0x80)), q))
-                mstore(W3_X_LOC, mod(calldataload(add(data_ptr, 0xa0)), q))
-
-                mstore(W4_Y_LOC, mod(calldataload(add(data_ptr, 0xc0)), q))
-                mstore(W4_X_LOC, mod(calldataload(add(data_ptr, 0xe0)), q))
-
-                mstore(S_Y_LOC, mod(calldataload(add(data_ptr, 0x100)), q))
-                mstore(S_X_LOC, mod(calldataload(add(data_ptr, 0x120)), q))
-                mstore(Z_Y_LOC, mod(calldataload(add(data_ptr, 0x140)), q))
-                mstore(Z_X_LOC, mod(calldataload(add(data_ptr, 0x160)), q))
-                mstore(Z_LOOKUP_Y_LOC, mod(calldataload(add(data_ptr, 0x180)), q))
-                mstore(Z_LOOKUP_X_LOC, mod(calldataload(add(data_ptr, 0x1a0)), q))
-                mstore(T1_Y_LOC, mod(calldataload(add(data_ptr, 0x1c0)), q))
-                mstore(T1_X_LOC, mod(calldataload(add(data_ptr, 0x1e0)), q))
-
-                mstore(T2_Y_LOC, mod(calldataload(add(data_ptr, 0x200)), q))
-                mstore(T2_X_LOC, mod(calldataload(add(data_ptr, 0x220)), q))
-
-                mstore(T3_Y_LOC, mod(calldataload(add(data_ptr, 0x240)), q))
-                mstore(T3_X_LOC, mod(calldataload(add(data_ptr, 0x260)), q))
-
-                mstore(T4_Y_LOC, mod(calldataload(add(data_ptr, 0x280)), q))
-                mstore(T4_X_LOC, mod(calldataload(add(data_ptr, 0x2a0)), q))
-
-                mstore(W1_EVAL_LOC, mod(calldataload(add(data_ptr, 0x2c0)), p))
-                mstore(W2_EVAL_LOC, mod(calldataload(add(data_ptr, 0x2e0)), p))
-                mstore(W3_EVAL_LOC, mod(calldataload(add(data_ptr, 0x300)), p))
-                mstore(W4_EVAL_LOC, mod(calldataload(add(data_ptr, 0x320)), p))
-                mstore(S_EVAL_LOC, mod(calldataload(add(data_ptr, 0x340)), p))
-                mstore(Z_EVAL_LOC, mod(calldataload(add(data_ptr, 0x360)), p))
-                mstore(Z_LOOKUP_EVAL_LOC, mod(calldataload(add(data_ptr, 0x380)), p))
-                mstore(Q1_EVAL_LOC, mod(calldataload(add(data_ptr, 0x3a0)), p))
-                mstore(Q2_EVAL_LOC, mod(calldataload(add(data_ptr, 0x3c0)), p))
-                mstore(Q3_EVAL_LOC, mod(calldataload(add(data_ptr, 0x3e0)), p))
-                mstore(Q4_EVAL_LOC, mod(calldataload(add(data_ptr, 0x400)), p))
-                mstore(QM_EVAL_LOC, mod(calldataload(add(data_ptr, 0x420)), p))
-                mstore(QC_EVAL_LOC, mod(calldataload(add(data_ptr, 0x440)), p))
-                mstore(QARITH_EVAL_LOC, mod(calldataload(add(data_ptr, 0x460)), p))
-                mstore(QSORT_EVAL_LOC, mod(calldataload(add(data_ptr, 0x480)), p))
-                mstore(QELLIPTIC_EVAL_LOC, mod(calldataload(add(data_ptr, 0x4a0)), p))
-                mstore(QAUX_EVAL_LOC, mod(calldataload(add(data_ptr, 0x4c0)), p))
-
-                mstore(SIGMA1_EVAL_LOC, mod(calldataload(add(data_ptr, 0x4e0)), p))
-                mstore(SIGMA2_EVAL_LOC, mod(calldataload(add(data_ptr, 0x500)), p))
-
-                mstore(SIGMA3_EVAL_LOC, mod(calldataload(add(data_ptr, 0x520)), p))
-                mstore(SIGMA4_EVAL_LOC, mod(calldataload(add(data_ptr, 0x540)), p))
-
-                mstore(TABLE1_EVAL_LOC, mod(calldataload(add(data_ptr, 0x560)), p))
-                mstore(TABLE2_EVAL_LOC, mod(calldataload(add(data_ptr, 0x580)), p))
-                mstore(TABLE3_EVAL_LOC, mod(calldataload(add(data_ptr, 0x5a0)), p))
-                mstore(TABLE4_EVAL_LOC, mod(calldataload(add(data_ptr, 0x5c0)), p))
-                mstore(TABLE_TYPE_EVAL_LOC, mod(calldataload(add(data_ptr, 0x5e0)), p))
-
-                mstore(ID1_EVAL_LOC, mod(calldataload(add(data_ptr, 0x600)), p))
-                mstore(ID2_EVAL_LOC, mod(calldataload(add(data_ptr, 0x620)), p))
-                mstore(ID3_EVAL_LOC, mod(calldataload(add(data_ptr, 0x640)), p))
-                mstore(ID4_EVAL_LOC, mod(calldataload(add(data_ptr, 0x660)), p))
-
-                mstore(W1_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x680)), p))
-                mstore(W2_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x6a0)), p))
-                mstore(W3_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x6c0)), p))
-                mstore(W4_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x6e0)), p))
-                mstore(S_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x700)), p))
-
-                mstore(Z_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x720)), p))
-
-                mstore(Z_LOOKUP_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x740)), p))
-                mstore(TABLE1_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x760)), p))
-                mstore(TABLE2_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x780)), p))
-                mstore(TABLE3_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x7a0)), p))
-                mstore(TABLE4_OMEGA_EVAL_LOC, mod(calldataload(add(data_ptr, 0x7c0)), p))
-
-                mstore(PI_Z_Y_LOC, mod(calldataload(add(data_ptr, 0x7e0)), q))
-                mstore(PI_Z_X_LOC, mod(calldataload(add(data_ptr, 0x800)), q))
-
-                mstore(PI_Z_OMEGA_Y_LOC, mod(calldataload(add(data_ptr, 0x820)), q))
-                mstore(PI_Z_OMEGA_X_LOC, mod(calldataload(add(data_ptr, 0x840)), q))
-            }
-
-            /**
-             * LOAD RECURSIVE PROOF INTO MEMORY
-             */
-            {
-                if mload(CONTAINS_RECURSIVE_PROOF_LOC) {
-                    let public_inputs_ptr := add(calldataload(0x24), 0x24)
-                    let index_counter := add(shl(5, mload(RECURSIVE_PROOF_PUBLIC_INPUT_INDICES_LOC)), public_inputs_ptr)
-
-                    let x0 := calldataload(index_counter)
-                    x0 := add(x0, shl(68, calldataload(add(index_counter, 0x20))))
-                    x0 := add(x0, shl(136, calldataload(add(index_counter, 0x40))))
-                    x0 := add(x0, shl(204, calldataload(add(index_counter, 0x60))))
-                    let y0 := calldataload(add(index_counter, 0x80))
-                    y0 := add(y0, shl(68, calldataload(add(index_counter, 0xa0))))
-                    y0 := add(y0, shl(136, calldataload(add(index_counter, 0xc0))))
-                    y0 := add(y0, shl(204, calldataload(add(index_counter, 0xe0))))
-                    let x1 := calldataload(add(index_counter, 0x100))
-                    x1 := add(x1, shl(68, calldataload(add(index_counter, 0x120))))
-                    x1 := add(x1, shl(136, calldataload(add(index_counter, 0x140))))
-                    x1 := add(x1, shl(204, calldataload(add(index_counter, 0x160))))
-                    let y1 := calldataload(add(index_counter, 0x180))
-                    y1 := add(y1, shl(68, calldataload(add(index_counter, 0x1a0))))
-                    y1 := add(y1, shl(136, calldataload(add(index_counter, 0x1c0))))
-                    y1 := add(y1, shl(204, calldataload(add(index_counter, 0x1e0))))
-                    mstore(RECURSIVE_P1_X_LOC, x0)
-                    mstore(RECURSIVE_P1_Y_LOC, y0)
-                    mstore(RECURSIVE_P2_X_LOC, x1)
-                    mstore(RECURSIVE_P2_Y_LOC, y1)
-
-                    // validate these are valid bn128 G1 points
-                    if iszero(and(and(lt(x0, q), lt(x1, q)), and(lt(y0, q), lt(y1, q)))) {
-                        mstore(0x00, PUBLIC_INPUT_INVALID_BN128_G1_POINT_SELECTOR)
-                        revert(0x00, 0x04)
-                    }
-                }
-            }
-
-            {
-                /**
-                 * Generate initial challenge
-                 */
-                mstore(0x00, shl(224, mload(N_LOC)))
-                mstore(0x04, shl(224, mload(NUM_INPUTS_LOC)))
-                let challenge := keccak256(0x00, 0x08)
-
-                /**
-                 * Generate eta challenge
-                 */
-                mstore(PUBLIC_INPUTS_HASH_LOCATION, challenge)
-                // The public input location is stored at 0x24, we then add 0x24 to skip selector and the length of public inputs
-                let public_inputs_start := add(calldataload(0x24), 0x24)
-                // copy the public inputs over
-                let public_input_size := mul(mload(NUM_INPUTS_LOC), 0x20)
-                calldatacopy(add(PUBLIC_INPUTS_HASH_LOCATION, 0x20), public_inputs_start, public_input_size)
-
-                // copy W1, W2, W3 into challenge. Each point is 0x40 bytes, so load 0xc0 = 3 * 0x40 bytes (ETA input length)
-                let w_start := add(calldataload(0x04), 0x24)
-                calldatacopy(add(add(PUBLIC_INPUTS_HASH_LOCATION, 0x20), public_input_size), w_start, ETA_INPUT_LENGTH)
-
-                // Challenge is the old challenge + public inputs + W1, W2, W3 (0x20 + public_input_size + 0xc0)
-                let challenge_bytes_size := add(0x20, add(public_input_size, ETA_INPUT_LENGTH))
-
-                challenge := keccak256(PUBLIC_INPUTS_HASH_LOCATION, challenge_bytes_size)
-                {
-                    let eta := mod(challenge, p)
-                    mstore(C_ETA_LOC, eta)
-                    mstore(C_ETA_SQR_LOC, mulmod(eta, eta, p))
-                    mstore(C_ETA_CUBE_LOC, mulmod(mload(C_ETA_SQR_LOC), eta, p))
-                }
-
-                /**
-                 * Generate beta challenge
-                 */
-                mstore(0x00, challenge)
-                mstore(0x20, mload(W4_Y_LOC))
-                mstore(0x40, mload(W4_X_LOC))
-                mstore(0x60, mload(S_Y_LOC))
-                mstore(0x80, mload(S_X_LOC))
-                challenge := keccak256(0x00, 0xa0)
-                mstore(C_BETA_LOC, mod(challenge, p))
-
-                /**
-                 * Generate gamma challenge
-                 */
-                mstore(0x00, challenge)
-                mstore8(0x20, 0x01)
-                challenge := keccak256(0x00, 0x21)
-                mstore(C_GAMMA_LOC, mod(challenge, p))
-
-                /**
-                 * Generate alpha challenge
-                 */
-                mstore(0x00, challenge)
-                mstore(0x20, mload(Z_Y_LOC))
-                mstore(0x40, mload(Z_X_LOC))
-                mstore(0x60, mload(Z_LOOKUP_Y_LOC))
-                mstore(0x80, mload(Z_LOOKUP_X_LOC))
-                challenge := keccak256(0x00, 0xa0)
-                mstore(C_ALPHA_LOC, mod(challenge, p))
-
-                /**
-                 * Compute and store some powers of alpha for future computations
-                 */
-                let alpha := mload(C_ALPHA_LOC)
-                mstore(C_ALPHA_SQR_LOC, mulmod(alpha, alpha, p))
-                mstore(C_ALPHA_CUBE_LOC, mulmod(mload(C_ALPHA_SQR_LOC), alpha, p))
-                mstore(C_ALPHA_QUAD_LOC, mulmod(mload(C_ALPHA_CUBE_LOC), alpha, p))
-                mstore(C_ALPHA_BASE_LOC, alpha)
-
-                /**
-                 * Generate zeta challenge
-                 */
-                mstore(0x00, challenge)
-                mstore(0x20, mload(T1_Y_LOC))
-                mstore(0x40, mload(T1_X_LOC))
-                mstore(0x60, mload(T2_Y_LOC))
-                mstore(0x80, mload(T2_X_LOC))
-                mstore(0xa0, mload(T3_Y_LOC))
-                mstore(0xc0, mload(T3_X_LOC))
-                mstore(0xe0, mload(T4_Y_LOC))
-                mstore(0x100, mload(T4_X_LOC))
-
-                challenge := keccak256(0x00, 0x120)
-
-                mstore(C_ZETA_LOC, mod(challenge, p))
-                mstore(C_CURRENT_LOC, challenge)
-            }
-
-            /**
-             * EVALUATE FIELD OPERATIONS
-             */
-
-            /**
-             * COMPUTE PUBLIC INPUT DELTA
-             * ΔPI = ∏ᵢ∈ℓ(wᵢ + β σ(i) + γ) / ∏ᵢ∈ℓ(wᵢ + β σ'(i) + γ)
-             */
-            {
-                let beta := mload(C_BETA_LOC) // β
-                let gamma := mload(C_GAMMA_LOC) // γ
-                let work_root := mload(OMEGA_LOC) // ω
-                let numerator_value := 1
-                let denominator_value := 1
-
-                let p_clone := p // move p to the front of the stack
-                let valid_inputs := true
-
-                // Load the starting point of the public inputs (jump over the selector and the length of public inputs [0x24])
-                let public_inputs_ptr := add(calldataload(0x24), 0x24)
-
-                // endpoint_ptr = public_inputs_ptr + num_inputs * 0x20. // every public input is 0x20 bytes
-                let endpoint_ptr := add(public_inputs_ptr, mul(mload(NUM_INPUTS_LOC), 0x20))
-
-                // root_1 = β * 0x05
-                let root_1 := mulmod(beta, 0x05, p_clone) // k1.β
-                // root_2 = β * 0x0c
-                let root_2 := mulmod(beta, 0x0c, p_clone)
-                // @note 0x05 + 0x07 == 0x0c == external coset generator
-
-                for {} lt(public_inputs_ptr, endpoint_ptr) { public_inputs_ptr := add(public_inputs_ptr, 0x20) } {
-                    /**
-                     * input = public_input[i]
-                     * valid_inputs &= input < p
-                     * temp = input + gamma
-                     * numerator_value *= (β.σ(i) + wᵢ + γ)  // σ(i) = 0x05.ωⁱ
-                     * denominator_value *= (β.σ'(i) + wᵢ + γ) // σ'(i) = 0x0c.ωⁱ
-                     * root_1 *= ω
-                     * root_2 *= ω
-                     */
-
-                    let input := calldataload(public_inputs_ptr)
-                    valid_inputs := and(valid_inputs, lt(input, p_clone))
-                    let temp := addmod(input, gamma, p_clone)
-
-                    numerator_value := mulmod(numerator_value, add(root_1, temp), p_clone)
-                    denominator_value := mulmod(denominator_value, add(root_2, temp), p_clone)
-
-                    root_1 := mulmod(root_1, work_root, p_clone)
-                    root_2 := mulmod(root_2, work_root, p_clone)
-                }
-
-                // Revert if not all public inputs are field elements (i.e. < p)
-                if iszero(valid_inputs) {
-                    mstore(0x00, PUBLIC_INPUT_GE_P_SELECTOR)
-                    revert(0x00, 0x04)
-                }
-
-                mstore(DELTA_NUMERATOR_LOC, numerator_value)
-                mstore(DELTA_DENOMINATOR_LOC, denominator_value)
-            }
-
-            /**
-             * Compute Plookup delta factor [γ(1 + β)]^{n-k}
-             * k = num roots cut out of Z_H = 4
-             */
-            {
-                let delta_base := mulmod(mload(C_GAMMA_LOC), addmod(mload(C_BETA_LOC), 1, p), p)
-                let delta_numerator := delta_base
-                {
-                    let exponent := mload(N_LOC)
-                    let count := 1
-                    for {} lt(count, exponent) { count := add(count, count) } {
-                        delta_numerator := mulmod(delta_numerator, delta_numerator, p)
-                    }
-                }
-                mstore(PLOOKUP_DELTA_NUMERATOR_LOC, delta_numerator)
-
-                let delta_denominator := mulmod(delta_base, delta_base, p)
-                delta_denominator := mulmod(delta_denominator, delta_denominator, p)
-                mstore(PLOOKUP_DELTA_DENOMINATOR_LOC, delta_denominator)
-            }
-            /**
-             * Compute lagrange poly and vanishing poly fractions
-             */
-            {
-                /**
-                 * vanishing_numerator = zeta
-                 * ZETA_POW_N = zeta^n
-                 * vanishing_numerator -= 1
-                 * accumulating_root = omega_inverse
-                 * work_root = p - accumulating_root
-                 * domain_inverse = domain_inverse
-                 * vanishing_denominator = zeta + work_root
-                 * work_root *= accumulating_root
-                 * vanishing_denominator *= (zeta + work_root)
-                 * work_root *= accumulating_root
-                 * vanishing_denominator *= (zeta + work_root)
-                 * vanishing_denominator *= (zeta + (zeta + accumulating_root))
-                 * work_root = omega
-                 * lagrange_numerator = vanishing_numerator * domain_inverse
-                 * l_start_denominator = zeta - 1
-                 * accumulating_root = work_root^2
-                 * l_end_denominator = accumulating_root^2 * work_root * zeta - 1
-                 * Note: l_end_denominator term contains a term \omega^5 to cut out 5 roots of unity from vanishing poly
-                 */
-
-                let zeta := mload(C_ZETA_LOC)
-
-                // compute zeta^n, where n is a power of 2
-                let vanishing_numerator := zeta
-                {
-                    // pow_small
-                    let exponent := mload(N_LOC)
-                    let count := 1
-                    for {} lt(count, exponent) { count := add(count, count) } {
-                        vanishing_numerator := mulmod(vanishing_numerator, vanishing_numerator, p)
-                    }
-                }
-                mstore(ZETA_POW_N_LOC, vanishing_numerator)
-                vanishing_numerator := addmod(vanishing_numerator, sub(p, 1), p)
-
-                let accumulating_root := mload(OMEGA_INVERSE_LOC)
-                let work_root := sub(p, accumulating_root)
-                let domain_inverse := mload(DOMAIN_INVERSE_LOC)
-
-                let vanishing_denominator := addmod(zeta, work_root, p)
-                work_root := mulmod(work_root, accumulating_root, p)
-                vanishing_denominator := mulmod(vanishing_denominator, addmod(zeta, work_root, p), p)
-                work_root := mulmod(work_root, accumulating_root, p)
-                vanishing_denominator := mulmod(vanishing_denominator, addmod(zeta, work_root, p), p)
-                vanishing_denominator :=
-                    mulmod(vanishing_denominator, addmod(zeta, mulmod(work_root, accumulating_root, p), p), p)
-
-                work_root := mload(OMEGA_LOC)
-
-                let lagrange_numerator := mulmod(vanishing_numerator, domain_inverse, p)
-                let l_start_denominator := addmod(zeta, sub(p, 1), p)
-
-                accumulating_root := mulmod(work_root, work_root, p)
-
-                let l_end_denominator :=
-                    addmod(
-                        mulmod(mulmod(mulmod(accumulating_root, accumulating_root, p), work_root, p), zeta, p), sub(p, 1), p
-                    )
-
-                /**
-                 * Compute inversions using Montgomery's batch inversion trick
-                 */
-                let accumulator := mload(DELTA_DENOMINATOR_LOC)
-                let t0 := accumulator
-                accumulator := mulmod(accumulator, vanishing_denominator, p)
-                let t1 := accumulator
-                accumulator := mulmod(accumulator, vanishing_numerator, p)
-                let t2 := accumulator
-                accumulator := mulmod(accumulator, l_start_denominator, p)
-                let t3 := accumulator
-                accumulator := mulmod(accumulator, mload(PLOOKUP_DELTA_DENOMINATOR_LOC), p)
-                let t4 := accumulator
-                {
-                    mstore(0, 0x20)
-                    mstore(0x20, 0x20)
-                    mstore(0x40, 0x20)
-                    mstore(0x60, mulmod(accumulator, l_end_denominator, p))
-                    mstore(0x80, sub(p, 2))
-                    mstore(0xa0, p)
-                    if iszero(staticcall(gas(), 0x05, 0x00, 0xc0, 0x00, 0x20)) {
-                        mstore(0x0, MOD_EXP_FAILURE_SELECTOR)
-                        revert(0x00, 0x04)
-                    }
-                    accumulator := mload(0x00)
-                }
-
-                t4 := mulmod(accumulator, t4, p)
-                accumulator := mulmod(accumulator, l_end_denominator, p)
-
-                t3 := mulmod(accumulator, t3, p)
-                accumulator := mulmod(accumulator, mload(PLOOKUP_DELTA_DENOMINATOR_LOC), p)
-
-                t2 := mulmod(accumulator, t2, p)
-                accumulator := mulmod(accumulator, l_start_denominator, p)
-
-                t1 := mulmod(accumulator, t1, p)
-                accumulator := mulmod(accumulator, vanishing_numerator, p)
-
-                t0 := mulmod(accumulator, t0, p)
-                accumulator := mulmod(accumulator, vanishing_denominator, p)
-
-                accumulator := mulmod(mulmod(accumulator, accumulator, p), mload(DELTA_DENOMINATOR_LOC), p)
-
-                mstore(PUBLIC_INPUT_DELTA_LOC, mulmod(mload(DELTA_NUMERATOR_LOC), accumulator, p))
-                mstore(ZERO_POLY_LOC, mulmod(vanishing_numerator, t0, p))
-                mstore(ZERO_POLY_INVERSE_LOC, mulmod(vanishing_denominator, t1, p))
-                mstore(L_START_LOC, mulmod(lagrange_numerator, t2, p))
-                mstore(PLOOKUP_DELTA_LOC, mulmod(mload(PLOOKUP_DELTA_NUMERATOR_LOC), t3, p))
-                mstore(L_END_LOC, mulmod(lagrange_numerator, t4, p))
-            }
-
-            /**
-             * UltraPlonk Widget Ordering:
-             *
-             * 1. Permutation widget
-             * 2. Plookup widget
-             * 3. Arithmetic widget
-             * 4. Fixed base widget (?)
-             * 5. GenPermSort widget
-             * 6. Elliptic widget
-             * 7. Auxiliary widget
-             */
-
-            /**
-             * COMPUTE PERMUTATION WIDGET EVALUATION
-             */
-            {
-                let alpha := mload(C_ALPHA_LOC)
-                let beta := mload(C_BETA_LOC)
-                let gamma := mload(C_GAMMA_LOC)
-
-                /**
-                 * t1 = (W1 + gamma + beta * ID1) * (W2 + gamma + beta * ID2)
-                 * t2 = (W3 + gamma + beta * ID3) * (W4 + gamma + beta * ID4)
-                 * result = alpha_base * z_eval * t1 * t2
-                 * t1 = (W1 + gamma + beta * sigma_1_eval) * (W2 + gamma + beta * sigma_2_eval)
-                 * t2 = (W2 + gamma + beta * sigma_3_eval) * (W3 + gamma + beta * sigma_4_eval)
-                 * result -= (alpha_base * z_omega_eval * t1 * t2)
-                 */
-                let t1 :=
-                    mulmod(
-                        add(add(mload(W1_EVAL_LOC), gamma), mulmod(beta, mload(ID1_EVAL_LOC), p)),
-                        add(add(mload(W2_EVAL_LOC), gamma), mulmod(beta, mload(ID2_EVAL_LOC), p)),
-                        p
-                    )
-                let t2 :=
-                    mulmod(
-                        add(add(mload(W3_EVAL_LOC), gamma), mulmod(beta, mload(ID3_EVAL_LOC), p)),
-                        add(add(mload(W4_EVAL_LOC), gamma), mulmod(beta, mload(ID4_EVAL_LOC), p)),
-                        p
-                    )
-                let result := mulmod(mload(C_ALPHA_BASE_LOC), mulmod(mload(Z_EVAL_LOC), mulmod(t1, t2, p), p), p)
-                t1 :=
-                    mulmod(
-                        add(add(mload(W1_EVAL_LOC), gamma), mulmod(beta, mload(SIGMA1_EVAL_LOC), p)),
-                        add(add(mload(W2_EVAL_LOC), gamma), mulmod(beta, mload(SIGMA2_EVAL_LOC), p)),
-                        p
-                    )
-                t2 :=
-                    mulmod(
-                        add(add(mload(W3_EVAL_LOC), gamma), mulmod(beta, mload(SIGMA3_EVAL_LOC), p)),
-                        add(add(mload(W4_EVAL_LOC), gamma), mulmod(beta, mload(SIGMA4_EVAL_LOC), p)),
-                        p
-                    )
-                result :=
-                    addmod(
-                        result,
-                        sub(p, mulmod(mload(C_ALPHA_BASE_LOC), mulmod(mload(Z_OMEGA_EVAL_LOC), mulmod(t1, t2, p), p), p)),
-                        p
-                    )
-
-                /**
-                 * alpha_base *= alpha
-                 * result += alpha_base . (L_{n-k}(ʓ) . (z(ʓ.ω) - ∆_{PI}))
-                 * alpha_base *= alpha
-                 * result += alpha_base . (L_1(ʓ)(Z(ʓ) - 1))
-                 * alpha_Base *= alpha
-                 */
-                mstore(C_ALPHA_BASE_LOC, mulmod(mload(C_ALPHA_BASE_LOC), mload(C_ALPHA_LOC), p))
-                result :=
-                    addmod(
-                        result,
-                        mulmod(
-                            mload(C_ALPHA_BASE_LOC),
-                            mulmod(
-                                mload(L_END_LOC),
-                                addmod(mload(Z_OMEGA_EVAL_LOC), sub(p, mload(PUBLIC_INPUT_DELTA_LOC)), p),
-                                p
-                            ),
-                            p
-                        ),
-                        p
-                    )
-                mstore(C_ALPHA_BASE_LOC, mulmod(mload(C_ALPHA_BASE_LOC), mload(C_ALPHA_LOC), p))
-                mstore(
-                    PERMUTATION_IDENTITY,
-                    addmod(
-                        result,
-                        mulmod(
-                            mload(C_ALPHA_BASE_LOC),
-                            mulmod(mload(L_START_LOC), addmod(mload(Z_EVAL_LOC), sub(p, 1), p), p),
-                            p
-                        ),
-                        p
-                    )
-                )
-                mstore(C_ALPHA_BASE_LOC, mulmod(mload(C_ALPHA_BASE_LOC), mload(C_ALPHA_LOC), p))
-            }
-
-            /**
-             * COMPUTE PLOOKUP WIDGET EVALUATION
-             */
-            {
-                /**
-                 * Goal: f = (w1(z) + q2.w1(zω)) + η(w2(z) + qm.w2(zω)) + η²(w3(z) + qc.w_3(zω)) + q3(z).η³
-                 * f = η.q3(z)
-                 * f += (w3(z) + qc.w_3(zω))
-                 * f *= η
-                 * f += (w2(z) + qm.w2(zω))
-                 * f *= η
-                 * f += (w1(z) + q2.w1(zω))
-                 */
-                let f := mulmod(mload(C_ETA_LOC), mload(Q3_EVAL_LOC), p)
-                f :=
-                    addmod(f, addmod(mload(W3_EVAL_LOC), mulmod(mload(QC_EVAL_LOC), mload(W3_OMEGA_EVAL_LOC), p), p), p)
-                f := mulmod(f, mload(C_ETA_LOC), p)
-                f :=
-                    addmod(f, addmod(mload(W2_EVAL_LOC), mulmod(mload(QM_EVAL_LOC), mload(W2_OMEGA_EVAL_LOC), p), p), p)
-                f := mulmod(f, mload(C_ETA_LOC), p)
-                f :=
-                    addmod(f, addmod(mload(W1_EVAL_LOC), mulmod(mload(Q2_EVAL_LOC), mload(W1_OMEGA_EVAL_LOC), p), p), p)
-
-                // t(z) = table4(z).η³ + table3(z).η² + table2(z).η + table1(z)
-                let t :=
-                    addmod(
-                        addmod(
-                            addmod(
-                                mulmod(mload(TABLE4_EVAL_LOC), mload(C_ETA_CUBE_LOC), p),
-                                mulmod(mload(TABLE3_EVAL_LOC), mload(C_ETA_SQR_LOC), p),
-                                p
-                            ),
-                            mulmod(mload(TABLE2_EVAL_LOC), mload(C_ETA_LOC), p),
-                            p
-                        ),
-                        mload(TABLE1_EVAL_LOC),
-                        p
-                    )
-
-                // t(zw) = table4(zw).η³ + table3(zw).η² + table2(zw).η + table1(zw)
-                let t_omega :=
-                    addmod(
-                        addmod(
-                            addmod(
-                                mulmod(mload(TABLE4_OMEGA_EVAL_LOC), mload(C_ETA_CUBE_LOC), p),
-                                mulmod(mload(TABLE3_OMEGA_EVAL_LOC), mload(C_ETA_SQR_LOC), p),
-                                p
-                            ),
-                            mulmod(mload(TABLE2_OMEGA_EVAL_LOC), mload(C_ETA_LOC), p),
-                            p
-                        ),
-                        mload(TABLE1_OMEGA_EVAL_LOC),
-                        p
-                    )
-
-                /**
-                 * Goal: numerator = (TABLE_TYPE_EVAL * f(z) + γ) * (t(z) + βt(zω) + γ(β + 1)) * (β + 1)
-                 * gamma_beta_constant = γ(β + 1)
-                 * numerator = f * TABLE_TYPE_EVAL + gamma
-                 * temp0 = t(z) + t(zω) * β + gamma_beta_constant
-                 * numerator *= temp0
-                 * numerator *= (β + 1)
-                 * temp0 = alpha * l_1
-                 * numerator += temp0
-                 * numerator *= z_lookup(z)
-                 * numerator -= temp0
-                 */
-                let gamma_beta_constant := mulmod(mload(C_GAMMA_LOC), addmod(mload(C_BETA_LOC), 1, p), p)
-                let numerator := addmod(mulmod(f, mload(TABLE_TYPE_EVAL_LOC), p), mload(C_GAMMA_LOC), p)
-                let temp0 := addmod(addmod(t, mulmod(t_omega, mload(C_BETA_LOC), p), p), gamma_beta_constant, p)
-                numerator := mulmod(numerator, temp0, p)
-                numerator := mulmod(numerator, addmod(mload(C_BETA_LOC), 1, p), p)
-                temp0 := mulmod(mload(C_ALPHA_LOC), mload(L_START_LOC), p)
-                numerator := addmod(numerator, temp0, p)
-                numerator := mulmod(numerator, mload(Z_LOOKUP_EVAL_LOC), p)
-                numerator := addmod(numerator, sub(p, temp0), p)
-
-                /**
-                 * Goal: denominator = z_lookup(zω)*[s(z) + βs(zω) + γ(1 + β)] - [z_lookup(zω) - [γ(1 + β)]^{n-k}]*α²L_end(z)
-                 * note: delta_factor = [γ(1 + β)]^{n-k}
-                 * denominator = s(z) + βs(zω) + γ(β + 1)
-                 * temp1 = α²L_end(z)
-                 * denominator -= temp1
-                 * denominator *= z_lookup(zω)
-                 * denominator += temp1 * delta_factor
-                 * PLOOKUP_IDENTITY = (numerator - denominator).alpha_base
-                 * alpha_base *= alpha^3
-                 */
-                let denominator :=
-                    addmod(
-                        addmod(mload(S_EVAL_LOC), mulmod(mload(S_OMEGA_EVAL_LOC), mload(C_BETA_LOC), p), p),
-                        gamma_beta_constant,
-                        p
-                    )
-                let temp1 := mulmod(mload(C_ALPHA_SQR_LOC), mload(L_END_LOC), p)
-                denominator := addmod(denominator, sub(p, temp1), p)
-                denominator := mulmod(denominator, mload(Z_LOOKUP_OMEGA_EVAL_LOC), p)
-                denominator := addmod(denominator, mulmod(temp1, mload(PLOOKUP_DELTA_LOC), p), p)
-
-                mstore(PLOOKUP_IDENTITY, mulmod(addmod(numerator, sub(p, denominator), p), mload(C_ALPHA_BASE_LOC), p))
-
-                // update alpha
-                mstore(C_ALPHA_BASE_LOC, mulmod(mload(C_ALPHA_BASE_LOC), mload(C_ALPHA_CUBE_LOC), p))
-            }
-
-            /**
-             * COMPUTE ARITHMETIC WIDGET EVALUATION
-             */
-            {
-                /**
-                 * The basic arithmetic gate identity in standard plonk is as follows.
-                 * (w_1 . w_2 . q_m) + (w_1 . q_1) + (w_2 . q_2) + (w_3 . q_3) + (w_4 . q_4) + q_c = 0
-                 * However, for Ultraplonk, we extend this to support "passing" wires between rows (shown without alpha scaling below):
-                 * q_arith * ( ( (-1/2) * (q_arith - 3) * q_m * w_1 * w_2 + q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_4 * w_4 + q_c ) +
-                 * (q_arith - 1)*( α * (q_arith - 2) * (w_1 + w_4 - w_1_omega + q_m) + w_4_omega) ) = 0
-                 *
-                 * This formula results in several cases depending on q_arith:
-                 * 1. q_arith == 0: Arithmetic gate is completely disabled
-                 *
-                 * 2. q_arith == 1: Everything in the minigate on the right is disabled. The equation is just a standard plonk equation
-                 * with extra wires: q_m * w_1 * w_2 + q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_4 * w_4 + q_c = 0
-                 *
-                 * 3. q_arith == 2: The (w_1 + w_4 - ...) term is disabled. THe equation is:
-                 * (1/2) * q_m * w_1 * w_2 + q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_4 * w_4 + q_c + w_4_omega = 0
-                 * It allows defining w_4 at next index (w_4_omega) in terms of current wire values
-                 *
-                 * 4. q_arith == 3: The product of w_1 and w_2 is disabled, but a mini addition gate is enabled. α allows us to split
-                 * the equation into two:
-                 *
-                 * q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_4 * w_4 + q_c + 2 * w_4_omega = 0
-                 * and
-                 * w_1 + w_4 - w_1_omega + q_m = 0  (we are reusing q_m here)
-                 *
-                 * 5. q_arith > 3: The product of w_1 and w_2 is scaled by (q_arith - 3), while the w_4_omega term is scaled by (q_arith - 1).
-                 * The equation can be split into two:
-                 *
-                 * (q_arith - 3)* q_m * w_1 * w_ 2 + q_1 * w_1 + q_2 * w_2 + q_3 * w_3 + q_4 * w_4 + q_c + (q_arith - 1) * w_4_omega = 0
-                 * and
-                 * w_1 + w_4 - w_1_omega + q_m = 0
-                 *
-                 * The problem that q_m is used both in both equations can be dealt with by appropriately changing selector values at
-                 * the next gate. Then we can treat (q_arith - 1) as a simulated q_6 selector and scale q_m to handle (q_arith - 3) at
-                 * product.
-                 */
-
-                let w1q1 := mulmod(mload(W1_EVAL_LOC), mload(Q1_EVAL_LOC), p)
-                let w2q2 := mulmod(mload(W2_EVAL_LOC), mload(Q2_EVAL_LOC), p)
-                let w3q3 := mulmod(mload(W3_EVAL_LOC), mload(Q3_EVAL_LOC), p)
-                let w4q3 := mulmod(mload(W4_EVAL_LOC), mload(Q4_EVAL_LOC), p)
-
-                // @todo - Add a explicit test that hits QARITH == 3
-                // w1w2qm := (w_1 . w_2 . q_m . (QARITH_EVAL_LOC - 3)) / 2
-                let w1w2qm :=
-                    mulmod(
-                        mulmod(
-                            mulmod(mulmod(mload(W1_EVAL_LOC), mload(W2_EVAL_LOC), p), mload(QM_EVAL_LOC), p),
-                            addmod(mload(QARITH_EVAL_LOC), sub(p, 3), p),
-                            p
-                        ),
-                        NEGATIVE_INVERSE_OF_2_MODULO_P,
-                        p
-                    )
-
-                // (w_1 . w_2 . q_m . (q_arith - 3)) / -2) + (w_1 . q_1) + (w_2 . q_2) + (w_3 . q_3) + (w_4 . q_4) + q_c
-                let identity :=
-                    addmod(
-                        mload(QC_EVAL_LOC), addmod(w4q3, addmod(w3q3, addmod(w2q2, addmod(w1q1, w1w2qm, p), p), p), p), p
-                    )
-
-                // if q_arith == 3 we evaluate an additional mini addition gate (on top of the regular one), where:
-                // w_1 + w_4 - w_1_omega + q_m = 0
-                // we use this gate to save an addition gate when adding or subtracting non-native field elements
-                // α * (q_arith - 2) * (w_1 + w_4 - w_1_omega + q_m)
-                let extra_small_addition_gate_identity :=
-                    mulmod(
-                        mload(C_ALPHA_LOC),
-                        mulmod(
-                            addmod(mload(QARITH_EVAL_LOC), sub(p, 2), p),
-                            addmod(
-                                mload(QM_EVAL_LOC),
-                                addmod(
-                                    sub(p, mload(W1_OMEGA_EVAL_LOC)), addmod(mload(W1_EVAL_LOC), mload(W4_EVAL_LOC), p), p
-                                ),
-                                p
-                            ),
-                            p
-                        ),
-                        p
-                    )
-
-                // if q_arith == 2 OR q_arith == 3 we add the 4th wire of the NEXT gate into the arithmetic identity
-                // N.B. if q_arith > 2, this wire value will be scaled by (q_arith - 1) relative to the other gate wires!
-                // alpha_base * q_arith * (identity + (q_arith - 1) * (w_4_omega + extra_small_addition_gate_identity))
-                mstore(
-                    ARITHMETIC_IDENTITY,
-                    mulmod(
-                        mload(C_ALPHA_BASE_LOC),
-                        mulmod(
-                            mload(QARITH_EVAL_LOC),
-                            addmod(
-                                identity,
-                                mulmod(
-                                    addmod(mload(QARITH_EVAL_LOC), sub(p, 1), p),
-                                    addmod(mload(W4_OMEGA_EVAL_LOC), extra_small_addition_gate_identity, p),
-                                    p
-                                ),
-                                p
-                            ),
-                            p
-                        ),
-                        p
-                    )
-                )
-
-                // update alpha
-                mstore(C_ALPHA_BASE_LOC, mulmod(mload(C_ALPHA_BASE_LOC), mload(C_ALPHA_SQR_LOC), p))
-            }
-
-            /**
-             * COMPUTE GENPERMSORT WIDGET EVALUATION
-             */
-            {
-                /**
-                 * D1 = (w2 - w1)
-                 * D2 = (w3 - w2)
-                 * D3 = (w4 - w3)
-                 * D4 = (w1_omega - w4)
-                 *
-                 * α_a = alpha_base
-                 * α_b = alpha_base * α
-                 * α_c = alpha_base * α^2
-                 * α_d = alpha_base * α^3
-                 *
-                 * range_accumulator = (
-                 *   D1(D1 - 1)(D1 - 2)(D1 - 3).α_a +
-                 *   D2(D2 - 1)(D2 - 2)(D2 - 3).α_b +
-                 *   D3(D3 - 1)(D3 - 2)(D3 - 3).α_c +
-                 *   D4(D4 - 1)(D4 - 2)(D4 - 3).α_d +
-                 * ) . q_sort
-                 */
-                let minus_two := sub(p, 2)
-                let minus_three := sub(p, 3)
-                let d1 := addmod(mload(W2_EVAL_LOC), sub(p, mload(W1_EVAL_LOC)), p)
-                let d2 := addmod(mload(W3_EVAL_LOC), sub(p, mload(W2_EVAL_LOC)), p)
-                let d3 := addmod(mload(W4_EVAL_LOC), sub(p, mload(W3_EVAL_LOC)), p)
-                let d4 := addmod(mload(W1_OMEGA_EVAL_LOC), sub(p, mload(W4_EVAL_LOC)), p)
-
-                let range_accumulator :=
-                    mulmod(
-                        mulmod(
-                            mulmod(addmod(mulmod(d1, d1, p), sub(p, d1), p), addmod(d1, minus_two, p), p),
-                            addmod(d1, minus_three, p),
-                            p
-                        ),
-                        mload(C_ALPHA_BASE_LOC),
-                        p
-                    )
-                range_accumulator :=
-                    addmod(
-                        range_accumulator,
-                        mulmod(
-                            mulmod(
-                                mulmod(addmod(mulmod(d2, d2, p), sub(p, d2), p), addmod(d2, minus_two, p), p),
-                                addmod(d2, minus_three, p),
-                                p
-                            ),
-                            mulmod(mload(C_ALPHA_BASE_LOC), mload(C_ALPHA_LOC), p),
-                            p
-                        ),
-                        p
-                    )
-                range_accumulator :=
-                    addmod(
-                        range_accumulator,
-                        mulmod(
-                            mulmod(
-                                mulmod(addmod(mulmod(d3, d3, p), sub(p, d3), p), addmod(d3, minus_two, p), p),
-                                addmod(d3, minus_three, p),
-                                p
-                            ),
-                            mulmod(mload(C_ALPHA_BASE_LOC), mload(C_ALPHA_SQR_LOC), p),
-                            p
-                        ),
-                        p
-                    )
-                range_accumulator :=
-                    addmod(
-                        range_accumulator,
-                        mulmod(
-                            mulmod(
-                                mulmod(addmod(mulmod(d4, d4, p), sub(p, d4), p), addmod(d4, minus_two, p), p),
-                                addmod(d4, minus_three, p),
-                                p
-                            ),
-                            mulmod(mload(C_ALPHA_BASE_LOC), mload(C_ALPHA_CUBE_LOC), p),
-                            p
-                        ),
-                        p
-                    )
-                range_accumulator := mulmod(range_accumulator, mload(QSORT_EVAL_LOC), p)
-
-                mstore(SORT_IDENTITY, range_accumulator)
-
-                // update alpha
-                mstore(C_ALPHA_BASE_LOC, mulmod(mload(C_ALPHA_BASE_LOC), mload(C_ALPHA_QUAD_LOC), p))
-            }
-
-            /**
-             * COMPUTE ELLIPTIC WIDGET EVALUATION
-             */
-            {
-                /**
-                 * endo_term = (-x_2) * x_1 * (x_3 * 2 + x_1) * q_beta
-                 * endo_sqr_term = x_2^2
-                 * endo_sqr_term *= (x_3 - x_1)
-                 * endo_sqr_term *= q_beta^2
-                 * leftovers = x_2^2
-                 * leftovers *= x_2
-                 * leftovers += x_1^2 * (x_3 + x_1) @follow-up Invalid comment in BB widget
-                 * leftovers -= (y_2^2 + y_1^2)
-                 * sign_term = y_2 * y_1
-                 * sign_term += sign_term
-                 * sign_term *= q_sign
-                 */
-                // q_elliptic * (x3 + x2 + x1)(x2 - x1)(x2 - x1) - y2^2 - y1^2 + 2(y2y1)*q_sign = 0
-                let x_diff := addmod(mload(X2_EVAL_LOC), sub(p, mload(X1_EVAL_LOC)), p)
-                let y2_sqr := mulmod(mload(Y2_EVAL_LOC), mload(Y2_EVAL_LOC), p)
-                let y1_sqr := mulmod(mload(Y1_EVAL_LOC), mload(Y1_EVAL_LOC), p)
-                let y1y2 := mulmod(mulmod(mload(Y1_EVAL_LOC), mload(Y2_EVAL_LOC), p), mload(QSIGN_LOC), p)
-
-                let x_add_identity :=
-                    addmod(
-                        mulmod(
-                            addmod(mload(X3_EVAL_LOC), addmod(mload(X2_EVAL_LOC), mload(X1_EVAL_LOC), p), p),
-                            mulmod(x_diff, x_diff, p),
-                            p
-                        ),
-                        addmod(
-                            sub(
-                                p,
-                                addmod(y2_sqr, y1_sqr, p)
-                            ),
-                            addmod(y1y2, y1y2, p),
-                            p
-                        ),
-                        p
-                    )
-                x_add_identity :=
-                    mulmod(
-                        mulmod(
-                            x_add_identity,
-                            addmod(
-                                1,
-                                sub(p, mload(QM_EVAL_LOC)),
-                                p
-                            ),
-                            p
-                        ),
-                        mload(C_ALPHA_BASE_LOC),
-                        p
-                    )
-
-                // q_elliptic * (x3 + x2 + x1)(x2 - x1)(x2 - x1) - y2^2 - y1^2 + 2(y2y1)*q_sign = 0
-                let y1_plus_y3 := addmod(
-                    mload(Y1_EVAL_LOC),
-                    mload(Y3_EVAL_LOC),
-                    p
-                )
-                let y_diff := addmod(mulmod(mload(Y2_EVAL_LOC), mload(QSIGN_LOC), p), sub(p, mload(Y1_EVAL_LOC)), p)
-                let y_add_identity :=
-                    addmod(
-                        mulmod(y1_plus_y3, x_diff, p),
-                        mulmod(addmod(mload(X3_EVAL_LOC), sub(p, mload(X1_EVAL_LOC)), p), y_diff, p),
-                        p
-                    )
-                y_add_identity :=
-                    mulmod(
-                        mulmod(y_add_identity, addmod(1, sub(p, mload(QM_EVAL_LOC)), p), p),
-                        mulmod(mload(C_ALPHA_BASE_LOC), mload(C_ALPHA_LOC), p),
-                        p
-                    )
-
-                // ELLIPTIC_IDENTITY = (x_identity + y_identity) * Q_ELLIPTIC_EVAL
-                mstore(
-                    ELLIPTIC_IDENTITY, mulmod(addmod(x_add_identity, y_add_identity, p), mload(QELLIPTIC_EVAL_LOC), p)
-                )
-            }
-            {
-                /**
-                 * x_pow_4 = (y_1_sqr - curve_b) * x_1;
-                 * y_1_sqr_mul_4 = y_1_sqr + y_1_sqr;
-                 * y_1_sqr_mul_4 += y_1_sqr_mul_4;
-                 * x_1_pow_4_mul_9 = x_pow_4;
-                 * x_1_pow_4_mul_9 += x_1_pow_4_mul_9;
-                 * x_1_pow_4_mul_9 += x_1_pow_4_mul_9;
-                 * x_1_pow_4_mul_9 += x_1_pow_4_mul_9;
-                 * x_1_pow_4_mul_9 += x_pow_4;
-                 * x_1_sqr_mul_3 = x_1_sqr + x_1_sqr + x_1_sqr;
-                 * x_double_identity = (x_3 + x_1 + x_1) * y_1_sqr_mul_4 - x_1_pow_4_mul_9;
-                 * y_double_identity = x_1_sqr_mul_3 * (x_1 - x_3) - (y_1 + y_1) * (y_1 + y_3);
-                 */
-                // (x3 + x1 + x1) (4y1*y1) - 9 * x1 * x1 * x1 * x1 = 0
-                let x1_sqr := mulmod(mload(X1_EVAL_LOC), mload(X1_EVAL_LOC), p)
-                let y1_sqr := mulmod(mload(Y1_EVAL_LOC), mload(Y1_EVAL_LOC), p)
-                let x_pow_4 := mulmod(addmod(y1_sqr, GRUMPKIN_CURVE_B_PARAMETER_NEGATED, p), mload(X1_EVAL_LOC), p)
-                let y1_sqr_mul_4 := mulmod(y1_sqr, 4, p)
-                let x1_pow_4_mul_9 := mulmod(x_pow_4, 9, p)
-                let x1_sqr_mul_3 := mulmod(x1_sqr, 3, p)
-                let x_double_identity :=
-                    addmod(
-                        mulmod(
-                            addmod(mload(X3_EVAL_LOC), addmod(mload(X1_EVAL_LOC), mload(X1_EVAL_LOC), p), p),
-                            y1_sqr_mul_4,
-                            p
-                        ),
-                        sub(p, x1_pow_4_mul_9),
-                        p
-                    )
-                // (y1 + y1) (2y1) - (3 * x1 * x1)(x1 - x3) = 0
-                let y_double_identity :=
-                    addmod(
-                        mulmod(x1_sqr_mul_3, addmod(mload(X1_EVAL_LOC), sub(p, mload(X3_EVAL_LOC)), p), p),
-                        sub(
-                            p,
-                            mulmod(
-                                addmod(mload(Y1_EVAL_LOC), mload(Y1_EVAL_LOC), p),
-                                addmod(mload(Y1_EVAL_LOC), mload(Y3_EVAL_LOC), p),
-                                p
-                            )
-                        ),
-                        p
-                    )
-                x_double_identity := mulmod(x_double_identity, mload(C_ALPHA_BASE_LOC), p)
-                y_double_identity :=
-                    mulmod(y_double_identity, mulmod(mload(C_ALPHA_BASE_LOC), mload(C_ALPHA_LOC), p), p)
-                x_double_identity := mulmod(x_double_identity, mload(QM_EVAL_LOC), p)
-                y_double_identity := mulmod(y_double_identity, mload(QM_EVAL_LOC), p)
-                // ELLIPTIC_IDENTITY += (x_double_identity + y_double_identity) * Q_DOUBLE_EVAL
-                mstore(
-                    ELLIPTIC_IDENTITY,
-                    addmod(
-                        mload(ELLIPTIC_IDENTITY),
-                        mulmod(addmod(x_double_identity, y_double_identity, p), mload(QELLIPTIC_EVAL_LOC), p),
-                        p
-                    )
-                )
-
-                // update alpha
-                mstore(C_ALPHA_BASE_LOC, mulmod(mload(C_ALPHA_BASE_LOC), mload(C_ALPHA_QUAD_LOC), p))
-            }
-
-            /**
-             * COMPUTE AUXILIARY WIDGET EVALUATION
-             */
-            {
-                {
-                    /**
-                     * Non native field arithmetic gate 2
-                     *             _                                                                               _
-                     *            /   _                   _                               _       14                \
-                     * q_2 . q_4 |   (w_1 . w_2) + (w_1 . w_2) + (w_1 . w_4 + w_2 . w_3 - w_3) . 2    - w_3 - w_4   |
-                     *            \_                                                                               _/
-                     *
-                     * limb_subproduct = w_1 . w_2_omega + w_1_omega . w_2
-                     * non_native_field_gate_2 = w_1 * w_4 + w_4 * w_3 - w_3_omega
-                     * non_native_field_gate_2 = non_native_field_gate_2 * limb_size
-                     * non_native_field_gate_2 -= w_4_omega
-                     * non_native_field_gate_2 += limb_subproduct
-                     * non_native_field_gate_2 *= q_4
-                     * limb_subproduct *= limb_size
-                     * limb_subproduct += w_1_omega * w_2_omega
-                     * non_native_field_gate_1 = (limb_subproduct + w_3 + w_4) * q_3
-                     * non_native_field_gate_3 = (limb_subproduct + w_4 - (w_3_omega + w_4_omega)) * q_m
-                     * non_native_field_identity = (non_native_field_gate_1 + non_native_field_gate_2 + non_native_field_gate_3) * q_2
-                     */
-
-                    let limb_subproduct :=
-                        addmod(
-                            mulmod(mload(W1_EVAL_LOC), mload(W2_OMEGA_EVAL_LOC), p),
-                            mulmod(mload(W1_OMEGA_EVAL_LOC), mload(W2_EVAL_LOC), p),
-                            p
-                        )
-
-                    let non_native_field_gate_2 :=
-                        addmod(
-                            addmod(
-                                mulmod(mload(W1_EVAL_LOC), mload(W4_EVAL_LOC), p),
-                                mulmod(mload(W2_EVAL_LOC), mload(W3_EVAL_LOC), p),
-                                p
-                            ),
-                            sub(p, mload(W3_OMEGA_EVAL_LOC)),
-                            p
-                        )
-                    non_native_field_gate_2 := mulmod(non_native_field_gate_2, LIMB_SIZE, p)
-                    non_native_field_gate_2 := addmod(non_native_field_gate_2, sub(p, mload(W4_OMEGA_EVAL_LOC)), p)
-                    non_native_field_gate_2 := addmod(non_native_field_gate_2, limb_subproduct, p)
-                    non_native_field_gate_2 := mulmod(non_native_field_gate_2, mload(Q4_EVAL_LOC), p)
-                    limb_subproduct := mulmod(limb_subproduct, LIMB_SIZE, p)
-                    limb_subproduct :=
-                        addmod(limb_subproduct, mulmod(mload(W1_OMEGA_EVAL_LOC), mload(W2_OMEGA_EVAL_LOC), p), p)
-                    let non_native_field_gate_1 :=
-                        mulmod(
-                            addmod(limb_subproduct, sub(p, addmod(mload(W3_EVAL_LOC), mload(W4_EVAL_LOC), p)), p),
-                            mload(Q3_EVAL_LOC),
-                            p
-                        )
-                    let non_native_field_gate_3 :=
-                        mulmod(
-                            addmod(
-                                addmod(limb_subproduct, mload(W4_EVAL_LOC), p),
-                                sub(p, addmod(mload(W3_OMEGA_EVAL_LOC), mload(W4_OMEGA_EVAL_LOC), p)),
-                                p
-                            ),
-                            mload(QM_EVAL_LOC),
-                            p
-                        )
-                    let non_native_field_identity :=
-                        mulmod(
-                            addmod(addmod(non_native_field_gate_1, non_native_field_gate_2, p), non_native_field_gate_3, p),
-                            mload(Q2_EVAL_LOC),
-                            p
-                        )
-
-                    mstore(AUX_NON_NATIVE_FIELD_EVALUATION, non_native_field_identity)
-                }
-
-                {
-                    /**
-                     * limb_accumulator_1 = w_2_omega;
-                     * limb_accumulator_1 *= SUBLIMB_SHIFT;
-                     * limb_accumulator_1 += w_1_omega;
-                     * limb_accumulator_1 *= SUBLIMB_SHIFT;
-                     * limb_accumulator_1 += w_3;
-                     * limb_accumulator_1 *= SUBLIMB_SHIFT;
-                     * limb_accumulator_1 += w_2;
-                     * limb_accumulator_1 *= SUBLIMB_SHIFT;
-                     * limb_accumulator_1 += w_1;
-                     * limb_accumulator_1 -= w_4;
-                     * limb_accumulator_1 *= q_4;
-                     */
-                    let limb_accumulator_1 := mulmod(mload(W2_OMEGA_EVAL_LOC), SUBLIMB_SHIFT, p)
-                    limb_accumulator_1 := addmod(limb_accumulator_1, mload(W1_OMEGA_EVAL_LOC), p)
-                    limb_accumulator_1 := mulmod(limb_accumulator_1, SUBLIMB_SHIFT, p)
-                    limb_accumulator_1 := addmod(limb_accumulator_1, mload(W3_EVAL_LOC), p)
-                    limb_accumulator_1 := mulmod(limb_accumulator_1, SUBLIMB_SHIFT, p)
-                    limb_accumulator_1 := addmod(limb_accumulator_1, mload(W2_EVAL_LOC), p)
-                    limb_accumulator_1 := mulmod(limb_accumulator_1, SUBLIMB_SHIFT, p)
-                    limb_accumulator_1 := addmod(limb_accumulator_1, mload(W1_EVAL_LOC), p)
-                    limb_accumulator_1 := addmod(limb_accumulator_1, sub(p, mload(W4_EVAL_LOC)), p)
-                    limb_accumulator_1 := mulmod(limb_accumulator_1, mload(Q4_EVAL_LOC), p)
-
-                    /**
-                     * limb_accumulator_2 = w_3_omega;
-                     * limb_accumulator_2 *= SUBLIMB_SHIFT;
-                     * limb_accumulator_2 += w_2_omega;
-                     * limb_accumulator_2 *= SUBLIMB_SHIFT;
-                     * limb_accumulator_2 += w_1_omega;
-                     * limb_accumulator_2 *= SUBLIMB_SHIFT;
-                     * limb_accumulator_2 += w_4;
-                     * limb_accumulator_2 *= SUBLIMB_SHIFT;
-                     * limb_accumulator_2 += w_3;
-                     * limb_accumulator_2 -= w_4_omega;
-                     * limb_accumulator_2 *= q_m;
-                     */
-                    let limb_accumulator_2 := mulmod(mload(W3_OMEGA_EVAL_LOC), SUBLIMB_SHIFT, p)
-                    limb_accumulator_2 := addmod(limb_accumulator_2, mload(W2_OMEGA_EVAL_LOC), p)
-                    limb_accumulator_2 := mulmod(limb_accumulator_2, SUBLIMB_SHIFT, p)
-                    limb_accumulator_2 := addmod(limb_accumulator_2, mload(W1_OMEGA_EVAL_LOC), p)
-                    limb_accumulator_2 := mulmod(limb_accumulator_2, SUBLIMB_SHIFT, p)
-                    limb_accumulator_2 := addmod(limb_accumulator_2, mload(W4_EVAL_LOC), p)
-                    limb_accumulator_2 := mulmod(limb_accumulator_2, SUBLIMB_SHIFT, p)
-                    limb_accumulator_2 := addmod(limb_accumulator_2, mload(W3_EVAL_LOC), p)
-                    limb_accumulator_2 := addmod(limb_accumulator_2, sub(p, mload(W4_OMEGA_EVAL_LOC)), p)
-                    limb_accumulator_2 := mulmod(limb_accumulator_2, mload(QM_EVAL_LOC), p)
-
-                    mstore(
-                        AUX_LIMB_ACCUMULATOR_EVALUATION,
-                        mulmod(addmod(limb_accumulator_1, limb_accumulator_2, p), mload(Q3_EVAL_LOC), p)
-                    )
-                }
-
-                {
-                    /**
-                     * memory_record_check = w_3;
-                     * memory_record_check *= eta;
-                     * memory_record_check += w_2;
-                     * memory_record_check *= eta;
-                     * memory_record_check += w_1;
-                     * memory_record_check *= eta;
-                     * memory_record_check += q_c;
-                     *
-                     * partial_record_check = memory_record_check;
-                     *
-                     * memory_record_check -= w_4;
-                     */
-
-                    let memory_record_check := mulmod(mload(W3_EVAL_LOC), mload(C_ETA_LOC), p)
-                    memory_record_check := addmod(memory_record_check, mload(W2_EVAL_LOC), p)
-                    memory_record_check := mulmod(memory_record_check, mload(C_ETA_LOC), p)
-                    memory_record_check := addmod(memory_record_check, mload(W1_EVAL_LOC), p)
-                    memory_record_check := mulmod(memory_record_check, mload(C_ETA_LOC), p)
-                    memory_record_check := addmod(memory_record_check, mload(QC_EVAL_LOC), p)
-
-                    let partial_record_check := memory_record_check
-                    memory_record_check := addmod(memory_record_check, sub(p, mload(W4_EVAL_LOC)), p)
-
-                    mstore(AUX_MEMORY_EVALUATION, memory_record_check)
-
-                    // index_delta = w_1_omega - w_1
-                    let index_delta := addmod(mload(W1_OMEGA_EVAL_LOC), sub(p, mload(W1_EVAL_LOC)), p)
-                    // record_delta = w_4_omega - w_4
-                    let record_delta := addmod(mload(W4_OMEGA_EVAL_LOC), sub(p, mload(W4_EVAL_LOC)), p)
-                    // index_is_monotonically_increasing = index_delta * (index_delta - 1)
-                    let index_is_monotonically_increasing := mulmod(index_delta, addmod(index_delta, sub(p, 1), p), p)
-
-                    // adjacent_values_match_if_adjacent_indices_match = record_delta * (1 - index_delta)
-                    let adjacent_values_match_if_adjacent_indices_match :=
-                        mulmod(record_delta, addmod(1, sub(p, index_delta), p), p)
-
-                    // AUX_ROM_CONSISTENCY_EVALUATION = ((adjacent_values_match_if_adjacent_indices_match * alpha) + index_is_monotonically_increasing) * alpha + partial_record_check
-                    mstore(
-                        AUX_ROM_CONSISTENCY_EVALUATION,
-                        addmod(
-                            mulmod(
-                                addmod(
-                                    mulmod(adjacent_values_match_if_adjacent_indices_match, mload(C_ALPHA_LOC), p),
-                                    index_is_monotonically_increasing,
-                                    p
-                                ),
-                                mload(C_ALPHA_LOC),
-                                p
-                            ),
-                            memory_record_check,
-                            p
-                        )
-                    )
-
-                    {
-                        /**
-                         * next_gate_access_type = w_3_omega;
-                         * next_gate_access_type *= eta;
-                         * next_gate_access_type += w_2_omega;
-                         * next_gate_access_type *= eta;
-                         * next_gate_access_type += w_1_omega;
-                         * next_gate_access_type *= eta;
-                         * next_gate_access_type = w_4_omega - next_gate_access_type;
-                         */
-                        let next_gate_access_type := mulmod(mload(W3_OMEGA_EVAL_LOC), mload(C_ETA_LOC), p)
-                        next_gate_access_type := addmod(next_gate_access_type, mload(W2_OMEGA_EVAL_LOC), p)
-                        next_gate_access_type := mulmod(next_gate_access_type, mload(C_ETA_LOC), p)
-                        next_gate_access_type := addmod(next_gate_access_type, mload(W1_OMEGA_EVAL_LOC), p)
-                        next_gate_access_type := mulmod(next_gate_access_type, mload(C_ETA_LOC), p)
-                        next_gate_access_type := addmod(mload(W4_OMEGA_EVAL_LOC), sub(p, next_gate_access_type), p)
-
-                        // value_delta = w_3_omega - w_3
-                        let value_delta := addmod(mload(W3_OMEGA_EVAL_LOC), sub(p, mload(W3_EVAL_LOC)), p)
-                        //  adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation = (1 - index_delta) * value_delta * (1 - next_gate_access_type);
-
-                        let adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation :=
-                            mulmod(
-                                addmod(1, sub(p, index_delta), p),
-                                mulmod(value_delta, addmod(1, sub(p, next_gate_access_type), p), p),
-                                p
-                            )
-
-                        // AUX_RAM_CONSISTENCY_EVALUATION
-
-                        /**
-                         * access_type = w_4 - partial_record_check
-                         * access_check = access_type^2 - access_type
-                         * next_gate_access_type_is_boolean = next_gate_access_type^2 - next_gate_access_type
-                         * RAM_consistency_check_identity = adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation;
-                         * RAM_consistency_check_identity *= alpha;
-                         * RAM_consistency_check_identity += index_is_monotonically_increasing;
-                         * RAM_consistency_check_identity *= alpha;
-                         * RAM_consistency_check_identity += next_gate_access_type_is_boolean;
-                         * RAM_consistency_check_identity *= alpha;
-                         * RAM_consistency_check_identity += access_check;
-                         */
-
-                        let access_type := addmod(mload(W4_EVAL_LOC), sub(p, partial_record_check), p)
-                        let access_check := mulmod(access_type, addmod(access_type, sub(p, 1), p), p)
-                        let next_gate_access_type_is_boolean :=
-                            mulmod(next_gate_access_type, addmod(next_gate_access_type, sub(p, 1), p), p)
-                        let RAM_cci :=
-                            mulmod(
-                                adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation,
-                                mload(C_ALPHA_LOC),
-                                p
-                            )
-                        RAM_cci := addmod(RAM_cci, index_is_monotonically_increasing, p)
-                        RAM_cci := mulmod(RAM_cci, mload(C_ALPHA_LOC), p)
-                        RAM_cci := addmod(RAM_cci, next_gate_access_type_is_boolean, p)
-                        RAM_cci := mulmod(RAM_cci, mload(C_ALPHA_LOC), p)
-                        RAM_cci := addmod(RAM_cci, access_check, p)
-
-                        mstore(AUX_RAM_CONSISTENCY_EVALUATION, RAM_cci)
-                    }
-
-                    {
-                        // timestamp_delta = w_2_omega - w_2
-                        let timestamp_delta := addmod(mload(W2_OMEGA_EVAL_LOC), sub(p, mload(W2_EVAL_LOC)), p)
-
-                        // RAM_timestamp_check_identity = (1 - index_delta) * timestamp_delta - w_3
-                        let RAM_timestamp_check_identity :=
-                            addmod(
-                                mulmod(timestamp_delta, addmod(1, sub(p, index_delta), p), p), sub(p, mload(W3_EVAL_LOC)), p
-                            )
-
-                        /**
-                         * memory_identity = ROM_consistency_check_identity * q_2;
-                         * memory_identity += RAM_timestamp_check_identity * q_4;
-                         * memory_identity += memory_record_check * q_m;
-                         * memory_identity *= q_1;
-                         * memory_identity += (RAM_consistency_check_identity * q_arith);
-                         *
-                         * auxiliary_identity = memory_identity + non_native_field_identity + limb_accumulator_identity;
-                         * auxiliary_identity *= q_aux;
-                         * auxiliary_identity *= alpha_base;
-                         */
-                        let memory_identity := mulmod(mload(AUX_ROM_CONSISTENCY_EVALUATION), mload(Q2_EVAL_LOC), p)
-                        memory_identity :=
-                            addmod(memory_identity, mulmod(RAM_timestamp_check_identity, mload(Q4_EVAL_LOC), p), p)
-                        memory_identity :=
-                            addmod(memory_identity, mulmod(mload(AUX_MEMORY_EVALUATION), mload(QM_EVAL_LOC), p), p)
-                        memory_identity := mulmod(memory_identity, mload(Q1_EVAL_LOC), p)
-                        memory_identity :=
-                            addmod(
-                                memory_identity, mulmod(mload(AUX_RAM_CONSISTENCY_EVALUATION), mload(QARITH_EVAL_LOC), p), p
-                            )
-
-                        let auxiliary_identity := addmod(memory_identity, mload(AUX_NON_NATIVE_FIELD_EVALUATION), p)
-                        auxiliary_identity := addmod(auxiliary_identity, mload(AUX_LIMB_ACCUMULATOR_EVALUATION), p)
-                        auxiliary_identity := mulmod(auxiliary_identity, mload(QAUX_EVAL_LOC), p)
-                        auxiliary_identity := mulmod(auxiliary_identity, mload(C_ALPHA_BASE_LOC), p)
-
-                        mstore(AUX_IDENTITY, auxiliary_identity)
-
-                        // update alpha
-                        mstore(C_ALPHA_BASE_LOC, mulmod(mload(C_ALPHA_BASE_LOC), mload(C_ALPHA_CUBE_LOC), p))
-                    }
-                }
-            }
-
-            {
-                /**
-                 * quotient = ARITHMETIC_IDENTITY
-                 * quotient += PERMUTATION_IDENTITY
-                 * quotient += PLOOKUP_IDENTITY
-                 * quotient += SORT_IDENTITY
-                 * quotient += ELLIPTIC_IDENTITY
-                 * quotient += AUX_IDENTITY
-                 * quotient *= ZERO_POLY_INVERSE
-                 */
-                mstore(
-                    QUOTIENT_EVAL_LOC,
-                    mulmod(
-                        addmod(
-                            addmod(
-                                addmod(
-                                    addmod(
-                                        addmod(mload(PERMUTATION_IDENTITY), mload(PLOOKUP_IDENTITY), p),
-                                        mload(ARITHMETIC_IDENTITY),
-                                        p
-                                    ),
-                                    mload(SORT_IDENTITY),
-                                    p
-                                ),
-                                mload(ELLIPTIC_IDENTITY),
-                                p
-                            ),
-                            mload(AUX_IDENTITY),
-                            p
-                        ),
-                        mload(ZERO_POLY_INVERSE_LOC),
-                        p
-                    )
-                )
-            }
-
-            /**
-             * GENERATE NU AND SEPARATOR CHALLENGES
-             */
-            {
-                let current_challenge := mload(C_CURRENT_LOC)
-                // get a calldata pointer that points to the start of the data we want to copy
-                let calldata_ptr := add(calldataload(0x04), 0x24)
-
-                calldata_ptr := add(calldata_ptr, NU_CALLDATA_SKIP_LENGTH)
-
-                mstore(NU_CHALLENGE_INPUT_LOC_A, current_challenge)
-                mstore(NU_CHALLENGE_INPUT_LOC_B, mload(QUOTIENT_EVAL_LOC))
-                calldatacopy(NU_CHALLENGE_INPUT_LOC_C, calldata_ptr, NU_INPUT_LENGTH)
-
-                // hash length = (0x20 + num field elements), we include the previous challenge in the hash
-                let challenge := keccak256(NU_CHALLENGE_INPUT_LOC_A, add(NU_INPUT_LENGTH, 0x40))
-
-                mstore(C_V0_LOC, mod(challenge, p))
-                // We need THIRTY-ONE independent nu challenges!
-                mstore(0x00, challenge)
-                mstore8(0x20, 0x01)
-                mstore(C_V1_LOC, mod(keccak256(0x00, 0x21), p))
-                mstore8(0x20, 0x02)
-                mstore(C_V2_LOC, mod(keccak256(0x00, 0x21), p))
-                mstore8(0x20, 0x03)
-                mstore(C_V3_LOC, mod(keccak256(0x00, 0x21), p))
-                mstore8(0x20, 0x04)
-                mstore(C_V4_LOC, mod(keccak256(0x00, 0x21), p))
-                mstore8(0x20, 0x05)
-                mstore(C_V5_LOC, mod(keccak256(0x00, 0x21), p))
-                mstore8(0x20, 0x06)
-                mstore(C_V6_LOC, mod(keccak256(0x00, 0x21), p))
-                mstore8(0x20, 0x07)
-                mstore(C_V7_LOC, mod(keccak256(0x00, 0x21), p))
-                mstore8(0x20, 0x08)
-                mstore(C_V8_LOC, mod(keccak256(0x00, 0x21), p))
-                mstore8(0x20, 0x09)
-                mstore(C_V9_LOC, mod(keccak256(0x00, 0x21), p))
-                mstore8(0x20, 0x0a)
-                mstore(C_V10_LOC, mod(keccak256(0x00, 0x21), p))
-                mstore8(0x20, 0x0b)
-                mstore(C_V11_LOC, mod(keccak256(0x00, 0x21), p))
-                mstore8(0x20, 0x0c)
-                mstore(C_V12_LOC, mod(keccak256(0x00, 0x21), p))
-                mstore8(0x20, 0x0d)
-                mstore(C_V13_LOC, mod(keccak256(0x00, 0x21), p))
-                mstore8(0x20, 0x0e)
-                mstore(C_V14_LOC, mod(keccak256(0x00, 0x21), p))
-                mstore8(0x20, 0x0f)
-                mstore(C_V15_LOC, mod(keccak256(0x00, 0x21), p))
-                mstore8(0x20, 0x10)
-                mstore(C_V16_LOC, mod(keccak256(0x00, 0x21), p))
-                mstore8(0x20, 0x11)
-                mstore(C_V17_LOC, mod(keccak256(0x00, 0x21), p))
-                mstore8(0x20, 0x12)
-                mstore(C_V18_LOC, mod(keccak256(0x00, 0x21), p))
-                mstore8(0x20, 0x13)
-                mstore(C_V19_LOC, mod(keccak256(0x00, 0x21), p))
-                mstore8(0x20, 0x14)
-                mstore(C_V20_LOC, mod(keccak256(0x00, 0x21), p))
-                mstore8(0x20, 0x15)
-                mstore(C_V21_LOC, mod(keccak256(0x00, 0x21), p))
-                mstore8(0x20, 0x16)
-                mstore(C_V22_LOC, mod(keccak256(0x00, 0x21), p))
-                mstore8(0x20, 0x17)
-                mstore(C_V23_LOC, mod(keccak256(0x00, 0x21), p))
-                mstore8(0x20, 0x18)
-                mstore(C_V24_LOC, mod(keccak256(0x00, 0x21), p))
-                mstore8(0x20, 0x19)
-                mstore(C_V25_LOC, mod(keccak256(0x00, 0x21), p))
-                mstore8(0x20, 0x1a)
-                mstore(C_V26_LOC, mod(keccak256(0x00, 0x21), p))
-                mstore8(0x20, 0x1b)
-                mstore(C_V27_LOC, mod(keccak256(0x00, 0x21), p))
-                mstore8(0x20, 0x1c)
-                mstore(C_V28_LOC, mod(keccak256(0x00, 0x21), p))
-                mstore8(0x20, 0x1d)
-                mstore(C_V29_LOC, mod(keccak256(0x00, 0x21), p))
-
-                // @follow-up - Why are both v29 and v30 using appending 0x1d to the prior challenge and hashing, should it not change?
-                mstore8(0x20, 0x1d)
-                challenge := keccak256(0x00, 0x21)
-                mstore(C_V30_LOC, mod(challenge, p))
-
-                // separator
-                mstore(0x00, challenge)
-                mstore(0x20, mload(PI_Z_Y_LOC))
-                mstore(0x40, mload(PI_Z_X_LOC))
-                mstore(0x60, mload(PI_Z_OMEGA_Y_LOC))
-                mstore(0x80, mload(PI_Z_OMEGA_X_LOC))
-
-                mstore(C_U_LOC, mod(keccak256(0x00, 0xa0), p))
-            }
-
-            let success := 0
-            // VALIDATE T1
-            {
-                let x := mload(T1_X_LOC)
-                let y := mload(T1_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
-                    mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
-                    revert(0x00, 0x04)
-                }
-                mstore(ACCUMULATOR_X_LOC, x)
-                mstore(add(ACCUMULATOR_X_LOC, 0x20), y)
-            }
-            // VALIDATE T2
-            {
-                let x := mload(T2_X_LOC) // 0x1400
-                let y := mload(T2_Y_LOC) // 0x1420
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
-                    mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
-                    revert(0x00, 0x04)
-                }
-                mstore(0x00, x)
-                mstore(0x20, y)
-            }
-            mstore(0x40, mload(ZETA_POW_N_LOC))
-            // accumulator_2 = [T2].zeta^n
-            success := staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40)
-            // accumulator = [T1] + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // VALIDATE T3
-            {
-                let x := mload(T3_X_LOC)
-                let y := mload(T3_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
-                    mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
-                    revert(0x00, 0x04)
-                }
-                mstore(0x00, x)
-                mstore(0x20, y)
-            }
-            mstore(0x40, mulmod(mload(ZETA_POW_N_LOC), mload(ZETA_POW_N_LOC), p))
-            // accumulator_2 = [T3].zeta^{2n}
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // VALIDATE T4
-            {
-                let x := mload(T4_X_LOC)
-                let y := mload(T4_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
-                    mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
-                    revert(0x00, 0x04)
-                }
-                mstore(0x00, x)
-                mstore(0x20, y)
-            }
-            mstore(0x40, mulmod(mulmod(mload(ZETA_POW_N_LOC), mload(ZETA_POW_N_LOC), p), mload(ZETA_POW_N_LOC), p))
-            // accumulator_2 = [T4].zeta^{3n}
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // VALIDATE W1
-            {
-                let x := mload(W1_X_LOC)
-                let y := mload(W1_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
-                    mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
-                    revert(0x00, 0x04)
-                }
-                mstore(0x00, x)
-                mstore(0x20, y)
-            }
-            mstore(0x40, mulmod(addmod(mload(C_U_LOC), 0x1, p), mload(C_V0_LOC), p))
-            // accumulator_2 = v0.(u + 1).[W1]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // VALIDATE W2
-            {
-                let x := mload(W2_X_LOC)
-                let y := mload(W2_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
-                    mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
-                    revert(0x00, 0x04)
-                }
-                mstore(0x00, x)
-                mstore(0x20, y)
-            }
-            mstore(0x40, mulmod(addmod(mload(C_U_LOC), 0x1, p), mload(C_V1_LOC), p))
-            // accumulator_2 = v1.(u + 1).[W2]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // VALIDATE W3
-            {
-                let x := mload(W3_X_LOC)
-                let y := mload(W3_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
-                    mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
-                    revert(0x00, 0x04)
-                }
-                mstore(0x00, x)
-                mstore(0x20, y)
-            }
-            mstore(0x40, mulmod(addmod(mload(C_U_LOC), 0x1, p), mload(C_V2_LOC), p))
-            // accumulator_2 = v2.(u + 1).[W3]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // VALIDATE W4
-            {
-                let x := mload(W4_X_LOC)
-                let y := mload(W4_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
-                    mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
-                    revert(0x00, 0x04)
-                }
-                mstore(0x00, x)
-                mstore(0x20, y)
-            }
-            mstore(0x40, mulmod(addmod(mload(C_U_LOC), 0x1, p), mload(C_V3_LOC), p))
-            // accumulator_2 = v3.(u + 1).[W4]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // VALIDATE S
-            {
-                let x := mload(S_X_LOC)
-                let y := mload(S_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
-                    mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
-                    revert(0x00, 0x04)
-                }
-                mstore(0x00, x)
-                mstore(0x20, y)
-            }
-            mstore(0x40, mulmod(addmod(mload(C_U_LOC), 0x1, p), mload(C_V4_LOC), p))
-            // accumulator_2 = v4.(u + 1).[S]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // VALIDATE Z
-            {
-                let x := mload(Z_X_LOC)
-                let y := mload(Z_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
-                    mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
-                    revert(0x00, 0x04)
-                }
-                mstore(0x00, x)
-                mstore(0x20, y)
-            }
-            mstore(0x40, mulmod(addmod(mload(C_U_LOC), 0x1, p), mload(C_V5_LOC), p))
-            // accumulator_2 = v5.(u + 1).[Z]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // VALIDATE Z_LOOKUP
-            {
-                let x := mload(Z_LOOKUP_X_LOC)
-                let y := mload(Z_LOOKUP_Y_LOC)
-                let xx := mulmod(x, x, q)
-                // validate on curve
-                if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
-                    mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
-                    revert(0x00, 0x04)
-                }
-                mstore(0x00, x)
-                mstore(0x20, y)
-            }
-            mstore(0x40, mulmod(addmod(mload(C_U_LOC), 0x1, p), mload(C_V6_LOC), p))
-            // accumulator_2 = v6.(u + 1).[Z_LOOKUP]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // ACCUMULATE Q1
-
-            // Verification key fields verified to be on curve at contract deployment
-            mstore(0x00, mload(Q1_X_LOC))
-            mstore(0x20, mload(Q1_Y_LOC))
-            mstore(0x40, mload(C_V7_LOC))
-            // accumulator_2 = v7.[Q1]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // ACCUMULATE Q2
-
-            // Verification key fields verified to be on curve at contract deployment
-            mstore(0x00, mload(Q2_X_LOC))
-            mstore(0x20, mload(Q2_Y_LOC))
-            mstore(0x40, mload(C_V8_LOC))
-            // accumulator_2 = v8.[Q2]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // ACCUMULATE Q3
-            
-            // Verification key fields verified to be on curve at contract deployment
-            mstore(0x00, mload(Q3_X_LOC))
-            mstore(0x20, mload(Q3_Y_LOC))
-            mstore(0x40, mload(C_V9_LOC))
-            // accumulator_2 = v9.[Q3]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // ACCUMULATE Q4
-            
-            // Verification key fields verified to be on curve at contract deployment
-            mstore(0x00, mload(Q4_X_LOC))
-            mstore(0x20, mload(Q4_Y_LOC))
-            mstore(0x40, mload(C_V10_LOC))
-            // accumulator_2 = v10.[Q4]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // ACCUMULATE QM
-            
-            // Verification key fields verified to be on curve at contract deployment
-            mstore(0x00, mload(QM_X_LOC))
-            mstore(0x20, mload(QM_Y_LOC))
-            mstore(0x40, mload(C_V11_LOC))
-            // accumulator_2 = v11.[Q;]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // ACCUMULATE QC
-
-            // Verification key fields verified to be on curve at contract deployment
-            mstore(0x00, mload(QC_X_LOC))
-            mstore(0x20, mload(QC_Y_LOC))
-            mstore(0x40, mload(C_V12_LOC))
-            // accumulator_2 = v12.[QC]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // ACCUMULATE QARITH
-
-            // Verification key fields verified to be on curve at contract deployment
-            mstore(0x00, mload(QARITH_X_LOC))
-            mstore(0x20, mload(QARITH_Y_LOC))
-            mstore(0x40, mload(C_V13_LOC))
-            // accumulator_2 = v13.[QARITH]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // ACCUMULATE QSORT
-
-            // Verification key fields verified to be on curve at contract deployment
-            mstore(0x00, mload(QSORT_X_LOC))
-            mstore(0x20, mload(QSORT_Y_LOC))
-            mstore(0x40, mload(C_V14_LOC))
-            // accumulator_2 = v14.[QSORT]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // ACCUMULATE QELLIPTIC
-
-            // Verification key fields verified to be on curve at contract deployment
-            mstore(0x00, mload(QELLIPTIC_X_LOC))
-            mstore(0x20, mload(QELLIPTIC_Y_LOC))
-            mstore(0x40, mload(C_V15_LOC))
-            // accumulator_2 = v15.[QELLIPTIC]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // ACCUMULATE QAUX
-
-            // Verification key fields verified to be on curve at contract deployment
-            mstore(0x00, mload(QAUX_X_LOC))
-            mstore(0x20, mload(QAUX_Y_LOC))
-            mstore(0x40, mload(C_V16_LOC))
-            // accumulator_2 = v15.[Q_AUX]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // ACCUMULATE SIGMA1
-
-            // Verification key fields verified to be on curve at contract deployment
-            mstore(0x00, mload(SIGMA1_X_LOC))
-            mstore(0x20, mload(SIGMA1_Y_LOC))
-            mstore(0x40, mload(C_V17_LOC))
-            // accumulator_2 = v17.[sigma1]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // ACCUMULATE SIGMA2
-
-            // Verification key fields verified to be on curve at contract deployment
-            mstore(0x00, mload(SIGMA2_X_LOC))
-            mstore(0x20, mload(SIGMA2_Y_LOC))
-            mstore(0x40, mload(C_V18_LOC))
-            // accumulator_2 = v18.[sigma2]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // ACCUMULATE SIGMA3
-
-            // Verification key fields verified to be on curve at contract deployment
-            mstore(0x00, mload(SIGMA3_X_LOC))
-            mstore(0x20, mload(SIGMA3_Y_LOC))
-            mstore(0x40, mload(C_V19_LOC))
-            // accumulator_2 = v19.[sigma3]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // ACCUMULATE SIGMA4
-
-            // Verification key fields verified to be on curve at contract deployment
-            mstore(0x00, mload(SIGMA4_X_LOC))
-            mstore(0x20, mload(SIGMA4_Y_LOC))
-            mstore(0x40, mload(C_V20_LOC))
-            // accumulator_2 = v20.[sigma4]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // ACCUMULATE TABLE1
-
-            // Verification key fields verified to be on curve at contract deployment
-            mstore(0x00, mload(TABLE1_X_LOC))
-            mstore(0x20, mload(TABLE1_Y_LOC))
-            mstore(0x40, mulmod(addmod(mload(C_U_LOC), 0x1, p), mload(C_V21_LOC), p))
-            // accumulator_2 = u.[table1]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // ACCUMULATE TABLE2
-
-            // Verification key fields verified to be on curve at contract deployment
-            mstore(0x00, mload(TABLE2_X_LOC))
-            mstore(0x20, mload(TABLE2_Y_LOC))
-            mstore(0x40, mulmod(addmod(mload(C_U_LOC), 0x1, p), mload(C_V22_LOC), p))
-            // accumulator_2 = u.[table2]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // ACCUMULATE TABLE3
-
-            // Verification key fields verified to be on curve at contract deployment
-            mstore(0x00, mload(TABLE3_X_LOC))
-            mstore(0x20, mload(TABLE3_Y_LOC))
-            mstore(0x40, mulmod(addmod(mload(C_U_LOC), 0x1, p), mload(C_V23_LOC), p))
-            // accumulator_2 = u.[table3]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // ACCUMULATE TABLE4
-
-            // Verification key fields verified to be on curve at contract deployment
-            mstore(0x00, mload(TABLE4_X_LOC))
-            mstore(0x20, mload(TABLE4_Y_LOC))
-            mstore(0x40, mulmod(addmod(mload(C_U_LOC), 0x1, p), mload(C_V24_LOC), p))
-            // accumulator_2 = u.[table4]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // ACCUMULATE TABLE_TYPE
-
-            // Verification key fields verified to be on curve at contract deployment
-            mstore(0x00, mload(TABLE_TYPE_X_LOC))
-            mstore(0x20, mload(TABLE_TYPE_Y_LOC))
-            mstore(0x40, mload(C_V25_LOC))
-            // accumulator_2 = v25.[TableType]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // ACCUMULATE ID1
-
-            // Verification key fields verified to be on curve at contract deployment
-            mstore(0x00, mload(ID1_X_LOC))
-            mstore(0x20, mload(ID1_Y_LOC))
-            mstore(0x40, mload(C_V26_LOC))
-            // accumulator_2 = v26.[ID1]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // ACCUMULATE ID2
-
-            // Verification key fields verified to be on curve at contract deployment
-            mstore(0x00, mload(ID2_X_LOC))
-            mstore(0x20, mload(ID2_Y_LOC))
-            mstore(0x40, mload(C_V27_LOC))
-            // accumulator_2 = v27.[ID2]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // ACCUMULATE ID3
-
-            // Verification key fields verified to be on curve at contract deployment
-            mstore(0x00, mload(ID3_X_LOC))
-            mstore(0x20, mload(ID3_Y_LOC))
-            mstore(0x40, mload(C_V28_LOC))
-            // accumulator_2 = v28.[ID3]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            // ACCUMULATE ID4
-
-            // Verification key fields verified to be on curve at contract deployment
-            mstore(0x00, mload(ID4_X_LOC))
-            mstore(0x20, mload(ID4_Y_LOC))
-            mstore(0x40, mload(C_V29_LOC))
-            // accumulator_2 = v29.[ID4]
-            success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-            // accumulator = accumulator + accumulator_2
-            success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-            /**
-             * COMPUTE BATCH EVALUATION SCALAR MULTIPLIER
-             */
-            {
-                /**
-                 * batch_evaluation = v0 * (w_1_omega * u + w_1_eval)
-                 * batch_evaluation += v1 * (w_2_omega * u + w_2_eval)
-                 * batch_evaluation += v2 * (w_3_omega * u + w_3_eval)
-                 * batch_evaluation += v3 * (w_4_omega * u + w_4_eval)
-                 * batch_evaluation += v4 * (s_omega_eval * u + s_eval)
-                 * batch_evaluation += v5 * (z_omega_eval * u + z_eval)
-                 * batch_evaluation += v6 * (z_lookup_omega_eval * u + z_lookup_eval)
-                 */
-                let batch_evaluation :=
-                    mulmod(
-                        mload(C_V0_LOC),
-                        addmod(mulmod(mload(W1_OMEGA_EVAL_LOC), mload(C_U_LOC), p), mload(W1_EVAL_LOC), p),
-                        p
-                    )
-                batch_evaluation :=
-                    addmod(
-                        batch_evaluation,
-                        mulmod(
-                            mload(C_V1_LOC),
-                            addmod(mulmod(mload(W2_OMEGA_EVAL_LOC), mload(C_U_LOC), p), mload(W2_EVAL_LOC), p),
-                            p
-                        ),
-                        p
-                    )
-                batch_evaluation :=
-                    addmod(
-                        batch_evaluation,
-                        mulmod(
-                            mload(C_V2_LOC),
-                            addmod(mulmod(mload(W3_OMEGA_EVAL_LOC), mload(C_U_LOC), p), mload(W3_EVAL_LOC), p),
-                            p
-                        ),
-                        p
-                    )
-                batch_evaluation :=
-                    addmod(
-                        batch_evaluation,
-                        mulmod(
-                            mload(C_V3_LOC),
-                            addmod(mulmod(mload(W4_OMEGA_EVAL_LOC), mload(C_U_LOC), p), mload(W4_EVAL_LOC), p),
-                            p
-                        ),
-                        p
-                    )
-                batch_evaluation :=
-                    addmod(
-                        batch_evaluation,
-                        mulmod(
-                            mload(C_V4_LOC),
-                            addmod(mulmod(mload(S_OMEGA_EVAL_LOC), mload(C_U_LOC), p), mload(S_EVAL_LOC), p),
-                            p
-                        ),
-                        p
-                    )
-                batch_evaluation :=
-                    addmod(
-                        batch_evaluation,
-                        mulmod(
-                            mload(C_V5_LOC),
-                            addmod(mulmod(mload(Z_OMEGA_EVAL_LOC), mload(C_U_LOC), p), mload(Z_EVAL_LOC), p),
-                            p
-                        ),
-                        p
-                    )
-                batch_evaluation :=
-                    addmod(
-                        batch_evaluation,
-                        mulmod(
-                            mload(C_V6_LOC),
-                            addmod(mulmod(mload(Z_LOOKUP_OMEGA_EVAL_LOC), mload(C_U_LOC), p), mload(Z_LOOKUP_EVAL_LOC), p),
-                            p
-                        ),
-                        p
-                    )
-
-                /**
-                 * batch_evaluation += v7 * Q1_EVAL
-                 * batch_evaluation += v8 * Q2_EVAL
-                 * batch_evaluation += v9 * Q3_EVAL
-                 * batch_evaluation += v10 * Q4_EVAL
-                 * batch_evaluation += v11 * QM_EVAL
-                 * batch_evaluation += v12 * QC_EVAL
-                 * batch_evaluation += v13 * QARITH_EVAL
-                 * batch_evaluation += v14 * QSORT_EVAL_LOC
-                 * batch_evaluation += v15 * QELLIPTIC_EVAL_LOC
-                 * batch_evaluation += v16 * QAUX_EVAL_LOC
-                 * batch_evaluation += v17 * SIGMA1_EVAL_LOC
-                 * batch_evaluation += v18 * SIGMA2_EVAL_LOC
-                 * batch_evaluation += v19 * SIGMA3_EVAL_LOC
-                 * batch_evaluation += v20 * SIGMA4_EVAL_LOC
-                 */
-                batch_evaluation := addmod(batch_evaluation, mulmod(mload(C_V7_LOC), mload(Q1_EVAL_LOC), p), p)
-                batch_evaluation := addmod(batch_evaluation, mulmod(mload(C_V8_LOC), mload(Q2_EVAL_LOC), p), p)
-                batch_evaluation := addmod(batch_evaluation, mulmod(mload(C_V9_LOC), mload(Q3_EVAL_LOC), p), p)
-                batch_evaluation := addmod(batch_evaluation, mulmod(mload(C_V10_LOC), mload(Q4_EVAL_LOC), p), p)
-                batch_evaluation := addmod(batch_evaluation, mulmod(mload(C_V11_LOC), mload(QM_EVAL_LOC), p), p)
-                batch_evaluation := addmod(batch_evaluation, mulmod(mload(C_V12_LOC), mload(QC_EVAL_LOC), p), p)
-                batch_evaluation := addmod(batch_evaluation, mulmod(mload(C_V13_LOC), mload(QARITH_EVAL_LOC), p), p)
-                batch_evaluation := addmod(batch_evaluation, mulmod(mload(C_V14_LOC), mload(QSORT_EVAL_LOC), p), p)
-                batch_evaluation := addmod(batch_evaluation, mulmod(mload(C_V15_LOC), mload(QELLIPTIC_EVAL_LOC), p), p)
-                batch_evaluation := addmod(batch_evaluation, mulmod(mload(C_V16_LOC), mload(QAUX_EVAL_LOC), p), p)
-                batch_evaluation := addmod(batch_evaluation, mulmod(mload(C_V17_LOC), mload(SIGMA1_EVAL_LOC), p), p)
-                batch_evaluation := addmod(batch_evaluation, mulmod(mload(C_V18_LOC), mload(SIGMA2_EVAL_LOC), p), p)
-                batch_evaluation := addmod(batch_evaluation, mulmod(mload(C_V19_LOC), mload(SIGMA3_EVAL_LOC), p), p)
-                batch_evaluation := addmod(batch_evaluation, mulmod(mload(C_V20_LOC), mload(SIGMA4_EVAL_LOC), p), p)
-
-                /**
-                 * batch_evaluation += v21 * (table1(zw) * u + table1(z))
-                 * batch_evaluation += v22 * (table2(zw) * u + table2(z))
-                 * batch_evaluation += v23 * (table3(zw) * u + table3(z))
-                 * batch_evaluation += v24 * (table4(zw) * u + table4(z))
-                 * batch_evaluation += v25 * table_type_eval
-                 * batch_evaluation += v26 * id1_eval
-                 * batch_evaluation += v27 * id2_eval
-                 * batch_evaluation += v28 * id3_eval
-                 * batch_evaluation += v29 * id4_eval
-                 * batch_evaluation += quotient_eval
-                 */
-                batch_evaluation :=
-                    addmod(
-                        batch_evaluation,
-                        mulmod(
-                            mload(C_V21_LOC),
-                            addmod(mulmod(mload(TABLE1_OMEGA_EVAL_LOC), mload(C_U_LOC), p), mload(TABLE1_EVAL_LOC), p),
-                            p
-                        ),
-                        p
-                    )
-                batch_evaluation :=
-                    addmod(
-                        batch_evaluation,
-                        mulmod(
-                            mload(C_V22_LOC),
-                            addmod(mulmod(mload(TABLE2_OMEGA_EVAL_LOC), mload(C_U_LOC), p), mload(TABLE2_EVAL_LOC), p),
-                            p
-                        ),
-                        p
-                    )
-                batch_evaluation :=
-                    addmod(
-                        batch_evaluation,
-                        mulmod(
-                            mload(C_V23_LOC),
-                            addmod(mulmod(mload(TABLE3_OMEGA_EVAL_LOC), mload(C_U_LOC), p), mload(TABLE3_EVAL_LOC), p),
-                            p
-                        ),
-                        p
-                    )
-                batch_evaluation :=
-                    addmod(
-                        batch_evaluation,
-                        mulmod(
-                            mload(C_V24_LOC),
-                            addmod(mulmod(mload(TABLE4_OMEGA_EVAL_LOC), mload(C_U_LOC), p), mload(TABLE4_EVAL_LOC), p),
-                            p
-                        ),
-                        p
-                    )
-                batch_evaluation := addmod(batch_evaluation, mulmod(mload(C_V25_LOC), mload(TABLE_TYPE_EVAL_LOC), p), p)
-                batch_evaluation := addmod(batch_evaluation, mulmod(mload(C_V26_LOC), mload(ID1_EVAL_LOC), p), p)
-                batch_evaluation := addmod(batch_evaluation, mulmod(mload(C_V27_LOC), mload(ID2_EVAL_LOC), p), p)
-                batch_evaluation := addmod(batch_evaluation, mulmod(mload(C_V28_LOC), mload(ID3_EVAL_LOC), p), p)
-                batch_evaluation := addmod(batch_evaluation, mulmod(mload(C_V29_LOC), mload(ID4_EVAL_LOC), p), p)
-                batch_evaluation := addmod(batch_evaluation, mload(QUOTIENT_EVAL_LOC), p)
-
-                mstore(0x00, 0x01) // [1].x
-                mstore(0x20, 0x02) // [1].y
-                mstore(0x40, sub(p, batch_evaluation))
-                // accumulator_2 = -[1].(batch_evaluation)
-                success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-                // accumulator = accumulator + accumulator_2
-                success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-                if iszero(success) {
-                    mstore(0x0, OPENING_COMMITMENT_FAILED_SELECTOR)
-                    revert(0x00, 0x04)
-                }
-            }
-
-            /**
-             * PERFORM PAIRING PREAMBLE
-             */
-            {
-                let u := mload(C_U_LOC)
-                let zeta := mload(C_ZETA_LOC)
-                // VALIDATE PI_Z
-                {
-                    let x := mload(PI_Z_X_LOC)
-                    let y := mload(PI_Z_Y_LOC)
-                    let xx := mulmod(x, x, q)
-                    // validate on curve
-                    if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
-                        mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
-                        revert(0x00, 0x04)
-                    }
-                    mstore(0x00, x)
-                    mstore(0x20, y)
-                }
-                // compute zeta.[PI_Z] and add into accumulator
-                mstore(0x40, zeta)
-                success := staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40)
-                // accumulator = accumulator + accumulator_2
-                success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, ACCUMULATOR_X_LOC, 0x40))
-
-                // VALIDATE PI_Z_OMEGA
-                {
-                    let x := mload(PI_Z_OMEGA_X_LOC)
-                    let y := mload(PI_Z_OMEGA_Y_LOC)
-                    let xx := mulmod(x, x, q)
-                    // validate on curve
-                    if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
-                        mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
-                        revert(0x00, 0x04)
-                    }
-                    mstore(0x00, x)
-                    mstore(0x20, y)
-                }
-                mstore(0x40, mulmod(mulmod(u, zeta, p), mload(OMEGA_LOC), p))
-                // accumulator_2 = u.zeta.omega.[PI_Z_OMEGA]
-                success := and(success, staticcall(gas(), 7, 0x00, 0x60, ACCUMULATOR2_X_LOC, 0x40))
-                // PAIRING_RHS = accumulator + accumulator_2
-                success := and(success, staticcall(gas(), 6, ACCUMULATOR_X_LOC, 0x80, PAIRING_RHS_X_LOC, 0x40))
-
-                mstore(0x00, mload(PI_Z_X_LOC))
-                mstore(0x20, mload(PI_Z_Y_LOC))
-                mstore(0x40, mload(PI_Z_OMEGA_X_LOC))
-                mstore(0x60, mload(PI_Z_OMEGA_Y_LOC))
-                mstore(0x80, u)
-                success := and(success, staticcall(gas(), 7, 0x40, 0x60, 0x40, 0x40))
-                // PAIRING_LHS = [PI_Z] + [PI_Z_OMEGA] * u
-                success := and(success, staticcall(gas(), 6, 0x00, 0x80, PAIRING_LHS_X_LOC, 0x40))
-                // negate lhs y-coordinate
-                mstore(PAIRING_LHS_Y_LOC, sub(q, mload(PAIRING_LHS_Y_LOC)))
-
-                if mload(CONTAINS_RECURSIVE_PROOF_LOC) {
-                    // VALIDATE RECURSIVE P1
-                    {
-                        let x := mload(RECURSIVE_P1_X_LOC)
-                        let y := mload(RECURSIVE_P1_Y_LOC)
-                        let xx := mulmod(x, x, q)
-                        // validate on curve
-                        if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
-                            mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
-                            revert(0x00, 0x04)
-                        }
-                        mstore(0x00, x)
-                        mstore(0x20, y)
-                    }
-
-                    // compute u.u.[recursive_p1] and write into 0x60
-                    mstore(0x40, mulmod(u, u, p))
-                    success := and(success, staticcall(gas(), 7, 0x00, 0x60, 0x60, 0x40))
-                    // VALIDATE RECURSIVE P2
-                    {
-                        let x := mload(RECURSIVE_P2_X_LOC)
-                        let y := mload(RECURSIVE_P2_Y_LOC)
-                        let xx := mulmod(x, x, q)
-                        // validate on curve
-                        if iszero(eq(mulmod(y, y, q), addmod(mulmod(x, xx, q), 3, q))) {
-                            mstore(0x0, POINT_NOT_ON_CURVE_SELECTOR)
-                            revert(0x00, 0x04)
-                        }
-                        mstore(0x00, x)
-                        mstore(0x20, y)
-                    }
-                    // compute u.u.[recursive_p2] and write into 0x00
-                    // 0x40 still contains u*u
-                    success := and(success, staticcall(gas(), 7, 0x00, 0x60, 0x00, 0x40))
-
-                    // compute u.u.[recursiveP1] + rhs and write into rhs
-                    mstore(0xa0, mload(PAIRING_RHS_X_LOC))
-                    mstore(0xc0, mload(PAIRING_RHS_Y_LOC))
-                    success := and(success, staticcall(gas(), 6, 0x60, 0x80, PAIRING_RHS_X_LOC, 0x40))
-
-                    // compute u.u.[recursiveP2] + lhs and write into lhs
-                    mstore(0x40, mload(PAIRING_LHS_X_LOC))
-                    mstore(0x60, mload(PAIRING_LHS_Y_LOC))
-                    success := and(success, staticcall(gas(), 6, 0x00, 0x80, PAIRING_LHS_X_LOC, 0x40))
-                }
-
-                if iszero(success) {
-                    mstore(0x0, PAIRING_PREAMBLE_FAILED_SELECTOR)
-                    revert(0x00, 0x04)
-                }
-            }
-
-            /**
-             * PERFORM PAIRING
-             */
-            {
-                // rhs paired with [1]_2
-                // lhs paired with [x]_2
-
-                mstore(0x00, mload(PAIRING_RHS_X_LOC))
-                mstore(0x20, mload(PAIRING_RHS_Y_LOC))
-                mstore(0x40, 0x198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2) // this is [1]_2
-                mstore(0x60, 0x1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed)
-                mstore(0x80, 0x090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b)
-                mstore(0xa0, 0x12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa)
-
-                mstore(0xc0, mload(PAIRING_LHS_X_LOC))
-                mstore(0xe0, mload(PAIRING_LHS_Y_LOC))
-                mstore(0x100, mload(G2X_X0_LOC))
-                mstore(0x120, mload(G2X_X1_LOC))
-                mstore(0x140, mload(G2X_Y0_LOC))
-                mstore(0x160, mload(G2X_Y1_LOC))
-
-                success := staticcall(gas(), 8, 0x00, 0x180, 0x00, 0x20)
-                if iszero(and(success, mload(0x00))) {
-                    mstore(0x0, PAIRING_FAILED_SELECTOR)
-                    revert(0x00, 0x04)
-                }
-            }
-
-            {
-                mstore(0x00, 0x01)
-                return(0x00, 0x20) // Proof succeeded!
-            }
+    }
+
+    function neg(Fr value) internal pure returns (Fr) {
+        unchecked {
+            return Fr.wrap(MODULUS - Fr.unwrap(value));
+        }
+    }
+
+    function from(uint256 value) internal pure returns (Fr) {
+        unchecked {
+            require(value < MODULUS, Errors.ValueGeFieldOrder());
+            return Fr.wrap(value);
+        }
+    }
+
+    function fromBytes32(bytes32 value) internal pure returns (Fr) {
+        unchecked {
+            uint256 v = uint256(value);
+            require(v < MODULUS, Errors.ValueGeFieldOrder());
+            return Fr.wrap(v);
+        }
+    }
+
+    function toBytes32(Fr value) internal pure returns (bytes32) {
+        unchecked {
+            return bytes32(Fr.unwrap(value));
         }
     }
 }
 
-contract WithdrawVerifier is BaseUltraVerifier {
-    function getVerificationKeyHash() public pure override(BaseUltraVerifier) returns (bytes32) {
-        return UltraVerificationKey.verificationKeyHash();
+// Free functions
+function add(Fr a, Fr b) pure returns (Fr) {
+    unchecked {
+        return Fr.wrap(addmod(Fr.unwrap(a), Fr.unwrap(b), MODULUS));
+    }
+}
+
+function mul(Fr a, Fr b) pure returns (Fr) {
+    unchecked {
+        return Fr.wrap(mulmod(Fr.unwrap(a), Fr.unwrap(b), MODULUS));
+    }
+}
+
+function sub(Fr a, Fr b) pure returns (Fr) {
+    unchecked {
+        return Fr.wrap(addmod(Fr.unwrap(a), MODULUS - Fr.unwrap(b), MODULUS));
+    }
+}
+
+function notEqual(Fr a, Fr b) pure returns (bool) {
+    unchecked {
+        return Fr.unwrap(a) != Fr.unwrap(b);
+    }
+}
+
+function equal(Fr a, Fr b) pure returns (bool) {
+    unchecked {
+        return Fr.unwrap(a) == Fr.unwrap(b);
+    }
+}
+
+uint256 constant CONST_PROOF_SIZE_LOG_N = 28;
+
+uint256 constant NUMBER_OF_SUBRELATIONS = 28;
+uint256 constant BATCHED_RELATION_PARTIAL_LENGTH = 8;
+uint256 constant ZK_BATCHED_RELATION_PARTIAL_LENGTH = 9;
+uint256 constant NUMBER_OF_ENTITIES = 41;
+// The number of entities added for ZK (gemini_masking_poly)
+uint256 constant NUM_MASKING_POLYNOMIALS = 1;
+uint256 constant NUMBER_OF_ENTITIES_ZK = NUMBER_OF_ENTITIES + NUM_MASKING_POLYNOMIALS;
+uint256 constant NUMBER_UNSHIFTED = 36;
+uint256 constant NUMBER_UNSHIFTED_ZK = NUMBER_UNSHIFTED + NUM_MASKING_POLYNOMIALS;
+uint256 constant NUMBER_TO_BE_SHIFTED = 5;
+uint256 constant PAIRING_POINTS_SIZE = 8;
+
+uint256 constant FIELD_ELEMENT_SIZE = 0x20;
+uint256 constant GROUP_ELEMENT_SIZE = 0x40;
+
+// Powers of alpha used to batch subrelations (alpha, alpha^2, ..., alpha^(NUM_SUBRELATIONS-1))
+uint256 constant NUMBER_OF_ALPHAS = NUMBER_OF_SUBRELATIONS - 1;
+
+// ENUM FOR WIRES
+enum WIRE {
+    Q_M,
+    Q_C,
+    Q_L,
+    Q_R,
+    Q_O,
+    Q_4,
+    Q_LOOKUP,
+    Q_ARITH,
+    Q_RANGE,
+    Q_ELLIPTIC,
+    Q_MEMORY,
+    Q_NNF,
+    Q_POSEIDON2_EXTERNAL,
+    Q_POSEIDON2_INTERNAL,
+    SIGMA_1,
+    SIGMA_2,
+    SIGMA_3,
+    SIGMA_4,
+    ID_1,
+    ID_2,
+    ID_3,
+    ID_4,
+    TABLE_1,
+    TABLE_2,
+    TABLE_3,
+    TABLE_4,
+    LAGRANGE_FIRST,
+    LAGRANGE_LAST,
+    W_L,
+    W_R,
+    W_O,
+    W_4,
+    Z_PERM,
+    LOOKUP_INVERSES,
+    LOOKUP_READ_COUNTS,
+    LOOKUP_READ_TAGS,
+    W_L_SHIFT,
+    W_R_SHIFT,
+    W_O_SHIFT,
+    W_4_SHIFT,
+    Z_PERM_SHIFT
+}
+
+library Honk {
+    struct G1Point {
+        uint256 x;
+        uint256 y;
     }
 
-    function loadVerificationKey(uint256 vk, uint256 _omegaInverseLoc) internal pure virtual override(BaseUltraVerifier) {
-        UltraVerificationKey.loadVerificationKey(vk, _omegaInverseLoc);
+    struct VerificationKey {
+        // Misc Params
+        uint256 circuitSize;
+        uint256 logCircuitSize;
+        uint256 publicInputsSize;
+        // Selectors
+        G1Point qm;
+        G1Point qc;
+        G1Point ql;
+        G1Point qr;
+        G1Point qo;
+        G1Point q4;
+        G1Point qLookup; // Lookup
+        G1Point qArith; // Arithmetic widget
+        G1Point qDeltaRange; // Delta Range sort
+        G1Point qMemory; // Memory
+        G1Point qNnf; // Non-native Field
+        G1Point qElliptic; // Auxillary
+        G1Point qPoseidon2External;
+        G1Point qPoseidon2Internal;
+        // Copy constraints
+        G1Point s1;
+        G1Point s2;
+        G1Point s3;
+        G1Point s4;
+        // Copy identity
+        G1Point id1;
+        G1Point id2;
+        G1Point id3;
+        G1Point id4;
+        // Precomputed lookup table
+        G1Point t1;
+        G1Point t2;
+        G1Point t3;
+        G1Point t4;
+        // Fixed first and last
+        G1Point lagrangeFirst;
+        G1Point lagrangeLast;
+    }
+
+    struct RelationParameters {
+        // challenges
+        Fr eta;
+        Fr beta;
+        Fr gamma;
+        // derived
+        Fr publicInputsDelta;
+    }
+
+    struct Proof {
+        // Pairing point object
+        Fr[PAIRING_POINTS_SIZE] pairingPointObject;
+        // Free wires
+        G1Point w1;
+        G1Point w2;
+        G1Point w3;
+        G1Point w4;
+        // Lookup helpers - Permutations
+        G1Point zPerm;
+        // Lookup helpers - logup
+        G1Point lookupReadCounts;
+        G1Point lookupReadTags;
+        G1Point lookupInverses;
+        // Sumcheck
+        Fr[BATCHED_RELATION_PARTIAL_LENGTH][CONST_PROOF_SIZE_LOG_N] sumcheckUnivariates;
+        Fr[NUMBER_OF_ENTITIES] sumcheckEvaluations;
+        // Shplemini
+        G1Point[CONST_PROOF_SIZE_LOG_N - 1] geminiFoldComms;
+        Fr[CONST_PROOF_SIZE_LOG_N] geminiAEvaluations;
+        G1Point shplonkQ;
+        G1Point kzgQuotient;
+    }
+
+    /// forge-lint: disable-next-item(pascal-case-struct)
+    struct ZKProof {
+        // Pairing point object
+        Fr[PAIRING_POINTS_SIZE] pairingPointObject;
+        // ZK: Gemini masking polynomial commitment (sent first, right after public inputs)
+        G1Point geminiMaskingPoly;
+        // Commitments to wire polynomials
+        G1Point w1;
+        G1Point w2;
+        G1Point w3;
+        G1Point w4;
+        // Commitments to logup witness polynomials
+        G1Point lookupReadCounts;
+        G1Point lookupReadTags;
+        G1Point lookupInverses;
+        // Commitment to grand permutation polynomial
+        G1Point zPerm;
+        G1Point[3] libraCommitments;
+        // Sumcheck
+        Fr libraSum;
+        Fr[ZK_BATCHED_RELATION_PARTIAL_LENGTH][CONST_PROOF_SIZE_LOG_N] sumcheckUnivariates;
+        Fr libraEvaluation;
+        Fr[NUMBER_OF_ENTITIES_ZK] sumcheckEvaluations; // Includes gemini_masking_poly eval at index 0 (first position)
+        // Shplemini
+        G1Point[CONST_PROOF_SIZE_LOG_N - 1] geminiFoldComms;
+        Fr[CONST_PROOF_SIZE_LOG_N] geminiAEvaluations;
+        Fr[4] libraPolyEvals;
+        G1Point shplonkQ;
+        G1Point kzgQuotient;
+    }
+}
+
+// ZKTranscript library to generate fiat shamir challenges, the ZK transcript only differest
+/// forge-lint: disable-next-item(pascal-case-struct)
+struct ZKTranscript {
+    // Oink
+    Honk.RelationParameters relationParameters;
+    Fr[NUMBER_OF_ALPHAS] alphas; // Powers of alpha: [alpha, alpha^2, ..., alpha^(NUM_SUBRELATIONS-1)]
+    Fr[CONST_PROOF_SIZE_LOG_N] gateChallenges;
+    // Sumcheck
+    Fr libraChallenge;
+    Fr[CONST_PROOF_SIZE_LOG_N] sumCheckUChallenges;
+    // Shplemini
+    Fr rho;
+    Fr geminiR;
+    Fr shplonkNu;
+    Fr shplonkZ;
+    // Derived
+    Fr publicInputsDelta;
+}
+
+library ZKTranscriptLib {
+    function generateTranscript(
+        Honk.ZKProof memory proof,
+        bytes32[] calldata publicInputs,
+        uint256 vkHash,
+        uint256 publicInputsSize,
+        uint256 logN
+    ) external pure returns (ZKTranscript memory t) {
+        Fr previousChallenge;
+        (t.relationParameters, previousChallenge) =
+            generateRelationParametersChallenges(proof, publicInputs, vkHash, publicInputsSize, previousChallenge);
+
+        (t.alphas, previousChallenge) = generateAlphaChallenges(previousChallenge, proof);
+
+        (t.gateChallenges, previousChallenge) = generateGateChallenges(previousChallenge, logN);
+        (t.libraChallenge, previousChallenge) = generateLibraChallenge(previousChallenge, proof);
+        (t.sumCheckUChallenges, previousChallenge) = generateSumcheckChallenges(proof, previousChallenge, logN);
+
+        (t.rho, previousChallenge) = generateRhoChallenge(proof, previousChallenge);
+
+        (t.geminiR, previousChallenge) = generateGeminiRChallenge(proof, previousChallenge, logN);
+
+        (t.shplonkNu, previousChallenge) = generateShplonkNuChallenge(proof, previousChallenge, logN);
+
+        (t.shplonkZ, previousChallenge) = generateShplonkZChallenge(proof, previousChallenge);
+        return t;
+    }
+
+    function splitChallenge(Fr challenge) internal pure returns (Fr first, Fr second) {
+        uint256 challengeU256 = uint256(Fr.unwrap(challenge));
+        // Split into two equal 127-bit chunks (254/2)
+        uint256 lo = challengeU256 & 0x7FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF; // 127 bits
+        uint256 hi = challengeU256 >> 127;
+        first = FrLib.from(lo);
+        second = FrLib.from(hi);
+    }
+
+    function generateRelationParametersChallenges(
+        Honk.ZKProof memory proof,
+        bytes32[] calldata publicInputs,
+        uint256 vkHash,
+        uint256 publicInputsSize,
+        Fr previousChallenge
+    ) internal pure returns (Honk.RelationParameters memory rp, Fr nextPreviousChallenge) {
+        (rp.eta, previousChallenge) = generateEtaChallenge(proof, publicInputs, vkHash, publicInputsSize);
+
+        (rp.beta, rp.gamma, nextPreviousChallenge) = generateBetaGammaChallenges(previousChallenge, proof);
+    }
+
+    function generateEtaChallenge(
+        Honk.ZKProof memory proof,
+        bytes32[] calldata publicInputs,
+        uint256 vkHash,
+        uint256 publicInputsSize
+    ) internal pure returns (Fr eta, Fr previousChallenge) {
+        // Size: 1 (vkHash) + publicInputsSize + 8 (geminiMask(2) + 3 wires(6))
+        bytes32[] memory round0 = new bytes32[](1 + publicInputsSize + 8);
+        round0[0] = bytes32(vkHash);
+
+        for (uint256 i = 0; i < publicInputsSize - PAIRING_POINTS_SIZE; i++) {
+            require(uint256(publicInputs[i]) < P, Errors.ValueGeFieldOrder());
+            round0[1 + i] = publicInputs[i];
+        }
+        for (uint256 i = 0; i < PAIRING_POINTS_SIZE; i++) {
+            round0[1 + publicInputsSize - PAIRING_POINTS_SIZE + i] = FrLib.toBytes32(proof.pairingPointObject[i]);
+        }
+
+        // For ZK flavors: hash the gemini masking poly commitment (sent right after public inputs)
+        round0[1 + publicInputsSize] = bytes32(proof.geminiMaskingPoly.x);
+        round0[1 + publicInputsSize + 1] = bytes32(proof.geminiMaskingPoly.y);
+
+        // Create the first challenge
+        // Note: w4 is added to the challenge later on
+        round0[1 + publicInputsSize + 2] = bytes32(proof.w1.x);
+        round0[1 + publicInputsSize + 3] = bytes32(proof.w1.y);
+        round0[1 + publicInputsSize + 4] = bytes32(proof.w2.x);
+        round0[1 + publicInputsSize + 5] = bytes32(proof.w2.y);
+        round0[1 + publicInputsSize + 6] = bytes32(proof.w3.x);
+        round0[1 + publicInputsSize + 7] = bytes32(proof.w3.y);
+
+        previousChallenge = FrLib.from(uint256(keccak256(abi.encodePacked(round0))) % P);
+        (eta,) = splitChallenge(previousChallenge);
+    }
+
+    function generateBetaGammaChallenges(Fr previousChallenge, Honk.ZKProof memory proof)
+        internal
+        pure
+        returns (Fr beta, Fr gamma, Fr nextPreviousChallenge)
+    {
+        bytes32[7] memory round1;
+        round1[0] = FrLib.toBytes32(previousChallenge);
+        round1[1] = bytes32(proof.lookupReadCounts.x);
+        round1[2] = bytes32(proof.lookupReadCounts.y);
+        round1[3] = bytes32(proof.lookupReadTags.x);
+        round1[4] = bytes32(proof.lookupReadTags.y);
+        round1[5] = bytes32(proof.w4.x);
+        round1[6] = bytes32(proof.w4.y);
+
+        nextPreviousChallenge = FrLib.from(uint256(keccak256(abi.encodePacked(round1))) % P);
+        (beta, gamma) = splitChallenge(nextPreviousChallenge);
+    }
+
+    // Alpha challenges non-linearise the gate contributions
+    function generateAlphaChallenges(Fr previousChallenge, Honk.ZKProof memory proof)
+        internal
+        pure
+        returns (Fr[NUMBER_OF_ALPHAS] memory alphas, Fr nextPreviousChallenge)
+    {
+        // Generate the original sumcheck alpha 0 by hashing zPerm and zLookup
+        uint256[5] memory alpha0;
+        alpha0[0] = Fr.unwrap(previousChallenge);
+        alpha0[1] = proof.lookupInverses.x;
+        alpha0[2] = proof.lookupInverses.y;
+        alpha0[3] = proof.zPerm.x;
+        alpha0[4] = proof.zPerm.y;
+
+        nextPreviousChallenge = FrLib.from(uint256(keccak256(abi.encodePacked(alpha0))) % P);
+        Fr alpha;
+        (alpha,) = splitChallenge(nextPreviousChallenge);
+
+        // Compute powers of alpha for batching subrelations
+        alphas[0] = alpha;
+        for (uint256 i = 1; i < NUMBER_OF_ALPHAS; i++) {
+            alphas[i] = alphas[i - 1] * alpha;
+        }
+    }
+
+    function generateGateChallenges(Fr previousChallenge, uint256 logN)
+        internal
+        pure
+        returns (Fr[CONST_PROOF_SIZE_LOG_N] memory gateChallenges, Fr nextPreviousChallenge)
+    {
+        previousChallenge = FrLib.from(uint256(keccak256(abi.encodePacked(Fr.unwrap(previousChallenge)))) % P);
+        (gateChallenges[0],) = splitChallenge(previousChallenge);
+        for (uint256 i = 1; i < logN; i++) {
+            gateChallenges[i] = gateChallenges[i - 1] * gateChallenges[i - 1];
+        }
+        nextPreviousChallenge = previousChallenge;
+    }
+
+    function generateLibraChallenge(Fr previousChallenge, Honk.ZKProof memory proof)
+        internal
+        pure
+        returns (Fr libraChallenge, Fr nextPreviousChallenge)
+    {
+        // 2 comm, 1 sum, 1 challenge
+        uint256[4] memory challengeData;
+        challengeData[0] = Fr.unwrap(previousChallenge);
+        challengeData[1] = proof.libraCommitments[0].x;
+        challengeData[2] = proof.libraCommitments[0].y;
+        challengeData[3] = Fr.unwrap(proof.libraSum);
+        nextPreviousChallenge = FrLib.from(uint256(keccak256(abi.encodePacked(challengeData))) % P);
+        (libraChallenge,) = splitChallenge(nextPreviousChallenge);
+    }
+
+    function generateSumcheckChallenges(Honk.ZKProof memory proof, Fr prevChallenge, uint256 logN)
+        internal
+        pure
+        returns (Fr[CONST_PROOF_SIZE_LOG_N] memory sumcheckChallenges, Fr nextPreviousChallenge)
+    {
+        for (uint256 i = 0; i < logN; i++) {
+            Fr[ZK_BATCHED_RELATION_PARTIAL_LENGTH + 1] memory univariateChal;
+            univariateChal[0] = prevChallenge;
+
+            for (uint256 j = 0; j < ZK_BATCHED_RELATION_PARTIAL_LENGTH; j++) {
+                univariateChal[j + 1] = proof.sumcheckUnivariates[i][j];
+            }
+            prevChallenge = FrLib.from(uint256(keccak256(abi.encodePacked(univariateChal))) % P);
+
+            (sumcheckChallenges[i],) = splitChallenge(prevChallenge);
+        }
+        nextPreviousChallenge = prevChallenge;
+    }
+
+    // We add Libra claimed eval + 2 libra commitments (grand_sum, quotient)
+    function generateRhoChallenge(Honk.ZKProof memory proof, Fr prevChallenge)
+        internal
+        pure
+        returns (Fr rho, Fr nextPreviousChallenge)
+    {
+        uint256[NUMBER_OF_ENTITIES_ZK + 6] memory rhoChallengeElements;
+        rhoChallengeElements[0] = Fr.unwrap(prevChallenge);
+        uint256 i;
+        for (i = 1; i <= NUMBER_OF_ENTITIES_ZK; i++) {
+            rhoChallengeElements[i] = Fr.unwrap(proof.sumcheckEvaluations[i - 1]);
+        }
+        rhoChallengeElements[i] = Fr.unwrap(proof.libraEvaluation);
+        i += 1;
+        rhoChallengeElements[i] = proof.libraCommitments[1].x;
+        rhoChallengeElements[i + 1] = proof.libraCommitments[1].y;
+        i += 2;
+        rhoChallengeElements[i] = proof.libraCommitments[2].x;
+        rhoChallengeElements[i + 1] = proof.libraCommitments[2].y;
+
+        nextPreviousChallenge = FrLib.from(uint256(keccak256(abi.encodePacked(rhoChallengeElements))) % P);
+        (rho,) = splitChallenge(nextPreviousChallenge);
+    }
+
+    function generateGeminiRChallenge(Honk.ZKProof memory proof, Fr prevChallenge, uint256 logN)
+        internal
+        pure
+        returns (Fr geminiR, Fr nextPreviousChallenge)
+    {
+        uint256[] memory gR = new uint256[]((logN - 1) * 2 + 1);
+        gR[0] = Fr.unwrap(prevChallenge);
+
+        for (uint256 i = 0; i < logN - 1; i++) {
+            gR[1 + i * 2] = proof.geminiFoldComms[i].x;
+            gR[2 + i * 2] = proof.geminiFoldComms[i].y;
+        }
+
+        nextPreviousChallenge = FrLib.from(uint256(keccak256(abi.encodePacked(gR))) % P);
+
+        (geminiR,) = splitChallenge(nextPreviousChallenge);
+    }
+
+    function generateShplonkNuChallenge(Honk.ZKProof memory proof, Fr prevChallenge, uint256 logN)
+        internal
+        pure
+        returns (Fr shplonkNu, Fr nextPreviousChallenge)
+    {
+        uint256[] memory shplonkNuChallengeElements = new uint256[](logN + 1 + 4);
+        shplonkNuChallengeElements[0] = Fr.unwrap(prevChallenge);
+
+        for (uint256 i = 1; i <= logN; i++) {
+            shplonkNuChallengeElements[i] = Fr.unwrap(proof.geminiAEvaluations[i - 1]);
+        }
+
+        uint256 libraIdx = 0;
+        for (uint256 i = logN + 1; i <= logN + 4; i++) {
+            shplonkNuChallengeElements[i] = Fr.unwrap(proof.libraPolyEvals[libraIdx]);
+            libraIdx++;
+        }
+
+        nextPreviousChallenge = FrLib.from(uint256(keccak256(abi.encodePacked(shplonkNuChallengeElements))) % P);
+        (shplonkNu,) = splitChallenge(nextPreviousChallenge);
+    }
+
+    function generateShplonkZChallenge(Honk.ZKProof memory proof, Fr prevChallenge)
+        internal
+        pure
+        returns (Fr shplonkZ, Fr nextPreviousChallenge)
+    {
+        uint256[3] memory shplonkZChallengeElements;
+        shplonkZChallengeElements[0] = Fr.unwrap(prevChallenge);
+
+        shplonkZChallengeElements[1] = proof.shplonkQ.x;
+        shplonkZChallengeElements[2] = proof.shplonkQ.y;
+
+        nextPreviousChallenge = FrLib.from(uint256(keccak256(abi.encodePacked(shplonkZChallengeElements))) % P);
+        (shplonkZ,) = splitChallenge(nextPreviousChallenge);
+    }
+
+    function loadProof(bytes calldata proof, uint256 logN) internal pure returns (Honk.ZKProof memory p) {
+        uint256 boundary = 0x0;
+
+        // Pairing point object
+        for (uint256 i = 0; i < PAIRING_POINTS_SIZE; i++) {
+            uint256 limb = uint256(bytes32(proof[boundary:boundary + FIELD_ELEMENT_SIZE]));
+            // lo limbs (even index) < 2^136, hi limbs (odd index) < 2^120
+            require(limb < 2 ** (i % 2 == 0 ? 136 : 120), Errors.ValueGeLimbMax());
+            p.pairingPointObject[i] = FrLib.from(limb);
+            boundary += FIELD_ELEMENT_SIZE;
+        }
+
+        // Gemini masking polynomial commitment (sent first in ZK flavors, right after pairing points)
+        p.geminiMaskingPoly = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+        boundary += GROUP_ELEMENT_SIZE;
+
+        // Commitments
+        p.w1 = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+        boundary += GROUP_ELEMENT_SIZE;
+        p.w2 = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+        boundary += GROUP_ELEMENT_SIZE;
+        p.w3 = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+        boundary += GROUP_ELEMENT_SIZE;
+
+        // Lookup / Permutation Helper Commitments
+        p.lookupReadCounts = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+        boundary += GROUP_ELEMENT_SIZE;
+        p.lookupReadTags = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+        boundary += GROUP_ELEMENT_SIZE;
+        p.w4 = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+        boundary += GROUP_ELEMENT_SIZE;
+        p.lookupInverses = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+        boundary += GROUP_ELEMENT_SIZE;
+        p.zPerm = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+        boundary += GROUP_ELEMENT_SIZE;
+        p.libraCommitments[0] = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+        boundary += GROUP_ELEMENT_SIZE;
+
+        p.libraSum = bytesToFr(proof[boundary:boundary + FIELD_ELEMENT_SIZE]);
+        boundary += FIELD_ELEMENT_SIZE;
+        // Sumcheck univariates
+        for (uint256 i = 0; i < logN; i++) {
+            for (uint256 j = 0; j < ZK_BATCHED_RELATION_PARTIAL_LENGTH; j++) {
+                p.sumcheckUnivariates[i][j] = bytesToFr(proof[boundary:boundary + FIELD_ELEMENT_SIZE]);
+                boundary += FIELD_ELEMENT_SIZE;
+            }
+        }
+
+        // Sumcheck evaluations (includes gemini_masking_poly eval at index 0 for ZK flavors)
+        for (uint256 i = 0; i < NUMBER_OF_ENTITIES_ZK; i++) {
+            p.sumcheckEvaluations[i] = bytesToFr(proof[boundary:boundary + FIELD_ELEMENT_SIZE]);
+            boundary += FIELD_ELEMENT_SIZE;
+        }
+
+        p.libraEvaluation = bytesToFr(proof[boundary:boundary + FIELD_ELEMENT_SIZE]);
+        boundary += FIELD_ELEMENT_SIZE;
+
+        p.libraCommitments[1] = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+        boundary += GROUP_ELEMENT_SIZE;
+        p.libraCommitments[2] = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+        boundary += GROUP_ELEMENT_SIZE;
+
+        // Gemini
+        // Read gemini fold univariates
+        for (uint256 i = 0; i < logN - 1; i++) {
+            p.geminiFoldComms[i] = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+            boundary += GROUP_ELEMENT_SIZE;
+        }
+
+        // Read gemini a evaluations
+        for (uint256 i = 0; i < logN; i++) {
+            p.geminiAEvaluations[i] = bytesToFr(proof[boundary:boundary + FIELD_ELEMENT_SIZE]);
+            boundary += FIELD_ELEMENT_SIZE;
+        }
+
+        for (uint256 i = 0; i < 4; i++) {
+            p.libraPolyEvals[i] = bytesToFr(proof[boundary:boundary + FIELD_ELEMENT_SIZE]);
+            boundary += FIELD_ELEMENT_SIZE;
+        }
+
+        // Shplonk
+        p.shplonkQ = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+        boundary += GROUP_ELEMENT_SIZE;
+        // KZG
+        p.kzgQuotient = bytesToG1Point(proof[boundary:boundary + GROUP_ELEMENT_SIZE]);
+    }
+}
+
+library RelationsLib {
+    struct EllipticParams {
+        // Points
+        Fr x_1;
+        Fr y_1;
+        Fr x_2;
+        Fr y_2;
+        Fr y_3;
+        Fr x_3;
+        // push accumulators into memory
+        Fr x_double_identity;
+    }
+
+    // Parameters used within the Memory Relation
+    // A struct is used to work around stack too deep. This relation has alot of variables
+    struct MemParams {
+        Fr memory_record_check;
+        Fr partial_record_check;
+        Fr next_gate_access_type;
+        Fr record_delta;
+        Fr index_delta;
+        Fr adjacent_values_match_if_adjacent_indices_match;
+        Fr adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation;
+        Fr access_check;
+        Fr next_gate_access_type_is_boolean;
+        Fr ROM_consistency_check_identity;
+        Fr RAM_consistency_check_identity;
+        Fr timestamp_delta;
+        Fr RAM_timestamp_check_identity;
+        Fr memory_identity;
+        Fr index_is_monotonically_increasing;
+    }
+
+    // Parameters used within the Non-Native Field Relation
+    // A struct is used to work around stack too deep. This relation has alot of variables
+    struct NnfParams {
+        Fr limb_subproduct;
+        Fr non_native_field_gate_1;
+        Fr non_native_field_gate_2;
+        Fr non_native_field_gate_3;
+        Fr limb_accumulator_1;
+        Fr limb_accumulator_2;
+        Fr nnf_identity;
+    }
+
+    struct PoseidonExternalParams {
+        Fr s1;
+        Fr s2;
+        Fr s3;
+        Fr s4;
+        Fr u1;
+        Fr u2;
+        Fr u3;
+        Fr u4;
+        Fr t0;
+        Fr t1;
+        Fr t2;
+        Fr t3;
+        Fr v1;
+        Fr v2;
+        Fr v3;
+        Fr v4;
+        Fr q_pos_by_scaling;
+    }
+
+    struct PoseidonInternalParams {
+        Fr u1;
+        Fr u2;
+        Fr u3;
+        Fr u4;
+        Fr u_sum;
+        Fr v1;
+        Fr v2;
+        Fr v3;
+        Fr v4;
+        Fr s1;
+        Fr q_pos_by_scaling;
+    }
+
+    Fr internal constant GRUMPKIN_CURVE_B_PARAMETER_NEGATED = Fr.wrap(17); // -(-17)
+    uint256 internal constant NEG_HALF_MODULO_P = 0x183227397098d014dc2822db40c0ac2e9419f4243cdcb848a1f0fac9f8000000;
+
+    // Constants for the Non-native Field relation
+    Fr internal constant LIMB_SIZE = Fr.wrap(uint256(1) << 68);
+    Fr internal constant SUBLIMB_SHIFT = Fr.wrap(uint256(1) << 14);
+
+    function accumulateRelationEvaluations(
+        Fr[NUMBER_OF_ENTITIES] memory purportedEvaluations,
+        Honk.RelationParameters memory rp,
+        Fr[NUMBER_OF_ALPHAS] memory subrelationChallenges,
+        Fr powPartialEval
+    ) internal pure returns (Fr accumulator) {
+        Fr[NUMBER_OF_SUBRELATIONS] memory evaluations;
+
+        // Accumulate all relations in Ultra Honk - each with varying number of subrelations
+        accumulateArithmeticRelation(purportedEvaluations, evaluations, powPartialEval);
+        accumulatePermutationRelation(purportedEvaluations, rp, evaluations, powPartialEval);
+        accumulateLogDerivativeLookupRelation(purportedEvaluations, rp, evaluations, powPartialEval);
+        accumulateDeltaRangeRelation(purportedEvaluations, evaluations, powPartialEval);
+        accumulateEllipticRelation(purportedEvaluations, evaluations, powPartialEval);
+        accumulateMemoryRelation(purportedEvaluations, rp, evaluations, powPartialEval);
+        accumulateNnfRelation(purportedEvaluations, evaluations, powPartialEval);
+        accumulatePoseidonExternalRelation(purportedEvaluations, evaluations, powPartialEval);
+        accumulatePoseidonInternalRelation(purportedEvaluations, evaluations, powPartialEval);
+
+        // batch the subrelations with the precomputed alpha powers to obtain the full honk relation
+        accumulator = scaleAndBatchSubrelations(evaluations, subrelationChallenges);
+    }
+
+    /**
+     * Aesthetic helper function that is used to index by enum into proof.sumcheckEvaluations, it avoids
+     * the relation checking code being cluttered with uint256 type casting, which is often a different colour in code
+     * editors, and thus is noisy.
+     */
+    function wire(Fr[NUMBER_OF_ENTITIES] memory p, WIRE _wire) internal pure returns (Fr) {
+        return p[uint256(_wire)];
+    }
+
+    /**
+     * Ultra Arithmetic Relation
+     *
+     */
+    function accumulateArithmeticRelation(
+        Fr[NUMBER_OF_ENTITIES] memory p,
+        Fr[NUMBER_OF_SUBRELATIONS] memory evals,
+        Fr domainSep
+    ) internal pure {
+        // Relation 0
+        Fr q_arith = wire(p, WIRE.Q_ARITH);
+        {
+            Fr neg_half = Fr.wrap(NEG_HALF_MODULO_P);
+
+            Fr accum = (q_arith - Fr.wrap(3)) * (wire(p, WIRE.Q_M) * wire(p, WIRE.W_R) * wire(p, WIRE.W_L)) * neg_half;
+            accum = accum + (wire(p, WIRE.Q_L) * wire(p, WIRE.W_L)) + (wire(p, WIRE.Q_R) * wire(p, WIRE.W_R))
+                + (wire(p, WIRE.Q_O) * wire(p, WIRE.W_O)) + (wire(p, WIRE.Q_4) * wire(p, WIRE.W_4)) + wire(p, WIRE.Q_C);
+            accum = accum + (q_arith - ONE) * wire(p, WIRE.W_4_SHIFT);
+            accum = accum * q_arith;
+            accum = accum * domainSep;
+            evals[0] = accum;
+        }
+
+        // Relation 1
+        {
+            Fr accum = wire(p, WIRE.W_L) + wire(p, WIRE.W_4) - wire(p, WIRE.W_L_SHIFT) + wire(p, WIRE.Q_M);
+            accum = accum * (q_arith - Fr.wrap(2));
+            accum = accum * (q_arith - ONE);
+            accum = accum * q_arith;
+            accum = accum * domainSep;
+            evals[1] = accum;
+        }
+    }
+
+    function accumulatePermutationRelation(
+        Fr[NUMBER_OF_ENTITIES] memory p,
+        Honk.RelationParameters memory rp,
+        Fr[NUMBER_OF_SUBRELATIONS] memory evals,
+        Fr domainSep
+    ) internal pure {
+        Fr grand_product_numerator;
+        Fr grand_product_denominator;
+
+        {
+            Fr num = wire(p, WIRE.W_L) + wire(p, WIRE.ID_1) * rp.beta + rp.gamma;
+            num = num * (wire(p, WIRE.W_R) + wire(p, WIRE.ID_2) * rp.beta + rp.gamma);
+            num = num * (wire(p, WIRE.W_O) + wire(p, WIRE.ID_3) * rp.beta + rp.gamma);
+            num = num * (wire(p, WIRE.W_4) + wire(p, WIRE.ID_4) * rp.beta + rp.gamma);
+
+            grand_product_numerator = num;
+        }
+        {
+            Fr den = wire(p, WIRE.W_L) + wire(p, WIRE.SIGMA_1) * rp.beta + rp.gamma;
+            den = den * (wire(p, WIRE.W_R) + wire(p, WIRE.SIGMA_2) * rp.beta + rp.gamma);
+            den = den * (wire(p, WIRE.W_O) + wire(p, WIRE.SIGMA_3) * rp.beta + rp.gamma);
+            den = den * (wire(p, WIRE.W_4) + wire(p, WIRE.SIGMA_4) * rp.beta + rp.gamma);
+
+            grand_product_denominator = den;
+        }
+
+        // Contribution 2
+        {
+            Fr acc = (wire(p, WIRE.Z_PERM) + wire(p, WIRE.LAGRANGE_FIRST)) * grand_product_numerator;
+
+            acc = acc
+                - ((wire(p, WIRE.Z_PERM_SHIFT) + (wire(p, WIRE.LAGRANGE_LAST) * rp.publicInputsDelta))
+                    * grand_product_denominator);
+            acc = acc * domainSep;
+            evals[2] = acc;
+        }
+
+        // Contribution 3
+        {
+            Fr acc = (wire(p, WIRE.LAGRANGE_LAST) * wire(p, WIRE.Z_PERM_SHIFT)) * domainSep;
+            evals[3] = acc;
+        }
+    }
+
+    function accumulateLogDerivativeLookupRelation(
+        Fr[NUMBER_OF_ENTITIES] memory p,
+        Honk.RelationParameters memory rp,
+        Fr[NUMBER_OF_SUBRELATIONS] memory evals,
+        Fr domainSep
+    ) internal pure {
+        Fr table_term;
+        Fr lookup_term;
+
+        // Calculate the write term (the table accumulation)
+        // table_term = table_1 + γ + table_2 * β + table_3 * β² + table_4 * β³
+        {
+            Fr beta_sqr = rp.beta * rp.beta;
+            table_term = wire(p, WIRE.TABLE_1) + rp.gamma + (wire(p, WIRE.TABLE_2) * rp.beta)
+                + (wire(p, WIRE.TABLE_3) * beta_sqr) + (wire(p, WIRE.TABLE_4) * beta_sqr * rp.beta);
+        }
+
+        // Calculate the read term
+        // lookup_term = derived_entry_1 + γ + derived_entry_2 * β + derived_entry_3 * β² + q_index * β³
+        {
+            Fr beta_sqr = rp.beta * rp.beta;
+            Fr derived_entry_1 = wire(p, WIRE.W_L) + rp.gamma + (wire(p, WIRE.Q_R) * wire(p, WIRE.W_L_SHIFT));
+            Fr derived_entry_2 = wire(p, WIRE.W_R) + wire(p, WIRE.Q_M) * wire(p, WIRE.W_R_SHIFT);
+            Fr derived_entry_3 = wire(p, WIRE.W_O) + wire(p, WIRE.Q_C) * wire(p, WIRE.W_O_SHIFT);
+
+            lookup_term = derived_entry_1 + (derived_entry_2 * rp.beta) + (derived_entry_3 * beta_sqr)
+                + (wire(p, WIRE.Q_O) * beta_sqr * rp.beta);
+        }
+
+        Fr lookup_inverse = wire(p, WIRE.LOOKUP_INVERSES) * table_term;
+        Fr table_inverse = wire(p, WIRE.LOOKUP_INVERSES) * lookup_term;
+
+        Fr inverse_exists_xor =
+        wire(p, WIRE.LOOKUP_READ_TAGS) + wire(p, WIRE.Q_LOOKUP)
+            - (wire(p, WIRE.LOOKUP_READ_TAGS) * wire(p, WIRE.Q_LOOKUP));
+
+        // Inverse calculated correctly relation
+        Fr accumulatorNone = lookup_term * table_term * wire(p, WIRE.LOOKUP_INVERSES) - inverse_exists_xor;
+        accumulatorNone = accumulatorNone * domainSep;
+
+        // Inverse
+        Fr accumulatorOne = wire(p, WIRE.Q_LOOKUP) * lookup_inverse - wire(p, WIRE.LOOKUP_READ_COUNTS) * table_inverse;
+
+        Fr read_tag = wire(p, WIRE.LOOKUP_READ_TAGS);
+
+        Fr read_tag_boolean_relation = read_tag * read_tag - read_tag;
+
+        evals[4] = accumulatorNone;
+        evals[5] = accumulatorOne;
+        evals[6] = read_tag_boolean_relation * domainSep;
+    }
+
+    function accumulateDeltaRangeRelation(
+        Fr[NUMBER_OF_ENTITIES] memory p,
+        Fr[NUMBER_OF_SUBRELATIONS] memory evals,
+        Fr domainSep
+    ) internal pure {
+        Fr minus_one = ZERO - ONE;
+        Fr minus_two = ZERO - Fr.wrap(2);
+        Fr minus_three = ZERO - Fr.wrap(3);
+
+        // Compute wire differences
+        Fr delta_1 = wire(p, WIRE.W_R) - wire(p, WIRE.W_L);
+        Fr delta_2 = wire(p, WIRE.W_O) - wire(p, WIRE.W_R);
+        Fr delta_3 = wire(p, WIRE.W_4) - wire(p, WIRE.W_O);
+        Fr delta_4 = wire(p, WIRE.W_L_SHIFT) - wire(p, WIRE.W_4);
+
+        // Contribution 6
+        {
+            Fr acc = delta_1;
+            acc = acc * (delta_1 + minus_one);
+            acc = acc * (delta_1 + minus_two);
+            acc = acc * (delta_1 + minus_three);
+            acc = acc * wire(p, WIRE.Q_RANGE);
+            acc = acc * domainSep;
+            evals[7] = acc;
+        }
+
+        // Contribution 7
+        {
+            Fr acc = delta_2;
+            acc = acc * (delta_2 + minus_one);
+            acc = acc * (delta_2 + minus_two);
+            acc = acc * (delta_2 + minus_three);
+            acc = acc * wire(p, WIRE.Q_RANGE);
+            acc = acc * domainSep;
+            evals[8] = acc;
+        }
+
+        // Contribution 8
+        {
+            Fr acc = delta_3;
+            acc = acc * (delta_3 + minus_one);
+            acc = acc * (delta_3 + minus_two);
+            acc = acc * (delta_3 + minus_three);
+            acc = acc * wire(p, WIRE.Q_RANGE);
+            acc = acc * domainSep;
+            evals[9] = acc;
+        }
+
+        // Contribution 9
+        {
+            Fr acc = delta_4;
+            acc = acc * (delta_4 + minus_one);
+            acc = acc * (delta_4 + minus_two);
+            acc = acc * (delta_4 + minus_three);
+            acc = acc * wire(p, WIRE.Q_RANGE);
+            acc = acc * domainSep;
+            evals[10] = acc;
+        }
+    }
+
+    function accumulateEllipticRelation(
+        Fr[NUMBER_OF_ENTITIES] memory p,
+        Fr[NUMBER_OF_SUBRELATIONS] memory evals,
+        Fr domainSep
+    ) internal pure {
+        EllipticParams memory ep;
+        ep.x_1 = wire(p, WIRE.W_R);
+        ep.y_1 = wire(p, WIRE.W_O);
+
+        ep.x_2 = wire(p, WIRE.W_L_SHIFT);
+        ep.y_2 = wire(p, WIRE.W_4_SHIFT);
+        ep.y_3 = wire(p, WIRE.W_O_SHIFT);
+        ep.x_3 = wire(p, WIRE.W_R_SHIFT);
+
+        Fr q_sign = wire(p, WIRE.Q_L);
+        Fr q_is_double = wire(p, WIRE.Q_M);
+
+        // Contribution 10 point addition, x-coordinate check
+        // q_elliptic * (x3 + x2 + x1)(x2 - x1)(x2 - x1) - y2^2 - y1^2 + 2(y2y1)*q_sign = 0
+        Fr x_diff = (ep.x_2 - ep.x_1);
+        Fr y1_sqr = (ep.y_1 * ep.y_1);
+        {
+            // Move to top
+            Fr partialEval = domainSep;
+
+            Fr y2_sqr = (ep.y_2 * ep.y_2);
+            Fr y1y2 = ep.y_1 * ep.y_2 * q_sign;
+            Fr x_add_identity = (ep.x_3 + ep.x_2 + ep.x_1);
+            x_add_identity = x_add_identity * x_diff * x_diff;
+            x_add_identity = x_add_identity - y2_sqr - y1_sqr + y1y2 + y1y2;
+
+            evals[11] = x_add_identity * partialEval * wire(p, WIRE.Q_ELLIPTIC) * (ONE - q_is_double);
+        }
+
+        // Contribution 11 point addition, x-coordinate check
+        // q_elliptic * (q_sign * y1 + y3)(x2 - x1) + (x3 - x1)(y2 - q_sign * y1) = 0
+        {
+            Fr y1_plus_y3 = ep.y_1 + ep.y_3;
+            Fr y_diff = ep.y_2 * q_sign - ep.y_1;
+            Fr y_add_identity = y1_plus_y3 * x_diff + (ep.x_3 - ep.x_1) * y_diff;
+            evals[12] = y_add_identity * domainSep * wire(p, WIRE.Q_ELLIPTIC) * (ONE - q_is_double);
+        }
+
+        // Contribution 10 point doubling, x-coordinate check
+        // (x3 + x1 + x1) (4y1*y1) - 9 * x1 * x1 * x1 * x1 = 0
+        // N.B. we're using the equivalence x1*x1*x1 === y1*y1 - curve_b to reduce degree by 1
+        {
+            Fr x_pow_4 = (y1_sqr + GRUMPKIN_CURVE_B_PARAMETER_NEGATED) * ep.x_1;
+            Fr y1_sqr_mul_4 = y1_sqr + y1_sqr;
+            y1_sqr_mul_4 = y1_sqr_mul_4 + y1_sqr_mul_4;
+            Fr x1_pow_4_mul_9 = x_pow_4 * Fr.wrap(9);
+
+            // NOTE: pushed into memory (stack >:'( )
+            ep.x_double_identity = (ep.x_3 + ep.x_1 + ep.x_1) * y1_sqr_mul_4 - x1_pow_4_mul_9;
+
+            Fr acc = ep.x_double_identity * domainSep * wire(p, WIRE.Q_ELLIPTIC) * q_is_double;
+            evals[11] = evals[11] + acc;
+        }
+
+        // Contribution 11 point doubling, y-coordinate check
+        // (y1 + y1) (2y1) - (3 * x1 * x1)(x1 - x3) = 0
+        {
+            Fr x1_sqr_mul_3 = (ep.x_1 + ep.x_1 + ep.x_1) * ep.x_1;
+            Fr y_double_identity = x1_sqr_mul_3 * (ep.x_1 - ep.x_3) - (ep.y_1 + ep.y_1) * (ep.y_1 + ep.y_3);
+            evals[12] = evals[12] + y_double_identity * domainSep * wire(p, WIRE.Q_ELLIPTIC) * q_is_double;
+        }
+    }
+
+    function accumulateMemoryRelation(
+        Fr[NUMBER_OF_ENTITIES] memory p,
+        Honk.RelationParameters memory rp,
+        Fr[NUMBER_OF_SUBRELATIONS] memory evals,
+        Fr domainSep
+    ) internal pure {
+        MemParams memory ap;
+
+        // Compute eta powers locally
+        Fr eta_two = rp.eta * rp.eta;
+        Fr eta_three = eta_two * rp.eta;
+
+        /**
+         * MEMORY
+         *
+         * A RAM memory record contains a tuple of the following fields:
+         *  * i: `index` of memory cell being accessed
+         *  * t: `timestamp` of memory cell being accessed (used for RAM, set to 0 for ROM)
+         *  * v: `value` of memory cell being accessed
+         *  * a: `access` type of record. read: 0 = read, 1 = write
+         *  * r: `record` of memory cell. record = access + index * eta + timestamp * eta_two + value * eta_three
+         *
+         * A ROM memory record contains a tuple of the following fields:
+         *  * i: `index` of memory cell being accessed
+         *  * v: `value1` of memory cell being accessed (ROM tables can store up to 2 values per index)
+         *  * v2:`value2` of memory cell being accessed (ROM tables can store up to 2 values per index)
+         *  * r: `record` of memory cell. record = index * eta + value2 * eta_two + value1 * eta_three
+         *
+         *  When performing a read/write access, the values of i, t, v, v2, a, r are stored in the following wires +
+         * selectors, depending on whether the gate is a RAM read/write or a ROM read
+         *
+         *  | gate type | i  | v2/t  |  v | a  | r  |
+         *  | --------- | -- | ----- | -- | -- | -- |
+         *  | ROM       | w1 | w2    | w3 | -- | w4 |
+         *  | RAM       | w1 | w2    | w3 | qc | w4 |
+         *
+         * (for accesses where `index` is a circuit constant, it is assumed the circuit will apply a copy constraint on
+         * `w2` to fix its value)
+         *
+         *
+         */
+
+        /**
+         * Memory Record Check
+         * Partial degree: 1
+         * Total degree: 4
+         *
+         * A ROM/ROM access gate can be evaluated with the identity:
+         *
+         * qc + w1 \eta + w2 \eta_two + w3 \eta_three - w4 = 0
+         *
+         * For ROM gates, qc = 0
+         */
+        ap.memory_record_check = wire(p, WIRE.W_O) * eta_three;
+        ap.memory_record_check = ap.memory_record_check + (wire(p, WIRE.W_R) * eta_two);
+        ap.memory_record_check = ap.memory_record_check + (wire(p, WIRE.W_L) * rp.eta);
+        ap.memory_record_check = ap.memory_record_check + wire(p, WIRE.Q_C);
+        ap.partial_record_check = ap.memory_record_check; // used in RAM consistency check; deg 1 or 4
+        ap.memory_record_check = ap.memory_record_check - wire(p, WIRE.W_4);
+
+        /**
+         * Contribution 13 & 14
+         * ROM Consistency Check
+         * Partial degree: 1
+         * Total degree: 4
+         *
+         * For every ROM read, a set equivalence check is applied between the record witnesses, and a second set of
+         * records that are sorted.
+         *
+         * We apply the following checks for the sorted records:
+         *
+         * 1. w1, w2, w3 correctly map to 'index', 'v1, 'v2' for a given record value at w4
+         * 2. index values for adjacent records are monotonically increasing
+         * 3. if, at gate i, index_i == index_{i + 1}, then value1_i == value1_{i + 1} and value2_i == value2_{i + 1}
+         *
+         */
+        ap.index_delta = wire(p, WIRE.W_L_SHIFT) - wire(p, WIRE.W_L);
+        ap.record_delta = wire(p, WIRE.W_4_SHIFT) - wire(p, WIRE.W_4);
+
+        ap.index_is_monotonically_increasing = ap.index_delta * (ap.index_delta - Fr.wrap(1)); // deg 2
+
+        ap.adjacent_values_match_if_adjacent_indices_match = (ap.index_delta * MINUS_ONE + ONE) * ap.record_delta; // deg 2
+
+        evals[14] = ap.adjacent_values_match_if_adjacent_indices_match * (wire(p, WIRE.Q_L) * wire(p, WIRE.Q_R))
+            * (wire(p, WIRE.Q_MEMORY) * domainSep); // deg 5
+        evals[15] = ap.index_is_monotonically_increasing * (wire(p, WIRE.Q_L) * wire(p, WIRE.Q_R))
+            * (wire(p, WIRE.Q_MEMORY) * domainSep); // deg 5
+
+        ap.ROM_consistency_check_identity = ap.memory_record_check * (wire(p, WIRE.Q_L) * wire(p, WIRE.Q_R)); // deg 3 or 7
+
+        /**
+         * Contributions 15,16,17
+         * RAM Consistency Check
+         *
+         * The 'access' type of the record is extracted with the expression `w_4 - ap.partial_record_check`
+         * (i.e. for an honest Prover `w1 * eta + w2 * eta^2 + w3 * eta^3 - w4 = access`.
+         * This is validated by requiring `access` to be boolean
+         *
+         * For two adjacent entries in the sorted list if _both_
+         *  A) index values match
+         *  B) adjacent access value is 0 (i.e. next gate is a READ)
+         * then
+         *  C) both values must match.
+         * The gate boolean check is
+         * (A && B) => C  === !(A && B) || C ===  !A || !B || C
+         *
+         * N.B. it is the responsibility of the circuit writer to ensure that every RAM cell is initialized
+         * with a WRITE operation.
+         */
+        Fr access_type = (wire(p, WIRE.W_4) - ap.partial_record_check); // will be 0 or 1 for honest Prover; deg 1 or 4
+        ap.access_check = access_type * (access_type - Fr.wrap(1)); // check value is 0 or 1; deg 2 or 8
+
+        // reverse order we could re-use `ap.partial_record_check`  1 -  ((w3' * eta + w2') * eta + w1') * eta
+        // deg 1 or 4
+        ap.next_gate_access_type = wire(p, WIRE.W_O_SHIFT) * eta_three;
+        ap.next_gate_access_type = ap.next_gate_access_type + (wire(p, WIRE.W_R_SHIFT) * eta_two);
+        ap.next_gate_access_type = ap.next_gate_access_type + (wire(p, WIRE.W_L_SHIFT) * rp.eta);
+        ap.next_gate_access_type = wire(p, WIRE.W_4_SHIFT) - ap.next_gate_access_type;
+
+        Fr value_delta = wire(p, WIRE.W_O_SHIFT) - wire(p, WIRE.W_O);
+        ap.adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation =
+            (ap.index_delta * MINUS_ONE + ONE) * value_delta * (ap.next_gate_access_type * MINUS_ONE + ONE); // deg 3 or 6
+
+        // We can't apply the RAM consistency check identity on the final entry in the sorted list (the wires in the
+        // next gate would make the identity fail).  We need to validate that its 'access type' bool is correct. Can't
+        // do  with an arithmetic gate because of the  `eta` factors. We need to check that the *next* gate's access
+        // type is  correct, to cover this edge case
+        // deg 2 or 4
+        ap.next_gate_access_type_is_boolean =
+            ap.next_gate_access_type * ap.next_gate_access_type - ap.next_gate_access_type;
+
+        // Putting it all together...
+        evals[16] = ap.adjacent_values_match_if_adjacent_indices_match_and_next_access_is_a_read_operation
+            * (wire(p, WIRE.Q_O)) * (wire(p, WIRE.Q_MEMORY) * domainSep); // deg 5 or 8
+        evals[17] = ap.index_is_monotonically_increasing * (wire(p, WIRE.Q_O)) * (wire(p, WIRE.Q_MEMORY) * domainSep); // deg 4
+        evals[18] = ap.next_gate_access_type_is_boolean * (wire(p, WIRE.Q_O)) * (wire(p, WIRE.Q_MEMORY) * domainSep); // deg 4 or 6
+
+        ap.RAM_consistency_check_identity = ap.access_check * (wire(p, WIRE.Q_O)); // deg 3 or 9
+
+        /**
+         * RAM Timestamp Consistency Check
+         *
+         * | w1 | w2 | w3 | w4 |
+         * | index | timestamp | timestamp_check | -- |
+         *
+         * Let delta_index = index_{i + 1} - index_{i}
+         *
+         * Iff delta_index == 0, timestamp_check = timestamp_{i + 1} - timestamp_i
+         * Else timestamp_check = 0
+         */
+        ap.timestamp_delta = wire(p, WIRE.W_R_SHIFT) - wire(p, WIRE.W_R);
+        ap.RAM_timestamp_check_identity = (ap.index_delta * MINUS_ONE + ONE) * ap.timestamp_delta - wire(p, WIRE.W_O); // deg 3
+
+        /**
+         * Complete Contribution 12
+         * The complete RAM/ROM memory identity
+         * Partial degree:
+         */
+        ap.memory_identity = ap.ROM_consistency_check_identity; // deg 3 or 6
+        ap.memory_identity =
+            ap.memory_identity + ap.RAM_timestamp_check_identity * (wire(p, WIRE.Q_4) * wire(p, WIRE.Q_L)); // deg 4
+        ap.memory_identity = ap.memory_identity + ap.memory_record_check * (wire(p, WIRE.Q_M) * wire(p, WIRE.Q_L)); // deg 3 or 6
+        ap.memory_identity = ap.memory_identity + ap.RAM_consistency_check_identity; // deg 3 or 9
+
+        // (deg 3 or 9) + (deg 4) + (deg 3)
+        ap.memory_identity = ap.memory_identity * (wire(p, WIRE.Q_MEMORY) * domainSep); // deg 4 or 10
+        evals[13] = ap.memory_identity;
+    }
+
+    function accumulateNnfRelation(
+        Fr[NUMBER_OF_ENTITIES] memory p,
+        Fr[NUMBER_OF_SUBRELATIONS] memory evals,
+        Fr domainSep
+    ) internal pure {
+        NnfParams memory ap;
+
+        /**
+         * Contribution 12
+         * Non native field arithmetic gate 2
+         * deg 4
+         *
+         *             _                                                                               _
+         *            /   _                   _                               _       14                \
+         * q_2 . q_4 |   (w_1 . w_2) + (w_1 . w_2) + (w_1 . w_4 + w_2 . w_3 - w_3) . 2    - w_3 - w_4   |
+         *            \_                                                                               _/
+         *
+         *
+         */
+        ap.limb_subproduct = wire(p, WIRE.W_L) * wire(p, WIRE.W_R_SHIFT) + wire(p, WIRE.W_L_SHIFT) * wire(p, WIRE.W_R);
+        ap.non_native_field_gate_2 =
+            (wire(p, WIRE.W_L) * wire(p, WIRE.W_4) + wire(p, WIRE.W_R) * wire(p, WIRE.W_O) - wire(p, WIRE.W_O_SHIFT));
+        ap.non_native_field_gate_2 = ap.non_native_field_gate_2 * LIMB_SIZE;
+        ap.non_native_field_gate_2 = ap.non_native_field_gate_2 - wire(p, WIRE.W_4_SHIFT);
+        ap.non_native_field_gate_2 = ap.non_native_field_gate_2 + ap.limb_subproduct;
+        ap.non_native_field_gate_2 = ap.non_native_field_gate_2 * wire(p, WIRE.Q_4);
+
+        ap.limb_subproduct = ap.limb_subproduct * LIMB_SIZE;
+        ap.limb_subproduct = ap.limb_subproduct + (wire(p, WIRE.W_L_SHIFT) * wire(p, WIRE.W_R_SHIFT));
+        ap.non_native_field_gate_1 = ap.limb_subproduct;
+        ap.non_native_field_gate_1 = ap.non_native_field_gate_1 - (wire(p, WIRE.W_O) + wire(p, WIRE.W_4));
+        ap.non_native_field_gate_1 = ap.non_native_field_gate_1 * wire(p, WIRE.Q_O);
+
+        ap.non_native_field_gate_3 = ap.limb_subproduct;
+        ap.non_native_field_gate_3 = ap.non_native_field_gate_3 + wire(p, WIRE.W_4);
+        ap.non_native_field_gate_3 = ap.non_native_field_gate_3 - (wire(p, WIRE.W_O_SHIFT) + wire(p, WIRE.W_4_SHIFT));
+        ap.non_native_field_gate_3 = ap.non_native_field_gate_3 * wire(p, WIRE.Q_M);
+
+        Fr non_native_field_identity =
+        ap.non_native_field_gate_1 + ap.non_native_field_gate_2 + ap.non_native_field_gate_3;
+        non_native_field_identity = non_native_field_identity * wire(p, WIRE.Q_R);
+
+        // ((((w2' * 2^14 + w1') * 2^14 + w3) * 2^14 + w2) * 2^14 + w1 - w4) * qm
+        // deg 2
+        ap.limb_accumulator_1 = wire(p, WIRE.W_R_SHIFT) * SUBLIMB_SHIFT;
+        ap.limb_accumulator_1 = ap.limb_accumulator_1 + wire(p, WIRE.W_L_SHIFT);
+        ap.limb_accumulator_1 = ap.limb_accumulator_1 * SUBLIMB_SHIFT;
+        ap.limb_accumulator_1 = ap.limb_accumulator_1 + wire(p, WIRE.W_O);
+        ap.limb_accumulator_1 = ap.limb_accumulator_1 * SUBLIMB_SHIFT;
+        ap.limb_accumulator_1 = ap.limb_accumulator_1 + wire(p, WIRE.W_R);
+        ap.limb_accumulator_1 = ap.limb_accumulator_1 * SUBLIMB_SHIFT;
+        ap.limb_accumulator_1 = ap.limb_accumulator_1 + wire(p, WIRE.W_L);
+        ap.limb_accumulator_1 = ap.limb_accumulator_1 - wire(p, WIRE.W_4);
+        ap.limb_accumulator_1 = ap.limb_accumulator_1 * wire(p, WIRE.Q_4);
+
+        // ((((w3' * 2^14 + w2') * 2^14 + w1') * 2^14 + w4) * 2^14 + w3 - w4') * qm
+        // deg 2
+        ap.limb_accumulator_2 = wire(p, WIRE.W_O_SHIFT) * SUBLIMB_SHIFT;
+        ap.limb_accumulator_2 = ap.limb_accumulator_2 + wire(p, WIRE.W_R_SHIFT);
+        ap.limb_accumulator_2 = ap.limb_accumulator_2 * SUBLIMB_SHIFT;
+        ap.limb_accumulator_2 = ap.limb_accumulator_2 + wire(p, WIRE.W_L_SHIFT);
+        ap.limb_accumulator_2 = ap.limb_accumulator_2 * SUBLIMB_SHIFT;
+        ap.limb_accumulator_2 = ap.limb_accumulator_2 + wire(p, WIRE.W_4);
+        ap.limb_accumulator_2 = ap.limb_accumulator_2 * SUBLIMB_SHIFT;
+        ap.limb_accumulator_2 = ap.limb_accumulator_2 + wire(p, WIRE.W_O);
+        ap.limb_accumulator_2 = ap.limb_accumulator_2 - wire(p, WIRE.W_4_SHIFT);
+        ap.limb_accumulator_2 = ap.limb_accumulator_2 * wire(p, WIRE.Q_M);
+
+        Fr limb_accumulator_identity = ap.limb_accumulator_1 + ap.limb_accumulator_2;
+        limb_accumulator_identity = limb_accumulator_identity * wire(p, WIRE.Q_O); //  deg 3
+
+        ap.nnf_identity = non_native_field_identity + limb_accumulator_identity;
+        ap.nnf_identity = ap.nnf_identity * (wire(p, WIRE.Q_NNF) * domainSep);
+        evals[19] = ap.nnf_identity;
+    }
+
+    function accumulatePoseidonExternalRelation(
+        Fr[NUMBER_OF_ENTITIES] memory p,
+        Fr[NUMBER_OF_SUBRELATIONS] memory evals,
+        Fr domainSep
+    ) internal pure {
+        PoseidonExternalParams memory ep;
+
+        ep.s1 = wire(p, WIRE.W_L) + wire(p, WIRE.Q_L);
+        ep.s2 = wire(p, WIRE.W_R) + wire(p, WIRE.Q_R);
+        ep.s3 = wire(p, WIRE.W_O) + wire(p, WIRE.Q_O);
+        ep.s4 = wire(p, WIRE.W_4) + wire(p, WIRE.Q_4);
+
+        ep.u1 = ep.s1 * ep.s1 * ep.s1 * ep.s1 * ep.s1;
+        ep.u2 = ep.s2 * ep.s2 * ep.s2 * ep.s2 * ep.s2;
+        ep.u3 = ep.s3 * ep.s3 * ep.s3 * ep.s3 * ep.s3;
+        ep.u4 = ep.s4 * ep.s4 * ep.s4 * ep.s4 * ep.s4;
+        // matrix mul v = M_E * u with 14 additions
+        ep.t0 = ep.u1 + ep.u2; // u_1 + u_2
+        ep.t1 = ep.u3 + ep.u4; // u_3 + u_4
+        ep.t2 = ep.u2 + ep.u2 + ep.t1; // 2u_2
+        // ep.t2 += ep.t1; // 2u_2 + u_3 + u_4
+        ep.t3 = ep.u4 + ep.u4 + ep.t0; // 2u_4
+        // ep.t3 += ep.t0; // u_1 + u_2 + 2u_4
+        ep.v4 = ep.t1 + ep.t1;
+        ep.v4 = ep.v4 + ep.v4 + ep.t3;
+        // ep.v4 += ep.t3; // u_1 + u_2 + 4u_3 + 6u_4
+        ep.v2 = ep.t0 + ep.t0;
+        ep.v2 = ep.v2 + ep.v2 + ep.t2;
+        // ep.v2 += ep.t2; // 4u_1 + 6u_2 + u_3 + u_4
+        ep.v1 = ep.t3 + ep.v2; // 5u_1 + 7u_2 + u_3 + 3u_4
+        ep.v3 = ep.t2 + ep.v4; // u_1 + 3u_2 + 5u_3 + 7u_4
+
+        ep.q_pos_by_scaling = wire(p, WIRE.Q_POSEIDON2_EXTERNAL) * domainSep;
+        evals[20] = evals[20] + ep.q_pos_by_scaling * (ep.v1 - wire(p, WIRE.W_L_SHIFT));
+
+        evals[21] = evals[21] + ep.q_pos_by_scaling * (ep.v2 - wire(p, WIRE.W_R_SHIFT));
+
+        evals[22] = evals[22] + ep.q_pos_by_scaling * (ep.v3 - wire(p, WIRE.W_O_SHIFT));
+
+        evals[23] = evals[23] + ep.q_pos_by_scaling * (ep.v4 - wire(p, WIRE.W_4_SHIFT));
+    }
+
+    function accumulatePoseidonInternalRelation(
+        Fr[NUMBER_OF_ENTITIES] memory p,
+        Fr[NUMBER_OF_SUBRELATIONS] memory evals,
+        Fr domainSep
+    ) internal pure {
+        PoseidonInternalParams memory ip;
+
+        Fr[4] memory INTERNAL_MATRIX_DIAGONAL = [
+            FrLib.from(0x10dc6e9c006ea38b04b1e03b4bd9490c0d03f98929ca1d7fb56821fd19d3b6e7),
+            FrLib.from(0x0c28145b6a44df3e0149b3d0a30b3bb599df9756d4dd9b84a86b38cfb45a740b),
+            FrLib.from(0x00544b8338791518b2c7645a50392798b21f75bb60e3596170067d00141cac15),
+            FrLib.from(0x222c01175718386f2e2e82eb122789e352e105a3b8fa852613bc534433ee428b)
+        ];
+
+        // add round constants
+        ip.s1 = wire(p, WIRE.W_L) + wire(p, WIRE.Q_L);
+
+        // apply s-box round
+        ip.u1 = ip.s1 * ip.s1 * ip.s1 * ip.s1 * ip.s1;
+        ip.u2 = wire(p, WIRE.W_R);
+        ip.u3 = wire(p, WIRE.W_O);
+        ip.u4 = wire(p, WIRE.W_4);
+
+        // matrix mul with v = M_I * u 4 muls and 7 additions
+        ip.u_sum = ip.u1 + ip.u2 + ip.u3 + ip.u4;
+
+        ip.q_pos_by_scaling = wire(p, WIRE.Q_POSEIDON2_INTERNAL) * domainSep;
+
+        ip.v1 = ip.u1 * INTERNAL_MATRIX_DIAGONAL[0] + ip.u_sum;
+        evals[24] = evals[24] + ip.q_pos_by_scaling * (ip.v1 - wire(p, WIRE.W_L_SHIFT));
+
+        ip.v2 = ip.u2 * INTERNAL_MATRIX_DIAGONAL[1] + ip.u_sum;
+        evals[25] = evals[25] + ip.q_pos_by_scaling * (ip.v2 - wire(p, WIRE.W_R_SHIFT));
+
+        ip.v3 = ip.u3 * INTERNAL_MATRIX_DIAGONAL[2] + ip.u_sum;
+        evals[26] = evals[26] + ip.q_pos_by_scaling * (ip.v3 - wire(p, WIRE.W_O_SHIFT));
+
+        ip.v4 = ip.u4 * INTERNAL_MATRIX_DIAGONAL[3] + ip.u_sum;
+        evals[27] = evals[27] + ip.q_pos_by_scaling * (ip.v4 - wire(p, WIRE.W_4_SHIFT));
+    }
+
+    // Batch subrelation evaluations using precomputed powers of alpha
+    // First subrelation is implicitly scaled by 1, subsequent ones use powers from the subrelationChallenges array
+    function scaleAndBatchSubrelations(
+        Fr[NUMBER_OF_SUBRELATIONS] memory evaluations,
+        Fr[NUMBER_OF_ALPHAS] memory subrelationChallenges
+    ) internal pure returns (Fr accumulator) {
+        accumulator = evaluations[0];
+
+        for (uint256 i = 1; i < NUMBER_OF_SUBRELATIONS; ++i) {
+            accumulator = accumulator + evaluations[i] * subrelationChallenges[i - 1];
+        }
+    }
+}
+
+library CommitmentSchemeLib {
+    using FrLib for Fr;
+
+    // Avoid stack too deep
+    struct ShpleminiIntermediates {
+        Fr unshiftedScalar;
+        Fr shiftedScalar;
+        Fr unshiftedScalarNeg;
+        Fr shiftedScalarNeg;
+        // Scalar to be multiplied by [1]₁
+        Fr constantTermAccumulator;
+        // Accumulator for powers of rho
+        Fr batchingChallenge;
+        // Linear combination of multilinear (sumcheck) evaluations and powers of rho
+        Fr batchedEvaluation;
+        Fr[4] denominators;
+        Fr[4] batchingScalars;
+        // 1/(z - r^{2^i}) for i = 0, ..., logSize, dynamically updated
+        Fr posInvertedDenominator;
+        // 1/(z + r^{2^i}) for i = 0, ..., logSize, dynamically updated
+        Fr negInvertedDenominator;
+        // ν^{2i} * 1/(z - r^{2^i})
+        Fr scalingFactorPos;
+        // ν^{2i+1} * 1/(z + r^{2^i})
+        Fr scalingFactorNeg;
+        // Fold_i(r^{2^i}) reconstructed by Verifier
+        Fr[] foldPosEvaluations;
+    }
+
+    // Compute the evaluations Aₗ(r^{2ˡ}) for l = 0, ..., m-1
+    function computeFoldPosEvaluations(
+        Fr[CONST_PROOF_SIZE_LOG_N] memory sumcheckUChallenges,
+        Fr batchedEvalAccumulator,
+        Fr[CONST_PROOF_SIZE_LOG_N] memory geminiEvaluations,
+        Fr[] memory geminiEvalChallengePowers,
+        uint256 logSize
+    ) internal view returns (Fr[] memory) {
+        Fr[] memory foldPosEvaluations = new Fr[](logSize);
+        for (uint256 i = logSize; i > 0; --i) {
+            Fr challengePower = geminiEvalChallengePowers[i - 1];
+            Fr u = sumcheckUChallenges[i - 1];
+
+            Fr batchedEvalRoundAcc = ((challengePower * batchedEvalAccumulator * Fr.wrap(2)) - geminiEvaluations[i - 1]
+                    * (challengePower * (ONE - u) - u));
+            // Divide by the denominator
+            batchedEvalRoundAcc = batchedEvalRoundAcc * (challengePower * (ONE - u) + u).invert();
+
+            batchedEvalAccumulator = batchedEvalRoundAcc;
+            foldPosEvaluations[i - 1] = batchedEvalRoundAcc;
+        }
+        return foldPosEvaluations;
+    }
+
+    function computeSquares(Fr r, uint256 logN) internal pure returns (Fr[] memory) {
+        Fr[] memory squares = new Fr[](logN);
+        squares[0] = r;
+        for (uint256 i = 1; i < logN; ++i) {
+            squares[i] = squares[i - 1].sqr();
+        }
+        return squares;
+    }
+}
+
+uint256 constant Q = 21888242871839275222246405745257275088696311157297823662689037894645226208583; // EC group order. F_q
+
+// Fr utility
+
+function bytesToFr(bytes calldata proofSection) pure returns (Fr scalar) {
+    scalar = FrLib.fromBytes32(bytes32(proofSection));
+}
+
+// EC Point utilities
+function bytesToG1Point(bytes calldata proofSection) pure returns (Honk.G1Point memory point) {
+    uint256 x = uint256(bytes32(proofSection[0x00:0x20]));
+    uint256 y = uint256(bytes32(proofSection[0x20:0x40]));
+    require(x < Q && y < Q, Errors.ValueGeGroupOrder());
+
+    // Reject the point at infinity (0,0). EVM precompiles silently treat (0,0)
+    // as the identity element, which could zero out commitments.
+    // On-curve validation (y² = x³ + 3) is handled by the ecAdd/ecMul precompiles
+    // per EIP-196, so we only need to catch this special case here.
+    require((x | y) != 0, Errors.PointAtInfinity());
+
+    point = Honk.G1Point({x: x, y: y});
+}
+
+function negateInplace(Honk.G1Point memory point) pure returns (Honk.G1Point memory) {
+    // When y == 0 (order-2 point), negation is the same point. Q - 0 = Q which is >= Q.
+    if (point.y != 0) {
+        point.y = Q - point.y;
+    }
+    return point;
+}
+
+/**
+ * Convert the pairing points to G1 points.
+ *
+ * The pairing points are serialised as an array of 2 limbs representing two points
+ * (P0 and P1, used for lhs and rhs of pairing operation).
+ *
+ * There are 2 limbs (lo, hi) for each coordinate, so 4 limbs per point, 8 total.
+ * Layout: [P0.x_lo, P0.x_hi, P0.y_lo, P0.y_hi, P1.x_lo, P1.x_hi, P1.y_lo, P1.y_hi]
+ *
+ * @param pairingPoints The pairing points to convert.
+ * @return lhs P0 point
+ * @return rhs P1 point
+ */
+function convertPairingPointsToG1(Fr[PAIRING_POINTS_SIZE] memory pairingPoints)
+    pure
+    returns (Honk.G1Point memory lhs, Honk.G1Point memory rhs)
+{
+    // P0 (lhs): x = lo | (hi << 136)
+    uint256 lhsX = Fr.unwrap(pairingPoints[0]);
+    lhsX |= Fr.unwrap(pairingPoints[1]) << 136;
+
+    uint256 lhsY = Fr.unwrap(pairingPoints[2]);
+    lhsY |= Fr.unwrap(pairingPoints[3]) << 136;
+
+    // P1 (rhs): x = lo | (hi << 136)
+    uint256 rhsX = Fr.unwrap(pairingPoints[4]);
+    rhsX |= Fr.unwrap(pairingPoints[5]) << 136;
+
+    uint256 rhsY = Fr.unwrap(pairingPoints[6]);
+    rhsY |= Fr.unwrap(pairingPoints[7]) << 136;
+
+    // Reconstructed coordinates must be < Q to prevent malleability.
+    // Without this, two different limb encodings could map to the same curve point
+    // (via mulmod reduction in on-curve checks) but produce different transcript hashes.
+    require(lhsX < Q && lhsY < Q && rhsX < Q && rhsY < Q, Errors.ValueGeGroupOrder());
+
+    lhs.x = lhsX;
+    lhs.y = lhsY;
+    rhs.x = rhsX;
+    rhs.y = rhsY;
+}
+
+/**
+ * Hash the pairing inputs from the present verification context with those extracted from the public inputs.
+ *
+ * @param proofPairingPoints Pairing points from the proof - (public inputs).
+ * @param accLhs Accumulator point for the left side - result of shplemini.
+ * @param accRhs Accumulator point for the right side - result of shplemini.
+ * @return recursionSeparator The recursion separator - generated from hashing the above.
+ */
+function generateRecursionSeparator(
+    Fr[PAIRING_POINTS_SIZE] memory proofPairingPoints,
+    Honk.G1Point memory accLhs,
+    Honk.G1Point memory accRhs
+) pure returns (Fr recursionSeparator) {
+    // hash the proof aggregated X
+    // hash the proof aggregated Y
+    // hash the accum X
+    // hash the accum Y
+
+    (Honk.G1Point memory proofLhs, Honk.G1Point memory proofRhs) = convertPairingPointsToG1(proofPairingPoints);
+
+    uint256[8] memory recursionSeparatorElements;
+
+    // Proof points
+    recursionSeparatorElements[0] = proofLhs.x;
+    recursionSeparatorElements[1] = proofLhs.y;
+    recursionSeparatorElements[2] = proofRhs.x;
+    recursionSeparatorElements[3] = proofRhs.y;
+
+    // Accumulator points
+    recursionSeparatorElements[4] = accLhs.x;
+    recursionSeparatorElements[5] = accLhs.y;
+    recursionSeparatorElements[6] = accRhs.x;
+    recursionSeparatorElements[7] = accRhs.y;
+
+    recursionSeparator = FrLib.from(uint256(keccak256(abi.encodePacked(recursionSeparatorElements))) % P);
+}
+
+/**
+ * G1 Mul with Separator
+ * Using the ecAdd and ecMul precompiles
+ *
+ * @param basePoint The point to multiply.
+ * @param other The other point to add.
+ * @param recursionSeperator The separator to use for the multiplication.
+ * @return `(recursionSeperator * basePoint) + other`.
+ */
+function mulWithSeperator(Honk.G1Point memory basePoint, Honk.G1Point memory other, Fr recursionSeperator)
+    view
+    returns (Honk.G1Point memory)
+{
+    Honk.G1Point memory result;
+
+    result = ecMul(recursionSeperator, basePoint);
+    result = ecAdd(result, other);
+
+    return result;
+}
+
+/**
+ * G1 Mul
+ * Takes a Fr value and a G1 point and uses the ecMul precompile to return the result.
+ *
+ * @param value The value to multiply the point by.
+ * @param point The point to multiply.
+ * @return result The result of the multiplication.
+ */
+function ecMul(Fr value, Honk.G1Point memory point) view returns (Honk.G1Point memory) {
+    Honk.G1Point memory result;
+
+    assembly {
+        let free := mload(0x40)
+        // Write the point into memory (two 32 byte words)
+        // Memory layout:
+        // Address    |  value
+        // free       |  point.x
+        // free + 0x20|  point.y
+        mstore(free, mload(point))
+        mstore(add(free, 0x20), mload(add(point, 0x20)))
+        // Write the scalar into memory (one 32 byte word)
+        // Memory layout:
+        // Address    |  value
+        // free + 0x40|  value
+        mstore(add(free, 0x40), value)
+
+        // Call the ecMul precompile, it takes in the following
+        // [point.x, point.y, scalar], and returns the result back into the free memory location.
+        let success := staticcall(gas(), 0x07, free, 0x60, free, 0x40)
+        if iszero(success) {
+            revert(0, 0)
+        }
+        // Copy the result of the multiplication back into the result memory location.
+        // Memory layout:
+        // Address    |  value
+        // result     |  result.x
+        // result + 0x20|  result.y
+        mstore(result, mload(free))
+        mstore(add(result, 0x20), mload(add(free, 0x20)))
+
+        mstore(0x40, add(free, 0x60))
+    }
+
+    return result;
+}
+
+/**
+ * G1 Add
+ * Takes two G1 points and uses the ecAdd precompile to return the result.
+ *
+ * @param lhs The left hand side of the addition.
+ * @param rhs The right hand side of the addition.
+ * @return result The result of the addition.
+ */
+function ecAdd(Honk.G1Point memory lhs, Honk.G1Point memory rhs) view returns (Honk.G1Point memory) {
+    Honk.G1Point memory result;
+
+    assembly {
+        let free := mload(0x40)
+        // Write lhs into memory (two 32 byte words)
+        // Memory layout:
+        // Address    |  value
+        // free       |  lhs.x
+        // free + 0x20|  lhs.y
+        mstore(free, mload(lhs))
+        mstore(add(free, 0x20), mload(add(lhs, 0x20)))
+
+        // Write rhs into memory (two 32 byte words)
+        // Memory layout:
+        // Address    |  value
+        // free + 0x40|  rhs.x
+        // free + 0x60|  rhs.y
+        mstore(add(free, 0x40), mload(rhs))
+        mstore(add(free, 0x60), mload(add(rhs, 0x20)))
+
+        // Call the ecAdd precompile, it takes in the following
+        // [lhs.x, lhs.y, rhs.x, rhs.y], and returns their addition back into the free memory location.
+        let success := staticcall(gas(), 0x06, free, 0x80, free, 0x40)
+        if iszero(success) { revert(0, 0) }
+
+        // Copy the result of the addition back into the result memory location.
+        // Memory layout:
+        // Address    |  value
+        // result     |  result.x
+        // result + 0x20|  result.y
+        mstore(result, mload(free))
+        mstore(add(result, 0x20), mload(add(free, 0x20)))
+
+        mstore(0x40, add(free, 0x80))
+    }
+
+    return result;
+}
+
+function rejectPointAtInfinity(Honk.G1Point memory point) pure {
+    require((point.x | point.y) != 0, Errors.PointAtInfinity());
+}
+
+/**
+ * Check if pairing point limbs are all zero (default/infinity).
+ * Default pairing points indicate no recursive verification occurred.
+ */
+function arePairingPointsDefault(Fr[PAIRING_POINTS_SIZE] memory pairingPoints) pure returns (bool) {
+    uint256 acc = 0;
+    for (uint256 i = 0; i < PAIRING_POINTS_SIZE; i++) {
+        acc |= Fr.unwrap(pairingPoints[i]);
+    }
+    return acc == 0;
+}
+
+function pairing(Honk.G1Point memory rhs, Honk.G1Point memory lhs) view returns (bool decodedResult) {
+    bytes memory input = abi.encodePacked(
+        rhs.x,
+        rhs.y,
+        // Fixed G2 point
+        uint256(0x198e9393920d483a7260bfb731fb5d25f1aa493335a9e71297e485b7aef312c2),
+        uint256(0x1800deef121f1e76426a00665e5c4479674322d4f75edadd46debd5cd992f6ed),
+        uint256(0x090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b),
+        uint256(0x12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa),
+        lhs.x,
+        lhs.y,
+        // G2 point from VK
+        uint256(0x260e01b251f6f1c7e7ff4e580791dee8ea51d87a358e038b4efe30fac09383c1),
+        uint256(0x0118c4d5b837bcc2bc89b5b398b5974e9f5944073b32078b7e231fec938883b0),
+        uint256(0x04fc6369f7110fe3d25156c1bb9a72859cf2a04641f99ba4ee413c80da6a5fe4),
+        uint256(0x22febda3c0c0632a56475b4214e5615e11e6dd3f96e6cea2854a87d4dacc5e55)
+    );
+
+    (bool success, bytes memory result) = address(0x08).staticcall(input);
+    decodedResult = success && abi.decode(result, (bool));
+}
+
+abstract contract BaseZKHonkVerifier is IVerifier {
+    using FrLib for Fr;
+
+    struct PairingInputs {
+        Honk.G1Point P_0;
+        Honk.G1Point P_1;
+    }
+
+    struct SmallSubgroupIpaIntermediates {
+        Fr[SUBGROUP_SIZE] challengePolyLagrange;
+        Fr challengePolyEval;
+        Fr lagrangeFirst;
+        Fr lagrangeLast;
+        Fr rootPower;
+        Fr[SUBGROUP_SIZE] denominators; // this has to disappear
+        Fr diff;
+    }
+
+    // Constants for proof length calculation (matching UltraKeccakZKFlavor)
+    uint256 internal constant NUM_WITNESS_ENTITIES = 8 + NUM_MASKING_POLYNOMIALS;
+    uint256 internal constant NUM_ELEMENTS_COMM = 2; // uint256 elements for curve points
+    uint256 internal constant NUM_ELEMENTS_FR = 1; // uint256 elements for field elements
+    uint256 internal constant NUM_LIBRA_EVALUATIONS = 4; // libra evaluations
+
+    uint256 internal constant LIBRA_COMMITMENTS = 3;
+    uint256 internal constant LIBRA_EVALUATIONS = 4;
+    uint256 internal constant LIBRA_UNIVARIATES_LENGTH = 9;
+
+    uint256 internal constant SHIFTED_COMMITMENTS_START = 30;
+    uint256 internal constant PERMUTATION_ARGUMENT_VALUE_SEPARATOR = 1 << 28;
+
+    uint256 internal immutable $N;
+    uint256 internal immutable $LOG_N;
+    uint256 internal immutable $VK_HASH;
+    uint256 internal immutable $NUM_PUBLIC_INPUTS;
+    uint256 internal immutable $MSMSize;
+
+    constructor(uint256 _N, uint256 _logN, uint256 _vkHash, uint256 _numPublicInputs) {
+        $N = _N;
+        $LOG_N = _logN;
+        $VK_HASH = _vkHash;
+        $NUM_PUBLIC_INPUTS = _numPublicInputs;
+        $MSMSize = NUMBER_UNSHIFTED_ZK + _logN + LIBRA_COMMITMENTS + 2;
+    }
+
+    function verify(bytes calldata proof, bytes32[] calldata publicInputs)
+        public
+        view
+        override
+        returns (bool verified)
+    {
+        // Calculate expected proof size based on $LOG_N
+        uint256 expectedProofSize = calculateProofSize($LOG_N);
+
+        // Check the received proof is the expected size where each field element is 32 bytes
+        require(
+            proof.length == expectedProofSize, Errors.ProofLengthWrongWithLogN($LOG_N, proof.length, expectedProofSize)
+        );
+
+        Honk.VerificationKey memory vk = loadVerificationKey();
+        Honk.ZKProof memory p = ZKTranscriptLib.loadProof(proof, $LOG_N);
+
+        require(publicInputs.length == vk.publicInputsSize - PAIRING_POINTS_SIZE, Errors.PublicInputsLengthWrong());
+
+        // Generate the fiat shamir challenges for the whole protocol
+        ZKTranscript memory t =
+            ZKTranscriptLib.generateTranscript(p, publicInputs, $VK_HASH, $NUM_PUBLIC_INPUTS, $LOG_N);
+
+        // Derive public input delta
+        t.relationParameters.publicInputsDelta = computePublicInputDelta(
+            publicInputs,
+            p.pairingPointObject,
+            t.relationParameters.beta,
+            t.relationParameters.gamma, /*pubInputsOffset=*/
+            1
+        );
+
+        // Sumcheck
+        require(verifySumcheck(p, t), Errors.SumcheckFailed());
+        require(verifyShplemini(p, vk, t), Errors.ShpleminiFailed());
+
+        verified = true;
+    }
+
+    function computePublicInputDelta(
+        bytes32[] memory publicInputs,
+        Fr[PAIRING_POINTS_SIZE] memory pairingPointObject,
+        Fr beta,
+        Fr gamma,
+        uint256 offset
+    ) internal view returns (Fr publicInputDelta) {
+        Fr numerator = Fr.wrap(1);
+        Fr denominator = Fr.wrap(1);
+
+        Fr numeratorAcc = gamma + (beta * FrLib.from(PERMUTATION_ARGUMENT_VALUE_SEPARATOR + offset));
+        Fr denominatorAcc = gamma - (beta * FrLib.from(offset + 1));
+
+        {
+            for (uint256 i = 0; i < $NUM_PUBLIC_INPUTS - PAIRING_POINTS_SIZE; i++) {
+                Fr pubInput = FrLib.fromBytes32(publicInputs[i]);
+
+                numerator = numerator * (numeratorAcc + pubInput);
+                denominator = denominator * (denominatorAcc + pubInput);
+
+                numeratorAcc = numeratorAcc + beta;
+                denominatorAcc = denominatorAcc - beta;
+            }
+
+            for (uint256 i = 0; i < PAIRING_POINTS_SIZE; i++) {
+                Fr pubInput = pairingPointObject[i];
+
+                numerator = numerator * (numeratorAcc + pubInput);
+                denominator = denominator * (denominatorAcc + pubInput);
+
+                numeratorAcc = numeratorAcc + beta;
+                denominatorAcc = denominatorAcc - beta;
+            }
+        }
+
+        // Fr delta = numerator / denominator; // TOOO: batch invert later?
+        publicInputDelta = FrLib.div(numerator, denominator);
+    }
+
+    function verifySumcheck(Honk.ZKProof memory proof, ZKTranscript memory tp) internal view returns (bool verified) {
+        Fr roundTargetSum = tp.libraChallenge * proof.libraSum; // default 0
+        Fr powPartialEvaluation = Fr.wrap(1);
+
+        // We perform sumcheck reductions over log n rounds ( the multivariate degree )
+        for (uint256 round; round < $LOG_N; ++round) {
+            Fr[ZK_BATCHED_RELATION_PARTIAL_LENGTH] memory roundUnivariate = proof.sumcheckUnivariates[round];
+            Fr totalSum = roundUnivariate[0] + roundUnivariate[1];
+            require(totalSum == roundTargetSum, Errors.SumcheckFailed());
+
+            Fr roundChallenge = tp.sumCheckUChallenges[round];
+
+            // Update the round target for the next rounf
+            roundTargetSum = computeNextTargetSum(roundUnivariate, roundChallenge);
+            powPartialEvaluation =
+                powPartialEvaluation * (Fr.wrap(1) + roundChallenge * (tp.gateChallenges[round] - Fr.wrap(1)));
+        }
+
+        // Last round
+        // For ZK flavors: sumcheckEvaluations has 42 elements
+        // Index 0 is gemini_masking_poly, indices 1-41 are the regular entities used in relations
+        Fr[NUMBER_OF_ENTITIES] memory relationsEvaluations;
+        for (uint256 i = 0; i < NUMBER_OF_ENTITIES; i++) {
+            relationsEvaluations[i] = proof.sumcheckEvaluations[i + NUM_MASKING_POLYNOMIALS]; // Skip gemini_masking_poly at index 0
+        }
+        Fr grandHonkRelationSum = RelationsLib.accumulateRelationEvaluations(
+            relationsEvaluations, tp.relationParameters, tp.alphas, powPartialEvaluation
+        );
+
+        Fr evaluation = Fr.wrap(1);
+        for (uint256 i = 2; i < $LOG_N; i++) {
+            evaluation = evaluation * tp.sumCheckUChallenges[i];
+        }
+
+        grandHonkRelationSum =
+            grandHonkRelationSum * (Fr.wrap(1) - evaluation) + proof.libraEvaluation * tp.libraChallenge;
+        verified = (grandHonkRelationSum == roundTargetSum);
+    }
+
+    // Return the new target sum for the next sumcheck round
+    function computeNextTargetSum(Fr[ZK_BATCHED_RELATION_PARTIAL_LENGTH] memory roundUnivariates, Fr roundChallenge)
+        internal
+        view
+        returns (Fr targetSum)
+    {
+        Fr[ZK_BATCHED_RELATION_PARTIAL_LENGTH] memory BARYCENTRIC_LAGRANGE_DENOMINATORS = [
+            Fr.wrap(0x0000000000000000000000000000000000000000000000000000000000009d80),
+            Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffec51),
+            Fr.wrap(0x00000000000000000000000000000000000000000000000000000000000005a0),
+            Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593effffd31),
+            Fr.wrap(0x0000000000000000000000000000000000000000000000000000000000000240),
+            Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593effffd31),
+            Fr.wrap(0x00000000000000000000000000000000000000000000000000000000000005a0),
+            Fr.wrap(0x30644e72e131a029b85045b68181585d2833e84879b9709143e1f593efffec51),
+            Fr.wrap(0x0000000000000000000000000000000000000000000000000000000000009d80)
+        ];
+
+        // To compute the next target sum, we evaluate the given univariate at a point u (challenge).
+
+        // Performing Barycentric evaluations
+        // Compute B(x)
+        Fr numeratorValue = Fr.wrap(1);
+        for (uint256 i = 0; i < ZK_BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
+            numeratorValue = numeratorValue * (roundChallenge - Fr.wrap(i));
+        }
+
+        Fr[ZK_BATCHED_RELATION_PARTIAL_LENGTH] memory denominatorInverses;
+        for (uint256 i = 0; i < ZK_BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
+            denominatorInverses[i] = FrLib.invert(BARYCENTRIC_LAGRANGE_DENOMINATORS[i] * (roundChallenge - Fr.wrap(i)));
+        }
+
+        for (uint256 i = 0; i < ZK_BATCHED_RELATION_PARTIAL_LENGTH; ++i) {
+            targetSum = targetSum + roundUnivariates[i] * denominatorInverses[i];
+        }
+
+        // Scale the sum by the value of B(x)
+        targetSum = targetSum * numeratorValue;
+    }
+
+    function verifyShplemini(Honk.ZKProof memory proof, Honk.VerificationKey memory vk, ZKTranscript memory tp)
+        internal
+        view
+        returns (bool verified)
+    {
+        CommitmentSchemeLib.ShpleminiIntermediates memory mem; // stack
+
+        // - Compute vector (r, r², ... , r²⁽ⁿ⁻¹⁾), where n = log_circuit_size
+        Fr[] memory powers_of_evaluation_challenge = CommitmentSchemeLib.computeSquares(tp.geminiR, $LOG_N);
+        // Arrays hold values that will be linearly combined for the gemini and shplonk batch openings
+        Fr[] memory scalars = new Fr[]($MSMSize);
+        Honk.G1Point[] memory commitments = new Honk.G1Point[]($MSMSize);
+
+        mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[0]).invert();
+        mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[0]).invert();
+
+        mem.unshiftedScalar = mem.posInvertedDenominator + (tp.shplonkNu * mem.negInvertedDenominator);
+        mem.shiftedScalar =
+            tp.geminiR.invert() * (mem.posInvertedDenominator - (tp.shplonkNu * mem.negInvertedDenominator));
+
+        scalars[0] = Fr.wrap(1);
+        commitments[0] = proof.shplonkQ;
+
+        /* Batch multivariate opening claims, shifted and unshifted
+        * The vector of scalars is populated as follows:
+        * \f[
+        * \left(
+        * - \left(\frac{1}{z-r} + \nu \times \frac{1}{z+r}\right),
+        * \ldots,
+        * - \rho^{i+k-1} \times \left(\frac{1}{z-r} + \nu \times \frac{1}{z+r}\right),
+        * - \rho^{i+k} \times \frac{1}{r} \times \left(\frac{1}{z-r} - \nu \times \frac{1}{z+r}\right),
+        * \ldots,
+        * - \rho^{k+m-1} \times \frac{1}{r} \times \left(\frac{1}{z-r} - \nu \times \frac{1}{z+r}\right)
+        * \right)
+        * \f]
+        *
+        * The following vector is concatenated to the vector of commitments:
+        * \f[
+        * f_0, \ldots, f_{m-1}, f_{\text{shift}, 0}, \ldots, f_{\text{shift}, k-1}
+        * \f]
+        *
+        * Simultaneously, the evaluation of the multilinear polynomial
+        * \f[
+        * \sum \rho^i \cdot f_i + \sum \rho^{i+k} \cdot f_{\text{shift}, i}
+        * \f]
+        * at the challenge point \f$ (u_0,\ldots, u_{n-1}) \f$ is computed.
+        *
+        * This approach minimizes the number of iterations over the commitments to multilinear polynomials
+        * and eliminates the need to store the powers of \f$ \rho \f$.
+        */
+        // For ZK flavors: evaluations array is [gemini_masking_poly, qm, qc, ql, qr, ...]
+        // Start batching challenge at 1, not rho, to match non-ZK pattern
+        mem.batchingChallenge = Fr.wrap(1);
+        mem.batchedEvaluation = Fr.wrap(0);
+
+        mem.unshiftedScalarNeg = mem.unshiftedScalar.neg();
+        mem.shiftedScalarNeg = mem.shiftedScalar.neg();
+
+        // Process all NUMBER_UNSHIFTED_ZK evaluations (includes gemini_masking_poly at index 0)
+        for (uint256 i = 1; i <= NUMBER_UNSHIFTED_ZK; ++i) {
+            scalars[i] = mem.unshiftedScalarNeg * mem.batchingChallenge;
+            mem.batchedEvaluation = mem.batchedEvaluation
+                + (proof.sumcheckEvaluations[i - NUM_MASKING_POLYNOMIALS] * mem.batchingChallenge);
+            mem.batchingChallenge = mem.batchingChallenge * tp.rho;
+        }
+        // g commitments are accumulated at r
+        // For each of the to be shifted commitments perform the shift in place by
+        // adding to the unshifted value.
+        // We do so, as the values are to be used in batchMul later, and as
+        // `a * c + b * c = (a + b) * c` this will allow us to reduce memory and compute.
+        // Applied to w1, w2, w3, w4 and zPerm
+        for (uint256 i = 0; i < NUMBER_TO_BE_SHIFTED; ++i) {
+            uint256 scalarOff = i + SHIFTED_COMMITMENTS_START;
+            uint256 evaluationOff = i + NUMBER_UNSHIFTED_ZK;
+
+            scalars[scalarOff] = scalars[scalarOff] + (mem.shiftedScalarNeg * mem.batchingChallenge);
+            mem.batchedEvaluation =
+                mem.batchedEvaluation + (proof.sumcheckEvaluations[evaluationOff] * mem.batchingChallenge);
+            mem.batchingChallenge = mem.batchingChallenge * tp.rho;
+        }
+
+        commitments[1] = proof.geminiMaskingPoly;
+
+        commitments[2] = vk.qm;
+        commitments[3] = vk.qc;
+        commitments[4] = vk.ql;
+        commitments[5] = vk.qr;
+        commitments[6] = vk.qo;
+        commitments[7] = vk.q4;
+        commitments[8] = vk.qLookup;
+        commitments[9] = vk.qArith;
+        commitments[10] = vk.qDeltaRange;
+        commitments[11] = vk.qElliptic;
+        commitments[12] = vk.qMemory;
+        commitments[13] = vk.qNnf;
+        commitments[14] = vk.qPoseidon2External;
+        commitments[15] = vk.qPoseidon2Internal;
+        commitments[16] = vk.s1;
+        commitments[17] = vk.s2;
+        commitments[18] = vk.s3;
+        commitments[19] = vk.s4;
+        commitments[20] = vk.id1;
+        commitments[21] = vk.id2;
+        commitments[22] = vk.id3;
+        commitments[23] = vk.id4;
+        commitments[24] = vk.t1;
+        commitments[25] = vk.t2;
+        commitments[26] = vk.t3;
+        commitments[27] = vk.t4;
+        commitments[28] = vk.lagrangeFirst;
+        commitments[29] = vk.lagrangeLast;
+
+        // Accumulate proof points
+        commitments[30] = proof.w1;
+        commitments[31] = proof.w2;
+        commitments[32] = proof.w3;
+        commitments[33] = proof.w4;
+        commitments[34] = proof.zPerm;
+        commitments[35] = proof.lookupInverses;
+        commitments[36] = proof.lookupReadCounts;
+        commitments[37] = proof.lookupReadTags;
+
+        /* Batch gemini claims from the prover
+         * place the commitments to gemini aᵢ to the vector of commitments, compute the contributions from
+         * aᵢ(−r²ⁱ) for i=1, … , n−1 to the constant term accumulator, add corresponding scalars
+         *
+         * 1. Moves the vector
+         * \f[
+         * \left( \text{com}(A_1), \text{com}(A_2), \ldots, \text{com}(A_{n-1}) \right)
+         * \f]
+        * to the 'commitments' vector.
+        *
+        * 2. Computes the scalars:
+        * \f[
+        * \frac{\nu^{2}}{z + r^2}, \frac{\nu^3}{z + r^4}, \ldots, \frac{\nu^{n-1}}{z + r^{2^{n-1}}}
+        * \f]
+        * and places them into the 'scalars' vector.
+        *
+        * 3. Accumulates the summands of the constant term:
+         * \f[
+         * \sum_{i=2}^{n-1} \frac{\nu^{i} \cdot A_i(-r^{2^i})}{z + r^{2^i}}
+         * \f]
+         * and adds them to the 'constant_term_accumulator'.
+         */
+
+        // Add contributions from A₀(r) and A₀(-r) to constant_term_accumulator:
+        // Compute the evaluations Aₗ(r^{2ˡ}) for l = 0, ..., $LOG_N - 1
+        Fr[] memory foldPosEvaluations = CommitmentSchemeLib.computeFoldPosEvaluations(
+            tp.sumCheckUChallenges,
+            mem.batchedEvaluation,
+            proof.geminiAEvaluations,
+            powers_of_evaluation_challenge,
+            $LOG_N
+        );
+
+        mem.constantTermAccumulator = foldPosEvaluations[0] * mem.posInvertedDenominator;
+        mem.constantTermAccumulator =
+            mem.constantTermAccumulator + (proof.geminiAEvaluations[0] * tp.shplonkNu * mem.negInvertedDenominator);
+
+        mem.batchingChallenge = tp.shplonkNu.sqr();
+        uint256 boundary = NUMBER_UNSHIFTED_ZK + 1;
+
+        // Compute Shplonk constant term contributions from Aₗ(± r^{2ˡ}) for l = 1, ..., m-1;
+        // Compute scalar multipliers for each fold commitment
+        for (uint256 i = 0; i < $LOG_N - 1; ++i) {
+            bool dummy_round = i >= ($LOG_N - 1);
+
+            if (!dummy_round) {
+                // Update inverted denominators
+                mem.posInvertedDenominator = (tp.shplonkZ - powers_of_evaluation_challenge[i + 1]).invert();
+                mem.negInvertedDenominator = (tp.shplonkZ + powers_of_evaluation_challenge[i + 1]).invert();
+
+                // Compute the scalar multipliers for Aₗ(± r^{2ˡ}) and [Aₗ]
+                mem.scalingFactorPos = mem.batchingChallenge * mem.posInvertedDenominator;
+                mem.scalingFactorNeg = mem.batchingChallenge * tp.shplonkNu * mem.negInvertedDenominator;
+                scalars[boundary + i] = mem.scalingFactorNeg.neg() + mem.scalingFactorPos.neg();
+
+                // Accumulate the const term contribution given by
+                // v^{2l} * Aₗ(r^{2ˡ}) /(z-r^{2^l}) + v^{2l+1} * Aₗ(-r^{2ˡ}) /(z+ r^{2^l})
+                Fr accumContribution = mem.scalingFactorNeg * proof.geminiAEvaluations[i + 1];
+                accumContribution = accumContribution + mem.scalingFactorPos * foldPosEvaluations[i + 1];
+                mem.constantTermAccumulator = mem.constantTermAccumulator + accumContribution;
+            }
+            // Update the running power of v
+            mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu * tp.shplonkNu;
+
+            commitments[boundary + i] = proof.geminiFoldComms[i];
+        }
+
+        boundary += $LOG_N - 1;
+
+        // Finalize the batch opening claim
+        mem.denominators[0] = Fr.wrap(1).div(tp.shplonkZ - tp.geminiR);
+        mem.denominators[1] = Fr.wrap(1).div(tp.shplonkZ - SUBGROUP_GENERATOR * tp.geminiR);
+        mem.denominators[2] = mem.denominators[0];
+        mem.denominators[3] = mem.denominators[0];
+
+        mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu * tp.shplonkNu;
+        for (uint256 i = 0; i < LIBRA_EVALUATIONS; i++) {
+            Fr scalingFactor = mem.denominators[i] * mem.batchingChallenge;
+            mem.batchingScalars[i] = scalingFactor.neg();
+            mem.batchingChallenge = mem.batchingChallenge * tp.shplonkNu;
+            mem.constantTermAccumulator = mem.constantTermAccumulator + scalingFactor * proof.libraPolyEvals[i];
+        }
+        scalars[boundary] = mem.batchingScalars[0];
+        scalars[boundary + 1] = mem.batchingScalars[1] + mem.batchingScalars[2];
+        scalars[boundary + 2] = mem.batchingScalars[3];
+
+        for (uint256 i = 0; i < LIBRA_COMMITMENTS; i++) {
+            commitments[boundary++] = proof.libraCommitments[i];
+        }
+
+        commitments[boundary] = Honk.G1Point({x: 1, y: 2});
+        scalars[boundary++] = mem.constantTermAccumulator;
+
+        require(
+            checkEvalsConsistency(proof.libraPolyEvals, tp.geminiR, tp.sumCheckUChallenges, proof.libraEvaluation),
+            Errors.ConsistencyCheckFailed()
+        );
+
+        Honk.G1Point memory quotient_commitment = proof.kzgQuotient;
+
+        commitments[boundary] = quotient_commitment;
+        scalars[boundary] = tp.shplonkZ; // evaluation challenge
+
+        PairingInputs memory pair;
+        pair.P_0 = batchMul(commitments, scalars);
+        pair.P_1 = negateInplace(quotient_commitment);
+
+        // Aggregate pairing points (skip if default/infinity — no recursive verification occurred)
+        if (!arePairingPointsDefault(proof.pairingPointObject)) {
+            Fr recursionSeparator = generateRecursionSeparator(proof.pairingPointObject, pair.P_0, pair.P_1);
+            (Honk.G1Point memory P_0_other, Honk.G1Point memory P_1_other) =
+                convertPairingPointsToG1(proof.pairingPointObject);
+
+            // Validate the points from the proof are on the curve
+            rejectPointAtInfinity(P_0_other);
+            rejectPointAtInfinity(P_1_other);
+
+            // accumulate with aggregate points in proof
+            pair.P_0 = mulWithSeperator(pair.P_0, P_0_other, recursionSeparator);
+            pair.P_1 = mulWithSeperator(pair.P_1, P_1_other, recursionSeparator);
+        }
+
+        return pairing(pair.P_0, pair.P_1);
+    }
+
+    function checkEvalsConsistency(
+        Fr[LIBRA_EVALUATIONS] memory libraPolyEvals,
+        Fr geminiR,
+        Fr[CONST_PROOF_SIZE_LOG_N] memory uChallenges,
+        Fr libraEval
+    ) internal view returns (bool check) {
+        Fr one = Fr.wrap(1);
+        Fr vanishingPolyEval = geminiR.pow(SUBGROUP_SIZE) - one;
+        require(vanishingPolyEval != Fr.wrap(0), Errors.GeminiChallengeInSubgroup());
+
+        SmallSubgroupIpaIntermediates memory mem;
+        mem.challengePolyLagrange[0] = one;
+        for (uint256 round = 0; round < $LOG_N; round++) {
+            uint256 currIdx = 1 + LIBRA_UNIVARIATES_LENGTH * round;
+            mem.challengePolyLagrange[currIdx] = one;
+            for (uint256 idx = currIdx + 1; idx < currIdx + LIBRA_UNIVARIATES_LENGTH; idx++) {
+                mem.challengePolyLagrange[idx] = mem.challengePolyLagrange[idx - 1] * uChallenges[round];
+            }
+        }
+
+        mem.rootPower = one;
+        mem.challengePolyEval = Fr.wrap(0);
+        for (uint256 idx = 0; idx < SUBGROUP_SIZE; idx++) {
+            mem.denominators[idx] = mem.rootPower * geminiR - one;
+            mem.denominators[idx] = mem.denominators[idx].invert();
+            mem.challengePolyEval = mem.challengePolyEval + mem.challengePolyLagrange[idx] * mem.denominators[idx];
+            mem.rootPower = mem.rootPower * SUBGROUP_GENERATOR_INVERSE;
+        }
+
+        Fr numerator = vanishingPolyEval * Fr.wrap(SUBGROUP_SIZE).invert();
+        mem.challengePolyEval = mem.challengePolyEval * numerator;
+        mem.lagrangeFirst = mem.denominators[0] * numerator;
+        mem.lagrangeLast = mem.denominators[SUBGROUP_SIZE - 1] * numerator;
+
+        mem.diff = mem.lagrangeFirst * libraPolyEvals[2];
+
+        mem.diff = mem.diff + (geminiR - SUBGROUP_GENERATOR_INVERSE)
+            * (libraPolyEvals[1] - libraPolyEvals[2] - libraPolyEvals[0] * mem.challengePolyEval);
+        mem.diff = mem.diff + mem.lagrangeLast * (libraPolyEvals[2] - libraEval) - vanishingPolyEval * libraPolyEvals[3];
+
+        check = mem.diff == Fr.wrap(0);
+    }
+
+    // This implementation is the same as above with different constants
+    function batchMul(Honk.G1Point[] memory base, Fr[] memory scalars)
+        internal
+        view
+        returns (Honk.G1Point memory result)
+    {
+        uint256 limit = $MSMSize;
+
+        // Validate all points are on the curve
+        for (uint256 i = 0; i < limit; ++i) {
+            rejectPointAtInfinity(base[i]);
+        }
+
+        bool success = true;
+        assembly {
+            let free := mload(0x40)
+
+            let count := 0x01
+            for {} lt(count, add(limit, 1)) { count := add(count, 1) } {
+                // Get loop offsets
+                let base_base := add(base, mul(count, 0x20))
+                let scalar_base := add(scalars, mul(count, 0x20))
+
+                mstore(add(free, 0x40), mload(mload(base_base)))
+                mstore(add(free, 0x60), mload(add(0x20, mload(base_base))))
+                // Add scalar
+                mstore(add(free, 0x80), mload(scalar_base))
+
+                success := and(success, staticcall(gas(), 7, add(free, 0x40), 0x60, add(free, 0x40), 0x40))
+                // accumulator = accumulator + accumulator_2
+                success := and(success, staticcall(gas(), 6, free, 0x80, free, 0x40))
+            }
+
+            // Return the result
+            mstore(result, mload(free))
+            mstore(add(result, 0x20), mload(add(free, 0x20)))
+        }
+
+        require(success, Errors.ShpleminiFailed());
+    }
+
+    // Calculate proof size based on log_n (matching UltraKeccakZKFlavor formula)
+    function calculateProofSize(uint256 logN) internal pure returns (uint256) {
+        // Witness and Libra commitments
+        uint256 proofLength = NUM_WITNESS_ENTITIES * NUM_ELEMENTS_COMM; // witness commitments
+        proofLength += NUM_ELEMENTS_COMM * 3; // Libra concat, grand sum, quotient comms + Gemini masking
+
+        // Sumcheck
+        proofLength += logN * ZK_BATCHED_RELATION_PARTIAL_LENGTH * NUM_ELEMENTS_FR; // sumcheck univariates
+        proofLength += NUMBER_OF_ENTITIES_ZK * NUM_ELEMENTS_FR; // sumcheck evaluations
+
+        // Libra and Gemini
+        proofLength += NUM_ELEMENTS_FR * 2; // Libra sum, claimed eval
+        proofLength += logN * NUM_ELEMENTS_FR; // Gemini a evaluations
+        proofLength += NUM_LIBRA_EVALUATIONS * NUM_ELEMENTS_FR; // libra evaluations
+
+        // PCS commitments
+        proofLength += (logN - 1) * NUM_ELEMENTS_COMM; // Gemini Fold commitments
+        proofLength += NUM_ELEMENTS_COMM * 2; // Shplonk Q and KZG W commitments
+
+        // Pairing points
+        proofLength += PAIRING_POINTS_SIZE; // pairing inputs carried on public inputs
+
+        return proofLength * 32;
+    }
+
+    function loadVerificationKey() internal pure virtual returns (Honk.VerificationKey memory);
+}
+
+contract HonkVerifier is BaseZKHonkVerifier(N, LOG_N, VK_HASH, NUMBER_OF_PUBLIC_INPUTS) {
+     function loadVerificationKey() internal pure override returns (Honk.VerificationKey memory) {
+       return HonkVerificationKey.loadVerificationKey();
     }
 }

@@ -7,7 +7,7 @@
  * 3. Formatting proofs for submission to the L1 mint function
  */
 
-import { UltraPlonkBackend } from '@aztec/bb.js';
+import { UltraHonkBackend, Barretenberg } from '@aztec/bb.js';
 import { Noir, type CompiledCircuit, type InputMap } from '@noir-lang/noir_js';
 import { poseidon1 } from 'poseidon-lite';
 import type { CommitmentPreImage } from '$lib/types/bridge';
@@ -464,25 +464,26 @@ export async function generateWithdrawProof(
 	log('Initializing Noir circuit...');
 	const noir = new Noir(circuit as CompiledCircuit);
 
-	log('Initializing UltraPlonk backend...');
-	const threads = typeof navigator !== 'undefined' 
-		? navigator.hardwareConcurrency || 4 
+	log('Initializing UltraHonk backend...');
+	const threads = typeof navigator !== 'undefined'
+		? navigator.hardwareConcurrency || 4
 		: 4;
 	log(`Using ${threads} threads for proof generation`);
-	
-	const backend = new UltraPlonkBackend(circuit.bytecode, { threads });
+
+	const api = await Barretenberg.new({ threads });
+	const backend = new UltraHonkBackend(circuit.bytecode, api);
 
 	log('Executing circuit...');
 	const executeRes = await noir.execute(proofInputs as unknown as InputMap);
 	log('Circuit execution complete');
 
 	log('Generating proof (this may take 30-60 seconds)...');
-	const proof = await backend.generateProof(executeRes.witness);
+	const proof = await backend.generateProof(executeRes.witness, { verifierTarget: 'evm' });
 	log('Proof generated successfully');
 
 	// Verify the proof locally before returning
 	log('Verifying proof locally...');
-	const isValid = await backend.verifyProof(proof);
+	const isValid = await backend.verifyProof(proof, { verifierTarget: 'evm' });
 	if (!isValid) {
 		throw new Error('Generated proof failed local verification');
 	}

@@ -35,8 +35,8 @@ importers:
         specifier: 4.2.0-aztecnr-rc.2
         version: 4.2.0-aztecnr-rc.2(typescript@5.9.3)(zod@3.25.76)
       '@noir-lang/noir_js':
-        specifier: 1.0.0-beta.15
-        version: 1.0.0-beta.15
+        specifier: 1.0.0-beta.19
+        version: 1.0.0-beta.19
       '@openzeppelin/contracts':
         specifier: ^5.2.0
         version: 5.6.1
@@ -154,8 +154,8 @@ importers:
         specifier: 4.2.0-aztecnr-rc.2
         version: 4.2.0-aztecnr-rc.2(typescript@5.9.3)
       '@noir-lang/noir_js':
-        specifier: 1.0.0-beta.15
-        version: 1.0.0-beta.15
+        specifier: 1.0.0-beta.19
+        version: 1.0.0-beta.19
       '@zkpassport/poseidon2':
         specifier: ^0.6.2
         version: 0.6.2
@@ -1037,17 +1037,17 @@ packages:
     resolution: {integrity: sha512-XlOlEbQcE9fmuXxrVTXCTlG2nlRXa9Rj3rr5Ue/+tX+nmkgbX720YHh0VR3hBF9xDvwnb8D2shVGOwNx+ulArw==}
     engines: {node: '>= 20.19.0'}
 
-  '@noir-lang/acvm_js@1.0.0-beta.15':
-    resolution: {integrity: sha512-WQNMycnVGj0J369BDcsa0N6n0IlISqXEznzDBHiP2yugHgTAoxiDzXizRW10K6u/w0EOVrl+bybLxNxLIPUSYQ==}
+  '@noir-lang/acvm_js@1.0.0-beta.19':
+    resolution: {integrity: sha512-J4i5SkZ8SYMAfl3yNyneI3DorEfE5zsgsHljm0aY6mV4x+LcbqxzM6hdsSbXqboZ1ZUXXmmHjE9WqFMkJC94eQ==}
 
-  '@noir-lang/noir_js@1.0.0-beta.15':
-    resolution: {integrity: sha512-ffN3rWzcqaO+FmBF6quFqgXhEK1gyJ8TQ9V4V3A+PIKYE94BOB0L84McxofbRqt3TFuSloBymGiFrJ/Gx8Q8eQ==}
+  '@noir-lang/noir_js@1.0.0-beta.19':
+    resolution: {integrity: sha512-KtuO37XuBn+7PHReLGCyLVxKGBk+hSvUQs0r/rtNFTYty/KmSq/NwEXkwiA7aQTNUykrzTJGFbIForQWjIJT4g==}
 
-  '@noir-lang/noirc_abi@1.0.0-beta.15':
-    resolution: {integrity: sha512-ZJ5pUSKiZ6Nyj6DcXmLkf/+OA12cApYq/XPYePxX7v1Z2mLLl1/Gj8dO/greHUYRD47ziXIgyaZQWryE3+4ifw==}
+  '@noir-lang/noirc_abi@1.0.0-beta.19':
+    resolution: {integrity: sha512-rCEVNmXwfxC70VVJqOjvgP9mga+HVOIYzmsTQV9JeNG/BiWbxdHPJ+K0gT7EoCpz7VOVwfgWjFepxfbQk++GSw==}
 
-  '@noir-lang/types@1.0.0-beta.15':
-    resolution: {integrity: sha512-FCydHArW6+oOSCxSIsprOExDaBMmxh0a9+ZhXigxFDZF6j96wzy3WvA0XLgczZzAjWOiBPCr4voTW1bsM0Ca2A==}
+  '@noir-lang/types@1.0.0-beta.19':
+    resolution: {integrity: sha512-px/gpC8tvOvCPY6TbVYqMDqDadA75I2woOZ3b5vbyjxqaE4UtsKtcdsWQ9titSCslkYCe1WYRGiFE/LPyRgOpQ==}
 
   '@nomicfoundation/edr-darwin-arm64@0.12.0-next.29':
     resolution: {integrity: sha512-qzVcAkUsrVT2Za9pLzTYL/eNLS09R+JSG+4LpQ56Wg3mkjbwItn/F6C/XbGqMbNiEGfLi5kVvtYOtT7yu04/Tg==}
@@ -5506,20 +5506,20 @@ snapshots:
 
   '@noble/hashes@2.0.1': {}
 
-  '@noir-lang/acvm_js@1.0.0-beta.15': {}
+  '@noir-lang/acvm_js@1.0.0-beta.19': {}
 
-  '@noir-lang/noir_js@1.0.0-beta.15':
+  '@noir-lang/noir_js@1.0.0-beta.19':
     dependencies:
-      '@noir-lang/acvm_js': 1.0.0-beta.15
-      '@noir-lang/noirc_abi': 1.0.0-beta.15
-      '@noir-lang/types': 1.0.0-beta.15
+      '@noir-lang/acvm_js': 1.0.0-beta.19
+      '@noir-lang/noirc_abi': 1.0.0-beta.19
+      '@noir-lang/types': 1.0.0-beta.19
       pako: 2.1.0
 
-  '@noir-lang/noirc_abi@1.0.0-beta.15':
+  '@noir-lang/noirc_abi@1.0.0-beta.19':
     dependencies:
-      '@noir-lang/types': 1.0.0-beta.15
+      '@noir-lang/types': 1.0.0-beta.19
 
-  '@noir-lang/types@1.0.0-beta.15': {}
+  '@noir-lang/types@1.0.0-beta.19': {}
 
   '@nomicfoundation/edr-darwin-arm64@0.12.0-next.29': {}
 
