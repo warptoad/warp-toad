@@ -22,7 +22,7 @@ noirup -v 1.0.0-beta.19
 
 Install Aztec tooling (for sandbox/devnet):
 ```shell
-aztec-up 4.2.0-aztecnr-rc.2
+aztec-up install 4.2.0-aztecnr-rc.2
 ```
 
 ## Compile
