@@ -1,196 +1,220 @@
+# Warp Toad
 
+Cross-chain privacy bridge connecting Ethereum L1, Scroll L2, and Aztec L2 using zero-knowledge proofs.
 
-## install
-make sure you're on node 20 (hardhat needs it)
-```shell
-nvm install 20;
-nvm use 20;
-npm install --global yarn;
-yarn install;
-```
+## Prerequisites
 
-make sure you're on aztec 3.0.0-devnet.20251212
+- Node.js >= 22
+- pnpm 10.x
+- nargo 1.0.0-beta.19
+- Aztec sandbox (for cross-chain tests and local deployment)
 
-```shell
-aztec-up 3.0.0-devnet.20251212
-```
-
-install noir and backend
+## Install
 
 ```shell
-bbup -v 0.72.1;
-noirup -v 1.0.0-beta.5;
+pnpm install
 ```
 
-## compile contracts
-### aztec
-in root run:
+Install nargo (Noir compiler):
 ```shell
-yarn run b:compile:aztec
+noirup -v 1.0.0-beta.19
 ```
 
-### generate EVM verifier contracts
-TODO for some reason the `yarn b:contract:gen` part of this script only works if you copy paste it in the terminal 
+Install Aztec tooling (for sandbox/devnet):
 ```shell
-yarn run b:circuit
+aztec-up 4.2.0-aztecnr-rc.2
 ```
 
-## run sandbox (needed for local/sandbox deployment)
-in a new shell window run either:
+## Compile
+
+### Solidity contracts
 ```shell
-VERSION=3.0.0-devnet.20251212 aztec start --local-network
-```
-or
-```shell
-yarn run b:sandbox
+pnpm b:compile
 ```
 
-
-## deploy
-### setup secrets
+### Aztec Noir contracts
 ```shell
-yarn workspace @warp-toad/backend hardhat vars set PRIVATE_KEY;
-yarn workspace @warp-toad/backend hardhat vars set SEPOLIA_URL;
-yarn workspace @warp-toad/backend hardhat vars set SCROLL_SEPOLIA_URL;
-yarn workspace @warp-toad/backend hardhat vars set ETHERSCAN_KEY;
-yarn workspace @warp-toad/backend hardhat vars set ETHERSCAN_KEY_SCROLL;
+pnpm b:compile:aztec
 ```
 
-## local/sandbox deployment
+### Withdraw circuit + Solidity verifier
 
-#### 1. deploy test token on "L1"
+Compiles the Noir circuit, generates the verification key, and generates the Solidity verifier contract.
+Uses the `bb` binary bundled with `@aztec/bb.js` to ensure version compatibility.
+
 ```shell
-yarn workspace @warp-toad/backend hardhat ignition deploy ignition/modules/TestToken.ts --network aztecSandbox;
-```
-#### 2. deploy warptoad on "L1"
-```shell
-NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/deployL1.ts --network aztecSandbox;
-```
-#### 3. deploy warptoad on aztec
-sandbox
-```shell
-NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/deployAztec.ts --network aztecSandbox;
-```
-#### 4. initialize/connect contracts 
-```shell
-#L1
-PXE_URL=http://localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/initializeL1.ts --network aztecSandbox;
-#aztec
-PXE_URL=http://localhost:8080 yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/initializeAztec.ts --network aztecSandbox;
+pnpm b:circuit
 ```
 
-# testnet/devnet deployment
-#### 1. deploy test token on "L1"
+Or step by step:
 ```shell
-yarn workspace @warp-toad/backend hardhat ignition deploy ignition/modules/TestToken.ts --network sepolia;
-```
-#### 2. deploy warptoad on "L1"
-```shell
-NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/deployL1.ts --network sepolia;
-```
-#### 3. deploy warptoad on aztec
-sandbox
-```shell
-NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress PXE_URL=https://next.devnet.aztec-labs.com yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/deployAztec.ts --network sepolia;
-```
-#### 4. deploy on scroll
-```shell
-NATIVE_TOKEN_ADDRESS=0xUrNativeTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/scroll/deployL2Scroll.ts --network scrollSepolia;
+pnpm b:circuit:compile    # nargo compile
+pnpm b:circuit:vk         # bb write_vk (EVM target)
+pnpm b:circuit:verifier   # bb write_solidity_verifier (EVM target)
 ```
 
-#### 5. initialize/connect contracts 
+## Test
+
+### L1 to L1 (same-chain, no Aztec sandbox needed)
 ```shell
-PXE_URL=https://next.devnet.aztec-labs.com yarn workspace @warp-toad/backend hardhat run scripts/deploy/L1/initializeL1.ts --network sepolia;
-#aztec
-PXE_URL=https://next.devnet.aztec-labs.com yarn workspace @warp-toad/backend hardhat run scripts/deploy/aztec/initializeAztec.ts --network sepolia;
-#scroll
-yarn workspace @warp-toad/backend hardhat run scripts/deploy/scroll/initializeL2Scroll.ts --network scrollSepolia;
+cd backend
+npx hardhat test test/testL1ToL1.ts
 ```
 
-## bridge
-#### sandbox 
+This test deploys all EVM contracts on Hardhat's in-process EDR network, burns a commitment, generates a ZK proof, and mints on the same chain. No external services required.
+
+### Cross-chain tests (requires Aztec sandbox)
+
+Start the sandbox first:
 ```shell
-PXE_URL=http:/localhost:8080 yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --isAztec --localRootProviders 0xL1WarpToadAddress 0xL1AztecAdapterAddress
-```
-#### aztec
-Takes about 0.5-1 hour to run
-```shell
-yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --L1Rpc UrUrl --L2Rpc https://next.devnet.aztec-labs.com / --privatekey 0xUrPrivateKey --isAztec
-```
-#### scroll
-Note: You have to use a paid rpc since free rpcs wont allow you to work with events well enough  
-Takes about 2-3 hours to run
-```shell
-yarn workspace @warp-toad/backend bun scripts/dev_op/bridge.ts --L1Rpc https://usSepoliaRpc --L2Rpc https://urlScrollRpc  --evmPrivatekey 0xUrPrivateKey
+pnpm b:sandbox
 ```
 
-## test contracts
-test L1->Aztec
+Then run:
 ```shell
-yarn workspace @warp-toad/backend hardhat test test/testL1ToAztec.ts --network aztecSandbox
+cd backend
+
+# L1 -> Aztec
+npx hardhat test test/testL1ToAztec.ts
+
+# Aztec -> L1
+npx hardhat test test/testAztecToL1.ts
+
+# All tests
+npx hardhat test
 ```
 
-test Aztec->L1
+## Deploy
+
+### Setup secrets
 ```shell
-yarn workspace @warp-toad/backend hardhat test test/testAztecToL1.ts --network aztecSandbox
+cd backend
+npx hardhat vars set DEPLOYER_PRIVATE_KEY
+npx hardhat vars set SEPOLIA_RPC_URL
+npx hardhat vars set SCROLL_SEPOLIA_RPC_URL
 ```
 
-test L1->L1
+### Local/sandbox deployment
+
+#### 1. Start sandbox
 ```shell
-yarn workspace @warp-toad/backend hardhat test test/testL1ToL1.ts --network aztecSandbox
+pnpm b:sandbox
 ```
 
-test EVERYTHING
+#### 2. Deploy on L1
 ```shell
-yarn workspace @warp-toad/backend hardhat test --network aztecSandbox
+cd backend
+NATIVE_TOKEN_ADDRESS=0xYourTokenAddress npx hardhat run scripts/deploy/L1/deployL1.ts --network local
 ```
 
-get gas estimation minting (broken)
+#### 3. Deploy on Aztec
 ```shell
-rm -fr backend/ignition/deployments/chain-31337/;
-yarn workspace @warp-toad/backend hardhat ignition deploy ./ignition/modules/L1WarpToadWithTestToken.ts --parameters ignition/WarpToadCoreParametersTesting.json --network aztecSandbox;
-yarn workspace @warp-toad/backend ts-node scripts/dev_op/estimateGas.ts -d ignition/deployments/chain-31337/deployed_addresses.json;
+NATIVE_TOKEN_ADDRESS=0xYourTokenAddress PXE_URL=http://localhost:8080 npx hardhat run scripts/deploy/aztec/deployAztec.ts --network local
 ```
 
-# bridgeSync
-
-## 1. prepare .env
-prepare .env file.
+#### 4. Initialize contracts
 ```shell
-    cd bridgeSync/;
-    cp .env.template .env;
-```
-edit the contents of .env (for local test set **ALLOWED_ORIGINS** to the port the frontend will be running on.)
-## 2. run bridge
-in root either run
-```shell
-yarn bridge:dev
-```
-or build and spin up docker container: 
-```shell
-yarn bridge:docker && yarn bridge:docker:run
+PXE_URL=http://localhost:8080 npx hardhat run scripts/deploy/L1/initializeL1.ts --network local
+PXE_URL=http://localhost:8080 npx hardhat run scripts/deploy/aztec/initializeAztec.ts --network local
 ```
 
-# frontend
-## 1. prepare .env
-prepare .env file.
+### Testnet deployment
+
+#### 1. Deploy on Sepolia
 ```shell
-    cd frontend/;
-    cp .env.template .env;
-``` 
-edit the contents of .env (for local test set **VITE_TEST_MODE=true and VITE_BRIDGE_KEEPER_URL=http://localhost:6969)**
-## 2. generate artifacts from backend for frontend.
-in root run
-TODO this should also move the circuit over!
-```shell
-yarn f:prep
+cd backend
+NATIVE_TOKEN_ADDRESS=0xYourTokenAddress npx hardhat run scripts/deploy/L1/deployL1.ts --network sepolia
 ```
-## 3. run frontend
-either run: 
+
+#### 2. Deploy on Aztec testnet
 ```shell
-yarn f:dev
+NATIVE_TOKEN_ADDRESS=0xYourTokenAddress PXE_URL=https://rpc.testnet.aztec-labs.com npx hardhat run scripts/deploy/aztec/deployAztec.ts --network sepolia
 ```
-or if you want to use proving: 
+
+#### 3. Deploy on Scroll Sepolia
 ```shell
-yarn f:run
+NATIVE_TOKEN_ADDRESS=0xYourTokenAddress npx hardhat run scripts/deploy/scroll/deployL2Scroll.ts --network scrollSepolia
 ```
+
+#### 4. Initialize contracts
+```shell
+# L1
+PXE_URL=https://rpc.testnet.aztec-labs.com npx hardhat run scripts/deploy/L1/initializeL1.ts --network sepolia
+# Aztec
+PXE_URL=https://rpc.testnet.aztec-labs.com npx hardhat run scripts/deploy/aztec/initializeAztec.ts --network sepolia
+# Scroll
+npx hardhat run scripts/deploy/scroll/initializeL2Scroll.ts --network scrollSepolia
+```
+
+## Bridge
+
+### Local/sandbox
+```shell
+PXE_URL=http://localhost:8080 pnpm --filter @warp-toad/backend tsx scripts/services/bridger.ts --isAztec --localRootProviders 0xL1WarpToadAddress 0xL1AztecAdapterAddress
+```
+
+### Aztec testnet
+Takes about 0.5-1 hour.
+```shell
+pnpm --filter @warp-toad/backend tsx scripts/services/bridger.ts --L1Rpc <URL> --L2Rpc https://rpc.testnet.aztec-labs.com --privatekey 0xYourKey --isAztec
+```
+
+### Scroll
+Note: Requires a paid RPC (free RPCs don't support event queries well enough). Takes about 2-3 hours.
+```shell
+pnpm --filter @warp-toad/backend tsx scripts/services/bridger.ts --L1Rpc <SEPOLIA_URL> --L2Rpc <SCROLL_URL> --evmPrivatekey 0xYourKey
+```
+
+## Bridge Sync Service
+
+### 1. Setup
+```shell
+cd bridge-sync
+cp .env.template .env
+```
+Edit `.env` (for local testing set `ALLOWED_ORIGINS` to the frontend port).
+
+### 2. Run
+```shell
+pnpm bridge:dev
+```
+Or build and run via Docker:
+```shell
+pnpm bridge:docker && pnpm bridge:docker:run
+```
+
+## Frontend
+
+### 1. Setup
+```shell
+cd frontend
+cp .env.template .env
+```
+Edit `.env` (for local testing set `VITE_TEST_MODE=true` and `VITE_BRIDGE_KEEPER_URL=http://localhost:6969`).
+
+### 2. Generate artifacts
+```shell
+pnpm f:prep
+```
+
+### 3. Run
+```shell
+pnpm f:dev
+```
+Or with proving support:
+```shell
+pnpm f:run
+```
+
+## Version Compatibility
+
+| Component | Version |
+|-----------|---------|
+| `@aztec/*` packages | `4.2.0-aztecnr-rc.2` |
+| `@noir-lang/noir_js` | `1.0.0-beta.19` |
+| nargo | `1.0.0-beta.19` |
+| Solidity | `0.8.29` |
+| Hardhat | `3.x` |
+| Node.js | `>= 22` |
+
+The `bb` binary used for VK/verifier generation **must** match the `@aztec/bb.js` version. The build scripts use the `bb` bundled with `@aztec/bb.js` to ensure this.
