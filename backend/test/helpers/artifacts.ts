@@ -44,19 +44,34 @@ export async function getEthersProvider(): Promise<ethers.BrowserProvider> {
 }
 
 /**
- * Get ethers signers connected to EDR.
+ * Get ethers signers connected to the configured network.
+ *
+ * Skips account 0 (0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266) because the
+ * Aztec sandbox sequencer publishes L1 txs from that same address. Tests
+ * destructure as `[deployer, relayer, sender, recipient] = signers`, so
+ * signers[0] here is anvil account 1 from the test's POV.
  */
 export async function getEthersSigners(): Promise<ethers.JsonRpcSigner[]> {
   const provider = await getEthersProvider();
-  return await provider.listAccounts() as ethers.JsonRpcSigner[];
+  const all = await provider.listAccounts() as ethers.JsonRpcSigner[];
+  return all.slice(1);
 }
 
 /**
- * Get viem clients connected to EDR.
+ * Get viem clients connected to the configured network.
+ *
+ * IMPORTANT: we deliberately skip walletClients[0] (anvil account 0,
+ * 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266) because the Aztec sandbox
+ * sequencer publishes L1 txs from that same account. Using it for our test
+ * deploys causes intermittent "nonce too low" races between our deploys and
+ * the sandbox's background L1 publishing. walletClients[1+] are unused by
+ * the sandbox, so deploys from there don't race.
  */
 export async function getViemClients() {
   const connection = await getConnection();
-  const [deployer] = await connection.viem.getWalletClients();
+  const wallets = await connection.viem.getWalletClients();
+  // Use the second account to avoid the sandbox's deployer.
+  const deployer = wallets[1] ?? wallets[0];
   const publicClient = await connection.viem.getPublicClient();
   return { deployer, publicClient, viem: connection.viem };
 }
@@ -103,7 +118,11 @@ function linkBytecode(
 }
 
 /**
- * Deploy a contract from a Hardhat artifact via viem on EDR.
+ * Deploy a contract from a Hardhat artifact via viem.
+ *
+ * Retries on "nonce too low" errors by explicitly fetching the current pending
+ * nonce and retrying. This avoids intermittent races between back-to-back test
+ * files when Hardhat 3's local-accounts handler returns a stale nonce.
  */
 export async function deployFromArtifact(
   contractName: string,
@@ -119,11 +138,44 @@ export async function deployFromArtifact(
     bytecode = linkBytecode(bytecode, artifact.linkReferences, libraries);
   }
 
-  const hash = await deployer.deployContract({ abi: artifact.abi, bytecode, args });
-  const receipt = await publicClient.waitForTransactionReceipt({ hash });
-  if (!receipt.contractAddress) throw new Error(`Deployment of ${contractName} failed`);
+  return sendWithNonceRetry(contractName, async (nonce) => {
+    const hash = await deployer.deployContract({ abi: artifact.abi, bytecode, args, nonce } as any);
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    if (!receipt.contractAddress) throw new Error(`Deployment of ${contractName} failed`);
+    return { address: receipt.contractAddress, abi: artifact.abi };
+  }, deployer, publicClient);
+}
 
-  return { address: receipt.contractAddress, abi: artifact.abi };
+/**
+ * Run a viem send/deploy under explicit pending-nonce control with retry on
+ * `nonce too low` and `replacement transaction underpriced` (which both
+ * indicate a stale nonce in the local accounts handler).
+ */
+async function sendWithNonceRetry<T>(
+  label: string,
+  fn: (nonce: number) => Promise<T>,
+  deployer: WalletClient,
+  publicClient: PublicClient,
+  maxAttempts = 5,
+): Promise<T> {
+  let lastErr: any;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    const nonce = await publicClient.getTransactionCount({
+      address: deployer.account!.address,
+      blockTag: "pending",
+    });
+    try {
+      return await fn(nonce);
+    } catch (err: any) {
+      const msg = (err?.message ?? "").toLowerCase();
+      const stale = msg.includes("nonce too low") || msg.includes("nonce provided for the transaction is lower") || msg.includes("replacement transaction underpriced") || msg.includes("known transaction");
+      if (!stale || attempt === maxAttempts - 1) throw err;
+      lastErr = err;
+      // brief back-off so any racing tx mines first
+      await new Promise(r => setTimeout(r, 500 + attempt * 500));
+    }
+  }
+  throw lastErr;
 }
 
 /**
@@ -148,10 +200,12 @@ export async function deployLibFromBuildInfo(
     bytecode = ("0x" + hex) as Hex;
   }
 
-  const hash = await deployer.deployContract({ abi, bytecode, args: [] });
-  const receipt = await publicClient.waitForTransactionReceipt({ hash });
-  if (!receipt.contractAddress) throw new Error(`Deployment of ${contractName} failed`);
-  return receipt.contractAddress;
+  return sendWithNonceRetry(contractName, async (nonce) => {
+    const hash = await deployer.deployContract({ abi, bytecode, args: [], nonce } as any);
+    const receipt = await publicClient.waitForTransactionReceipt({ hash });
+    if (!receipt.contractAddress) throw new Error(`Deployment of ${contractName} failed`);
+    return receipt.contractAddress;
+  }, deployer, publicClient);
 }
 
 /**

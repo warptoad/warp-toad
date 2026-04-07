@@ -191,11 +191,27 @@ export async function bridgeAZTECLocalRootToL1(
 
     // In aztec.js 4.2.0, computeL2ToL1MembershipWitness takes an epoch number (not a block number)
     // and the messages are only available once the epoch containing the tx has been proven on L1.
-    // We don't have a direct block->epoch helper, so scan recent epochs starting from the current
-    // tip until we find one whose getL2ToL1Messages contains our message leaf. This avoids needing
-    // to talk to the L1 Rollup contract directly (which lives on the Aztec sandbox's L1, not the
-    // EDR test chain).
+    // Compute the epoch directly from the L2 block's slot using epochDuration read from the L1
+    // Rollup contract. (Earlier we tried to scan epochs from 0, which worked on a fresh sandbox
+    // but was prohibitively slow once the sandbox accumulated thousands of blocks.)
+    const txL2Block = await aztecNode.getBlock(messageBlockNumber)
+    if (!txL2Block) throw new Error(`Could not fetch L2 block ${messageBlockNumber} for message witness`)
+    const messageSlot = BigInt(txL2Block.slot)
+    const aztecNodeInfo = await aztecNode.getNodeInfo()
+    const rollupAddressForEpoch = aztecNodeInfo.l1ContractAddresses.rollupAddress.toString()
+    const rollupForEpoch = new ethers.Contract(
+        rollupAddressForEpoch,
+        ["function getEpochDuration() view returns (uint256)"],
+        provider,
+    )
+    const epochDuration = BigInt(await rollupForEpoch.getEpochDuration())
+    const computedEpoch = Number(messageSlot / epochDuration)
+
+    // Poll the computed epoch (and its immediate neighbours, in case the message ended up in
+    // an adjacent one due to slot/epoch boundaries) until the L1 has proven it and the
+    // messages list contains our leaf.
     const findMessageInEpoch = async (epoch: number): Promise<Fr[][][][] | null> => {
+        if (epoch < 0) return null
         const messagesInEpoch = await aztecNode.getL2ToL1Messages(EpochNumber(epoch))
         if (messagesInEpoch.length === 0) return null
         try {
@@ -205,25 +221,20 @@ export async function bridgeAZTECLocalRootToL1(
             return null
         }
     }
-
-    // The 4.2.0 client doesn't expose getL2EpochNumber, so use the current block number as a loose
-    // upper bound on the epoch (epoch <= block since epochDuration >= 1) and scan from 0 upward.
     let foundEpoch: number | undefined
     const maxPolls = isSandBox ? 60 : 600
     pollLoop: for (let i = 0; i < maxPolls; i++) {
-        const currentBlockNumber = await aztecNode.getBlockNumber()
-        const epochUpperBound = Math.max(1, Number(currentBlockNumber))
-        for (let e = 0; e <= epochUpperBound; e++) {
+        for (const e of [computedEpoch, computedEpoch - 1, computedEpoch + 1]) {
             if (await findMessageInEpoch(e)) {
                 foundEpoch = e
                 break pollLoop
             }
         }
-        if (i % 10 === 0) console.log(`waiting for L2->L1 message ${contentHash.toString()} to be proven in an epoch (block ${currentBlockNumber})... (${i}/${maxPolls})`)
+        if (i % 10 === 0) console.log(`waiting for L2->L1 message ${contentHash.toString()} to be proven in epoch ${computedEpoch} (slot=${messageSlot}, dur=${epochDuration})... (${i}/${maxPolls})`)
         await sleep(2000)
     }
     if (foundEpoch === undefined) {
-        throw new Error(`Timed out waiting for L2->L1 message ${contentHash.toString()} to land in a proven epoch`)
+        throw new Error(`Timed out waiting for L2->L1 message ${contentHash.toString()} to land in a proven epoch (computed epoch ${computedEpoch})`)
     }
 
     const messageWitness = await computeL2ToL1MembershipWitness(aztecNode, EpochNumber(foundEpoch), contentHash) as L2ToL1MembershipWitness
