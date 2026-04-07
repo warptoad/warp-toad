@@ -6,7 +6,7 @@ import circuit from "../circuits/withdraw/target/withdraw.json" with { type: 'js
 
 import { WarpToadCoreContract as WarpToadAztec } from '../aztec/WarpToadCore/src/artifacts/WarpToadCore';
 
-// EVM contract types — use ethers.Contract (untyped) until we set up typed wrappers
+// EVM contract types: use ethers.Contract (untyped) until we set up typed wrappers
 type WarpToadEvm = ethers.Contract;
 type GigaBridge = ethers.Contract;
 import { BytesLike, ethers } from "ethers";
@@ -422,17 +422,16 @@ export async function createProof(proofInputs: ProofInputs, threads: number | un
     const bbPath = process.env.BB_BINARY_PATH || undefined;
     const api = await Barretenberg.new({
         threads: threads,
-        ...(bbPath ? { bbBinaryPath: bbPath } : {}),
+        ...(bbPath ? { bbPath } : {}),
     });
     const backend = new UltraHonkBackend(circuit.bytecode, api);
     const executeRes = await noir.execute(proofInputs as any as InputMap);
-    const proof = await backend.generateProof(executeRes.witness, { verifierTarget: 'evm' });
-    const verifiedJs = await backend.verifyProof(proof, { verifierTarget: 'evm' })
+    const proof = await backend.generateProof(executeRes.witness, { keccakZK: true });
+    const verifiedJs = await backend.verifyProof(proof, { keccakZK: true })
     console.log({verifiedJs})
 
     return proof
 }
-
 
 // export async function generateNoirTest(proofInputs:ProofInputs) {
 // const noirTest = `

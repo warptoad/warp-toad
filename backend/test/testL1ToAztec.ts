@@ -32,7 +32,7 @@ describe("L1 → Aztec", () => {
       const deployer = (await aztec.wallets[0].getAccounts())[0].item;
       const rawAddr = await aztec.warpToad.methods.get_l1_bridge_adapter().simulate({ from: deployer });
 
-      // EthAddress in Noir is struct { inner: Field } — extract and compare
+      // EthAddress in Noir is struct { inner: Field }, extract and compare
       const l1AdapterFromAztec = hre.ethers.getAddress(hre.ethers.toBeHex(rawAddr.inner));
       assert.equal(
         l1AdapterFromAztec.toLowerCase(),

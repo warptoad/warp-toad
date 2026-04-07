@@ -300,7 +300,7 @@
 			</div>
 			<div class="text-xs">
 				<span class="font-medium text-[var(--foreground)]">Wallet Not Connected</span>
-				<span class="text-[var(--muted-foreground)]"> — Connect your {selectedChain} wallet</span>
+				<span class="text-[var(--muted-foreground)]"> -Connect your {selectedChain} wallet</span>
 			</div>
 		</div>
 	{:else if needsNetworkSwitch}
@@ -312,7 +312,7 @@
 			</div>
 			<div class="text-xs">
 				<span class="font-medium text-[var(--foreground)]">Wrong Network</span>
-				<span class="text-[var(--muted-foreground)]"> — Switch to {selectedChain}</span>
+				<span class="text-[var(--muted-foreground)]"> -Switch to {selectedChain}</span>
 			</div>
 		</div>
 	{:else if !isChainAvailable(selectedChain)}
@@ -325,7 +325,7 @@
 			<div class="text-xs">
 				<span class="font-medium text-[var(--foreground)]">{selectedChain} Unavailable</span>
 				{#if selectedChain === "Scroll"}
-					<span class="text-[var(--muted-foreground)]"> — Switch to testnet mode</span>
+					<span class="text-[var(--muted-foreground)]"> -Switch to testnet mode</span>
 				{/if}
 			</div>
 		</div>

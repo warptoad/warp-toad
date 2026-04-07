@@ -11,8 +11,8 @@ import { Contract } from "@aztec/aztec.js/contracts";
 import type { EthAddressLike } from "@aztec/aztec.js/abi";
 import type { PXE } from "@aztec/pxe/server";
 import { getAztecTestAccounts, initPXE } from "../../deploy/utils/aztecUtilsNoEnv";
-import { WarpToadCoreContractArtifact, WarpToadCoreContract } from "../../aztec/WarpToadCore/src/artifacts/WarpToadCore";
-import { L2AztecBridgeAdapterContractArtifact, L2AztecBridgeAdapterContract } from "../../aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter";
+import { WarpToadCoreContractArtifact, WarpToadCoreContract } from "../../aztec/WarpToadCore/src/artifacts/WarpToadCore.js";
+import { L2AztecBridgeAdapterContractArtifact, L2AztecBridgeAdapterContract } from "../../aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.js";
 import { AZTEC_NODE_URL } from "./constants";
 
 export interface AztecDeployment {

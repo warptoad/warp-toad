@@ -2042,7 +2042,7 @@
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
 							</svg>
 							<p class="text-[0.65rem] text-[var(--foreground)]">
-								Missing commitment — upload note file
+								Missing commitment, upload note file
 							</p>
 						</div>
 					{/if}
@@ -2070,7 +2070,7 @@
 				<div class="text-xs">
 					<span class="font-medium text-[var(--foreground)]">Connect {selectedProof.targetChain} wallet</span>
 					{#if selectedProof.targetChain === "Aztec"}
-						<span class="text-[var(--muted-foreground)]"> — Use Azguard extension</span>
+						<span class="text-[var(--muted-foreground)]"> - Use Azguard extension</span>
 					{/if}
 				</div>
 			</div>

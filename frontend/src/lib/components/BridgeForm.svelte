@@ -571,7 +571,7 @@ You can close this page. Your note has been downloaded.`;
 			</div>
 			<div class="text-xs">
 				<span class="font-medium text-[var(--foreground)]">Wallet Not Connected</span>
-				<span class="text-[var(--muted-foreground)]"> — Connect your {sourceChain} wallet</span>
+				<span class="text-[var(--muted-foreground)]"> -Connect your {sourceChain} wallet</span>
 			</div>
 		</div>
 	{:else if needsNetworkSwitch}
@@ -583,7 +583,7 @@ You can close this page. Your note has been downloaded.`;
 			</div>
 			<div class="text-xs">
 				<span class="font-medium text-[var(--foreground)]">Wrong Network</span>
-				<span class="text-[var(--muted-foreground)]"> — Switch to {sourceChain}</span>
+				<span class="text-[var(--muted-foreground)]"> -Switch to {sourceChain}</span>
 			</div>
 		</div>
 	{/if}

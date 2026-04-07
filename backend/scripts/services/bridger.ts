@@ -147,7 +147,7 @@ async function runJob(job: JobName) {
 }
 
 // Runs both in a deterministic order.
-// If Scroll takes 2-3h, you probably want aztec first or vice versa — choose what you actually want.
+// If Scroll takes 2-3h, you probably want aztec first or vice versa, choose what you actually want.
 // I’m defaulting to scroll first (since it’s long), then aztec.
 async function runAll() {
   const a = await runJob("scroll");

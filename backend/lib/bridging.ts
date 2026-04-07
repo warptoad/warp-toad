@@ -5,7 +5,7 @@ import { ethers, getBytes, hexlify, NonceManager, toBeHex, toUtf8Bytes } from "e
 import { L2AztecBridgeAdapterContract } from '../aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter';
 import { WarpToadCoreContract as L2WarpToadAZTEC } from '../aztec/WarpToadCore/src/artifacts/WarpToadCore';
 
-// EVM contract types — use ethers.Contract (untyped) until typed wrappers are set up
+// EVM contract types: use ethers.Contract (untyped) until typed wrappers are set up
 type WarpToadEvm = ethers.Contract;
 type L1AztecBridgeAdapter = ethers.Contract;
 type L1ScrollBridgeAdapter = ethers.Contract;

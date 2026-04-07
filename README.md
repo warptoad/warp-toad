@@ -8,6 +8,7 @@ Cross-chain privacy bridge connecting Ethereum L1, Scroll L2, and Aztec L2 using
 - pnpm 10.x
 - nargo 1.0.0-beta.19
 - Aztec sandbox (for cross-chain tests and local deployment)
+- A locally-built `bb` binary at the same source tag as `@aztec/bb.js` (see [Locally-built bb](#locally-built-bb-required))
 
 ## Install
 
@@ -40,9 +41,10 @@ pnpm b:compile:aztec
 ### Withdraw circuit + Solidity verifier
 
 Compiles the Noir circuit, generates the verification key, and generates the Solidity verifier contract.
-Uses the `bb` binary bundled with `@aztec/bb.js` to ensure version compatibility.
+Requires `BB_BINARY_PATH` to point at a locally-built `bb` (see [Locally-built bb](#locally-built-bb-required)).
 
 ```shell
+export BB_BINARY_PATH=/path/to/aztec-packages/barretenberg/cpp/build/bin/bb
 pnpm b:circuit
 ```
 
@@ -52,6 +54,39 @@ pnpm b:circuit:compile    # nargo compile
 pnpm b:circuit:vk         # bb write_vk (EVM target)
 pnpm b:circuit:verifier   # bb write_solidity_verifier (EVM target)
 ```
+
+## Locally-built bb (required)
+
+The published `@aztec/bb.js@4.2.0-aztecnr-rc.2` ships an internally-inconsistent
+combination: its WASM prover writes proofs with `PAIRING_POINTS_SIZE = 8`, but its
+bundled Solidity verifier codegen template emits `PAIRING_POINTS_SIZE = 16`. The
+two halves don't agree, so any verifier produced by the npm package's
+`write_solidity_verifier` will reject every proof produced by the npm package's
+`UltraHonkBackend.generateProof`. The aztec-packages source at the same git tag
+is consistent (both halves use 8); it's only the published artifact that's broken.
+
+The workaround is to build `bb` from source at that tag and use it for **both**
+`write_solidity_verifier` and proof generation:
+
+```shell
+git clone --depth 1 --branch v4.2.0-aztecnr-rc.2 \
+  https://github.com/AztecProtocol/aztec-packages
+cd aztec-packages/barretenberg/cpp
+CC=clang CXX=clang++ CFLAGS="-march=native" CXXFLAGS="-march=native" \
+  cmake -B build -DCMAKE_BUILD_TYPE=RelWithAssert
+cmake --build build --target bb --parallel
+```
+
+Then export the path before running circuit builds or backend tests:
+
+```shell
+export BB_BINARY_PATH=$PWD/build/bin/bb
+```
+
+`backend/lib/proving.ts` reads `BB_BINARY_PATH` and passes it to
+`@aztec/bb.js` as the `bbPath` option, which makes it spawn this binary as a
+native subprocess instead of falling back to the broken bundled WASM prover.
+The `b:circuit:vk` and `b:circuit:verifier` scripts also require this env var.
 
 ## Test
 
