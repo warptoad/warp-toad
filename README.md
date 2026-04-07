@@ -90,34 +90,39 @@ The `b:circuit:vk` and `b:circuit:verifier` scripts also require this env var.
 
 ## Test
 
-### L1 to L1 (same-chain, no Aztec sandbox needed)
-```shell
-cd backend
-npx hardhat test test/testL1ToL1.ts
-```
+**All backend tests require the Aztec sandbox to be running.** The Hardhat
+`local` network in `backend/hardhat.config.ts` points at the sandbox's bundled
+anvil (`http://localhost:8545`) so warp-toad's L1 contracts can share an L1
+chain with the Aztec rollup, outbox, and inbox. Even the L1↔L1 test runs
+against that anvil now.
 
-This test deploys all EVM contracts on Hardhat's in-process EDR network, burns a commitment, generates a ZK proof, and mints on the same chain. No external services required.
-
-### Cross-chain tests (requires Aztec sandbox)
+You also need `BB_BINARY_PATH` exported (see [Locally-built bb](#locally-built-bb-required))
+because `backend/lib/proving.ts` spawns the local `bb` binary to generate the
+withdraw circuit's UltraHonk proof, and the test pipeline reads it from the env.
 
 Start the sandbox first:
 ```shell
 pnpm b:sandbox
 ```
+Wait for `Aztec Server listening on port 8080` in the sandbox terminal.
 
-Then run:
+Then run from the backend directory:
 ```shell
 cd backend
+export BB_BINARY_PATH=/path/to/aztec-packages/barretenberg/cpp/build/bin/bb
 
-# L1 -> Aztec
-npx hardhat test test/testL1ToAztec.ts
-
-# Aztec -> L1
-npx hardhat test test/testAztecToL1.ts
-
-# All tests
+# Full suite (5 tests, ~2.5 minutes)
 npx hardhat test
+
+# Or individual files
+npx hardhat test test/testL1ToL1.ts        # L1 same-chain ZK round-trip
+npx hardhat test test/testL1ToAztec.ts     # L1 -> Aztec cross-chain mint
+npx hardhat test test/testAztecToL1.ts     # Aztec -> L1 cross-chain mint
 ```
+
+Each cross-chain test redeploys all contracts from scratch, so leaving the
+sandbox running across multiple test runs is fine and faster than restarting
+it between runs.
 
 ## Deploy
 
@@ -252,4 +257,10 @@ pnpm f:run
 | Hardhat | `3.x` |
 | Node.js | `>= 22` |
 
-The `bb` binary used for VK/verifier generation **must** match the `@aztec/bb.js` version. The build scripts use the `bb` bundled with `@aztec/bb.js` to ensure this.
+The `bb` binary used for VK/verifier generation **and** for proof generation
+in the test pipeline **must** be a locally-built `bb` from the
+`v4.2.0-aztecnr-rc.2` source tag of aztec-packages, not the one bundled with
+the published `@aztec/bb.js@4.2.0-aztecnr-rc.2`. The published bundle is
+internally inconsistent (its codegen template hardcodes `PAIRING_POINTS_SIZE = 16`
+while its WASM prover writes 8). See
+[Locally-built bb](#locally-built-bb-required).
