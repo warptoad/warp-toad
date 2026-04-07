@@ -29,8 +29,9 @@ import { SiblingPath } from "@aztec/foundation/trees";
 import {
   type L2ToL1MembershipWitness,
   computeL2ToL1MembershipWitness,
+  computeL2ToL1MembershipWitnessFromMessagesInEpoch,
 } from '@aztec/stdlib/messaging';
-import { BlockNumber } from "@aztec/foundation/branded-types";
+import { BlockNumber, EpochNumber } from "@aztec/foundation/branded-types";
 
 
 export const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -181,7 +182,45 @@ export async function bridgeAZTECLocalRootToL1(
 
     const messageBlockNumber = sendRootEffect?.l2BlockNumber as number//await PXE.getBlockNumber(); // the blockNumber of when send_root_to_l1 settled onchain
     const contentHash = messageLeaf //L2toL2Messages[0][0]
-    const messageWitness = await computeL2ToL1MembershipWitness(aztecNode, messageBlockNumber as BlockNumber, contentHash) as L2ToL1MembershipWitness
+
+    // In aztec.js 4.2.0, computeL2ToL1MembershipWitness takes an epoch number (not a block number)
+    // and the messages are only available once the epoch containing the tx has been proven on L1.
+    // We don't have a direct block->epoch helper, so scan recent epochs starting from the current
+    // tip until we find one whose getL2ToL1Messages contains our message leaf. This avoids needing
+    // to talk to the L1 Rollup contract directly (which lives on the Aztec sandbox's L1, not the
+    // EDR test chain).
+    const findMessageInEpoch = async (epoch: number): Promise<Fr[][][][] | null> => {
+        const messagesInEpoch = await aztecNode.getL2ToL1Messages(EpochNumber(epoch))
+        if (messagesInEpoch.length === 0) return null
+        try {
+            computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, contentHash)
+            return messagesInEpoch
+        } catch {
+            return null
+        }
+    }
+
+    let foundEpoch: number | undefined
+    const maxPolls = isSandBox ? 60 : 600
+    pollLoop: for (let i = 0; i < maxPolls; i++) {
+        const currentEpoch = await aztecNode.getL2EpochNumber()
+        if (currentEpoch !== undefined) {
+            // Scan from current epoch backwards a few epochs in case the message landed in a prior epoch.
+            for (let e = Number(currentEpoch); e >= Math.max(0, Number(currentEpoch) - 5); e--) {
+                if (await findMessageInEpoch(e)) {
+                    foundEpoch = e
+                    break pollLoop
+                }
+            }
+        }
+        if (i % 10 === 0) console.log(`waiting for L2->L1 message ${contentHash.toString()} to be proven in an epoch... (${i}/${maxPolls})`)
+        await sleep(2000)
+    }
+    if (foundEpoch === undefined) {
+        throw new Error(`Timed out waiting for L2->L1 message ${contentHash.toString()} to land in a proven epoch`)
+    }
+
+    const messageWitness = await computeL2ToL1MembershipWitness(aztecNode, EpochNumber(foundEpoch), contentHash) as L2ToL1MembershipWitness
     const siblingPathArray = messageWitness.siblingPath.toFields().map((f: any) => f.toString())
 
     // console.log("got witness")
