@@ -162,8 +162,8 @@ export async function bridgeAZTECLocalRootToL1(
 ) {
     const blockNumberOfRoot = await aztecNode.getBlockNumber() //getBlockNumber();
     const PXE_L2Root = (await aztecNode.getBlock(blockNumberOfRoot))?.header.state.partial.noteHashTree.root as Fr
-    const sendRootToL1Tx = await L2AztecBridgeAdapter.methods.send_root_to_l1(blockNumberOfRoot).send({ fee: { paymentMethod: sponsoredPaymentMethod }, from: (await aztecWallet.getAccounts())[0].item }).wait({ timeout: 60 * 60 * 12 });
-    sendRootToL1Tx.txHash
+    const sendRootToL1Tx = await L2AztecBridgeAdapter.methods.send_root_to_l1(blockNumberOfRoot).send({ fee: { paymentMethod: sponsoredPaymentMethod }, from: (await aztecWallet.getAccounts())[0].item });
+    sendRootToL1Tx.receipt.txHash
     const l1ChainId = (await provider.getNetwork()).chainId
     // const messageContent = sha256ToField([ // does sha256(PXE_L2Root, blockNumberOfRoot) then removes the last byte and then adds byte(1) in front (to fit into a field)
     //     PXE_L2Root.toBuffer(),
@@ -176,7 +176,7 @@ export async function bridgeAZTECLocalRootToL1(
     await waitForBlocksAztec(blocksToWait, aztecNode, isSandBox, L2AztecBridgeAdapter, aztecWallet)
 
 
-    const sendRootEffect = await aztecNode.getTxEffect(sendRootToL1Tx.txHash)
+    const sendRootEffect = await aztecNode.getTxEffect(sendRootToL1Tx.receipt.txHash)
     const messageLeaf = sendRootEffect?.data.l2ToL1Msgs[0] as Fr ///sha256ToField([
 
     const messageBlockNumber = sendRootEffect?.l2BlockNumber as number//await PXE.getBlockNumber(); // the blockNumber of when send_root_to_l1 settled onchain
@@ -391,8 +391,8 @@ export async function receiveGigaRootOnAztec(
     if (isSandBox) {
         // this is to make the sandbox progress n blocks
 
-        await L2AztecBridgeAdapter.methods.count(0n).send({ from: (await (aztecWallet as AztecWallet).getAccounts())[0].item }).wait();
-        await L2AztecBridgeAdapter.methods.count(4n).send({ from: (await (aztecWallet as AztecWallet).getAccounts())[0].item }).wait();
+        await L2AztecBridgeAdapter.methods.count(0n).send({ from: (await (aztecWallet as AztecWallet).getAccounts())[0].item });
+        await L2AztecBridgeAdapter.methods.count(4n).send({ from: (await (aztecWallet as AztecWallet).getAccounts())[0].item });
     } else {
         console.warn("isSandBox is not set or detected. I hope ur indeed not on sandbox because it will break if u are!")
         await waitForBlocksAztec(blocksToWait, aztecNode, isSandBox, L2AztecBridgeAdapter, aztecWallet);
@@ -401,10 +401,10 @@ export async function receiveGigaRootOnAztec(
     const maxFails = 30
     for (let i = 0; i < maxFails; i++) {
         try {
-            receiveGigaRootTx = await L2AztecBridgeAdapter.methods.receive_giga_root(content_hash, index, AztecWarpToad.address).send({ fee: { paymentMethod: sponsoredPaymentMethod }, from: (await (aztecWallet as AztecWallet).getAccounts())[0].item }).wait();//({ timeout: 60 * 60 * 12 });
-            break;   
+            receiveGigaRootTx = await L2AztecBridgeAdapter.methods.receive_giga_root(content_hash, index, AztecWarpToad.address).send({ fee: { paymentMethod: sponsoredPaymentMethod }, from: (await (aztecWallet as AztecWallet).getAccounts())[0].item });
+            break;
         } catch (error:any) {
-            console.log(`failed to get gigaRoot to L2Adapter on aztec. trying again in 1 min. ${index} errors out of ${maxFails} limit. Failed tx: ${receiveGigaRootTx?.txHash.toString()}`)
+            console.log(`failed to get gigaRoot to L2Adapter on aztec. trying again in 1 min. ${index} errors out of ${maxFails} limit. Failed tx: ${receiveGigaRootTx?.receipt.txHash.toString()}`)
             console.log(error.message)
             await sleep(60000)
         }
@@ -425,7 +425,7 @@ export async function waitForBlocksAztec(blocksToWait: number, aztecNode: AztecN
         if (waiting) {
             if (isSandBox) {
                 if (L2AztecBridgeAdapter && aztecWallet) {
-                    await L2AztecBridgeAdapter.methods.count(0n).send({ from: (await (aztecWallet as AztecWallet).getAccounts())[0].item }).wait();
+                    await L2AztecBridgeAdapter.methods.count(0n).send({ from: (await (aztecWallet as AztecWallet).getAccounts())[0].item });
                 } else {
                     throw new Error("L2AztecBridgeAdapter and/or aztecWallet is not set but isSandBox=true")
                 }

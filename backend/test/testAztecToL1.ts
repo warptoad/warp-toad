@@ -12,7 +12,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import hre from "hardhat";
-import { ethers } from "ethers";
 import os from "os";
 
 import {
@@ -32,11 +31,11 @@ describe("Aztec → L1", () => {
       const { evm, aztec } = await setupFullEnvironment();
 
       const deployer = (await aztec.wallets[0].getAccounts())[0].item;
-      const rawAddr = await aztec.warpToad.methods.get_l1_bridge_adapter().simulate({ from: deployer });
-      const l1AdapterFromAztec = ethers.getAddress(ethers.toBeHex(rawAddr.inner));
+      const { result } = await aztec.warpToad.methods.get_l1_bridge_adapter().simulate({ from: deployer });
+      const l1AdapterFromAztec = result.toString();
       assert.equal(
         l1AdapterFromAztec.toLowerCase(),
-        evm.l1AztecBridgeAdapter.address.toLowerCase(),
+        (await evm.l1AztecBridgeAdapter!.getAddress()).toLowerCase(),
       );
     });
   });
@@ -62,7 +61,7 @@ describe("Aztec → L1", () => {
         TEST_COMMITMENT_1.nullifierPreimage,
       );
 
-      const balancePre = await aztec.warpToad.methods
+      const { result: balancePre } = await aztec.warpToad.methods
         .balance_of(aztecDeployerAddress)
         .simulate({ from: aztecDeployerAddress });
 
@@ -70,15 +69,15 @@ describe("Aztec → L1", () => {
         .burn(commitment.amount, commitment.destinationChainId, commitment.secret, commitment.nullifierPreimage)
         .send({ from: aztecDeployerAddress });
 
-      const balancePost = await aztec.warpToad.methods
+      const { result: balancePost } = await aztec.warpToad.methods
         .balance_of(aztecDeployerAddress)
         .simulate({ from: aztecDeployerAddress });
       assert.equal(balancePost, balancePre - commitment.amount, "Aztec balance should decrease");
 
       // ── Store local root on L1 and bridge ─────────────────────
-      await evm.l1WarpToad.write.storeLocalRootInHistory();
+      await (await evm.l1WarpToad.connect(evmDeployer).storeLocalRootInHistory()).wait();
 
-      const localRootProviders = [evm.l1WarpToad.address, evm.l1AztecBridgeAdapter.address];
+      const localRootProviders = [await evm.l1WarpToad.getAddress(), await evm.l1AztecBridgeAdapter!.getAddress()];
       await bridgeBetweenL1AndL2(
         evmRelayer,
         evm.l1AztecBridgeAdapter,
@@ -107,8 +106,8 @@ describe("Aztec → L1", () => {
         feeFactor,
         DEFAULT_FEE.priorityFee,
         DEFAULT_FEE.maxFee,
-        evmRelayer.account.address,
-        evmRecipient.account.address,
+        await evmRelayer.getAddress(),
+        await evmRecipient.getAddress(),
         commitment.nullifierPreimage,
         commitment.secret,
         aztecDeployer,
@@ -119,30 +118,28 @@ describe("Aztec → L1", () => {
       const proof = await createProof(proofInputs, os.cpus().length);
 
       // ── Mint on L1 ────────────────────────────────────────────
-      const l1BalancePre = await evm.l1WarpToad.read.balanceOf([evmRecipient.account.address]);
+      const recipientAddr = await evmRecipient.getAddress();
+      const l1BalancePre = await evm.l1WarpToad.balanceOf(recipientAddr);
 
-      await evm.l1WarpToad.write.mint(
-        [
-          BigInt(proofInputs.nullifier),
-          BigInt(proofInputs.amount),
-          BigInt(proofInputs.giga_root),
-          BigInt(proofInputs.destination_local_root),
-          BigInt(proofInputs.fee_factor),
-          BigInt(proofInputs.priority_fee),
-          BigInt(proofInputs.max_fee),
-          proofInputs.relayer_address,
-          proofInputs.recipient_address,
-          proof.proof,
-        ],
+      await (await evm.l1WarpToad.connect(evmRelayer).mint(
+        BigInt(proofInputs.nullifier),
+        BigInt(proofInputs.amount),
+        BigInt(proofInputs.giga_root),
+        BigInt(proofInputs.destination_local_root),
+        BigInt(proofInputs.fee_factor),
+        BigInt(proofInputs.priority_fee),
+        BigInt(proofInputs.max_fee),
+        proofInputs.relayer_address,
+        proofInputs.recipient_address,
+        proof.proof,
         {
-          account: evmRelayer.account,
           maxPriorityFeePerGas: BigInt(proofInputs.priority_fee),
           maxFeePerGas: BigInt(proofInputs.priority_fee) * 100n,
         },
-      );
+      )).wait();
 
       // ── Assert ────────────────────────────────────────────────
-      const l1BalancePost = await evm.l1WarpToad.read.balanceOf([evmRecipient.account.address]);
+      const l1BalancePost = await evm.l1WarpToad.balanceOf(recipientAddr);
       const received = l1BalancePost - l1BalancePre;
 
       assert.ok(received > 0n, "Recipient should receive tokens on L1");

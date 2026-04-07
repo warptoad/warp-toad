@@ -11,7 +11,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import hre from "hardhat";
-import { ethers } from "ethers";
 
 import {
   setupFullEnvironment,
@@ -34,10 +33,10 @@ describe("L1 → Aztec", () => {
       const rawAddr = await aztec.warpToad.methods.get_l1_bridge_adapter().simulate({ from: deployer });
 
       // EthAddress in Noir is struct { inner: Field }, extract and compare
-      const l1AdapterFromAztec = ethers.getAddress(ethers.toBeHex(rawAddr.inner));
+      const l1AdapterFromAztec = rawAddr.result.toString();
       assert.equal(
         l1AdapterFromAztec.toLowerCase(),
-        evm.l1AztecBridgeAdapter.address.toLowerCase(),
+        (await evm.l1AztecBridgeAdapter!.getAddress()).toLowerCase(),
         "Aztec should know the correct L1 bridge adapter",
       );
     });
@@ -53,16 +52,17 @@ describe("L1 → Aztec", () => {
 
       // ── Get Aztec chain ID ────────────────────────────────────
       const nodeInfo = await aztec.node.getNodeInfo();
-      const aztecChainId = BigInt(
-        await aztec.warpToad.methods
-          .get_chain_id_unconstrained(nodeInfo.rollupVersion)
-          .simulate({ from: aztecDeployerAddress }),
-      );
+      const { result: aztecChainIdRaw } = await aztec.warpToad.methods
+        .get_chain_id_unconstrained(nodeInfo.rollupVersion)
+        .simulate({ from: aztecDeployerAddress });
+      const aztecChainId = BigInt(aztecChainIdRaw);
 
       // ── Fund sender on L1 ─────────────────────────────────────
-      await evm.nativeToken.write.getFreeShit([INITIAL_BALANCE], { account: evmSender.account });
-      await evm.nativeToken.write.approve([evm.l1WarpToad.address, INITIAL_BALANCE], { account: evmSender.account });
-      await evm.l1WarpToad.write.wrap([INITIAL_BALANCE], { account: evmSender.account });
+      const nativeTokenAsSender = evm.nativeToken.connect(evmSender);
+      const l1WarpToadAsSender = evm.l1WarpToad.connect(evmSender);
+      await (await nativeTokenAsSender.getFreeShit(INITIAL_BALANCE)).wait();
+      await (await nativeTokenAsSender.approve(await evm.l1WarpToad.getAddress(), INITIAL_BALANCE)).wait();
+      await (await l1WarpToadAsSender.wrap(INITIAL_BALANCE)).wait();
 
       // ── Burn on L1 ────────────────────────────────────────────
       const commitment = createCommitment(
@@ -72,13 +72,13 @@ describe("L1 → Aztec", () => {
         TEST_COMMITMENT_1.nullifierPreimage,
       );
 
-      await evm.l1WarpToad.write.burn([commitment.preCommitment, commitment.amount], { account: evmSender.account });
+      await (await l1WarpToadAsSender.burn(commitment.preCommitment, commitment.amount)).wait();
 
-      const balanceAfterBurn = await evm.l1WarpToad.read.balanceOf([evmSender.account.address]);
+      const balanceAfterBurn = await evm.l1WarpToad.balanceOf(await evmSender.getAddress());
       assert.equal(balanceAfterBurn, INITIAL_BALANCE - commitment.amount, "L1 balance should decrease");
 
       // ── Bridge roots ──────────────────────────────────────────
-      const localRootProviders = [evm.l1WarpToad.address, evm.l1AztecBridgeAdapter.address];
+      const localRootProviders = [await evm.l1WarpToad.getAddress(), await evm.l1AztecBridgeAdapter!.getAddress()];
       await bridgeBetweenL1AndL2(
         evmRelayer,
         evm.l1AztecBridgeAdapter,
@@ -97,12 +97,12 @@ describe("L1 → Aztec", () => {
       );
 
       // Verify giga root arrived on Aztec
-      const aztecGigaRoot = await aztec.warpToad.methods.get_giga_root().simulate({ from: aztecDeployerAddress });
-      const l1GigaRoot = await evm.gigaBridge.read.gigaRoot();
+      const { result: aztecGigaRoot } = await aztec.warpToad.methods.get_giga_root().simulate({ from: aztecDeployerAddress });
+      const l1GigaRoot = await evm.gigaBridge.gigaRoot();
       assert.equal(aztecGigaRoot.toString(), BigInt(l1GigaRoot.toString()).toString(), "Giga roots should match");
 
       // ── Mint on Aztec ─────────────────────────────────────────
-      const balancePre = await aztec.warpToad.methods.balance_of(aztecDeployerAddress).simulate({ from: aztecDeployerAddress });
+      const { result: balancePre } = await aztec.warpToad.methods.balance_of(aztecDeployerAddress).simulate({ from: aztecDeployerAddress });
 
       const fullCommitment = hashCommitment(commitment.preCommitment, commitment.amount);
       const merkleData = await getMerkleData(
@@ -128,7 +128,7 @@ describe("L1 → Aztec", () => {
         )
         .send({ from: aztecDeployerAddress });
 
-      const balancePost = await aztec.warpToad.methods.balance_of(aztecDeployerAddress).simulate({ from: aztecDeployerAddress });
+      const { result: balancePost } = await aztec.warpToad.methods.balance_of(aztecDeployerAddress).simulate({ from: aztecDeployerAddress });
       assert.equal(
         balancePost,
         balancePre + BigInt(commitment.amount),
