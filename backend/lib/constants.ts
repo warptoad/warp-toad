@@ -62,12 +62,14 @@ export const gasCostPerChain: gasCosts = {
 }
 Object.freeze(gasCostPerChain)
 
-// from: https://github.com/AztecProtocol/aztec-packages/blob/05999f57016f37978512ea36a11a01f7b8bcf1c1/noir-projects/noir-protocol-circuits/crates/types/src/constants.nr#L526
-export const GENERATOR_INDEX__NOTE_HASH_NONCE = 2n;
-// https://github.com/AztecProtocol/aztec-packages/blob/05999f57016f37978512ea36a11a01f7b8bcf1c1/noir-projects/noir-protocol-circuits/crates/types/src/constants.nr#L527
-export const GENERATOR_INDEX__UNIQUE_NOTE_HASH = 3n
-//https://github.com/AztecProtocol/aztec-packages/blob/05999f57016f37978512ea36a11a01f7b8bcf1c1/noir-projects/noir-protocol-circuits/crates/types/src/constants.nr#L528
-export const GENERATOR_INDEX__SILOED_NOTE_HASH = 4n;
+// Aztec 4.2.0+ replaced sequential generator indices with derived domain separators.
+// Source: aztec-packages/noir-projects/noir-protocol-circuits/crates/types/src/constants.nr
+//   pub global DOM_SEP__NOTE_HASH_NONCE: u32 = 1721808740;
+//   pub global DOM_SEP__UNIQUE_NOTE_HASH: u32 = 226850429;
+//   pub global DOM_SEP__SILOED_NOTE_HASH: u32 = 3361878420;
+export const GENERATOR_INDEX__NOTE_HASH_NONCE = 1721808740n;
+export const GENERATOR_INDEX__UNIQUE_NOTE_HASH = 226850429n
+export const GENERATOR_INDEX__SILOED_NOTE_HASH = 3361878420n;
 
 export const L2_SCROLL_MESSENGER_MAINNET = "0x781e90f1c8Fc4611c9b7497C3B47F99Ef6969CbC"
 export const L2_SCROLL_MESSENGER_SEPOLIA = "0xBa50f5340FB9F3Bd074bD638c9BE13eCB36E603d"

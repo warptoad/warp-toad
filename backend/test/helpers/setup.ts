@@ -45,6 +45,17 @@ export async function setupFullEnvironment(): Promise<FullDeployment> {
 
   const aztec = await deployAztecContracts(chainId, l1BridgeAdapterAddress, nativeTokenAddress);
 
+  // L1WarpToad bakes the Aztec WarpToadCore address into its public inputs (the on-chain
+  // verifier checks the proof's `aztec_warptoad_address` against this stored value), so it
+  // must be initialized AFTER the Aztec contract is deployed. deployEvmContracts skipped
+  // initialize() for us when withAztecAdapter was true.
+  const aztecWarpToadAddress = BigInt(aztec.warpToad.address.toString());
+  await (await evm.l1WarpToad.initialize(
+    await evm.gigaBridge.getAddress(),
+    await evm.l1WarpToad.getAddress(),
+    aztecWarpToadAddress,
+  )).wait();
+
   // L1AztecBridgeAdapter needs to know the Aztec L1 registry (to find rollup/outbox/inbox)
   // and the L2 adapter address. Both are only available after the Aztec deployment finishes,
   // so wire it up here as the last setup step.

@@ -190,6 +190,9 @@ l1_bridge_adapter: {
     /** get_notes_util(slot: field) */
     get_notes_util: ((slot: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 
+    /** get_notes_with_nonces(_slot: field) */
+    get_notes_with_nonces: ((_slot: FieldLike) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
+
     /** get_root_from_block(block_number: integer) */
     get_root_from_block: ((block_number: (bigint | number)) => ContractFunctionInteraction) & Pick<ContractMethod, 'selector'>;
 

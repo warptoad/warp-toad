@@ -112,14 +112,20 @@ export async function deployEvmContracts(opts?: {
     l1AztecBridgeAdapter = await toEthersContract(l1AztecAdapterDeploy.abi, l1AztecAdapterDeploy.address);
   }
 
-  // 9. Initialize L1WarpToad
-  const aztecAddr = opts?.aztecWarptoadAddress ?? 0n;
-  const initTx = await l1WarpToad.initialize(
-    await gigaBridge.getAddress(),
-    await l1WarpToad.getAddress(),
-    aztecAddr,
-  );
-  await initTx.wait();
+  // 9. Initialize L1WarpToad. If withAztecAdapter is set, callers (e.g. setupFullEnvironment)
+  // are responsible for re-initializing with the real aztecWarptoadAddress AFTER the Aztec
+  // contract is deployed, since L1WarpToad.initialize hardcodes the aztec address as part
+  // of the public inputs the on-chain verifier checks the proof against. For EVM-only and
+  // L1<->L1 paths the aztec address is 0 and we initialize here.
+  if (!opts?.withAztecAdapter) {
+    const aztecAddr = opts?.aztecWarptoadAddress ?? 0n;
+    const initTx = await l1WarpToad.initialize(
+      await gigaBridge.getAddress(),
+      await l1WarpToad.getAddress(),
+      aztecAddr,
+    );
+    await initTx.wait();
+  }
 
   return {
     nativeToken,

@@ -28,11 +28,20 @@ pub contract WarpToadCore {
             address::{AztecAddress, EthAddress},
             constants::NOTE_HASH_TREE_HEIGHT,
             merkle_tree::MembershipWitness,
-            traits::Serialize,
+            traits::{Serialize, Deserialize, Packable},
         },
         state_vars::{Owned, PrivateSet, PublicImmutable, PublicMutable, StateVariable},
     };
     use balance_set::BalanceSet;
+
+    // Wrapper struct returned by `get_notes_with_nonces`: a commitment note alongside its
+    // settled note_nonce, which the JS caller needs to compute the unique note hash for the
+    // historical merkle inclusion proof of the note in the Aztec note hash tree.
+    #[derive(Eq, Serialize, Deserialize, Packable)]
+    pub struct WarpToadNoteWithNonce {
+        note: WarpToadNote,
+        note_nonce: Field,
+    }
 
     // ---- Events
     #[event]
@@ -348,6 +357,28 @@ pub contract WarpToadCore {
             NoteGetterOptions::<WarpToadNote, 4, _, _>::new(),
         );
         notes
+    }
+
+    // Returns the user's commitment notes alongside their settled note nonces. Unlike
+    // `get_notes_util`, this uses `get_notes` (read-only, does NOT nullify the notes),
+    // so the caller can later build a historical merkle inclusion proof of the note in
+    // the Aztec note hash tree. The note_nonce is required on the JS side to compute
+    // the unique note hash that the L1 ZK proof will verify membership for.
+    #[external("private")]
+    fn get_notes_with_nonces(_slot: Field) -> pub BoundedVec<WarpToadNoteWithNonce, 16> {
+        let owner = self.msg_sender();
+        let confirmed_notes = self.storage.commitments.at(owner).get_notes(
+            NoteGetterOptions::<WarpToadNote, 4, _, _>::new(),
+        );
+        let mut result: BoundedVec<WarpToadNoteWithNonce, 16> = BoundedVec::new();
+        for i in 0..16 {
+            if i < confirmed_notes.len() {
+                let cn = confirmed_notes.get_unchecked(i);
+                let nonce = cn.metadata.to_settled().note_nonce();
+                result.push(WarpToadNoteWithNonce { note: cn.note, note_nonce: nonce });
+            }
+        }
+        result
     }
 
     #[external("utility")]

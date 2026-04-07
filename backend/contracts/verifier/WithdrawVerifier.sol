@@ -5,7 +5,7 @@ pragma solidity >=0.8.21;
 uint256 constant N = 131072;
 uint256 constant LOG_N = 17;
 uint256 constant NUMBER_OF_PUBLIC_INPUTS = 19;
-uint256 constant VK_HASH = 0x0d77c42da67482e75d9ca510df4ff6c3ca6990d5c07c4afdc6477bb60f7d5e90;
+uint256 constant VK_HASH = 0x2a72696198d0b868cd4cbe73a031acd74c8fee9c7ee2808db8955edbfa40899b;
 library HonkVerificationKey {
     function loadVerificationKey() internal pure returns (Honk.VerificationKey memory) {
         Honk.VerificationKey memory vk = Honk.VerificationKey({
@@ -33,8 +33,8 @@ library HonkVerificationKey {
                y: uint256(0x2706f925c01112b4a3b11a54b64558f4ab2ff8e4ed1c61a3c2911cb2581a86f0)
             }),
             qc: Honk.G1Point({ 
-               x: uint256(0x0480d26f471db998672b1d073bf43ccd6a1b0e1390408aa7b92ee5a9f54ef23d),
-               y: uint256(0x234c07203ecdf180e2c4dd4701feaf403db737ced2014777ad612b3392731ca3)
+               x: uint256(0x29a6c044cb094eb54fe7bf990cc6c1defac33f851d8bcfa19220736f5fd3263a),
+               y: uint256(0x049d6dd705aff0517bae8f4a2fed3bc52c524f92258d4f277206b92fc6b92a5e)
             }),
             qLookup: Honk.G1Point({ 
                x: uint256(0x0073e7c223dd4f3e4734c4d9d9c9df394bd2eee2e12bac2fc49429a0443ec8b0),
