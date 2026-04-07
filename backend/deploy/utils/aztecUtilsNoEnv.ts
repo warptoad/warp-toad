@@ -17,6 +17,7 @@ import { ContractDeployer } from "@aztec/aztec.js/deployment";
 import { PublicKeys } from "@aztec/aztec.js/keys";
 import { ContractArtifact } from "@aztec/aztec.js/abi";
 import { Wallet } from "@aztec/aztec.js/wallet";
+import { NodeEmbeddedWallet } from "@aztec/wallets/embedded";
 import { ethers } from "ethers";
 import { BytesLike, toBeHex } from "ethers";
 export interface DeploymentArtifact {
@@ -75,8 +76,8 @@ export async function initPXE(node: AztecNode, chainId: bigint): Promise<PXE> {
     }
 }
 
-export async function setupWallet(node: AztecNode): Promise<TestWallet> {
-    const wallet = await TestWallet.create(node);
+export async function setupWallet(node: AztecNode): Promise<NodeEmbeddedWallet> {
+    const wallet = await NodeEmbeddedWallet.create(node);
     return wallet;
 }
 
@@ -139,7 +140,7 @@ export async function getAztecWallet(nodeUrl: string, secrets: { secret: Fr, sal
     console.log({ nodeVersion: (await node.getNodeInfo()).nodeVersion })
 
     // setup wallet
-    const wallet = await TestWallet.create(node, { proverEnabled: !isSanbox });
+    const wallet = await NodeEmbeddedWallet.create(node, { pxeConfig: { proverEnabled: !isSanbox } });
     const accountManager = await wallet.createSchnorrAccount(secrets.secret, secrets.salt, secrets.signingKey);
 
     // setup payment method
@@ -156,8 +157,8 @@ export async function getAztecWallet(nodeUrl: string, secrets: { secret: Fr, sal
     const deployMethod = await accountManager.getDeployMethod();
     try {
         console.log("deploying account")
-        const accountTx = await deployMethod.send({ from: AztecAddress.ZERO, fee:{paymentMethod:sponsoredPaymentMethod} }).wait();
-        console.log({ accountTx: accountTx.txHash })
+        const accountTx = await deployMethod.send({ from: AztecAddress.ZERO, fee:{paymentMethod:sponsoredPaymentMethod} });
+        console.log({ accountTx: accountTx.receipt.txHash })
     } catch (error: any) {
         if (error.message.startsWith("Invalid tx: Existing nullifier")) {
             console.log(` \n got error ${error.message}. The account: ${accountManager.address} is already deployed! \n\n IGNNORE THE ERROR FROM PXE BELOW \n\n`)
@@ -172,7 +173,7 @@ export async function getAztecWallet(nodeUrl: string, secrets: { secret: Fr, sal
 export async function deployAndCreateDeploymentArtifact(wallet: Wallet, account: AztecAddress, artifact: ContractArtifact, constructorArgs: any[], salt?: Fr, constructorName = "constructor",optionalInstantiontionOpts?:{publicKeys?:PublicKeys, skipArgsDecoding?:boolean}) {
     salt ??= Fr.random()
     const deployer = new ContractDeployer(artifact, wallet, undefined, constructorName);
-    const deployedContract = await deployer.deploy(...constructorArgs).send({ contractAddressSalt: salt, from: account}).deployed();
+    const { contract: deployedContract } = await deployer.deploy(...constructorArgs).send({ contractAddressSalt: salt, from: account });
     const instantiationData = {
         constructorArtifact: constructorName,
         constructorArgs: constructorArgs.map((v)=>typeof v === "bigint" ? toBeHex(v) : v),

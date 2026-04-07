@@ -12,6 +12,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import hre from "hardhat";
+import { ethers } from "ethers";
 import os from "os";
 
 import {
@@ -32,7 +33,7 @@ describe("Aztec → L1", () => {
 
       const deployer = (await aztec.wallets[0].getAccounts())[0].item;
       const rawAddr = await aztec.warpToad.methods.get_l1_bridge_adapter().simulate({ from: deployer });
-      const l1AdapterFromAztec = hre.ethers.getAddress(hre.ethers.toBeHex(rawAddr.inner));
+      const l1AdapterFromAztec = ethers.getAddress(ethers.toBeHex(rawAddr.inner));
       assert.equal(
         l1AdapterFromAztec.toLowerCase(),
         evm.l1AztecBridgeAdapter.address.toLowerCase(),
@@ -51,8 +52,7 @@ describe("Aztec → L1", () => {
       // ── Mint test tokens on Aztec ─────────────────────────────
       await aztec.warpToad.methods
         .mint_for_testing(INITIAL_BALANCE, aztecDeployerAddress)
-        .send({ from: aztecDeployerAddress })
-        .wait();
+        .send({ from: aztecDeployerAddress });
 
       // ── Burn on Aztec ─────────────────────────────────────────
       const commitment = createCommitment(
@@ -68,8 +68,7 @@ describe("Aztec → L1", () => {
 
       await aztec.warpToad.methods
         .burn(commitment.amount, commitment.destinationChainId, commitment.secret, commitment.nullifierPreimage)
-        .send({ from: aztecDeployerAddress })
-        .wait();
+        .send({ from: aztecDeployerAddress });
 
       const balancePost = await aztec.warpToad.methods
         .balance_of(aztecDeployerAddress)

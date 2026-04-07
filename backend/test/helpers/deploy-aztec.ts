@@ -42,10 +42,9 @@ async function deployWarpToadCore(
 ): Promise<WarpToadCoreContract> {
   const deployer = (await wallet.getAccounts())[0].item;
   const constructorArgs = [nativeTokenAddress, "wrpToad-TestUSD", "wrpToad-TUSD", 6n];
-  const contract = await Contract.deploy(wallet, WarpToadCoreContractArtifact, constructorArgs)
-    .send({ from: deployer })
-    .deployed() as WarpToadCoreContract;
-  return contract;
+  const { contract } = await Contract.deploy(wallet, WarpToadCoreContractArtifact, constructorArgs)
+    .send({ from: deployer });
+  return contract as WarpToadCoreContract;
 }
 
 /** Deploy L2AztecBridgeAdapter on Aztec */
@@ -54,10 +53,9 @@ async function deployBridgeAdapter(
   l1BridgeAdapterAddress: string,
 ): Promise<L2AztecBridgeAdapterContract> {
   const deployer = (await wallet.getAccounts())[0].item;
-  const contract = await Contract.deploy(wallet, L2AztecBridgeAdapterContractArtifact, [l1BridgeAdapterAddress])
-    .send({ from: deployer })
-    .deployed() as L2AztecBridgeAdapterContract;
-  return contract;
+  const { contract } = await Contract.deploy(wallet, L2AztecBridgeAdapterContractArtifact, [l1BridgeAdapterAddress])
+    .send({ from: deployer });
+  return contract as L2AztecBridgeAdapterContract;
 }
 
 /**
@@ -83,8 +81,7 @@ export async function deployAztecContracts(
   // Initialize WarpToadCore: connect bridge adapter and L1 adapter
   await warpToad.methods
     .initialize(bridgeAdapter.address, l1BridgeAdapterAddress as any as EthAddressLike)
-    .send({ from: deployer })
-    .wait();
+    .send({ from: deployer });
 
   return { node, pxe, wallets, warpToad, bridgeAdapter };
 }

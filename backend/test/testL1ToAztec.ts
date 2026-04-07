@@ -11,6 +11,7 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
 import hre from "hardhat";
+import { ethers } from "ethers";
 
 import {
   setupFullEnvironment,
@@ -33,7 +34,7 @@ describe("L1 → Aztec", () => {
       const rawAddr = await aztec.warpToad.methods.get_l1_bridge_adapter().simulate({ from: deployer });
 
       // EthAddress in Noir is struct { inner: Field }, extract and compare
-      const l1AdapterFromAztec = hre.ethers.getAddress(hre.ethers.toBeHex(rawAddr.inner));
+      const l1AdapterFromAztec = ethers.getAddress(ethers.toBeHex(rawAddr.inner));
       assert.equal(
         l1AdapterFromAztec.toLowerCase(),
         evm.l1AztecBridgeAdapter.address.toLowerCase(),
@@ -125,8 +126,7 @@ describe("L1 → Aztec", () => {
           merkleData.gigaMerkleData as any,
           merkleData.evmMerkleData as any,
         )
-        .send({ from: aztecDeployerAddress })
-        .wait();
+        .send({ from: aztecDeployerAddress });
 
       const balancePost = await aztec.warpToad.methods.balance_of(aztecDeployerAddress).simulate({ from: aztecDeployerAddress });
       assert.equal(
