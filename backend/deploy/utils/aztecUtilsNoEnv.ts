@@ -77,7 +77,9 @@ export async function initPXE(node: AztecNode, chainId: bigint): Promise<PXE> {
 }
 
 export async function setupWallet(node: AztecNode): Promise<NodeEmbeddedWallet> {
-    const wallet = await NodeEmbeddedWallet.create(node);
+    // ephemeral: true keeps wallet state in memory only, so test runs don't accumulate
+    // PXE state on disk and re-anchor to old block hashes the sandbox no longer has.
+    const wallet = await NodeEmbeddedWallet.create(node, { ephemeral: true });
     return wallet;
 }
 
@@ -140,7 +142,7 @@ export async function getAztecWallet(nodeUrl: string, secrets: { secret: Fr, sal
     console.log({ nodeVersion: (await node.getNodeInfo()).nodeVersion })
 
     // setup wallet
-    const wallet = await NodeEmbeddedWallet.create(node, { pxeConfig: { proverEnabled: !isSanbox } });
+    const wallet = await NodeEmbeddedWallet.create(node, { ephemeral: true, pxeConfig: { proverEnabled: !isSanbox } });
     const accountManager = await wallet.createSchnorrAccount(secrets.secret, secrets.salt, secrets.signingKey);
 
     // setup payment method

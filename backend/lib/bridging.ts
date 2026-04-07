@@ -200,20 +200,20 @@ export async function bridgeAZTECLocalRootToL1(
         }
     }
 
+    // The 4.2.0 client doesn't expose getL2EpochNumber, so use the current block number as a loose
+    // upper bound on the epoch (epoch <= block since epochDuration >= 1) and scan from 0 upward.
     let foundEpoch: number | undefined
     const maxPolls = isSandBox ? 60 : 600
     pollLoop: for (let i = 0; i < maxPolls; i++) {
-        const currentEpoch = await aztecNode.getL2EpochNumber()
-        if (currentEpoch !== undefined) {
-            // Scan from current epoch backwards a few epochs in case the message landed in a prior epoch.
-            for (let e = Number(currentEpoch); e >= Math.max(0, Number(currentEpoch) - 5); e--) {
-                if (await findMessageInEpoch(e)) {
-                    foundEpoch = e
-                    break pollLoop
-                }
+        const currentBlockNumber = await aztecNode.getBlockNumber()
+        const epochUpperBound = Math.max(1, Number(currentBlockNumber))
+        for (let e = 0; e <= epochUpperBound; e++) {
+            if (await findMessageInEpoch(e)) {
+                foundEpoch = e
+                break pollLoop
             }
         }
-        if (i % 10 === 0) console.log(`waiting for L2->L1 message ${contentHash.toString()} to be proven in an epoch... (${i}/${maxPolls})`)
+        if (i % 10 === 0) console.log(`waiting for L2->L1 message ${contentHash.toString()} to be proven in an epoch (block ${currentBlockNumber})... (${i}/${maxPolls})`)
         await sleep(2000)
     }
     if (foundEpoch === undefined) {

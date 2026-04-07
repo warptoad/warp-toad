@@ -32,6 +32,18 @@ export async function setupEvmOnlyEnvironment(): Promise<EvmOnlyDeployment> {
 /**
  * Deploy full EVM + Aztec environment for cross-chain tests.
  * Requires a running Aztec sandbox.
+ *
+ * TODO: cross-L1 architecture limitation. The Hardhat test network is currently
+ * `edr-simulated` (see hardhat.config.ts), which is an in-process L1 separate
+ * from the anvil that the Aztec sandbox spawns on port 8545. As a result the
+ * deployment tests pass (Aztec-only state on the sandbox + EVM-only state on
+ * EDR) but the burn/mint flows hang in `bridgeAZTECLocalRootToL1` because the
+ * L1 contracts deployed on the EDR can't read Aztec's outbox, which lives on
+ * the sandbox's L1. Fix is to either:
+ *  1) point Hardhat at http://localhost:8545 and deploy warp-toad's L1
+ *     contracts to the same chain as Aztec's outbox, or
+ *  2) mock the outbox in tests.
+ * Until then, the L1<->Aztec burn/mint tests will not pass end-to-end.
  */
 export async function setupFullEnvironment(): Promise<FullDeployment> {
   const { publicClient } = await getViemClients();
