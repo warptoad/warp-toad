@@ -242,9 +242,9 @@ export async function getLocalRootInGigaRoot(gigaBridge:GigaBridge, gigaRoot:big
 
 
 export async function getL1BridgeAdapterAztec(WarpToad:WarpToadAztec, aztecWallet:AztecWallet) {
-    const response = await WarpToad.methods.get_l1_bridge_adapter().simulate({from:(await aztecWallet.getAccounts())[0].item})
-    const address = ethers.getAddress(ethers.toBeHex(response.inner)) // EthAddress type in aztec is a lil silly thats why
-    return address
+    const { result } = await WarpToad.methods.get_l1_bridge_adapter().simulate({from:(await aztecWallet.getAccounts())[0].item}) as any
+    // 4.2.0 returns the EthAddress object directly with toString() that yields 0x..., older code peeked into .inner
+    return result.toString()
 }
 
 export async function getAztecMerkleData(WarpToad:WarpToadAztec, commitment:bigint, destinationLocalRootBlock:number, PXE:PXE, aztecWallet:AztecWallet)  {
@@ -267,7 +267,8 @@ export async function getAztecMerkleData(WarpToad:WarpToadAztec, commitment:bigi
         console.warn("TODO @JIMJIM PXE.getNotes is still broken complain about it. Rn it uses the contract util 'get_notes_util' But afaik it only gets 16 notes not all!!! This is going to cause headaches!!!")
         // if it gets the nullified notes. we are in trouble. Then it will for sure end up in a state where we cant find a users note after the made too many bridge txs
         // if it doesn't it still sucks because a users might have initiated 17 bridge txs, but wants to withdraw the 17th first. But get_notes_util only returns the first 16
-        const contract_notes = await WarpToad.methods.get_notes_util(WarpToadAztec.storage.commitments.slot).simulate({ from: (await aztecWallet.getAccounts())[0].item });
+        const contractNotesSim = await WarpToad.methods.get_notes_util(WarpToadAztec.storage.commitments.slot).simulate({ from: (await aztecWallet.getAccounts())[0].item }) as any;
+        const contract_notes = contractNotesSim.result ?? contractNotesSim;
         console.log({contract_notes_storage: contract_notes.storage})
         const ourNote = contract_notes.storage.find((n:any)=> hashCommitmentFromNoteItems([n.note.nullifier_preimage, n.note.secret, n.note.chain_id, n.note.amount]) === commitment);
         console.log({ourNote})
@@ -277,7 +278,8 @@ export async function getAztecMerkleData(WarpToad:WarpToadAztec, commitment:bigi
     const siloedNoteHash = await hashSiloedNoteHash(WarpToad.address.toBigInt() ,commitment)
 
     const uniqueNoteHash = await hashUniqueNoteHash(noteNonce,siloedNoteHash)
-    const witness = await WarpToad.methods.get_note_proof(destinationLocalRootBlock,uniqueNoteHash ).simulate({from:(await aztecWallet.getAccounts())[0].item})
+    const witnessSim = await WarpToad.methods.get_note_proof(destinationLocalRootBlock,uniqueNoteHash ).simulate({from:(await aztecWallet.getAccounts())[0].item}) as any
+    const witness = witnessSim.result ?? witnessSim
     console.log({witness})
     const merkleData: AztecMerkleData = {
         leaf_index: ethers.toBeHex(witness.index),
@@ -306,7 +308,9 @@ export async function getMerkleData(gigaBridge:GigaBridge, warpToadOrigin: WarpT
     const isToAztec = !("target" in warpToadDestination);
     const isFromAztec = !("target" in warpToadOrigin);
     const isOnlyLocal = warpToadDestination === warpToadOrigin;
-    const gigaRoot = isToAztec ? await warpToadDestination.methods.get_giga_root().simulate({from:(await (aztecWallet as AztecWallet).getAccounts())[0].item}) : await warpToadDestination.gigaRoot()
+    const gigaRoot = isToAztec
+        ? (await warpToadDestination.methods.get_giga_root().simulate({from:(await (aztecWallet as AztecWallet).getAccounts())[0].item}) as any).result
+        : await warpToadDestination.gigaRoot()
     // TODO BUG make sure that it actually exist at that block, with event scanning. especially with aztec since that will break if a new gigaRoot arrives right when before the promise finishes
     const gigaRootArrivalBlockNumber:bigint = isToAztec ? BigInt(await (aztecNode as AztecNode).getBlockNumber()) : BigInt(await warpToadDestination.runner?.provider?.getBlockNumber() as number)
     

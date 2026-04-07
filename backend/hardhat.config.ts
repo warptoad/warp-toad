@@ -37,7 +37,18 @@ export default defineConfig({
     artifacts: "./artifacts",
   },
   networks: {
+    // Points at the Aztec sandbox's bundled anvil so warp-toad's L1 contracts
+    // share an L1 with the Aztec rollup/outbox/inbox. Required for the cross-chain
+    // burn/mint tests to work end-to-end. Start the sandbox first: `aztec start --local-network`.
     local: {
+      type: "http",
+      chainType: "l1",
+      url: "http://localhost:8545",
+      chainId: 31337,
+      accounts: DEFAULT_PRIV_KEYS_ANVIL,
+    },
+    // In-process EDR L1, kept around for tests that don't need an external L1.
+    edr: {
       type: "edr-simulated",
       chainType: "l1",
       allowUnlimitedContractSize: true,

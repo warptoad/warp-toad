@@ -33,6 +33,12 @@ import {
 } from '@aztec/stdlib/messaging';
 import { BlockNumber, EpochNumber } from "@aztec/foundation/branded-types";
 
+// Minimal ABI fragment for raw ethers.Contract calls (replaces missing typechain factory).
+const LOCAL_ROOT_PROVIDER_ABI = [
+    "function mostRecentL2Root() view returns (uint256)",
+    "function mostRecentL2RootBlockNumber() view returns (uint256)",
+] as const;
+
 
 export const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
@@ -223,6 +229,31 @@ export async function bridgeAZTECLocalRootToL1(
     const messageWitness = await computeL2ToL1MembershipWitness(aztecNode, EpochNumber(foundEpoch), contentHash) as L2ToL1MembershipWitness
     const siblingPathArray = messageWitness.siblingPath.toFields().map((f: any) => f.toString())
 
+    // In Aztec 4.2.0 the L1 Outbox is keyed by EPOCH number, not block number.
+    // L1AztecBridgeAdapter.sol forwards its _witnessL2BlockNumber arg straight through to
+    // outbox.consume(...) and outbox.getRootData(...), so we just pass `foundEpoch` instead
+    // of `messageBlockNumber` from this side and the contract works without recompilation.
+    // Poll outbox.getRootData(epoch) until non-zero so the subsequent L1 call has a real
+    // root to verify the witness against.
+    const outboxAddress: string = await (L1AztecBridgeAdapter as any).outbox()
+    const outboxAbi = [
+        "function getRootData(uint256 _epoch) view returns (bytes32 root)",
+    ] as const
+    const outboxReader = new ethers.Contract(outboxAddress, outboxAbi, provider)
+    const outboxTimeoutMs = isSandBox ? 5 * 60_000 : 30 * 60_000
+    const outboxStart = Date.now()
+    while (true) {
+        const rootHex: string = await outboxReader.getRootData(BigInt(foundEpoch))
+        if (rootHex && rootHex !== "0x0000000000000000000000000000000000000000000000000000000000000000") break
+        if (Date.now() - outboxStart > outboxTimeoutMs) {
+            throw new Error(`Timed out waiting for L1 outbox to expose root for epoch ${foundEpoch}`)
+        }
+        if (Math.round((Date.now() - outboxStart) / 1000) % 10 === 0) {
+            console.log(`waiting for L1 outbox to settle epoch ${foundEpoch} (${Math.round((Date.now() - outboxStart) / 1000)}s)`)
+        }
+        await sleep(isSandBox ? 3_000 : 15_000)
+    }
+
     // console.log("got witness")
     // console.log("getNewRootFromL2", {
     //     PXE_L2Root: PXE_L2Root.toString(),
@@ -233,8 +264,8 @@ export async function bridgeAZTECLocalRootToL1(
     // })
     const args = [
         PXE_L2Root.toString(),
-        BigInt(blockNumberOfRoot), // has to be the same block as when as the root bridged. since this function uses it to create the content_hash
-        BigInt(messageBlockNumber), // hash to be the same block as the witness was retrieved since that is what the witness will be proved against
+        BigInt(blockNumberOfRoot), // has to be the same block as when the root was bridged, since this function uses it to create the content_hash
+        BigInt(foundEpoch), // L1 outbox is now epoch-keyed in 4.2.0; the contract param is misnamed `_witnessL2BlockNumber` but is forwarded straight to outbox.consume as the epoch
         messageWitness.leafIndex,
         siblingPathArray
     ]
@@ -267,7 +298,7 @@ export async function bridgeLocalRootToL1(l1Wallet: ethers.Signer, gigaBridge: G
             confirmations
         )
         const gigaRootPreBridge = await gigaBridge.gigaRoot()
-        return { sendRootToL1Tx, sendRootToL1TxHash: sendRootToL1Tx.txHash.toString() }
+        return { sendRootToL1Tx, sendRootToL1TxHash: sendRootToL1Tx.receipt.txHash.toString() }
     } else {
         const sendRootToL1Tx = await bridgeEVMLocalRootToL1(L2Adapter as L2ScrollBridgeAdapter, l1Wallet,confirmations)
         return { sendRootToL1Tx, sendRootToL1TxHash: sendRootToL1Tx.hash }
@@ -294,7 +325,7 @@ export async function updateGigaRoot(
     // things break if a localRootProvider does not have a root (localRoot = 0n)
     const isValidLocalRootProviders = await Promise.all(localRootProviders.map(async (localProviderAddr) => {
         // TODO make an interface because not every localRootProvider is L1AztecBridgeAdapter
-        const localRootProvider = L1AztecBridgeAdapter__factory.connect(localProviderAddr as string, provider)
+        const localRootProvider = new ethers.Contract(localProviderAddr as string, LOCAL_ROOT_PROVIDER_ABI, provider)
         try {
             if (await localRootProvider.mostRecentL2Root() !== 0n && await localRootProvider.mostRecentL2RootBlockNumber() !== 0n) {
                 return true
@@ -427,28 +458,37 @@ export async function receiveGigaRootOnAztec(
 
     const blocksToWait = 10//should be NewGigaRootSentToAztecEvent.tx.blocknumber + 2
 
-    if (isSandBox) {
-        // this is to make the sandbox progress n blocks
-
-        await L2AztecBridgeAdapter.methods.count(0n).send({ from: (await (aztecWallet as AztecWallet).getAccounts())[0].item });
-        await L2AztecBridgeAdapter.methods.count(4n).send({ from: (await (aztecWallet as AztecWallet).getAccounts())[0].item });
-    } else {
-        console.warn("isSandBox is not set or detected. I hope ur indeed not on sandbox because it will break if u are!")
-        await waitForBlocksAztec(blocksToWait, aztecNode, isSandBox, L2AztecBridgeAdapter, aztecWallet);
-    }
-    let receiveGigaRootTx;
-    const maxFails = 30
-    for (let i = 0; i < maxFails; i++) {
-        try {
-            receiveGigaRootTx = await L2AztecBridgeAdapter.methods.receive_giga_root(content_hash, index, AztecWarpToad.address).send({ fee: { paymentMethod: sponsoredPaymentMethod }, from: (await (aztecWallet as AztecWallet).getAccounts())[0].item });
-            break;
-        } catch (error:any) {
-            console.log(`failed to get gigaRoot to L2Adapter on aztec. trying again in 1 min. ${index} errors out of ${maxFails} limit. Failed tx: ${receiveGigaRootTx?.receipt.txHash.toString()}`)
-            console.log(error.message)
-            await sleep(60000)
+    // An L1->L2 message is consumable on Aztec only when both:
+    //   (a) the archiver has assigned the message to a checkpoint
+    //       (getL1ToL2MessageCheckpoint(messageHash) returns a number)
+    //   (b) the L2 has built at least one block whose checkpointNumber >= the message's,
+    //       so the inbox tree state actually contains the leaf
+    // This is the same readiness check used by aztec.js's `isL1ToL2MessageReady` helper.
+    const messageHashFr = Fr.fromString(key.toString())
+    const timeoutMs = isSandBox ? 10 * 60_000 : 30 * 60_000
+    const start = Date.now()
+    while (true) {
+        const messageCheckpointNumber = await aztecNode.getL1ToL2MessageCheckpoint(messageHashFr)
+        if (messageCheckpointNumber !== undefined) {
+            const latestBlock = await aztecNode.getBlock("latest")
+            if (latestBlock !== undefined && latestBlock.checkpointNumber >= messageCheckpointNumber) {
+                break
+            }
         }
-        
+        if (Date.now() - start > timeoutMs) {
+            throw new Error(`Timed out waiting for L1->L2 message ${messageHashFr.toString()} to be ready`)
+        }
+        if (isSandBox && L2AztecBridgeAdapter && aztecWallet) {
+            // Nudge the sandbox to build a block so the next checkpoint advances.
+            await L2AztecBridgeAdapter.methods.count(0n).send({ from: (await (aztecWallet as AztecWallet).getAccounts())[0].item });
+        }
+        console.log(`waiting for L1->L2 message ${messageHashFr.toString()} to be ready (msgCheckpoint=${messageCheckpointNumber}, ${Math.round((Date.now() - start) / 1000)}s)`)
+        await sleep(isSandBox ? 3_000 : 30_000)
     }
+
+    const receiveGigaRootTx = await L2AztecBridgeAdapter.methods
+        .receive_giga_root(content_hash, index, AztecWarpToad.address)
+        .send({ fee: { paymentMethod: sponsoredPaymentMethod }, from: (await (aztecWallet as AztecWallet).getAccounts())[0].item });
     return { receiveGigaRootTx }
 }
 
@@ -563,8 +603,9 @@ export async function receiveGigaRootOnL2(
             sponsoredPaymentMethod,
             aztecWallet
         )
-        const gigaRootOnAztec = await (L2WarpToad as L2WarpToadAZTEC)?.methods.get_giga_root().simulate({ from: (await (aztecWallet as AztecWallet).getAccounts())[0].item })
-        return { receiveGigaRootTx, receiveGigaRootTxHash: receiveGigaRootTx!.txHash.hash.toString(), gigaRootOnL2: gigaRootOnAztec }
+        const gigaRootOnAztecResult = await (L2WarpToad as L2WarpToadAZTEC)?.methods.get_giga_root().simulate({ from: (await (aztecWallet as AztecWallet).getAccounts())[0].item })
+        const gigaRootOnAztec = (gigaRootOnAztecResult as any)?.result ?? gigaRootOnAztecResult
+        return { receiveGigaRootTx, receiveGigaRootTxHash: receiveGigaRootTx!.receipt.txHash.toString(), gigaRootOnL2: gigaRootOnAztec }
     } else {
         //scroll
         if (gigaRootSent) {

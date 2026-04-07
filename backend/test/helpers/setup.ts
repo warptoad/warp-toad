@@ -31,19 +31,9 @@ export async function setupEvmOnlyEnvironment(): Promise<EvmOnlyDeployment> {
 
 /**
  * Deploy full EVM + Aztec environment for cross-chain tests.
- * Requires a running Aztec sandbox.
- *
- * TODO: cross-L1 architecture limitation. The Hardhat test network is currently
- * `edr-simulated` (see hardhat.config.ts), which is an in-process L1 separate
- * from the anvil that the Aztec sandbox spawns on port 8545. As a result the
- * deployment tests pass (Aztec-only state on the sandbox + EVM-only state on
- * EDR) but the burn/mint flows hang in `bridgeAZTECLocalRootToL1` because the
- * L1 contracts deployed on the EDR can't read Aztec's outbox, which lives on
- * the sandbox's L1. Fix is to either:
- *  1) point Hardhat at http://localhost:8545 and deploy warp-toad's L1
- *     contracts to the same chain as Aztec's outbox, or
- *  2) mock the outbox in tests.
- * Until then, the L1<->Aztec burn/mint tests will not pass end-to-end.
+ * Requires a running Aztec sandbox AND the Hardhat network to point at the
+ * sandbox's bundled anvil (http://localhost:8545) so warp-toad's L1 contracts
+ * share an L1 with the Aztec rollup/outbox/inbox.
  */
 export async function setupFullEnvironment(): Promise<FullDeployment> {
   const { publicClient } = await getViemClients();
@@ -54,6 +44,19 @@ export async function setupFullEnvironment(): Promise<FullDeployment> {
   const nativeTokenAddress = await evm.nativeToken.getAddress();
 
   const aztec = await deployAztecContracts(chainId, l1BridgeAdapterAddress, nativeTokenAddress);
+
+  // L1AztecBridgeAdapter needs to know the Aztec L1 registry (to find rollup/outbox/inbox)
+  // and the L2 adapter address. Both are only available after the Aztec deployment finishes,
+  // so wire it up here as the last setup step.
+  const aztecNodeInfo = await aztec.node.getNodeInfo();
+  const registryAddress = aztecNodeInfo.l1ContractAddresses.registryAddress.toString();
+  const l2BridgeAdapterAddressBytes32 = aztec.bridgeAdapter.address.toString();
+  const gigaBridgeAddress = await evm.gigaBridge.getAddress();
+  await (await evm.l1AztecBridgeAdapter!.initialize(
+    registryAddress,
+    l2BridgeAdapterAddressBytes32,
+    gigaBridgeAddress,
+  )).wait();
 
   const evmWallets = evm.signers;
   return { evm, aztec, evmWallets, chainId };

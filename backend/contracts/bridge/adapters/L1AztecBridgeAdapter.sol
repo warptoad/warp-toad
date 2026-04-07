@@ -96,7 +96,9 @@ contract L1AztecBridgeAdapter is IL1BridgeAdapter, ILocalRootProvider, IGigaRoot
         // we don't care about keeping message consumption private at all so to
         // simplify things we hardcode the secret as 0 in the noir side and hardcode
         // Hash(0) here in the L1
-        bytes32 secretHash = 0x001dc7b0244cb71a4609d526300ba6771064bd046848666f7bfe577053d630c5;
+        // poseidon2_hash_with_separator([0], DOM_SEP__SECRET_HASH=4199652938) for Aztec >= 4.2.0
+        // (the previous hardcoded value 0x001dc7b... was the pre-poseidon2 hash and is no longer valid)
+        bytes32 secretHash = 0x1f8eff65d91ed781c2e7a28a2ff99b7f7506b7293121b5ffcf3cd339c84d2250;
 
         // Send message to rollup
         (bytes32 key, uint256 index) = inbox.sendL2Message(

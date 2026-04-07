@@ -22,7 +22,11 @@ let _ethersProviderCache: ethers.BrowserProvider | null = null;
 
 async function getConnection() {
   if (!_connectionCache) {
-    _connectionCache = await hre.network.connect();
+    // Hardhat 3 ignores `defaultNetwork` in user config and uses the CLI `--network`
+    // flag or its built-in "default" (edr-simulated) network. We pass the name
+    // explicitly so tests use the `local` network from hardhat.config.ts, which
+    // points at the Aztec sandbox's L1 anvil.
+    _connectionCache = await hre.network.connect("local");
   }
   return _connectionCache;
 }
