@@ -13,6 +13,7 @@
 
 import { anvil, sepolia, scrollSepolia, type Chain as ViemChain } from 'viem/chains';
 import type { Chain } from '$lib/types/bridge.js';
+import { CONTRACT_ADDRESSES } from '$lib/contracts/addresses';
 
 // For test mode, import directly from deployed JSON files.
 // Backend layout: deploy/ignition/deployments/<chain> and deploy/aztec/aztecDeployments/<chainId>.
@@ -105,11 +106,11 @@ const ETHEREUM_CHAIN: EVMChainDefinition = isTestMode
 		rpcUrl: 'http://localhost:8545',
 		contracts: {
 			warpToad: LocalEvmDeployments['L1WarpToadModule#L1WarpToad'],
-			// Local L1 ignition deploy doesn't include the test USDcoin (it takes the
-			// native token via NATIVE_TOKEN_ADDRESS env var). Read it at runtime via
-			// getNativeTokenAddressAsync (calls L1WarpToad.nativeToken()) or set
-			// VITE_LOCAL_USDC_ADDRESS to short-circuit.
-			nativeToken: import.meta.env.VITE_LOCAL_USDC_ADDRESS ?? '',
+			// The L1 ignition deploy doesn't include the test USDcoin (it takes the
+			// native token via NATIVE_TOKEN_ADDRESS env var), so the value lives in
+			// the pull-addresses output `frontend/src/lib/contracts/addresses.ts`.
+			// VITE_LOCAL_USDC_ADDRESS overrides it if set.
+			nativeToken: import.meta.env.VITE_LOCAL_USDC_ADDRESS ?? CONTRACT_ADDRESSES['31337']?.USDcoin ?? '',
 			bridgeAdapter: LocalEvmDeployments['L1InfraModule#L1AztecBridgeAdapter'],
 			gigaBridge: LocalEvmDeployments['L1InfraModule#GigaBridge'],
 		},
@@ -343,41 +344,11 @@ export function getWarpToadAddress(chain: Chain): string | undefined {
 
 /**
  * Get native token address for an EVM chain (sync, from static config).
- * In local dev mode the L1 native token is empty unless VITE_LOCAL_USDC_ADDRESS
- * is set; use {@link getNativeTokenAddressAsync} to read it from L1WarpToad.
+ * Both local-dev and testnet modes are populated via `pull:addresses`.
  */
 export function getNativeTokenAddress(chain: Chain): string | undefined {
 	const def = getEVMChain(chain);
 	return def?.contracts.nativeToken || undefined;
-}
-
-/**
- * Resolve the native token address at runtime by calling L1WarpToad.nativeToken().
- * Falls back to the static config if already populated. Caches per chain.
- */
-const _nativeTokenCache = new Map<Chain, string>();
-export async function getNativeTokenAddressAsync(chain: Chain): Promise<string> {
-	const cached = _nativeTokenCache.get(chain);
-	if (cached) return cached;
-
-	const def = getEVMChain(chain);
-	if (!def) throw new Error(`Unknown chain: ${chain}`);
-	if (def.contracts.nativeToken) {
-		_nativeTokenCache.set(chain, def.contracts.nativeToken);
-		return def.contracts.nativeToken;
-	}
-
-	// Lazy-load viem so this module stays import-cheap
-	const { createPublicClient, http, getContract } = await import('viem');
-	const client = createPublicClient({ chain: def.viemChain, transport: http(def.rpcUrl) });
-	const warpToad = getContract({
-		address: def.contracts.warpToad as `0x${string}`,
-		abi: [{ type: 'function', name: 'nativeToken', stateMutability: 'view', inputs: [], outputs: [{ type: 'address' }] }] as const,
-		client,
-	});
-	const addr = await warpToad.read.nativeToken();
-	_nativeTokenCache.set(chain, addr);
-	return addr;
 }
 
 /**

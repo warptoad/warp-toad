@@ -1251,6 +1251,7 @@
 				if (!l1Chain) throw new Error('Ethereum chain config not found');
 
 				const relayResponse = await submitWithdrawRelay({
+					chainId: l1Chain.chainId.toString(),
 					contractAddress: l1Chain.contracts.warpToad,
 					nullifier: publicInputs[0].toString(),
 					amount: publicInputs[2].toString(),
@@ -1740,6 +1741,7 @@
 					throw new Error("Ethereum chain config not found");
 
 				const relayResponse = await submitWithdrawRelay({
+					chainId: l1Chain.chainId.toString(),
 					contractAddress: l1Chain.contracts.warpToad,
 					nullifier: publicInputs[0].toString(),
 					amount: publicInputs[2].toString(),

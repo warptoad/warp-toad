@@ -12,7 +12,10 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 // Paths
-const backendDeploymentsDir = path.resolve(__dirname, '../../backend/ignition/deployments');
+// Backend layout: deploy/ignition/deployments/<chain>/deployed_addresses.json
+// (was `backend/ignition/...` before the Hardhat 3 migration; updated to match
+// the new tree).
+const backendDeploymentsDir = path.resolve(__dirname, '../../backend/deploy/ignition/deployments');
 const outputFile = path.resolve(__dirname, '../src/lib/contracts/addresses.ts');
 
 interface DeployedAddresses {

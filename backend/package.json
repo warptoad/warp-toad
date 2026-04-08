@@ -9,6 +9,7 @@
   "scripts": {
     "compile": "hardhat compile",
     "test": "BB_BINARY_PATH=\"${BB_BINARY_PATH:-/home/nodestarq/Projects/warptoad/aztec-packages/barretenberg/cpp/build/bin/bb}\" hardhat test",
+    "deploy:local": "BB_BINARY_PATH=\"${BB_BINARY_PATH:-/home/nodestarq/Projects/warptoad/aztec-packages/barretenberg/cpp/build/bin/bb}\" hardhat run scripts/deployLocal.ts --network local",
     "build:esm": "tsc -p tsconfig.json",
     "build:cjs": "tsc -p tsconfig.cjs.json",
     "build:browser": "tsc -p tsconfig.browser.json",
