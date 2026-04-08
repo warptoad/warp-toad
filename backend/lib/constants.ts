@@ -1,5 +1,5 @@
 import { ProofInputs, EvmMerkleData, AztecMerkleData, gasCosts} from "./types";
-import { ethers } from "ethers";
+import { toHex } from "viem";
 // @ts-ignore
 export const AZTEC_TREE_DEPTH = 42;
 export const EVM_TREE_DEPTH = 32;
@@ -30,25 +30,25 @@ export const DEPLOYMENT_BLOCK_PER_CHAINID:DeploymentBlockData = {
 
 // this not a valid proof
 export const emptyEvmMerkleData: EvmMerkleData = {
-    leaf_index: ethers.toBeHex(0n),
-    hash_path: new Array(EVM_TREE_DEPTH).fill(ethers.toBeHex(0n)),
+    leaf_index: toHex(0n),
+    hash_path: new Array(EVM_TREE_DEPTH).fill(toHex(0n)),
 } 
 Object.freeze(emptyEvmMerkleData)
 
 // this not a valid proof
 export const emptyGigaMerkleData: EvmMerkleData = {
-    leaf_index: ethers.toBeHex(0n),
-    hash_path: new Array(GIGA_TREE_DEPTH).fill(ethers.toBeHex(0n)),
+    leaf_index: toHex(0n),
+    hash_path: new Array(GIGA_TREE_DEPTH).fill(toHex(0n)),
 } 
 Object.freeze(emptyGigaMerkleData)
 
 // this not a valid proof
 export const emptyAztecMerkleData: AztecMerkleData = {
-    leaf_index: ethers.toBeHex(0n),
-    hash_path: new Array(AZTEC_TREE_DEPTH).fill(ethers.toBeHex(0n)),
-    leaf_nonce: ethers.toBeHex(0n),
-    //contract_address: {inner:ethers.toBeHex(0n)},
-    contract_address: ethers.toBeHex(0n),
+    leaf_index: toHex(0n),
+    hash_path: new Array(AZTEC_TREE_DEPTH).fill(toHex(0n)),
+    leaf_nonce: toHex(0n),
+    //contract_address: {inner:toHex(0n)},
+    contract_address: toHex(0n),
 } 
 Object.freeze(emptyAztecMerkleData)
 

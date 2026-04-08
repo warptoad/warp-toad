@@ -28,10 +28,22 @@ export function createNode(): AztecNode {
   return createAztecNodeClient(AZTEC_NODE_URL);
 }
 
-/** Set up PXE and test accounts */
+// Cache PXE + wallets across test files within a single mocha run.
+// Each test file calls setupAztecEnvironment via setupFullEnvironment; without this
+// cache, every test file builds fresh ephemeral PXEs that all think their first tx
+// is "action 0" for the same deterministic test account, producing identical
+// first-nullifiers and getting rejected by the sandbox mempool with
+// "Nullifier conflict with existing tx ...".
+let _aztecEnvCache: { pxe: PXE; wallets: AztecWallet[]; node: AztecNode } | null = null;
+
+/** Set up PXE and test accounts (cached across test files within a process) */
 export async function setupAztecEnvironment(node: AztecNode, l1ChainId: bigint) {
+  if (_aztecEnvCache && _aztecEnvCache.node === node) {
+    return { pxe: _aztecEnvCache.pxe, wallets: _aztecEnvCache.wallets };
+  }
   const pxe = await initPXE(node, l1ChainId);
   const wallets = await getAztecTestAccounts(node);
+  _aztecEnvCache = { pxe, wallets, node };
   return { pxe, wallets };
 }
 

@@ -1,5 +1,5 @@
 
-import { ethers } from "ethers";
+import { isAddress, getAddress } from "viem";
 import { Wallet as AztecWallet } from "@aztec/aztec.js/wallet"
 import { AztecNode, createAztecNodeClient } from "@aztec/aztec.js/node";
 import { createPXE, getPXEConfig, PXE } from "@aztec/pxe/server";
@@ -21,7 +21,7 @@ export function getPxeUrl() {
 export function getEnvArgs() {
     if (!Boolean(process.env.NATIVE_TOKEN_ADDRESS)) {
         throw new Error("NATIVE_TOKEN_ADDRESS not set. do: L1_AZTEC_ADAPTER_ADDRESS=0xTheAdapterAddress NATIVE_TOKEN_ADDRESS=0xUrTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployAztec.ts --network aztecSandbox")
-    } else if (!ethers.isAddress(process.env.NATIVE_TOKEN_ADDRESS)) {
+    } else if (!isAddress(process.env.NATIVE_TOKEN_ADDRESS as string)) {
         throw new Error(`the value: ${process.env.NATIVE_TOKEN_ADDRESS} is not a valid address. Set NATIVE_TOKEN_ADDRESS= to a valid address`)
     }
 
@@ -30,7 +30,7 @@ export function getEnvArgs() {
     }
 
 
-    const nativeTokenAddress = ethers.getAddress(process.env.NATIVE_TOKEN_ADDRESS as string);
+    const nativeTokenAddress = getAddress(process.env.NATIVE_TOKEN_ADDRESS as string);
     const PXE_URL = process.env.PXE_URL as string
     return { nativeTokenAddress, PXE_URL, privateKey: process.env.PRIVATE_KEY }
 }

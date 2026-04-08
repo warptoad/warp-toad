@@ -1,7 +1,12 @@
 //const hre = require("hardhat");
 import hre from "hardhat"
-import { ethers } from "ethers";
+import { createPublicClient, http, getContract, isAddress, getAddress, type Address } from "viem";
 import { deployPoseidon } from "../poseidon";
+
+const ERC20_NAME_SYMBOL_ABI = [
+    { type: "function", name: "name", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
+    { type: "function", name: "symbol", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
+] as const;
 
 import L2Scroll from "../../../ignition/modules/L2Scroll"
 //@ts-ignore
@@ -23,12 +28,13 @@ async function main() {
     // cant pass arguments like flags with hardhat. so it like `NATIVE_TOKEN_ADDRESS=0xurTokenAddress hardhat run` instead
     if (!Boolean(process.env.NATIVE_TOKEN_ADDRESS)) {
         throw new Error("NATIVE_TOKEN_ADDRESS not set. do NATIVE_TOKEN_ADDRESS=0xurTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts  --network aztecSandbox")
-    } else if (!ethers.isAddress(process.env.NATIVE_TOKEN_ADDRESS)) {
+    } else if (!isAddress(process.env.NATIVE_TOKEN_ADDRESS as string)) {
         throw new Error(`the value: ${process.env.NATIVE_TOKEN_ADDRESS} is not a valid address. Set NATIVE_TOKEN_ADDRESS= to a valid address`)
     }
 
-    const provider = hre.ethers.provider
-    const chainId = (await provider.getNetwork()).chainId
+    const connection = await (hre as any).network.connect();
+    const publicClient = await connection.viem.getPublicClient();
+    const chainId = BigInt(await publicClient.getChainId())
 
     const deployedAddressesPath = getEvmDeployedAddressesFilePath(chainId)
     if(await checkFileExists(deployedAddressesPath)) {
@@ -42,15 +48,15 @@ async function main() {
     const IS_SCROLL_MAINNET = chainId === 534352n
     if (IS_SCROLL_MAINNET) { throw new Error("l1Provider not setup for mainnet TODO") }
 
-    const nativeTokenAddress = ethers.getAddress(process.env.NATIVE_TOKEN_ADDRESS as string);
-    const l1Provider = new ethers.JsonRpcProvider(SEPOLIA_URL)
-    const l1ChainId = (await l1Provider.getNetwork()).chainId
+    const nativeTokenAddress = getAddress(process.env.NATIVE_TOKEN_ADDRESS as string);
+    const l1Provider = createPublicClient({ transport: http(SEPOLIA_URL) })
+    const l1ChainId = BigInt(await l1Provider.getChainId())
 
     //-----------warptoad------------------------
     const PoseidonT3Address = await deployPoseidon();
-    const nativeToken = new ethers.Contract(nativeTokenAddress, er20Abi, l1Provider)
-    const name = `wrapped-warptoad-${await nativeToken.name()}`;
-    const symbol = `wrptd-${(await nativeToken.symbol()).toUpperCase()}`;
+    const nativeToken = getContract({ address: nativeTokenAddress as Address, abi: ERC20_NAME_SYMBOL_ABI, client: l1Provider })
+    const name = `wrapped-warptoad-${await nativeToken.read.name()}`;
+    const symbol = `wrptd-${(await nativeToken.read.symbol()).toUpperCase()}`;
 
 
     const L1DeployedAddresses = evmDeployments[Number(l1ChainId)]
@@ -86,7 +92,7 @@ async function main() {
     // -------verify -----------------
 
     // gather data for constructor arguments and libraries
-    const journalFilePath = `ignition/deployments/chain-${(await provider.getNetwork()).chainId}/journal.jsonl`
+    const journalFilePath = `ignition/deployments/chain-${chainId}/journal.jsonl`
     const journal = await readFile(journalFilePath, 'utf8');
     const parsedJournal = journal.split('\n').filter(line => line.trim() !== '').map(line => JSON.parse(line));
     const journalDataPerId = parsedJournal.reduce((allData, currentLine) => {

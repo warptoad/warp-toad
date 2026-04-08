@@ -2,6 +2,26 @@ import { createInterface } from 'readline/promises';
 import { stdin, stdout } from 'process';
 import fs from "fs/promises";
 import { DeploymentStringyfiedArtifact } from 'scripts/deploy/utils/aztecUtilsNoEnv';
+import hre from 'hardhat';
+import { getContract, type Address, type PublicClient, type WalletClient } from 'viem';
+
+/**
+ * Build a viem contract handle for a Hardhat-compiled contract.
+ * Reads the ABI from Hardhat artifacts at runtime, so no typechain factories needed.
+ */
+export async function getViemContract(
+    contractName: string,
+    address: string,
+    publicClient: PublicClient,
+    walletClient?: WalletClient,
+) {
+    const artifact = await hre.artifacts.readArtifact(contractName);
+    return getContract({
+        address: address as Address,
+        abi: artifact.abi,
+        client: walletClient ? { public: publicClient, wallet: walletClient } : publicClient,
+    });
+}
 
 export async function checkFileExists(filePath: string): Promise<boolean> {
     try {

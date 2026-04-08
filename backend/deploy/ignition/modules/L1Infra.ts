@@ -3,7 +3,6 @@
 //@ts-ignore
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 import { GIGA_TREE_DEPTH } from "../../scripts/lib/constants";
-import { ethers } from "ethers";
 
 export default buildModule("L1InfraModule", (m: any) => {
     const L1ScrollMessengerAddress = m.getParameter("L1ScrollMessengerAddress")

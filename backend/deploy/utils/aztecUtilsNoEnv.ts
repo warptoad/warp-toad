@@ -18,8 +18,9 @@ import { PublicKeys } from "@aztec/aztec.js/keys";
 import { ContractArtifact } from "@aztec/aztec.js/abi";
 import { Wallet } from "@aztec/aztec.js/wallet";
 import { NodeEmbeddedWallet } from "@aztec/wallets/embedded";
-import { ethers } from "ethers";
-import { BytesLike, toBeHex } from "ethers";
+import { type Hex, toHex } from "viem";
+
+type BytesLike = Hex | string;
 export interface DeploymentArtifact {
   // these are things you need to store at deployment
   address: BytesLike,
@@ -178,7 +179,7 @@ export async function deployAndCreateDeploymentArtifact(wallet: Wallet, account:
     const { contract: deployedContract } = await deployer.deploy(...constructorArgs).send({ contractAddressSalt: salt, from: account });
     const instantiationData = {
         constructorArtifact: constructorName,
-        constructorArgs: constructorArgs.map((v)=>typeof v === "bigint" ? toBeHex(v) : v),
+        constructorArgs: constructorArgs.map((v)=>typeof v === "bigint" ? toHex(v) : v),
         skipArgsDecoding: optionalInstantiontionOpts ? optionalInstantiontionOpts.skipArgsDecoding : undefined,
         salt: salt,
         publicKeys:  optionalInstantiontionOpts ? optionalInstantiontionOpts.publicKeys : undefined,
@@ -188,7 +189,7 @@ export async function deployAndCreateDeploymentArtifact(wallet: Wallet, account:
     const deploymentArtifact: DeploymentArtifact = {
         address: deployedContract.address.toString(),
         deployer: account.toString(),
-        constructorArgs: constructorArgs.map((v)=> typeof v === "bigint" ? ethers.toBeHex(v) : v ),
+        constructorArgs: constructorArgs.map((v)=> typeof v === "bigint" ? toHex(v) : v ),
         salt: salt.toString(),
         publicKeys: contractInstance.publicKeys.toFields().map((v)=>v.toString()),
 

@@ -1,10 +1,13 @@
-const hre = require("hardhat");
+import hre from "hardhat";
 
 async function main() {
-    const [signer] = await hre.ethers.getSigners();
-    console.log("Address:", signer.address);
-    console.log("Current nonce:", await hre.ethers.provider.getTransactionCount(signer.address));
-    console.log("Pending nonce:", await hre.ethers.provider.getTransactionCount(signer.address, "pending"));
+    const connection = await (hre as any).network.connect();
+    const publicClient = await connection.viem.getPublicClient();
+    const [signer] = await connection.viem.getWalletClients();
+
+    console.log("Address:", signer.account.address);
+    console.log("Current nonce:", await publicClient.getTransactionCount({ address: signer.account.address }));
+    console.log("Pending nonce:", await publicClient.getTransactionCount({ address: signer.account.address, blockTag: "pending" }));
 }
 
 main()

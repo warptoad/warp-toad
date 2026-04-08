@@ -2,7 +2,6 @@
  * Full test environment setup
  */
 
-import { ethers } from "ethers";
 import { deployEvmContracts, type EvmDeployment } from "./deploy-evm";
 import { deployAztecContracts, type AztecDeployment } from "./deploy-aztec";
 import { hashPreCommitment } from "../../lib/hashing";
@@ -21,59 +20,48 @@ export interface FullDeployment {
   chainId: bigint;
 }
 
-/**
- * Deploy EVM-only environment for same-chain tests.
- */
 export async function setupEvmOnlyEnvironment(): Promise<EvmOnlyDeployment> {
   const evm = await deployEvmContracts();
   return { evm };
 }
 
-/**
- * Deploy full EVM + Aztec environment for cross-chain tests.
- * Requires a running Aztec sandbox AND the Hardhat network to point at the
- * sandbox's bundled anvil (http://localhost:8545) so warp-toad's L1 contracts
- * share an L1 with the Aztec rollup/outbox/inbox.
- */
 export async function setupFullEnvironment(): Promise<FullDeployment> {
   const { publicClient } = await getViemClients();
   const chainId = BigInt(await publicClient.getChainId());
 
   const evm = await deployEvmContracts({ withAztecAdapter: true });
-  const l1BridgeAdapterAddress = await evm.l1AztecBridgeAdapter!.getAddress();
-  const nativeTokenAddress = await evm.nativeToken.getAddress();
+  const l1BridgeAdapterAddress = evm.l1AztecBridgeAdapter!.address;
+  const nativeTokenAddress = evm.nativeToken.address;
 
   const aztec = await deployAztecContracts(chainId, l1BridgeAdapterAddress, nativeTokenAddress);
 
-  // L1WarpToad bakes the Aztec WarpToadCore address into its public inputs (the on-chain
-  // verifier checks the proof's `aztec_warptoad_address` against this stored value), so it
-  // must be initialized AFTER the Aztec contract is deployed. deployEvmContracts skipped
+  // L1WarpToad bakes the Aztec WarpToadCore address into its public inputs, so it must
+  // be initialized AFTER the Aztec contract is deployed. deployEvmContracts skipped
   // initialize() for us when withAztecAdapter was true.
   const aztecWarpToadAddress = BigInt(aztec.warpToad.address.toString());
-  await (await evm.l1WarpToad.initialize(
-    await evm.gigaBridge.getAddress(),
-    await evm.l1WarpToad.getAddress(),
+  const initHash = await evm.l1WarpToad.write.initialize([
+    evm.gigaBridge.address,
+    evm.l1WarpToad.address,
     aztecWarpToadAddress,
-  )).wait();
+  ]);
+  await evm.publicClient.waitForTransactionReceipt({ hash: initHash });
 
-  // L1AztecBridgeAdapter needs to know the Aztec L1 registry (to find rollup/outbox/inbox)
-  // and the L2 adapter address. Both are only available after the Aztec deployment finishes,
-  // so wire it up here as the last setup step.
+  // L1AztecBridgeAdapter needs the registry and L2 adapter address, both only available
+  // after the Aztec deployment finishes.
   const aztecNodeInfo = await aztec.node.getNodeInfo();
   const registryAddress = aztecNodeInfo.l1ContractAddresses.registryAddress.toString();
   const l2BridgeAdapterAddressBytes32 = aztec.bridgeAdapter.address.toString();
-  const gigaBridgeAddress = await evm.gigaBridge.getAddress();
-  await (await evm.l1AztecBridgeAdapter!.initialize(
+  const initAdapterHash = await evm.l1AztecBridgeAdapter!.write.initialize([
     registryAddress,
     l2BridgeAdapterAddressBytes32,
-    gigaBridgeAddress,
-  )).wait();
+    evm.gigaBridge.address,
+  ]);
+  await evm.publicClient.waitForTransactionReceipt({ hash: initAdapterHash });
 
-  const evmWallets = evm.signers;
+  const evmWallets = evm.wallets;
   return { evm, aztec, evmWallets, chainId };
 }
 
-/** Calculate the fee factor for relayer tests */
 export function getTestFeeFactor() {
   return calculateFeeFactor(
     DEFAULT_FEE.ethPriceInToken,
@@ -82,7 +70,6 @@ export function getTestFeeFactor() {
   );
 }
 
-/** Create a commitment pre-image and compute its preCommitment hash */
 export function createCommitment(
   amount: bigint,
   destinationChainId: bigint,

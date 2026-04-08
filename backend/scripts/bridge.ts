@@ -1,4 +1,5 @@
-import { ethers, NonceManager } from 'ethers';
+import { createPublicClient, createWalletClient, http, type Hex } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 import { ArgumentParser } from 'argparse';
 
 // local
@@ -45,14 +46,14 @@ async function main() {
     const args = parser.parse_args()
 
     // ------------------- process user inputs -------------------
-    const l1Provider = new ethers.JsonRpcProvider(args.L1Rpc);
-
-    const l1Wallet = new NonceManager(new ethers.Wallet(args.evmPrivatekey, l1Provider));
-    const l1ChainId = (await l1Provider.getNetwork()).chainId
+    const l1Account = privateKeyToAccount(args.evmPrivatekey as Hex);
+    const l1PublicClient = createPublicClient({ transport: http(args.L1Rpc) });
+    const l1Wallet = createWalletClient({ account: l1Account, transport: http(args.L1Rpc) });
+    const l1ChainId = BigInt(await l1PublicClient.getChainId())
     if (args.evmPrivatekey === "0x4bbbf85ce3377467afe5d46f804f221813b2bb87f24d81f60f1fcdbf7cbf4356" && l1ChainId !== 31337n) { console.warn("default anvil key used on a l1 network that is not chainId 31337!") }
 
     // aztec is not evm!
-    const l2Data = {} as any; //TODO 
+    const l2Data = {} as any; //TODO
     if (args.isAztec) {
         const { PXE, aztecWallet, sponsoredPaymentMethod, aztecNode } = await connectAztec(args.L2Rpc, l1ChainId)
         l2Data.l2Wallet = aztecWallet
@@ -60,9 +61,10 @@ async function main() {
         l2Data.sponsoredPaymentMethod = sponsoredPaymentMethod
         l2Data.aztecNode = aztecNode
     } else {
-        l2Data.l2Provider = new ethers.JsonRpcProvider(args.L2Rpc)
-        l2Data.l2Wallet = new NonceManager(new ethers.Wallet(args.evmPrivatekey, l2Data.l2Provider));
-        l2Data.l2ChainId = (await l2Data.l2Provider!.getNetwork()).chainId
+        const l2Account = privateKeyToAccount(args.evmPrivatekey as Hex);
+        l2Data.l2Provider = createPublicClient({ transport: http(args.L2Rpc) });
+        l2Data.l2Wallet = createWalletClient({ account: l2Account, transport: http(args.L2Rpc) });
+        l2Data.l2ChainId = BigInt(await l2Data.l2Provider.getChainId())
     }
     const { l2Provider, l2Wallet, l2ChainId, PXE, sponsoredPaymentMethod } = l2Data
     //----------------------------------------------------------------
@@ -70,8 +72,8 @@ async function main() {
     //------------------- get contract details -------------------------------
     const localRootProviders = args.localRootProviders ? args.localRootProviders : await getLocalRootProviders(l1ChainId)
     if (!args.localRootProviders) { console.log("selecting all adapters as gigaRoot recipients. THIS WILL BREAK ON SANDBOX!!!!!!!!!!!!!!!!!!!!!!!!!\n if you dont want that, manually put in the addresses of L1Warptoad and L1AztecAdapter with the flag: --localRootProviders") }
-    const { L1Adapter, gigaBridge, l1Warptoad } = await getL1Contracts(l1ChainId, l2ChainId as bigint, l1Wallet, args.isAztec)
-    const { L2Adapter, L2WarpToad } = await getL2Contracts(l2Wallet, l1ChainId, l2ChainId, args.isAztec, PXE as PXE, AZTEC_NODE_URL)
+    const { L1Adapter, gigaBridge, l1Warptoad } = await getL1Contracts(l1ChainId, l2ChainId as bigint, l1PublicClient, l1Wallet, args.isAztec)
+    const { L2Adapter, L2WarpToad } = await getL2Contracts(l2Wallet, l1ChainId, l2ChainId, args.isAztec, PXE as PXE, AZTEC_NODE_URL, l2Data.l2Provider)
     const payableLocalRootProviders = await getPayableGigaRootRecipients(l1ChainId)
     //--------------------------------------------------------------------------
 

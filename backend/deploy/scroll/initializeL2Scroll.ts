@@ -1,13 +1,12 @@
 // initializing more than one contract? use try and catch!
-const hre = require("hardhat");
-// import hre from "hardhat"
-import { BytesLike, ethers, toBigInt } from "ethers";
+import hre from "hardhat";
+import { createPublicClient, http } from "viem";
 import { deployPoseidon } from "../poseidon";
 
 import L2WarpToadModule from "../../../ignition/modules/L2WarpToad"
 import L1InfraModule from "../../../ignition/modules/L1Infra"
 
-import { ERC20__factory, L1AztecBridgeAdapter__factory, L1ScrollBridgeAdapter__factory, L2WarpToad__factory, USDcoin__factory } from "../../artifacts/typechain-types";
+import { getViemContract } from "../../scripts/utils";
 //@ts-ignore
 import er20Abi from "../../scripts/erc20ABI.json"  with { type: 'json' }
 //@ts-ignore
@@ -41,19 +40,20 @@ const SEPOLIA_URL = vars.get("SEPOLIA_URL")
 async function main() {
     // const wallets = await getInitialTestAccountsWallets(PXE);
     // const deployWallet = wallets[0]
-    const provider = hre.ethers.provider
-    const signer = (await hre.ethers.getSigners())[0]
+    const connection = await (hre as any).network.connect();
+    const publicClient = await connection.viem.getPublicClient();
+    const [signer] = await connection.viem.getWalletClients();
 
     //--------arguments-------------------
     // cant pass arguments like flags with hardhat. so it like `NATIVE_TOKEN_ADDRESS=0xurTokenAddress hardhat run` instead
 
-    const l2ChainId = (await provider.getNetwork()).chainId
+    const l2ChainId = BigInt(await publicClient.getChainId())
     const IS_SCROLL_MAINNET = l2ChainId === 534352n
     if (IS_SCROLL_MAINNET) {throw new Error("l1Provider not setup for mainnet TODO")}
 
 
-    const l1Provider = new ethers.JsonRpcProvider(SEPOLIA_URL)
-    const l1ChainId = (await l1Provider.getNetwork()).chainId
+    const l1Provider = createPublicClient({ transport: http(SEPOLIA_URL) })
+    const l1ChainId = BigInt(await l1Provider.getChainId())
 
 
     const L1DeployedAddresses = evmDeployments[Number(l1ChainId)]
@@ -65,26 +65,27 @@ async function main() {
     const aztecDeployedAddresses = await getContractAddressesAztec(l1ChainId)
     const {address:AztecWarpToadAddress} = aztecDeployedAddresses["AztecWarpToad"]
     console.log({L2WarpToadAddress, l2ChainId,L2ScrollDeployedAddresses })
-    const L2WarpToad = L2WarpToad__factory.connect(L2WarpToadAddress, signer)
+    const L2WarpToad = await getViemContract("L2WarpToad", L2WarpToadAddress, publicClient, signer)
     const initializationStatus:any = {}
 
 
     //warptoad
     try{
-        await L2WarpToad.initialize(L2ScrollBridgeAdapterAddress,L1ScrollBridgeAdapterAddress, toBigInt(AztecWarpToadAddress as BytesLike)) // <- L2WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
+        const hash = await L2WarpToad.write.initialize([L2ScrollBridgeAdapterAddress, L1ScrollBridgeAdapterAddress, BigInt(AztecWarpToadAddress as string)]) // <- L2WarpToad is special because it's also it's own _l1BridgeAdapter (he i already on L1!)
+        await publicClient.waitForTransactionReceipt({ hash });
         initializationStatus["L2WarpToad"] = true
     } catch {
-        console.warn(`couldn't initialize: L2WarpToad at: ${L2WarpToadAddress}. 
-        Was it already initialized?     
+        console.warn(`couldn't initialize: L2WarpToad at: ${L2WarpToadAddress}.
+        Was it already initialized?
         `)
         initializationStatus["L2WarpToad"] = false
     }
-    
+
 
 
     console.log(`
-    initialized: 
-        L2WarpToad:                 ${L2WarpToad.target}
+    initialized:
+        L2WarpToad:                 ${L2WarpToad.address}
         initializationSuccess?:     ${initializationStatus["L2WarpToad"] }
         args:                       ${JSON.stringify({L2ScrollBridgeAdapter: L2ScrollBridgeAdapterAddress,L1ScrollBridgeAdapterAddress: L1ScrollBridgeAdapterAddress},null,2)}
     `)

@@ -1,6 +1,11 @@
 
-import { ethers } from "ethers";
-import * as hre from "hardhat";
+import hre from "hardhat";
+import { getContract, type Address } from "viem";
+
+const ERC20_NAME_SYMBOL_ABI = [
+    { type: "function", name: "name", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
+    { type: "function", name: "symbol", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
+] as const;
 
 
 //@ts-ignore
@@ -22,9 +27,10 @@ const { nativeTokenAddress } = getEnvArgs()
 
 async function main() {
 
-    const provider = hre.ethers.provider
-    const nativeToken = new ethers.Contract(nativeTokenAddress, er20Abi, provider)
-    const chainId = (await provider.getNetwork()).chainId
+    const connection = await (hre as any).network.connect();
+    const publicClient = await connection.viem.getPublicClient();
+    const nativeToken = getContract({ address: nativeTokenAddress as Address, abi: ERC20_NAME_SYMBOL_ABI, client: publicClient })
+    const chainId = BigInt(await publicClient.getChainId())
     const isSanbox = chainId === 31337n
 
     const deployedAddresses = await getContractAddressesEvm(chainId)

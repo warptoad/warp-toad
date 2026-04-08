@@ -1,47 +1,38 @@
 /**
- * L1 → L1 (same-chain) burn + mint test
- *
- * Tests the full flow on a single EVM chain:
- * 1. Wrap native tokens into L1WarpToad
- * 2. Burn with a commitment
- * 3. Generate a ZK proof
- * 4. Mint (withdraw) to a recipient with relayer fee
+ * L1 -> L1 (same-chain) burn + mint test
  */
 
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { ethers } from "ethers";
 import os from "os";
+import { bytesToHex } from "viem";
 
 import {
   setupEvmOnlyEnvironment,
   createCommitment,
   getTestFeeFactor,
-  toEthersContract,
   DEFAULT_FEE,
   INITIAL_BALANCE,
   TEST_COMMITMENT_1,
 } from "./helpers/index.js";
 import { createProof, getProofInputs } from "../lib/proving.js";
 
-describe("L1 → L1 (same-chain)", () => {
+describe("L1 -> L1 (same-chain)", () => {
   it("should burn and mint with a valid ZK proof", async () => {
-    // ── Deploy ──────────────────────────────────────────────────
     const { evm } = await setupEvmOnlyEnvironment();
-    const [deployer, relayer, sender, recipient] = evm.signers;
+    const [deployer, relayer, sender, recipient] = evm.wallets;
+    const publicClient = evm.publicClient;
 
-    // Connect contracts with different signers
-    const nativeTokenAsSender = evm.nativeToken.connect(sender);
-    const l1WarpToadAsSender = evm.l1WarpToad.connect(sender);
-    const l1WarpToadAsRelayer = evm.l1WarpToad.connect(relayer);
+    // Fund sender
+    let hash = await evm.nativeToken.write.getFreeShit([INITIAL_BALANCE], { account: sender.account });
+    await publicClient.waitForTransactionReceipt({ hash });
+    hash = await evm.nativeToken.write.approve([evm.l1WarpToad.address, INITIAL_BALANCE], { account: sender.account });
+    await publicClient.waitForTransactionReceipt({ hash });
+    hash = await evm.l1WarpToad.write.wrap([INITIAL_BALANCE], { account: sender.account });
+    await publicClient.waitForTransactionReceipt({ hash });
 
-    // ── Fund sender ─────────────────────────────────────────────
-    await (await nativeTokenAsSender.getFreeShit(INITIAL_BALANCE)).wait();
-    await (await nativeTokenAsSender.approve(await evm.l1WarpToad.getAddress(), INITIAL_BALANCE)).wait();
-    await (await l1WarpToadAsSender.wrap(INITIAL_BALANCE)).wait();
-
-    // ── Burn ────────────────────────────────────────────────────
-    const chainId = (await evm.provider.getNetwork()).chainId;
+    // Burn
+    const chainId = BigInt(await publicClient.getChainId());
     const commitment = createCommitment(
       TEST_COMMITMENT_1.amount,
       chainId,
@@ -49,77 +40,65 @@ describe("L1 → L1 (same-chain)", () => {
       TEST_COMMITMENT_1.nullifierPreimage,
     );
 
-    await (await l1WarpToadAsSender.burn(commitment.preCommitment, commitment.amount)).wait();
+    hash = await evm.l1WarpToad.write.burn([commitment.preCommitment, commitment.amount], { account: sender.account });
+    await publicClient.waitForTransactionReceipt({ hash });
 
-    const balanceAfterBurn = await evm.l1WarpToad.balanceOf(await sender.getAddress());
+    const balanceAfterBurn = await evm.l1WarpToad.read.balanceOf([sender.account.address]);
     assert.equal(balanceAfterBurn, INITIAL_BALANCE - commitment.amount, "Balance should decrease by burn amount");
 
-    // Debug: verify local root state
-    const localRoot = await evm.l1WarpToad.cachedLocalRoot();
+    const localRoot = await evm.l1WarpToad.read.cachedLocalRoot();
     console.log("localRoot:", localRoot.toString());
-    console.log("localRoot stored?", await evm.l1WarpToad.localRootHistory(localRoot));
+    console.log("localRoot stored?", await evm.l1WarpToad.read.localRootHistory([localRoot]));
 
-    // ── Generate proof ──────────────────────────────────────────
+    // Generate proof
     const feeFactor = getTestFeeFactor();
-    // Debug: block number
-    const bn = await evm.provider.getBlockNumber();
-    console.log("Current block number:", bn);
+    console.log("Current block number:", await publicClient.getBlockNumber());
 
-    // Debug: check events directly
-    const burnFilter = evm.l1WarpToad.filters.Burn();
-    const events = await evm.l1WarpToad.queryFilter(burnFilter, 0, "latest");
-    console.log("Burn events found:", events.length);
-    for (const e of events) {
-      console.log("  block:", e.blockNumber, "topics:", e.topics);
-    }
-
-    // Pass the SAME contract reference for origin & destination so getMerkleData
-    // detects same-chain mode (isOnlyLocal = origin === destination)
     const proofInputs = await getProofInputs(
-      evm.gigaBridge as any,
-      evm.l1WarpToad as any,
-      evm.l1WarpToad as any,
+      evm.gigaBridge,
+      publicClient,
+      evm.l1WarpToad,
+      evm.l1WarpToad,
       commitment.amount,
       feeFactor,
       DEFAULT_FEE.priorityFee,
       DEFAULT_FEE.maxFee,
-      await relayer.getAddress(),
-      await recipient.getAddress(),
+      relayer.account.address,
+      recipient.account.address,
       commitment.nullifierPreimage,
       commitment.secret,
     );
 
     const proof = await createProof(proofInputs, os.cpus().length);
 
-    // ── Verify proof on-chain ───────────────────────────────────
-    const withdrawVerifierAddr = await evm.l1WarpToad.withdrawVerifier();
-    const withdrawVerifier = evm.withdrawVerifier.attach(withdrawVerifierAddr);
-    const isValid = await withdrawVerifier.verify(proof.proof, proof.publicInputs);
+    // Verify proof on-chain
+    const isValid = await evm.withdrawVerifier.read.verify([bytesToHex(proof.proof), proof.publicInputs]);
     assert.ok(isValid, "Proof should verify on-chain");
 
-    // ── Mint (relayer submits) ──────────────────────────────────
-    const recipientAddr = await recipient.getAddress();
-    const balancePre = await evm.l1WarpToad.balanceOf(recipientAddr);
+    // Mint
+    const balancePre = await evm.l1WarpToad.read.balanceOf([recipient.account.address]);
 
-    await (await l1WarpToadAsRelayer.mint(
-      ethers.toBigInt(proofInputs.nullifier),
-      ethers.toBigInt(proofInputs.amount),
-      ethers.toBigInt(proofInputs.giga_root),
-      ethers.toBigInt(proofInputs.destination_local_root),
-      ethers.toBigInt(proofInputs.fee_factor),
-      ethers.toBigInt(proofInputs.priority_fee),
-      ethers.toBigInt(proofInputs.max_fee),
-      ethers.getAddress(proofInputs.relayer_address.toString()),
-      ethers.getAddress(proofInputs.recipient_address.toString()),
-      ethers.hexlify(proof.proof),
-      {
-        maxPriorityFeePerGas: ethers.toBigInt(proofInputs.priority_fee),
-        maxFeePerGas: ethers.toBigInt(proofInputs.priority_fee) * 100n,
-      },
-    )).wait();
+    try {
+    hash = await evm.l1WarpToad.write.mint([
+      BigInt(proofInputs.nullifier),
+      BigInt(proofInputs.amount),
+      BigInt(proofInputs.giga_root),
+      BigInt(proofInputs.destination_local_root),
+      BigInt(proofInputs.fee_factor),
+      BigInt(proofInputs.priority_fee),
+      BigInt(proofInputs.max_fee),
+      proofInputs.relayer_address,
+      proofInputs.recipient_address,
+      bytesToHex(proof.proof),
+    ], {
+      account: relayer.account,
+      maxPriorityFeePerGas: BigInt(proofInputs.priority_fee),
+      maxFeePerGas: BigInt(proofInputs.priority_fee) * 100n,
+    });
+    await publicClient.waitForTransactionReceipt({ hash });
+    } catch (e: any) { console.error("MINT FAILED:", e?.shortMessage ?? e?.message ?? e); throw e; }
 
-    // ── Assert ──────────────────────────────────────────────────
-    const balancePost = await evm.l1WarpToad.balanceOf(recipientAddr);
+    const balancePost = await evm.l1WarpToad.read.balanceOf([recipient.account.address]);
     const received = balancePost - balancePre;
 
     assert.ok(received > 0n, "Recipient should receive tokens");

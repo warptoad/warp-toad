@@ -1,40 +1,40 @@
-import { ethers } from "ethers";
+import type { Hex } from "viem";
 //@ts-ignore
 import { AztecAddress } from "@aztec/aztec.js";
 
 
 export type AztecMerkleData = {
-    leaf_index: ethers.BytesLike,
-    hash_path: ethers.BytesLike[],
-    leaf_nonce: ethers.BytesLike,
+    leaf_index: Hex,
+    hash_path: Hex[],
+    leaf_nonce: Hex,
 }
 
 
 export type EvmMerkleData = {
-    leaf_index: ethers.BytesLike,
-    hash_path: ethers.BytesLike[],
+    leaf_index: Hex,
+    hash_path: Hex[],
 }
 
 export type ProofInputs = {
     // ----- public inputs -----
-    nullifier: ethers.BytesLike,
-    chain_id: ethers.BytesLike,
-    amount: ethers.BytesLike,
-    giga_root: ethers.BytesLike,
-    destination_local_root: ethers.BytesLike,
-    aztec_warptoad_address: ethers.BytesLike,
+    nullifier: Hex,
+    chain_id: Hex,
+    amount: Hex,
+    giga_root: Hex,
+    destination_local_root: Hex,
+    aztec_warptoad_address: Hex,
 
-    fee_factor: ethers.BytesLike, 
-    priority_fee: ethers.BytesLike,
-    max_fee: ethers.BytesLike,
-    relayer_address: ethers.BytesLike,                     // eth address left padded zeros / as bigInt
-    recipient_address: ethers.BytesLike,                   // eth address left padded zeros
+    fee_factor: Hex,
+    priority_fee: Hex,
+    max_fee: Hex,
+    relayer_address: Hex,                     // eth address left padded zeros / as bigInt
+    recipient_address: Hex,                   // eth address left padded zeros
 
     // ----- private inputs -----
-    origin_local_root: ethers.BytesLike,
+    origin_local_root: Hex,
     is_from_aztec: boolean,
-    nullifier_preimage: ethers.BytesLike,
-    secret: ethers.BytesLike,
+    nullifier_preimage: Hex,
+    secret: Hex,
     aztec_merkle_data: AztecMerkleData,
     evm_merkle_data: EvmMerkleData,
     giga_merkle_data: EvmMerkleData,

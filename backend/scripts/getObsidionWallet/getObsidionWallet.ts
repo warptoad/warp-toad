@@ -4,7 +4,6 @@ import { AccountManager, AccountWallet, AuthWitness, AuthWitnessProvider, AztecA
 import { DefaultAccountContract } from "@aztec/accounts/defaults";
 
 import { ObsidionDeployerFPCContractArtifact } from "./ObsidionDeployerFPC"
-import { ethers } from "ethers";
 //@ts-ignore
 import { computePartialAddress } from "@aztec/stdlib/contract"
 

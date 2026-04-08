@@ -1,7 +1,7 @@
 // initializing more than one contract? use try and catch!
 import { WarpToadCoreContract, WarpToadCoreContractArtifact } from "../../aztec/WarpToadCore/src/artifacts/WarpToadCore";
 import { getAztecTestAccount, getContractInstanceFromAddress, initNodeClient } from "../utils/aztecUtils";
-import * as hre from "hardhat";
+import hre from "hardhat";
 import { aztecDeployments, evmDeployments } from "../../scripts/deployment";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { L2AztecBridgeAdapterContractArtifact } from "../../aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter";
@@ -17,8 +17,9 @@ export const delay = async (timeInMs: number) => await new Promise((resolve) => 
 async function main() {
 
 
-    const provider = hre.ethers.provider
-    const chainId = (await provider.getNetwork()).chainId
+    const connection = await (hre as any).network.connect();
+    const publicClient = await connection.viem.getPublicClient();
+    const chainId = BigInt(await publicClient.getChainId())
     const isSanbox = chainId === 31337n
     const [alice] = await getInitialTestAccountsData()
     const { wallet, sponsoredPaymentMethod } = await getAztecWallet(process.env.PXE_URL as string, alice, isSanbox)

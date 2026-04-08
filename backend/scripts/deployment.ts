@@ -1,5 +1,6 @@
 
-import { ethers } from 'ethers';
+import { type WalletClient, type PublicClient } from 'viem';
+import { getViemContract } from './utils';
 
 import { SponsoredFPCContract } from "@aztec/noir-contracts.js/SponsoredFPC";
 
@@ -16,10 +17,13 @@ import { SCROLL_CHAINID_MAINNET, SCROLL_CHAINID_SEPOLIA } from '../lib/constants
 
 import { initNodeClientNoEnv, getAztecTestAccountNoEnv, getContractInstanceFromAddressNoEnv, initPXE, DeploymentArtifact, DeploymentStringyfiedArtifact } from '../deploy/utils/aztecUtilsNoEnv';
 
-// TODO: Update these imports once Hardhat v3 typed artifacts and Aztec codegen are generated
-// import { L2ScrollBridgeAdapter, GigaBridge__factory, L1AztecBridgeAdapter__factory, L1ScrollBridgeAdapter__factory, L2ScrollBridgeAdapter__factory, L2WarpToad as L2EvmWarpToad, L2WarpToad__factory, L1WarpToad__factory } from '../artifacts/...';
+// EVM contract handles are built at runtime via getViemContract (reads ABIs from Hardhat artifacts).
+// Aztec codegen still pending:
 // import { WarpToadCoreContract as L2AztecWarpToad, WarpToadCoreContract, WarpToadCoreContractArtifact } from '../aztec/WarpToadCore/src/artifacts/WarpToadCore';
 // import { L2AztecBridgeAdapterContract, L2AztecBridgeAdapterContractArtifact } from '../aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter';
+// Loose types until typechain replacement is finalized:
+type L2ScrollBridgeAdapter = any;
+type L2EvmWarpToad = any;
 
 //@ts-ignore
 import aztecDeploymentsSepolia from "../deploy/aztec/aztecDeployments/11155111/deployed_addresses.json" with { type: 'json' };
@@ -94,37 +98,38 @@ export const aztecDeployments: deployments = {
 
 export const delay = async (timeInMs: number) => await new Promise((resolve) => setTimeout(resolve, timeInMs))
 
-export function getL1Adapter(l2ChainId: bigint, isAztec = false, signer: ethers.Signer, allL1Contracts: any): L1Adapter {
+export async function getL1Adapter(l2ChainId: bigint, isAztec = false, publicClient: PublicClient, signer: WalletClient, allL1Contracts: any): Promise<L1Adapter> {
     if ((!l2ChainId) && (!isAztec)) { throw new Error("either set isAztec to true, or provide a l2ChainId both cannot be falsy") }
     if (isAztec) {
-        return L1AztecBridgeAdapter__factory.connect(allL1Contracts["L1InfraModule#L1AztecBridgeAdapter"], signer)
+        return await getViemContract("L1AztecBridgeAdapter", allL1Contracts["L1InfraModule#L1AztecBridgeAdapter"], publicClient, signer)
     }
     switch (l2ChainId) {
         case SCROLL_CHAINID_MAINNET:
         case SCROLL_CHAINID_SEPOLIA:
-            return L1ScrollBridgeAdapter__factory.connect(allL1Contracts["L1InfraModule#L1ScrollBridgeAdapter"], signer)
+            return await getViemContract("L1ScrollBridgeAdapter", allL1Contracts["L1InfraModule#L1ScrollBridgeAdapter"], publicClient, signer)
         default:
             throw new Error("unknown chainId :/")
     }
 }
 
-export async function getL1Contracts(l1ChainId: bigint, l2ChainId: bigint, signer: ethers.Signer, isAztec = false,) {
+export async function getL1Contracts(l1ChainId: bigint, l2ChainId: bigint, publicClient: PublicClient, signer: WalletClient, isAztec = false,) {
     const l1Contracts = evmDeployments[Number(l1ChainId)]
-    const L1Adapter = getL1Adapter(l2ChainId, isAztec, signer, l1Contracts)
-    const gigaBridge = GigaBridge__factory.connect(l1Contracts["L1InfraModule#GigaBridge"], signer)
-    const l1Warptoad = L1WarpToad__factory.connect(l1Contracts["L1InfraModule#L1WarpToad"], signer)
+    const L1Adapter = await getL1Adapter(l2ChainId, isAztec, publicClient, signer, l1Contracts)
+    const gigaBridge = await getViemContract("GigaBridge", l1Contracts["L1InfraModule#GigaBridge"], publicClient, signer)
+    const l1Warptoad = await getViemContract("L1WarpToad", l1Contracts["L1InfraModule#L1WarpToad"], publicClient, signer)
     return { L1Adapter, gigaBridge, l1Warptoad }
 }
 
-export async function getL2EvmContracts(l2ChainId: bigint, signer: ethers.Signer): Promise<{ L2Adapter: L2ScrollBridgeAdapter, L2WarpToad: L2EvmWarpToad }> {
+export async function getL2EvmContracts(l2ChainId: bigint, publicClient: PublicClient, signer: WalletClient): Promise<{ L2Adapter: L2ScrollBridgeAdapter, L2WarpToad: L2EvmWarpToad }> {
     const l2Contracts = evmDeployments[Number(l2ChainId)]
-    let L2Adapter;
-    let L2WarpToad;
+    let L2Adapter: any;
+    let L2WarpToad: any;
     switch (l2ChainId) {
         case SCROLL_CHAINID_MAINNET:
         case SCROLL_CHAINID_SEPOLIA:
-            L2Adapter = L2ScrollBridgeAdapter__factory.connect(l2Contracts["L2ScrollModule#L2ScrollBridgeAdapter"], signer)
-            L2WarpToad = L2WarpToad__factory.connect(l2Contracts["L2ScrollModule#L2WarpToad"], signer)
+            L2Adapter = await getViemContract("L2ScrollBridgeAdapter", l2Contracts["L2ScrollModule#L2ScrollBridgeAdapter"], publicClient, signer)
+            L2WarpToad = await getViemContract("L2WarpToad", l2Contracts["L2ScrollModule#L2WarpToad"], publicClient, signer)
+            break;
         default:
             // throw new Error("unknown chainId :/")
             break;
@@ -190,12 +195,13 @@ export async function getL2AZTECContracts(
 }
 
 export async function getL2Contracts(
-    l2Wallet: Wallet | ethers.Signer,
+    l2Wallet: Wallet | WalletClient,
     l1ChainId: bigint,
     l2ChainId: bigint,
     isAztec: boolean,
     PXE: PXE,
-    aztecNodeUrl: string
+    aztecNodeUrl: string,
+    l2PublicClient?: PublicClient,
 ): Promise<{
     L2Adapter: L2ScrollBridgeAdapter | L2AztecBridgeAdapterContract,
     L2WarpToad: L2EvmWarpToad | L2AztecWarpToad
@@ -204,7 +210,8 @@ export async function getL2Contracts(
         return await getL2AZTECContracts(l1ChainId, l2Wallet as Wallet, PXE, aztecNodeUrl)
 
     } else {
-        return await getL2EvmContracts(l2ChainId, l2Wallet as ethers.Signer)
+        if (!l2PublicClient) throw new Error("l2PublicClient is required for EVM L2")
+        return await getL2EvmContracts(l2ChainId, l2PublicClient, l2Wallet as WalletClient)
     }
 
 }

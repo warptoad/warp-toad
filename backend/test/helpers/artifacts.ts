@@ -1,12 +1,10 @@
 /**
  * Contract utilities for tests
  *
- * Deploys contracts using viem on the EDR network, then wraps them
- * as ethers Contract instances for lib layer compatibility.
- * Everything runs on a single network (Hardhat's EDR).
+ * Deploys contracts using viem on the EDR network and returns viem
+ * contract handles. Everything runs on a single network (Hardhat's EDR).
  */
 
-import { ethers } from "ethers";
 import hre from "hardhat";
 import fs from "fs";
 import path from "path";
@@ -18,7 +16,6 @@ const __dirname = path.dirname(__filename);
 
 // Cache the connection so all helpers share the same EDR instance
 let _connectionCache: any = null;
-let _ethersProviderCache: ethers.BrowserProvider | null = null;
 
 async function getConnection() {
   if (!_connectionCache) {
@@ -29,32 +26,6 @@ async function getConnection() {
     _connectionCache = await hre.network.connect("local");
   }
   return _connectionCache;
-}
-
-/**
- * Get ethers provider connected to EDR. Cached for consistency.
- */
-export async function getEthersProvider(): Promise<ethers.BrowserProvider> {
-  if (!_ethersProviderCache) {
-    const connection = await getConnection();
-    // Disable block caching so getBlockNumber() always returns the latest
-    _ethersProviderCache = new ethers.BrowserProvider(connection.provider, undefined, { cacheTimeout: -1 });
-  }
-  return _ethersProviderCache;
-}
-
-/**
- * Get ethers signers connected to the configured network.
- *
- * Skips account 0 (0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266) because the
- * Aztec sandbox sequencer publishes L1 txs from that same address. Tests
- * destructure as `[deployer, relayer, sender, recipient] = signers`, so
- * signers[0] here is anvil account 1 from the test's POV.
- */
-export async function getEthersSigners(): Promise<ethers.JsonRpcSigner[]> {
-  const provider = await getEthersProvider();
-  const all = await provider.listAccounts() as ethers.JsonRpcSigner[];
-  return all.slice(1);
 }
 
 /**
@@ -72,8 +43,11 @@ export async function getViemClients() {
   const wallets = await connection.viem.getWalletClients();
   // Use the second account to avoid the sandbox's deployer.
   const deployer = wallets[1] ?? wallets[0];
+  // `testWallets` are the wallets test bodies can destructure as [deployer, relayer, sender, recipient].
+  // We skip wallets[0] (anvil account 0) since the Aztec sandbox sequencer uses it.
+  const testWallets = wallets.slice(1);
   const publicClient = await connection.viem.getPublicClient();
-  return { deployer, publicClient, viem: connection.viem };
+  return { deployer, publicClient, viem: connection.viem, testWallets };
 }
 
 /**
@@ -151,7 +125,7 @@ export async function deployFromArtifact(
  * `nonce too low` and `replacement transaction underpriced` (which both
  * indicate a stale nonce in the local accounts handler).
  */
-async function sendWithNonceRetry<T>(
+export async function sendWithNonceRetry<T>(
   label: string,
   fn: (nonce: number) => Promise<T>,
   deployer: WalletClient,
@@ -208,14 +182,3 @@ export async function deployLibFromBuildInfo(
   }, deployer, publicClient);
 }
 
-/**
- * Create an ethers Contract connected to EDR with a specific signer.
- */
-export async function toEthersContract(
-  abi: any[],
-  address: string,
-  signerIndex: number = 0,
-): Promise<ethers.Contract> {
-  const signers = await getEthersSigners();
-  return new ethers.Contract(address, abi, signers[signerIndex]);
-}

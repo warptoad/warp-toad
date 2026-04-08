@@ -3,7 +3,6 @@
 //@ts-ignore
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 import { EVM_TREE_DEPTH } from "../../scripts/lib/constants";
-import { ethers } from "ethers";
 import { IgnitionModuleBuilder } from "@nomicfoundation/ignition-core";
 
 export default buildModule("L2ScrollModule", (m: any) => {

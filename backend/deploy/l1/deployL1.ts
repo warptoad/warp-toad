@@ -5,16 +5,19 @@ import L1WarpToadModule from "../../../ignition/modules/L1WarpToad"
 import L1InfraModule from "../../../ignition/modules/L1Infra"
 import { readFile } from 'fs/promises';
 
-import { ERC20__factory, USDcoin__factory } from "../../artifacts/typechain-types";
 //@ts-ignore
 import er20Abi from "../../scripts/erc20ABI.json"  with { type: 'json' }
 import { L1_SCROLL_MESSENGER_MAINNET, L1_SCROLL_MESSENGER_SEPOLIA } from "../../lib/constants";
 import fs from "fs/promises";
 import {  checkFileExists, getContractAddressesAztec, getContractAddressesEvm, getEvmDeployedAddressesFilePath, getEvmDeployedAddressesFolderPath, promptBool } from "../../scripts/utils";
 import hre from "hardhat";
-import { ethers } from "hardhat";
+import { isAddress, getAddress, getContract, type Address } from "viem";
 import { SolidityParameterType } from "@nomicfoundation/ignition-core";
-const provider = ethers.provider;
+
+const ERC20_NAME_SYMBOL_ABI = [
+    { type: "function", name: "name", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
+    { type: "function", name: "symbol", stateMutability: "view", inputs: [], outputs: [{ type: "string" }] },
+] as const;
 
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
@@ -24,13 +27,15 @@ async function main() {
     // cant pass arguments like flags with hardhat. so it like `NATIVE_TOKEN_ADDRESS=0xurTokenAddress hardhat run` instead
     if (!Boolean(process.env.NATIVE_TOKEN_ADDRESS)) {
         throw new Error("NATIVE_TOKEN_ADDRESS not set. do NATIVE_TOKEN_ADDRESS=0xurTokenAddress yarn workspace @warp-toad/backend hardhat run scripts/deploy/deployL1.ts  --network aztecSandbox")
-    } else if (!ethers.isAddress(process.env.NATIVE_TOKEN_ADDRESS)) {
+    } else if (!isAddress(process.env.NATIVE_TOKEN_ADDRESS as string)) {
         throw new Error(`the value: ${process.env.NATIVE_TOKEN_ADDRESS} is not a valid address. Set NATIVE_TOKEN_ADDRESS= to a valid address`)
     }
 
-    const nativeTokenAddress = ethers.getAddress(process.env.NATIVE_TOKEN_ADDRESS as string);
-    
-    const chainId = (await provider.getNetwork()).chainId
+    const nativeTokenAddress = getAddress(process.env.NATIVE_TOKEN_ADDRESS as string);
+
+    const connection = await hre.network.connect();
+    const publicClient = await connection.viem.getPublicClient();
+    const chainId = BigInt(await publicClient.getChainId())
 
     const deployedAddressesPath = getEvmDeployedAddressesFilePath(chainId)
     if(await checkFileExists(deployedAddressesPath)) {
@@ -50,9 +55,9 @@ async function main() {
 
     //-----------warptoad------------------------
     const PoseidonT3Address = await deployPoseidon();
-    const nativeToken = new ethers.Contract(nativeTokenAddress, er20Abi, provider)
-    const name = `wrapped-warptoad-${await nativeToken.name()}`;
-    const symbol = `wrptd-${(await nativeToken.symbol()).toUpperCase()}`;
+    const nativeToken = getContract({ address: nativeTokenAddress as Address, abi: ERC20_NAME_SYMBOL_ABI, client: publicClient });
+    const name = `wrapped-warptoad-${await nativeToken.read.name()}`;
+    const symbol = `wrptd-${(await nativeToken.read.symbol()).toUpperCase()}`;
 
     const { L1WarpToad, withdrawVerifier, PoseidonT3Lib, LazyIMTLib } = await hre.ignition.deploy(L1WarpToadModule, {
         parameters: {
@@ -94,7 +99,7 @@ async function main() {
         // -------verify -----------------
         // TODO make this into a more reusable script / function
         // gather data for constructor arguments and libraries
-        const journalFilePath = `ignition/deployments/chain-${(await provider.getNetwork()).chainId}/journal.jsonl`
+        const journalFilePath = `ignition/deployments/chain-${chainId}/journal.jsonl`
         const journal = await readFile(journalFilePath, 'utf8');
         const parsedJournal = journal.split('\n').filter(line => line.trim() !== '').map(line => JSON.parse(line));
         const journalDataPerId = parsedJournal.reduce((allData, currentLine) => {

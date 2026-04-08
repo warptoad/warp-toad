@@ -1,45 +1,41 @@
 /**
- * EVM contract deployment helpers for tests
+ * EVM contract deployment helpers for tests.
  *
- * Deploys all Solidity contracts on Hardhat's EDR network using viem,
- * then wraps them as ethers Contract instances for the lib layer.
- * Everything runs on a single in-process network.
+ * Deploys Solidity contracts via viem on Hardhat's EDR network and returns
+ * viem contract handles for the lib layer and tests.
  */
 
-import { ethers } from "ethers";
-import { type Address } from "viem";
+import { type Address, type PublicClient, type WalletClient, getContract } from "viem";
 import {
   getViemClients,
   deployFromArtifact,
   deployLibFromBuildInfo,
-  toEthersContract,
-  getEthersSigners,
-  getEthersProvider,
 } from "./artifacts";
 import { EVM_TREE_DEPTH, GIGA_TREE_DEPTH } from "./constants";
 
 export interface EvmDeployment {
-  nativeToken: ethers.Contract;
-  withdrawVerifier: ethers.Contract;
-  l1WarpToad: ethers.Contract;
-  gigaBridge: ethers.Contract;
-  l1AztecBridgeAdapter: ethers.Contract | null;
-  provider: ethers.BrowserProvider;
-  signers: ethers.Signer[];
+  nativeToken: any;
+  withdrawVerifier: any;
+  l1WarpToad: any;
+  gigaBridge: any;
+  l1AztecBridgeAdapter: any | null;
+  publicClient: PublicClient;
+  deployer: WalletClient;
+  wallets: WalletClient[];
 }
 
-/**
- * Deploy all EVM contracts and wire them together.
- */
+/** Build a viem contract handle with both read and write bound to a wallet. */
+function bindContract(address: Address, abi: any[], publicClient: PublicClient, walletClient: WalletClient) {
+  return getContract({ address, abi, client: { public: publicClient, wallet: walletClient } });
+}
+
 export async function deployEvmContracts(opts?: {
   withAztecAdapter?: boolean;
   aztecWarptoadAddress?: bigint;
 }): Promise<EvmDeployment> {
-  const { deployer, publicClient, viem } = await getViemClients();
-  const provider = await getEthersProvider();
-  const signers = await getEthersSigners();
+  const { deployer, publicClient, viem, testWallets } = await getViemClients();
 
-  // 1. Deploy libraries
+  // 1. Libraries
   const poseidonT3Addr = await deployLibFromBuildInfo(
     "npm/poseidon-solidity@0.0.5/PoseidonT3.sol",
     "PoseidonT3",
@@ -60,21 +56,21 @@ export async function deployEvmContracts(opts?: {
     PoseidonT3: poseidonT3Addr,
   };
 
-  // 2. Deploy native token
+  // 2. Native token
   const nativeTokenDeploy = await deployFromArtifact("USDcoin", [], deployer, publicClient);
 
-  // 3. Deploy verifier (HonkVerifier depends on ZKTranscriptLib)
+  // 3. Verifier (HonkVerifier depends on ZKTranscriptLib)
   const zkTranscriptLibDeploy = await deployFromArtifact("ZKTranscriptLib", [], deployer, publicClient);
   const verifierDeploy = await deployFromArtifact("HonkVerifier", [], deployer, publicClient, {
     ZKTranscriptLib: zkTranscriptLibDeploy.address,
   });
 
-  // 4. Get token metadata for WarpToad name/symbol
+  // 4. Token metadata for WarpToad name/symbol
   const nativeTokenViem = await viem.getContractAt("USDcoin", nativeTokenDeploy.address);
   const tokenName = await nativeTokenViem.read.name();
   const tokenSymbol = await nativeTokenViem.read.symbol();
 
-  // 5. Deploy L1WarpToad (needs libraries)
+  // 5. L1WarpToad
   const l1WarpToadDeploy = await deployFromArtifact(
     "L1WarpToad",
     [EVM_TREE_DEPTH, verifierDeploy.address, nativeTokenDeploy.address, `wrpToad-${tokenSymbol}`, `wrpToad-${tokenName}`],
@@ -83,7 +79,7 @@ export async function deployEvmContracts(opts?: {
     libs,
   );
 
-  // 6. Deploy L1AztecBridgeAdapter (optional)
+  // 6. L1AztecBridgeAdapter (optional)
   let l1AztecAdapterDeploy: { address: Address; abi: any[] } | null = null;
   const gigaRootRecipients: Address[] = [l1WarpToadDeploy.address];
 
@@ -92,7 +88,7 @@ export async function deployEvmContracts(opts?: {
     gigaRootRecipients.push(l1AztecAdapterDeploy.address);
   }
 
-  // 7. Deploy GigaBridge (needs LazyIMT)
+  // 7. GigaBridge (needs LazyIMT)
   const gigaBridgeDeploy = await deployFromArtifact(
     "GigaBridge",
     [gigaRootRecipients, GIGA_TREE_DEPTH],
@@ -101,30 +97,20 @@ export async function deployEvmContracts(opts?: {
     { LazyIMT: lazyIMTAddr },
   );
 
-  // 8. Wrap as ethers Contracts
-  const nativeToken = await toEthersContract(nativeTokenDeploy.abi, nativeTokenDeploy.address);
-  const withdrawVerifier = await toEthersContract(verifierDeploy.abi, verifierDeploy.address);
-  const l1WarpToad = await toEthersContract(l1WarpToadDeploy.abi, l1WarpToadDeploy.address);
-  const gigaBridge = await toEthersContract(gigaBridgeDeploy.abi, gigaBridgeDeploy.address);
+  // 8. Wrap as viem contract handles
+  const nativeToken = bindContract(nativeTokenDeploy.address, nativeTokenDeploy.abi, publicClient, deployer);
+  const withdrawVerifier = bindContract(verifierDeploy.address, verifierDeploy.abi, publicClient, deployer);
+  const l1WarpToad = bindContract(l1WarpToadDeploy.address, l1WarpToadDeploy.abi, publicClient, deployer);
+  const gigaBridge = bindContract(gigaBridgeDeploy.address, gigaBridgeDeploy.abi, publicClient, deployer);
+  const l1AztecBridgeAdapter = l1AztecAdapterDeploy
+    ? bindContract(l1AztecAdapterDeploy.address, l1AztecAdapterDeploy.abi, publicClient, deployer)
+    : null;
 
-  let l1AztecBridgeAdapter: ethers.Contract | null = null;
-  if (l1AztecAdapterDeploy) {
-    l1AztecBridgeAdapter = await toEthersContract(l1AztecAdapterDeploy.abi, l1AztecAdapterDeploy.address);
-  }
-
-  // 9. Initialize L1WarpToad. If withAztecAdapter is set, callers (e.g. setupFullEnvironment)
-  // are responsible for re-initializing with the real aztecWarptoadAddress AFTER the Aztec
-  // contract is deployed, since L1WarpToad.initialize hardcodes the aztec address as part
-  // of the public inputs the on-chain verifier checks the proof against. For EVM-only and
-  // L1<->L1 paths the aztec address is 0 and we initialize here.
+  // 9. Initialize L1WarpToad for non-Aztec cases (Aztec path does it from setupFullEnvironment).
   if (!opts?.withAztecAdapter) {
     const aztecAddr = opts?.aztecWarptoadAddress ?? 0n;
-    const initTx = await l1WarpToad.initialize(
-      await gigaBridge.getAddress(),
-      await l1WarpToad.getAddress(),
-      aztecAddr,
-    );
-    await initTx.wait();
+    const hash = await (l1WarpToad.write.initialize as any)([gigaBridge.address, l1WarpToad.address, aztecAddr]);
+    await publicClient.waitForTransactionReceipt({ hash });
   }
 
   return {
@@ -133,7 +119,8 @@ export async function deployEvmContracts(opts?: {
     l1WarpToad,
     gigaBridge,
     l1AztecBridgeAdapter,
-    provider,
-    signers,
+    publicClient,
+    deployer,
+    wallets: testWallets,
   };
 }

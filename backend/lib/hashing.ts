@@ -1,7 +1,6 @@
 import { AztecAddress, Fr } from '@aztec/aztec.js';
 import { poseidon1, poseidon2, poseidon3 } from "poseidon-lite"
 import { MerkleTree, PartialMerkleTree, Element } from 'fixed-merkle-tree'
-import { ethers } from "ethers";
 import { poseidon2Hash } from "@zkpassport/poseidon2";
 import { GENERATOR_INDEX__NOTE_HASH_NONCE, GENERATOR_INDEX__SILOED_NOTE_HASH, GENERATOR_INDEX__UNIQUE_NOTE_HASH } from './constants';
 export function hashPreCommitment(nullifierPreimage: bigint, secret: bigint, chainId: bigint): bigint {
