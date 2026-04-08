@@ -20,6 +20,7 @@
 	import SwampBackground from "$lib/components/SwampBackground.svelte";
 	import { walletStore } from "$lib/stores/wallets.svelte.js";
 	import { uiStore } from "$lib/stores/ui.svelte.js";
+	import { isTestMode } from "$lib/config/chains.js";
 	import { Menu, Wallet, Zap } from "@lucide/svelte";
 	import warptoadLogo from "$lib/../assets/warptoad-logo.svg";
 
@@ -65,6 +66,12 @@
 
 				<!-- Desktop: Wallet badges + button -->
 				<div class="hidden md:flex items-center gap-3">
+					{#if isTestMode}
+						<div class="flex items-center gap-2 px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider border border-amber-500/40 text-amber-400 bg-amber-500/5" title="VITE_TEST_MODE=true: anvil L1 (localhost:8545) + Aztec sandbox (localhost:8080)">
+							<div class="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse"></div>
+							Local Dev
+						</div>
+					{/if}
 					{#if walletStore.isEVMConnected}
 						<div class="badge-glow flex items-center gap-2">
 							<div class="w-2 h-2 rounded-full bg-[var(--toad-green)] animate-pulse"></div>

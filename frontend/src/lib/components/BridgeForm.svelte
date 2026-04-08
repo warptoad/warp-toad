@@ -103,7 +103,7 @@
 		if (targetChain === "Aztec") {
 			const aztecWallet = getWalletInstance();
 			if (!aztecWallet) {
-				throw new Error("Aztec wallet not connected. Please connect Azguard wallet first.");
+				throw new Error("Aztec wallet not connected. Please connect the Aztec wallet first.");
 			}
 			// Get the correct Aztec chain ID from the contract
 			// This is computed as poseidon2([salt, aztec_version])
@@ -311,7 +311,7 @@ You can close this page. Your note has been downloaded.`;
 	async function bridgeFromAztecUI(sourceChainId: bigint, destinationChainId: bigint) {
 		const aztecWallet = getWalletInstance();
 		if (!aztecWallet) {
-			throw new Error("Aztec wallet not connected. Please connect Azguard wallet first.");
+			throw new Error("Aztec wallet not connected. Please connect the Aztec wallet first.");
 		}
 		
 		// Get decimals from Aztec contract

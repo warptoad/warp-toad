@@ -24,6 +24,8 @@
 	import { getAztecWarpToadBalance } from "$lib/utils/aztec-interactions";
 	import { getWalletInstance } from "$lib/utils/aztec-wallet";
 	import type { Chain } from "$lib/types/bridge";
+	import { isTestMode } from "$lib/config/chains.js";
+	import type { AztecAccountMode } from "$lib/utils/aztec-wallet";
 
 	interface Props {
 		open?: boolean;
@@ -92,6 +94,14 @@
 			// Error is already stored in walletStore.aztecError
 			console.error("Aztec connection error:", error);
 		}
+	}
+
+	async function handleSelectAccountMode(mode: AztecAccountMode) {
+		await walletStore.setAztecAccountMode(mode);
+	}
+
+	async function handleResetCustomAccount() {
+		await walletStore.resetCustomAztecAccount();
 	}
 
 	async function handleDisconnectAztec() {
@@ -225,6 +235,10 @@
 							{walletStore.formatAddress(walletStore.wallets.aztec)}
 						</div>
 
+						<div class="text-[0.6rem] text-[var(--muted-foreground)]">
+							{walletStore.aztecAccountMode === 'sandbox-test' ? 'Sandbox test account' : 'Custom account'}
+						</div>
+
 						<button
 							onclick={handleDisconnectAztec}
 							disabled={walletStore.isConnectingAztec}
@@ -233,31 +247,47 @@
 							Disconnect
 						</button>
 					</div>
-				{:else if !walletStore.isAzguardInstalled}
-					<div class="text-xs text-center text-[var(--muted-foreground)] py-2">
-						<p>Azguard not detected.</p>
-						<a
-							href="https://azguard.io"
-							target="_blank"
-							rel="noopener noreferrer"
-							class="text-[var(--warp-purple)] hover:underline"
-						>
-							Install
-						</a>
-					</div>
 				{:else}
-					<button
-						onclick={handleConnectAztec}
-						disabled={walletStore.isConnectingAztec}
-						class="cursor-pointer w-full py-2 rounded text-xs font-medium border border-[rgba(144,97,249,0.3)] text-[var(--warp-purple)] hover:bg-[rgba(144,97,249,0.1)] transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
-					>
-						{#if walletStore.isConnectingAztec}
-							<Loader2 class="size-3 animate-spin" />
-							Connecting...
-						{:else}
-							Connect
+					<div class="space-y-2">
+						<!-- Account mode toggle: only meaningful in dev mode (sandbox-test only works against sandbox) -->
+						{#if isTestMode}
+							<div class="flex gap-1 text-[0.6rem]">
+								<button
+									onclick={() => handleSelectAccountMode('sandbox-test')}
+									class="cursor-pointer flex-1 py-1 px-2 rounded transition-colors {walletStore.aztecAccountMode === 'sandbox-test' ? 'bg-[rgba(144,97,249,0.2)] text-[var(--warp-purple)]' : 'text-[var(--muted-foreground)] hover:bg-[rgba(255,255,255,0.03)]'}"
+								>
+									Sandbox test
+								</button>
+								<button
+									onclick={() => handleSelectAccountMode('custom')}
+									class="cursor-pointer flex-1 py-1 px-2 rounded transition-colors {walletStore.aztecAccountMode === 'custom' ? 'bg-[rgba(144,97,249,0.2)] text-[var(--warp-purple)]' : 'text-[var(--muted-foreground)] hover:bg-[rgba(255,255,255,0.03)]'}"
+								>
+									My key
+								</button>
+							</div>
 						{/if}
-					</button>
+						<button
+							onclick={handleConnectAztec}
+							disabled={walletStore.isConnectingAztec}
+							class="cursor-pointer w-full py-2 rounded text-xs font-medium border border-[rgba(144,97,249,0.3)] text-[var(--warp-purple)] hover:bg-[rgba(144,97,249,0.1)] transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+						>
+							{#if walletStore.isConnectingAztec}
+								<Loader2 class="size-3 animate-spin" />
+								Connecting...
+							{:else}
+								Connect
+							{/if}
+						</button>
+						{#if walletStore.aztecAccountMode === 'custom'}
+							<button
+								onclick={handleResetCustomAccount}
+								disabled={walletStore.isConnectingAztec}
+								class="cursor-pointer w-full py-1 px-2 rounded text-[0.6rem] text-[var(--muted-foreground)] hover:text-red-400 hover:bg-[rgba(239,68,68,0.05)] transition-colors disabled:opacity-50"
+							>
+								Reset custom key
+							</button>
+						{/if}
+					</div>
 				{/if}
 			</div>
 		</div>

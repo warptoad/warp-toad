@@ -12,12 +12,16 @@ import {
 	NETWORKS
 } from '$lib/utils/evm-wallet.js';
 import {
-	connectAzguardWallet,
-	disconnectAzguardWallet,
-	isAzguardAvailable,
+	connectAztecBrowserWallet,
+	disconnectAztecWallet,
+	isAztecWalletAvailable,
 	autoReconnect as autoReconnectAztec,
 	onConnectionChanged,
-	getWalletInstance
+	getWalletInstance,
+	getAccountMode,
+	setAccountMode,
+	clearCustomSecrets,
+	type AztecAccountMode,
 } from '$lib/utils/aztec-wallet.js';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 
@@ -135,12 +139,25 @@ class WalletStore {
 		return isWalletAvailable();
 	}
 
+	/**
+	 * In-browser Aztec wallet is always available (no extension required).
+	 * Kept under the legacy getter name so component templates don't churn.
+	 */
+	get isAztecWalletAvailable(): boolean {
+		return isAztecWalletAvailable();
+	}
+
+	/** @deprecated retained for template compatibility; always returns isAztecWalletAvailable */
 	get isAzguardInstalled(): boolean {
-		return isAzguardAvailable();
+		return isAztecWalletAvailable();
 	}
 
 	get aztecWallet(): Wallet | null {
 		return this._aztecWallet;
+	}
+
+	get aztecAccountMode(): AztecAccountMode {
+		return getAccountMode();
 	}
 
 	async connectEVM(): Promise<void> {
@@ -189,12 +206,11 @@ class WalletStore {
 	}
 
 	async autoReconnectAztec(): Promise<void> {
-		if (!isAzguardAvailable()) return;
+		if (!isAztecWalletAvailable()) return;
 
 		try {
 			const result = await autoReconnectAztec();
 			if (result) {
-				console.log()
 				this._aztecWallet = result.wallet;
 				this._wallets.aztec = result.address;
 				saveWallets(this._wallets);
@@ -255,7 +271,7 @@ class WalletStore {
 		this._aztecError = null;
 
 		try {
-			const { wallet, address } = await connectAzguardWallet();
+			const { wallet, address } = await connectAztecBrowserWallet();
 
 			this._aztecWallet = wallet;
 			this._wallets.aztec = address;
@@ -265,11 +281,32 @@ class WalletStore {
 			// Setup event listeners
 			this.setupAztecEventListeners();
 		} catch (error) {
-			console.error('Failed to connect Azguard wallet:', error);
-			this._aztecError = error instanceof Error ? error.message : 'Failed to connect Azguard wallet';
+			console.error('Failed to connect Aztec wallet:', error);
+			this._aztecError = error instanceof Error ? error.message : 'Failed to connect Aztec wallet';
 			throw error;
 		} finally {
 			this._isConnectingAztec = false;
+		}
+	}
+
+	/**
+	 * Switch the Aztec account mode (sandbox-test vs custom). Disconnects any
+	 * currently-connected wallet so the next connect rebuilds with the new mode.
+	 */
+	async setAztecAccountMode(mode: AztecAccountMode): Promise<void> {
+		const current = getAccountMode();
+		if (current === mode) return;
+		setAccountMode(mode);
+		if (this._aztecWallet) {
+			await this.disconnectAztec();
+		}
+	}
+
+	/** Wipe the persisted custom Aztec secret. Forces a fresh account on next connect. */
+	async resetCustomAztecAccount(): Promise<void> {
+		clearCustomSecrets();
+		if (this._aztecWallet && getAccountMode() === 'custom') {
+			await this.disconnectAztec();
 		}
 	}
 
@@ -319,9 +356,9 @@ class WalletStore {
 
 	async disconnectAztec(): Promise<void> {
 		try {
-			await disconnectAzguardWallet();
+			await disconnectAztecWallet();
 		} catch (error) {
-			console.error('Error disconnecting Azguard:', error);
+			console.error('Error disconnecting Aztec wallet:', error);
 		}
 
 		this._aztecWallet = null;

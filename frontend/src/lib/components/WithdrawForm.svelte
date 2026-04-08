@@ -511,7 +511,7 @@
 		const aztecWallet = getWalletInstance();
 		if (!aztecWallet) {
 			throw new Error(
-				"Aztec wallet not connected. Please connect your Azguard wallet.",
+				"Aztec wallet not connected. Please connect the Aztec wallet.",
 			);
 		}
 
@@ -644,7 +644,7 @@
 		const aztecWallet = getWalletInstance();
 		if (!aztecWallet) {
 			throw new Error(
-				"Aztec wallet not connected. Please connect your Azguard wallet.",
+				"Aztec wallet not connected. Please connect the Aztec wallet.",
 			);
 		}
 
@@ -1639,7 +1639,7 @@
 		const aztecWallet = getWalletInstance();
 		if (!aztecWallet) {
 			throw new Error(
-				"Aztec wallet not connected. Please connect your Azguard wallet to fetch your note.",
+				"Aztec wallet not connected. Please connect the Aztec wallet to fetch your note.",
 			);
 		}
 
@@ -2070,7 +2070,7 @@
 				<div class="text-xs">
 					<span class="font-medium text-[var(--foreground)]">Connect {selectedProof.targetChain} wallet</span>
 					{#if selectedProof.targetChain === "Aztec"}
-						<span class="text-[var(--muted-foreground)]"> - Use Azguard extension</span>
+						<span class="text-[var(--muted-foreground)]"> - In-browser wallet</span>
 					{/if}
 				</div>
 			</div>

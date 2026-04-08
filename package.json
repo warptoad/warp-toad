@@ -38,5 +38,13 @@
   },
   "repository": "https://github.com/JossDuff/warp-toad.git",
   "author": "jossduff <jduff360@gmail.com>",
-  "license": "MIT"
+  "license": "MIT",
+  "pnpm": {
+    "overrides": {
+      "@aztec/noir-acvm_js": "4.2.0-aztecnr-rc.2",
+      "@aztec/noir-noirc_abi": "4.2.0-aztecnr-rc.2",
+      "@aztec/noir-types": "4.2.0-aztecnr-rc.2",
+      "@aztec/noir-protocol-circuits-types": "4.2.0-aztecnr-rc.2"
+    }
+  }
 }

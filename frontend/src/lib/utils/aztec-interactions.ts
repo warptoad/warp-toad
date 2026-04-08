@@ -1365,7 +1365,7 @@ function computeMerkleRootFromPath(
  * 2. Builds merkle proofs for the commitment against that specific gigaRoot
  * 3. Calls mint_giga_root_evm on the Aztec WarpToad contract
  * 
- * @param wallet - Connected Aztec wallet (from Azguard)
+ * @param wallet - Connected Aztec wallet (in-browser BrowserEmbeddedWallet)
  * @param commitmentData - The commitment pre-image (secret, nullifier_preimg, amount, chain_id)
  * @param sourceChainId - The L1 chain ID where the burn happened
  * @param recipientAddress - Aztec address to receive the tokens
