@@ -79,9 +79,13 @@ export async function deployEvmContracts(opts?: {
   const tokenSymbol = await nativeTokenViem.read.symbol();
 
   // 5. L1WarpToad
+  // Constructor signature: (maxDepth, verifier, nativeToken, name, symbol)
+  // name = long form ("wrpToad-USD Coin"), symbol = short form ("wrpToad-USDC").
+  // Previous code had these swapped, which made MetaMask reject wallet_watchAsset
+  // because the symbol didn't match what users expected.
   const l1WarpToadDeploy = await deployFromArtifact(
     "L1WarpToad",
-    [EVM_TREE_DEPTH, verifierDeploy.address, nativeTokenDeploy.address, `wrpToad-${tokenSymbol}`, `wrpToad-${tokenName}`],
+    [EVM_TREE_DEPTH, verifierDeploy.address, nativeTokenDeploy.address, `wrpToad-${tokenName}`, `wrpToad-${tokenSymbol}`],
     deployer,
     publicClient,
     libs,

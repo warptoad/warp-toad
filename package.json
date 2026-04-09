@@ -39,6 +39,8 @@
     "relayer:docker:run": "pnpm --filter @warp-toad/relay-service docker:run",
     "relayer:docker:logs": "pnpm --filter @warp-toad/relay-service docker:logs",
     "relayer:docker:down": "pnpm --filter @warp-toad/relay-service docker:down",
+    "faucet:dev": "pnpm --filter @warp-toad/faucet-service dev",
+    "faucet:start": "pnpm --filter @warp-toad/faucet-service start",
     "services:build": "docker compose build",
     "services:up": "docker compose up -d",
     "services:logs": "docker compose logs -f",

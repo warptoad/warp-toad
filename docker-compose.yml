@@ -56,6 +56,7 @@ services:
         # service-name DNS.
         VITE_BRIDGE_KEEPER_URL: ${VITE_BRIDGE_KEEPER_URL:-http://localhost:6969}
         VITE_RELAY_SERVICE_URL: ${VITE_RELAY_SERVICE_URL:-http://localhost:7777}
+        VITE_FAUCET_SERVICE_URL: ${VITE_FAUCET_SERVICE_URL:-http://localhost:8888}
     image: warptoad/frontend:latest
     container_name: warptoad-frontend
     ports:
@@ -72,6 +73,7 @@ services:
     depends_on:
       - bridge-sync
       - relay-service
+      - faucet-service
 
   bridge-sync:
     build:
@@ -131,9 +133,38 @@ services:
       retries: 3
       start_period: 15s
 
+  faucet-service:
+    build:
+      context: .
+      dockerfile: faucet-service/Dockerfile
+    image: warptoad/faucet-service:latest
+    container_name: warptoad-faucet-service
+    ports:
+      - "127.0.0.1:8888:8888"
+    environment:
+      NODE_ENV: production
+      PORT: 8888
+      FAUCET_PRIVATE_KEY: ${FAUCET_PRIVATE_KEY}
+      SEPOLIA_RPC_URL: ${SEPOLIA_RPC_URL}
+      SCROLL_RPC_URL: ${SCROLL_RPC_URL}
+      FAUCET_DRIP_AMOUNT_ETH: ${FAUCET_DRIP_AMOUNT_ETH:-0.05}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+    volumes:
+      - faucet-db:/app/faucet-service/db
+    restart: unless-stopped
+    networks:
+      - warptoad-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8888/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
 volumes:
   bridge-sync-logs:
   bridge-sync-db:
+  faucet-db:
 
 networks:
   warptoad-network:

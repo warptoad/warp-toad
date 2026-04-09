@@ -4,7 +4,7 @@ Cross-chain privacy bridge connecting Ethereum L1, Scroll L2, and Aztec L2 using
 
 ## Architecture
 
-Four workspaces in a single pnpm monorepo:
+Five workspaces in a single pnpm monorepo:
 
 | Workspace | Role |
 |---|---|
@@ -12,6 +12,7 @@ Four workspaces in a single pnpm monorepo:
 | `frontend/` | Svelte 5 + Vite SPA, in-browser Aztec wallet, ZK proof generation |
 | `bridge-sync/` | HTTP service ("BridgeKeeper") that triggers cross-chain root sync. In-process viem-native, calls `backend/lib/bridging.ts` directly |
 | `relay-service/` | HTTP service for gasless EVM withdrawals via meta-tx |
+| `faucet-service/` | HTTP service that drips testnet ETH (Sepolia + Scroll Sepolia) to user wallets, one claim per chain |
 
 The two services + the frontend can be run in Docker via a single root-level
 `docker-compose.yml` (recommended), or locally for dev.
@@ -208,6 +209,7 @@ Once up:
 - Frontend → http://localhost:4173
 - bridge-sync → http://localhost:6969 (`/health`, `/config`, `POST /bridge/{from}/{to}`)
 - relay-service → http://localhost:7777 (`/health`, `/relay/info?chainId=...`, `POST /relay/withdraw`)
+- faucet-service → http://localhost:8888 (`/health`, `/faucet/info?address=...`, `POST /faucet/claim`)
 
 You can also run a single service: `docker compose up -d bridge-sync` only
 spins up bridge-sync.
@@ -226,7 +228,10 @@ AZTEC_NODE_URL=https://rpc.testnet.aztec-labs.com
 # relay-service
 RELAYER_PRIVATE_KEY=0x...                                  # signs mint() relay txs (use a different wallet from EVM_PRIVATE_KEY)
 
-# CORS (applies to both)
+# faucet-service
+FAUCET_PRIVATE_KEY=0x...                                   # third dedicated wallet, fund with ~5 ETH on each chain
+
+# CORS (applies to all three)
 ALLOWED_ORIGINS=https://your.frontend,http://localhost:4173
 ```
 

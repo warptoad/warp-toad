@@ -163,6 +163,37 @@ importers:
         specifier: ^5.3.3
         version: 5.9.3
 
+  faucet-service:
+    dependencies:
+      cors:
+        specifier: ^2.8.5
+        version: 2.8.6
+      express:
+        specifier: ^4.18.2
+        version: 4.22.1
+      express-rate-limit:
+        specifier: ^7.5.0
+        version: 7.5.1(express@4.22.1)
+      tsx:
+        specifier: ^4.7.0
+        version: 4.21.0
+      viem:
+        specifier: ^2.41.2
+        version: 2.47.10(typescript@5.9.3)(zod@3.25.76)
+    devDependencies:
+      '@types/cors':
+        specifier: ^2.8.19
+        version: 2.8.19
+      '@types/express':
+        specifier: ^4.17.21
+        version: 4.17.25
+      '@types/node':
+        specifier: ^20.11.5
+        version: 20.19.39
+      typescript:
+        specifier: ^5.3.3
+        version: 5.9.3
+
   frontend:
     dependencies:
       '@aztec/accounts':
@@ -2699,6 +2730,12 @@ packages:
   execa@7.2.0:
     resolution: {integrity: sha512-UduyVP7TLB5IcAQl+OzLyLcS/l32W/GLg+AhHJ+ow40FOk2U3SAllPwR44v4vmdFwIWqpdwxxpQbF1n5ta9seA==}
     engines: {node: ^14.18.0 || ^16.14.0 || >=18.0.0}
+
+  express-rate-limit@7.5.1:
+    resolution: {integrity: sha512-7iN8iPMDzOMHPUYllBEsQdWVB6fPDMPqwjBaFrgr4Jgr/+okjvzAy+UHlYYL/Vs0OsOrMkwS6PJDkFlJwoxUnw==}
+    engines: {node: '>= 16'}
+    peerDependencies:
+      express: '>= 4.11'
 
   express@4.22.1:
     resolution: {integrity: sha512-F2X8g9P1X7uCPZMA3MVf9wcTqlyNp7IhH5qPCI0izhaOIYXaW9L535tGA3qmjRzpH+bZczqq7hVKxTR4NWnu+g==}
@@ -7474,6 +7511,10 @@ snapshots:
       onetime: 6.0.0
       signal-exit: 3.0.7
       strip-final-newline: 3.0.0
+
+  express-rate-limit@7.5.1(express@4.22.1):
+    dependencies:
+      express: 4.22.1
 
   express@4.22.1:
     dependencies:

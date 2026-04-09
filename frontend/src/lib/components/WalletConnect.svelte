@@ -23,9 +23,17 @@
 	import { getChainId, NETWORKS } from "$lib/utils/evm-wallet";
 	import { getAztecWarpToadBalance } from "$lib/utils/aztec-interactions";
 	import { getWalletInstance } from "$lib/utils/aztec-wallet";
+	import {
+		getFaucetInfo,
+		claimFaucet,
+		isFaucetServiceAvailable,
+		type FaucetChainStatus,
+	} from "$lib/utils/faucet-client";
 	import type { Chain } from "$lib/types/bridge";
 	import { isTestMode } from "$lib/config/chains.js";
 	import type { AztecAccountMode } from "$lib/utils/aztec-wallet";
+	import { onMount } from "svelte";
+	import { Droplet } from "@lucide/svelte";
 
 	interface Props {
 		open?: boolean;
@@ -36,6 +44,68 @@
 	let isSyncing = $state(false);
 	let syncError = $state<string | null>(null);
 	let syncSuccess = $state<string | null>(null);
+
+	// Faucet state
+	const FAUCET_SUPPORTED_CHAINS = new Set([11155111, 534351]);
+	let faucetAvailable = $state(false);
+	let faucetStatus = $state<Record<string, FaucetChainStatus> | null>(null);
+	let faucetLoading = $state(false);
+	let faucetClaiming = $state(false);
+	let faucetError = $state<string | null>(null);
+	let faucetSuccess = $state<string | null>(null);
+
+	let isFaucetSupportedChain = $derived(
+		walletStore.chainId !== null && FAUCET_SUPPORTED_CHAINS.has(walletStore.chainId),
+	);
+	let currentChainClaimStatus = $derived.by<FaucetChainStatus | null>(() => {
+		if (!faucetStatus || walletStore.chainId === null) return null;
+		return faucetStatus[walletStore.chainId.toString()] ?? null;
+	});
+
+	async function refreshFaucetStatus() {
+		if (!walletStore.wallets.evm || !faucetAvailable) {
+			faucetStatus = null;
+			return;
+		}
+		faucetLoading = true;
+		try {
+			const info = await getFaucetInfo(walletStore.wallets.evm);
+			faucetStatus = info?.chains ?? null;
+		} finally {
+			faucetLoading = false;
+		}
+	}
+
+	async function handleClaimFaucet() {
+		if (!walletStore.wallets.evm || walletStore.chainId === null) return;
+		faucetClaiming = true;
+		faucetError = null;
+		faucetSuccess = null;
+		try {
+			const result = await claimFaucet(walletStore.wallets.evm, walletStore.chainId);
+			faucetSuccess = `Sent! tx ${result.txHash.slice(0, 10)}...`;
+			await refreshFaucetStatus();
+			// Refresh balances so the new ETH shows up if the UI displays it.
+			await balanceStore.refresh();
+		} catch (err) {
+			faucetError = err instanceof Error ? err.message : "Faucet claim failed";
+		} finally {
+			faucetClaiming = false;
+		}
+	}
+
+	onMount(async () => {
+		faucetAvailable = await isFaucetServiceAvailable();
+		if (faucetAvailable) await refreshFaucetStatus();
+	});
+
+	// Re-fetch claim status whenever the connected EVM address changes.
+	$effect(() => {
+		// touch reactive deps so the effect re-runs on change
+		void walletStore.wallets.evm;
+		void walletStore.chainId;
+		if (faucetAvailable) refreshFaucetStatus();
+	});
 
 	// Compute if user is on an unsupported network
 	let isOnUnsupportedNetwork = $derived.by(() => {
@@ -179,6 +249,38 @@
 							<Zap class="size-3" />
 							Mint Test USDC
 						</button>
+					{/if}
+
+					<!-- Faucet: claim 0.05 testnet ETH on the current chain -->
+					{#if faucetAvailable && isFaucetSupportedChain}
+						{#if currentChainClaimStatus?.claimed}
+							<div class="w-full py-1.5 px-3 rounded text-xs text-center text-[var(--muted-foreground)] border border-dashed border-[rgba(130,226,102,0.15)]">
+								Faucet already claimed
+								{#if currentChainClaimStatus.txHash}
+									<span class="font-mono opacity-70">({currentChainClaimStatus.txHash.slice(0, 8)}...)</span>
+								{/if}
+							</div>
+						{:else}
+							<button
+								onclick={handleClaimFaucet}
+								disabled={faucetClaiming || faucetLoading}
+								class="cursor-pointer w-full py-1.5 px-3 rounded text-xs font-medium text-[var(--toad-green)] hover:bg-[rgba(130,226,102,0.1)] transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+							>
+								{#if faucetClaiming}
+									<Loader2 class="size-3 animate-spin" />
+									Sending...
+								{:else}
+									<Droplet class="size-3" />
+									Claim 0.05 testnet ETH
+								{/if}
+							</button>
+							{#if faucetError}
+								<div class="text-[0.65rem] text-red-400 text-center">{faucetError}</div>
+							{/if}
+							{#if faucetSuccess}
+								<div class="text-[0.65rem] text-[var(--toad-green)] text-center">{faucetSuccess}</div>
+							{/if}
+						{/if}
 					{/if}
 
 					<button

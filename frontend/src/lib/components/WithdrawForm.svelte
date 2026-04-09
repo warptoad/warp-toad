@@ -371,20 +371,38 @@
 				return;
 			}
 
-			const tokenConfig = getTokenConfig(selectedProof?.token || 'USDC');
 			const wrappedTokenAddress = chain.contracts.warpToad;
-			const decimals = tokenConfig?.decimals ?? 6;
-			const symbol = `wrptd-${selectedProof?.token || 'USDC'}`;
 
-			// Request to add token to MetaMask using EIP-747
+			// Read the actual symbol + decimals from the deployed contract.
+			// Constructing them client-side is fragile: the L1WarpToad contracts
+			// are deployed with the wrapped name/symbol derived from the source
+			// token at deploy time, so the on-chain values are the source of
+			// truth. MetaMask validates `wallet_watchAsset` against contract.symbol()
+			// and rejects mismatches.
+			const { createPublicClient, http, getContract, parseAbi } = await import('viem');
+			const publicClient = createPublicClient({ transport: http(chain.rpcUrl) });
+			const erc20Abi = parseAbi([
+				'function symbol() view returns (string)',
+				'function decimals() view returns (uint8)',
+			]);
+			const tokenContract: any = getContract({
+				address: wrappedTokenAddress as `0x${string}`,
+				abi: erc20Abi,
+				client: publicClient,
+			});
+			const [symbol, decimals] = await Promise.all([
+				tokenContract.read.symbol(),
+				tokenContract.read.decimals(),
+			]);
+
 			await eth.request({
 				method: 'wallet_watchAsset',
 				params: {
 					type: 'ERC20',
 					options: {
 						address: wrappedTokenAddress,
-						symbol: symbol,
-						decimals: decimals,
+						symbol,
+						decimals,
 					},
 				} as any,
 			});
