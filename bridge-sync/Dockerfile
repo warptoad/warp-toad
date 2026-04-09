@@ -31,9 +31,10 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY backend/package.json ./backend/
 COPY bridge-sync/package.json ./bridge-sync/
 
-# 2. Install only the deps bridge-sync needs (filter pulls in transitive
-#    workspace deps automatically).
-RUN pnpm install --frozen-lockfile --filter @warp-toad/bridge-sync...
+# 2. Install bridge-sync deps + backend deps (including backend's devDeps so
+#    `hardhat compile` works in the next step). pnpm's transitive workspace
+#    filter excludes devDeps of non-filtered packages, so we filter both.
+RUN pnpm install --frozen-lockfile --filter @warp-toad/bridge-sync... --filter @warp-toad/backend
 
 # 3. Copy backend source. bridge-sync's executor.ts imports:
 #      ../../backend/lib/bridging.ts
@@ -48,6 +49,14 @@ COPY backend ./backend
 
 # 4. Copy bridge-sync source.
 COPY bridge-sync ./bridge-sync
+
+# 5. Compile the Solidity contracts so contractLoader.ts can find the
+#    Hardhat ABI artifacts at /app/backend/artifacts/contracts/...
+#    These artifacts are gitignored so they won't be present on a fresh
+#    `git clone`; we MUST regenerate them inside the build.
+WORKDIR /app/backend
+RUN pnpm exec hardhat compile
+WORKDIR /app
 
 # Runtime data dirs.
 RUN mkdir -p /app/bridge-sync/logs /app/bridge-sync/db
