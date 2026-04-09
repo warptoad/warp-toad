@@ -11,6 +11,8 @@
     "f:dev": "pnpm --filter frontend dev",
     "f:run": "pnpm --filter frontend build && pnpm --filter frontend preview",
     "l:deploy": "pnpm --filter @warp-toad/backend deploy:local && pnpm --filter frontend pull:addresses",
+    "l:sync": "pnpm --filter @warp-toad/backend sync:local",
+    "l:sync:from-aztec": "pnpm --filter @warp-toad/backend sync:local:from-aztec",
     "b:compile": "pnpm --filter @warp-toad/backend compile",
     "b:test": "pnpm --filter @warp-toad/backend test",
     "b:build": "pnpm --filter @warp-toad/backend build",

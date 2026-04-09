@@ -2,100 +2,138 @@
 @import "tw-animate-css";
 
 /* ============================================
-   WARPTOAD - BIOLUMINESCENT SWAMP THEME
+   WARPTOAD - design system aligned with warptoad.org
+   Single accent (warp purple), neutral surfaces, light + dark.
    ============================================ */
 
-/* Fonts - Distinctive, not generic */
 @import url('https://api.fontshare.com/v2/css?f[]=satoshi@400,500,700,900&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 @custom-variant dark (&:is(.dark *));
 
+/* ---------- LIGHT MODE (default) ---------- */
 :root {
-  /* ========== BRAND COLORS (from logo) ========== */
-  --toad-green: #82e266;
-  --toad-green-glow: #a8ff7c;
-  --toad-green-dark: #5cb83a;
-  --toad-green-muted: #4a8f3a;
+  /* warptoad.org core palette */
+  --color-offwhite: #f5f3f0;
+  --color-dark: #0f0f0f;
+  --color-accent: #8b5cf6;
+  --color-accent-hover: #7c3aed;
+  --color-muted: #a3a3a3;
+  --color-border-light: #e5e2de;
+  --color-border-dark: #2a2a2a;
 
-  --warp-purple: #9061F9;
-  --warp-purple-glow: #b794ff;
-  --warp-purple-dark: #6b3fd4;
-  --warp-purple-muted: #5a3a9e;
+  /* Semantic surfaces (light) */
+  --background: var(--color-offwhite);
+  --surface: #ffffff;
+  --surface-elevated: #ffffff;
+  --foreground: var(--color-dark);
+  --foreground-muted: #5c5c5c;
+  --border: var(--color-border-light);
+  --border-strong: #d4d0c8;
+  --ring: var(--color-accent);
 
-  --eye-yellow: #e0e266;
-  --eye-yellow-glow: #f0f280;
-
-  /* ========== SWAMP ATMOSPHERE ========== */
-  --swamp-black: #050708;
-  --swamp-deep: #0a0e12;
-  --swamp-surface: #0f151a;
-  --swamp-card: #141c24;
-  --swamp-elevated: #1a242e;
-
-  /* ========== SEMANTIC TOKENS ========== */
+  /* shadcn-svelte semantic tokens (kept so primitives keep working) */
   --radius: 0.75rem;
-  --background: var(--swamp-black);
-  --foreground: #e8f0e8;
-  --card: var(--swamp-card);
-  --card-foreground: #e8f0e8;
-  --popover: var(--swamp-elevated);
-  --popover-foreground: #e8f0e8;
-  --primary: var(--toad-green);
-  --primary-foreground: #050708;
-  --secondary: var(--swamp-elevated);
-  --secondary-foreground: #c8d8c8;
-  --muted: var(--swamp-surface);
-  --muted-foreground: #6b8b6b;
-  --accent: var(--warp-purple);
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface-elevated);
+  --popover-foreground: var(--foreground);
+  --primary: var(--color-accent);
+  --primary-foreground: #ffffff;
+  --secondary: #efece8;
+  --secondary-foreground: var(--foreground);
+  --muted: #efece8;
+  --muted-foreground: var(--color-muted);
+  --accent: var(--color-accent);
   --accent-foreground: #ffffff;
-  --destructive: #ff4d4d;
+  --destructive: #dc2626;
   --destructive-foreground: #ffffff;
-  --border: rgba(130, 226, 102, 0.12);
-  --input: rgba(130, 226, 102, 0.08);
-  --ring: var(--toad-green);
+  --input: var(--surface);
 
-  /* ========== GLOW EFFECTS ========== */
-  --glow-green: 0 0 20px rgba(130, 226, 102, 0.4), 0 0 40px rgba(130, 226, 102, 0.2);
-  --glow-green-intense: 0 0 30px rgba(130, 226, 102, 0.6), 0 0 60px rgba(130, 226, 102, 0.3);
-  --glow-purple: 0 0 20px rgba(144, 97, 249, 0.4), 0 0 40px rgba(144, 97, 249, 0.2);
-  --glow-purple-intense: 0 0 30px rgba(144, 97, 249, 0.6), 0 0 60px rgba(144, 97, 249, 0.3);
-  --glow-yellow: 0 0 15px rgba(224, 226, 102, 0.5);
+  /* ----------------------------------------------------------
+     Legacy token aliases. The existing component markup uses
+     --toad-green / --warp-purple / --swamp-* heavily; we map
+     them all onto the new palette so we don't have to touch
+     2,000+ LOC of forms.
+     ---------------------------------------------------------- */
+  --toad-green: var(--color-accent);
+  --toad-green-glow: var(--color-accent-hover);
+  --toad-green-dark: var(--color-accent-hover);
+  --toad-green-muted: var(--color-accent);
 
-  /* ========== GRADIENTS ========== */
-  --gradient-brand: linear-gradient(135deg, var(--toad-green) 0%, var(--warp-purple) 100%);
-  --gradient-brand-reverse: linear-gradient(135deg, var(--warp-purple) 0%, var(--toad-green) 100%);
-  --gradient-swamp: linear-gradient(180deg, var(--swamp-black) 0%, var(--swamp-deep) 50%, var(--swamp-surface) 100%);
-  --gradient-glow-border: linear-gradient(135deg, rgba(130, 226, 102, 0.5) 0%, rgba(144, 97, 249, 0.5) 100%);
+  --warp-purple: var(--color-accent);
+  --warp-purple-glow: var(--color-accent-hover);
+  --warp-purple-dark: var(--color-accent-hover);
+  --warp-purple-muted: var(--color-accent);
 
-  /* ========== TYPOGRAPHY ========== */
+  --eye-yellow: #d97706;
+  --eye-yellow-glow: #f59e0b;
+
+  --swamp-black: var(--background);
+  --swamp-deep: var(--background);
+  --swamp-surface: var(--surface);
+  --swamp-card: var(--surface);
+  --swamp-elevated: var(--surface-elevated);
+
+  /* Glow effects collapse to soft shadows */
+  --glow-green: 0 1px 3px rgba(15, 15, 15, 0.06), 0 1px 2px rgba(15, 15, 15, 0.04);
+  --glow-green-intense: 0 4px 12px rgba(139, 92, 246, 0.18), 0 2px 6px rgba(139, 92, 246, 0.12);
+  --glow-purple: 0 1px 3px rgba(15, 15, 15, 0.06), 0 1px 2px rgba(15, 15, 15, 0.04);
+  --glow-purple-intense: 0 4px 12px rgba(139, 92, 246, 0.18), 0 2px 6px rgba(139, 92, 246, 0.12);
+  --glow-yellow: 0 1px 3px rgba(217, 119, 6, 0.15);
+
+  /* Brand "gradient" is now a flat accent */
+  --gradient-brand: var(--color-accent);
+  --gradient-brand-reverse: var(--color-accent-hover);
+  --gradient-swamp: var(--background);
+  --gradient-glow-border: var(--color-border-light);
+
+  /* Typography */
   --font-display: 'Satoshi', system-ui, sans-serif;
   --font-body: 'Satoshi', system-ui, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 }
 
-/* Dark mode is default for this theme */
+/* ---------- DARK MODE OVERRIDES ---------- */
 .dark {
-  --background: var(--swamp-black);
-  --foreground: #e8f0e8;
-  --card: var(--swamp-card);
-  --card-foreground: #e8f0e8;
-  --popover: var(--swamp-elevated);
-  --popover-foreground: #e8f0e8;
-  --primary: var(--toad-green);
-  --primary-foreground: #050708;
-  --secondary: var(--swamp-elevated);
-  --secondary-foreground: #c8d8c8;
-  --muted: var(--swamp-surface);
-  --muted-foreground: #6b8b6b;
-  --accent: var(--warp-purple);
+  --background: var(--color-dark);
+  --surface: #1a1a1a;
+  --surface-elevated: #1f1f1f;
+  --foreground: var(--color-offwhite);
+  --foreground-muted: #b5b3ae;
+  --border: var(--color-border-dark);
+  --border-strong: #3a3a3a;
+  --ring: var(--color-accent);
+
+  --card: var(--surface);
+  --card-foreground: var(--foreground);
+  --popover: var(--surface-elevated);
+  --popover-foreground: var(--foreground);
+  --primary: var(--color-accent);
+  --primary-foreground: #ffffff;
+  --secondary: #262626;
+  --secondary-foreground: var(--foreground);
+  --muted: #262626;
+  --muted-foreground: var(--color-muted);
+  --accent: var(--color-accent);
   --accent-foreground: #ffffff;
-  --destructive: #ff4d4d;
-  --border: rgba(130, 226, 102, 0.12);
-  --input: rgba(130, 226, 102, 0.08);
-  --ring: var(--toad-green);
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --input: var(--surface);
+
+  --swamp-black: var(--background);
+  --swamp-deep: var(--background);
+  --swamp-surface: var(--surface);
+  --swamp-card: var(--surface);
+  --swamp-elevated: var(--surface-elevated);
+
+  --glow-green: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --glow-green-intense: 0 4px 12px rgba(139, 92, 246, 0.3), 0 2px 6px rgba(139, 92, 246, 0.2);
+  --glow-purple: 0 1px 3px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.3);
+  --glow-purple-intense: 0 4px 12px rgba(139, 92, 246, 0.3), 0 2px 6px rgba(139, 92, 246, 0.2);
 }
 
+/* ---------- TAILWIND THEME WIRING ---------- */
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -122,7 +160,7 @@
 }
 
 /* ============================================
-   BASE STYLES
+   BASE
    ============================================ */
 
 @layer base {
@@ -134,24 +172,25 @@
     font-family: var(--font-body);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    background: var(--background);
+    color: var(--foreground);
   }
 
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-body);
-    background: var(--swamp-black);
+    background: var(--background);
     min-height: 100vh;
     overflow-x: hidden;
+    transition: background-color 0.2s ease, color 0.2s ease;
   }
 
-  /* Distinctive headings */
   h1, h2, h3, h4, h5, h6 {
     font-family: var(--font-display);
     font-weight: 700;
     letter-spacing: -0.02em;
   }
 
-  /* Monospace for crypto data */
   .font-mono, code, pre,
   [class*="address"], [class*="hash"], [class*="balance"] {
     font-family: var(--font-mono);
@@ -160,89 +199,54 @@
 }
 
 /* ============================================
-   GLASSMORPHISM CARDS
+   CARDS - flat, minimal, border-only
    ============================================ */
 
 .glass-card {
-  background: linear-gradient(
-    135deg,
-    rgba(20, 28, 36, 0.8) 0%,
-    rgba(15, 21, 26, 0.9) 100%
-  );
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(130, 226, 102, 0.15);
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(130, 226, 102, 0.1);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: var(--surface);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 1px solid var(--border);
+  box-shadow: var(--glow-green);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .glass-card:hover {
-  border-color: rgba(130, 226, 102, 0.3);
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.4),
-    0 0 30px rgba(130, 226, 102, 0.1),
-    inset 0 1px 0 rgba(130, 226, 102, 0.15);
+  border-color: var(--border-strong);
 }
 
 .glass-card-purple {
-  background: linear-gradient(
-    135deg,
-    rgba(20, 28, 36, 0.8) 0%,
-    rgba(15, 21, 26, 0.9) 100%
-  );
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(144, 97, 249, 0.15);
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.4),
-    inset 0 1px 0 rgba(144, 97, 249, 0.1);
+  background: var(--surface);
+  backdrop-filter: none;
+  border: 1px solid var(--border);
+  box-shadow: var(--glow-green);
 }
 
 .glass-card-purple:hover {
-  border-color: rgba(144, 97, 249, 0.3);
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.4),
-    0 0 30px rgba(144, 97, 249, 0.1);
+  border-color: var(--color-accent);
 }
 
 /* ============================================
-   SWAMP CARDS (Bridge Form)
-   Clean, minimal design without AI glow
+   SWAMP CARDS (Bridge Form source/target)
+   Now neutral cards with a single subtle accent bar.
    ============================================ */
 
 .swamp-card-source,
 .swamp-card-target {
   position: relative;
-  border-radius: 12px;
+  border-radius: var(--radius);
   overflow: hidden;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  transition: border-color 0.2s ease;
 }
 
-.swamp-card-source {
-  background: var(--swamp-card);
-  border: 1px solid rgba(130, 226, 102, 0.12);
+.swamp-card-source:hover,
+.swamp-card-target:hover {
+  border-color: var(--border-strong);
 }
 
-.swamp-card-target {
-  background: var(--swamp-card);
-  border: 1px solid rgba(144, 97, 249, 0.12);
-}
-
-/* Subtle top accent line */
-.swamp-card-source::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 16px;
-  right: 16px;
-  height: 1px;
-  background: linear-gradient(90deg,
-    transparent 0%,
-    rgba(130, 226, 102, 0.4) 50%,
-    transparent 100%
-  );
-}
-
+.swamp-card-source::before,
 .swamp-card-target::before {
   content: '';
   position: absolute;
@@ -250,11 +254,8 @@
   left: 16px;
   right: 16px;
   height: 1px;
-  background: linear-gradient(90deg,
-    transparent 0%,
-    rgba(144, 97, 249, 0.4) 50%,
-    transparent 100%
-  );
+  background: var(--color-accent);
+  opacity: 0.4;
 }
 
 .swamp-card-inner {
@@ -265,247 +266,143 @@
 }
 
 /* ============================================
-   GLOW EFFECTS
+   GLOWS - reduced to nothing in light mode,
+   subtle in dark.
    ============================================ */
 
-.glow-green {
-  box-shadow: var(--glow-green);
-}
+.glow-green,
+.glow-purple { box-shadow: var(--glow-green); }
+.glow-green-intense,
+.glow-purple-intense { box-shadow: var(--glow-green-intense); }
+.glow-text-green,
+.glow-text-purple { text-shadow: none; }
 
-.glow-green-intense {
-  box-shadow: var(--glow-green-intense);
-}
-
-.glow-purple {
-  box-shadow: var(--glow-purple);
-}
-
-.glow-purple-intense {
-  box-shadow: var(--glow-purple-intense);
-}
-
-.glow-text-green {
-  text-shadow: 0 0 20px rgba(130, 226, 102, 0.5);
-}
-
-.glow-text-purple {
-  text-shadow: 0 0 20px rgba(144, 97, 249, 0.5);
-}
-
-/* Gradient border effect */
 .gradient-border {
   position: relative;
-  background: var(--swamp-card);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
+  transition: border-color 0.2s ease;
 }
-
-.gradient-border::before {
-  content: '';
-  position: absolute;
-  inset: -1px;
-  border-radius: calc(var(--radius) + 1px);
-  background: var(--gradient-glow-border);
-  z-index: -1;
-  opacity: 0.5;
-  transition: opacity 0.3s ease;
-}
-
-.gradient-border:hover::before {
-  opacity: 1;
-}
+.gradient-border::before { content: none; }
+.gradient-border:hover { border-color: var(--color-accent); }
 
 /* ============================================
-   ANIMATIONS
+   ANIMATIONS - kept minimal
    ============================================ */
 
-/* Clean border glow - no animation, just subtle presence */
 .animate-glow-pulse {
-  background: rgba(130, 226, 102, 0.12);
-  box-shadow: 0 0 30px rgba(130, 226, 102, 0.08);
+  background: transparent;
+  box-shadow: none;
 }
 
-/* Purple glow pulse */
 @keyframes glow-pulse-purple {
-  0%, 100% {
-    box-shadow: 0 0 20px rgba(144, 97, 249, 0.3);
-  }
-  50% {
-    box-shadow: 0 0 35px rgba(144, 97, 249, 0.5), 0 0 50px rgba(144, 97, 249, 0.2);
-  }
+  0%, 100% { box-shadow: 0 0 0 rgba(139, 92, 246, 0); }
+  50% { box-shadow: 0 0 0 rgba(139, 92, 246, 0); }
 }
+.animate-glow-pulse-purple { animation: none; }
 
-.animate-glow-pulse-purple {
-  animation: glow-pulse-purple 3s ease-in-out infinite;
-}
-
-/* Floating animation (like lily pads) */
 @keyframes float {
-  0%, 100% {
-    transform: translateY(0px);
-  }
-  50% {
-    transform: translateY(-4px);
-  }
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
 }
+.animate-float { animation: float 4s ease-in-out infinite; }
 
-.animate-float {
-  animation: float 4s ease-in-out infinite;
-}
-
-/* Ripple effect on water */
 @keyframes ripple {
-  0% {
-    transform: scale(1);
-    opacity: 0.5;
-  }
-  100% {
-    transform: scale(2.5);
-    opacity: 0;
-  }
+  0% { transform: scale(1); opacity: 0.3; }
+  100% { transform: scale(2.5); opacity: 0; }
 }
-
-.ripple-effect {
-  position: relative;
-  overflow: hidden;
-}
-
+.ripple-effect { position: relative; overflow: hidden; }
 .ripple-effect::after {
   content: '';
   position: absolute;
   width: 100%;
   height: 100%;
-  background: radial-gradient(circle, rgba(130, 226, 102, 0.3) 0%, transparent 70%);
+  background: radial-gradient(circle, rgba(139, 92, 246, 0.2) 0%, transparent 70%);
   transform: scale(0);
   opacity: 0;
   pointer-events: none;
 }
+.ripple-effect:active::after { animation: ripple 0.6s ease-out; }
 
-.ripple-effect:active::after {
-  animation: ripple 0.6s ease-out;
-}
-
-/* Portal/warp spin effect */
 @keyframes portal-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
+.animate-portal { animation: portal-spin 20s linear infinite; }
 
-.animate-portal {
-  animation: portal-spin 20s linear infinite;
-}
-
-/* Shimmer effect */
 @keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
-
 .shimmer {
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    rgba(130, 226, 102, 0.1) 50%,
-    transparent 100%
-  );
+  background: linear-gradient(90deg, transparent 0%, rgba(139, 92, 246, 0.1) 50%, transparent 100%);
   background-size: 200% 100%;
   animation: shimmer 3s ease-in-out infinite;
 }
 
-/* Firefly particles */
-@keyframes firefly {
-  0%, 100% {
-    opacity: 0.2;
-    transform: translateY(0) translateX(0);
-  }
-  25% {
-    opacity: 0.8;
-    transform: translateY(-10px) translateX(5px);
-  }
-  50% {
-    opacity: 0.4;
-    transform: translateY(-5px) translateX(-5px);
-  }
-  75% {
-    opacity: 0.9;
-    transform: translateY(-15px) translateX(3px);
-  }
+@keyframes gentle-bounce {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(4px); }
 }
 
 /* ============================================
-   BUTTON STYLES
+   BUTTONS
    ============================================ */
 
 .btn-warp {
   position: relative;
-  background: var(--gradient-brand);
-  color: var(--swamp-black);
+  background: var(--color-accent);
+  color: #ffffff;
   font-family: var(--font-display);
-  font-weight: 600;
-  letter-spacing: 0.02em;
+  font-weight: 500;
+  letter-spacing: 0.01em;
   border: none;
   overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: background-color 0.2s ease;
 }
 
-.btn-warp::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: var(--gradient-brand-reverse);
-  opacity: 0;
-  transition: opacity 0.3s ease;
-}
-
-.btn-warp:hover::before {
-  opacity: 1;
-}
+.btn-warp::before { content: none; }
 
 .btn-warp:hover {
-  box-shadow: var(--glow-green-intense);
-  transform: translateY(-1px);
+  background: var(--color-accent-hover);
+  box-shadow: none;
+  transform: none;
 }
 
-.btn-warp:active {
-  transform: translateY(0);
-}
+.btn-warp:active { transform: none; }
 
 .btn-warp-outline {
   background: transparent;
-  border: 1px solid var(--toad-green);
-  color: var(--toad-green);
+  border: 1px solid var(--border-strong);
+  color: var(--foreground);
   font-family: var(--font-display);
   font-weight: 500;
-  transition: all 0.3s ease;
+  transition: border-color 0.2s ease, color 0.2s ease;
 }
 
 .btn-warp-outline:hover {
-  background: rgba(130, 226, 102, 0.1);
-  box-shadow: var(--glow-green);
+  background: transparent;
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  box-shadow: none;
 }
 
 /* ============================================
-   INPUT STYLES
+   INPUTS
    ============================================ */
 
 .input-swamp {
-  background: rgba(10, 14, 18, 0.8);
-  border: 1px solid rgba(130, 226, 102, 0.2);
+  background: var(--surface);
+  border: 1px solid var(--border);
   color: var(--foreground);
   font-family: var(--font-mono);
-  transition: all 0.2s ease;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
 .input-swamp:focus {
-  border-color: var(--toad-green);
-  box-shadow: 0 0 0 3px rgba(130, 226, 102, 0.1), var(--glow-green);
+  border-color: var(--color-accent);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.12);
   outline: none;
 }
 
@@ -514,7 +411,6 @@
   opacity: 0.6;
 }
 
-/* Large amount input */
 .input-amount {
   font-size: 1.5rem;
   font-weight: 600;
@@ -524,11 +420,8 @@
   font-family: var(--font-mono);
 }
 
-.input-amount:focus {
-  outline: none;
-}
+.input-amount:focus { outline: none; }
 
-/* Hide number input spinners */
 .input-amount::-webkit-outer-spin-button,
 .input-amount::-webkit-inner-spin-button {
   -webkit-appearance: none;
@@ -541,7 +434,7 @@
 }
 
 /* ============================================
-   TAB STYLES (Lily Pad)
+   TABS - simple bottom-border underline
    ============================================ */
 
 .tab-lily {
@@ -552,24 +445,24 @@
   font-family: var(--font-display);
   font-weight: 500;
   padding: 0.75rem 1.5rem;
-  transition: all 0.3s ease;
+  transition: color 0.2s ease;
 }
 
 .tab-lily::before {
   content: '';
   position: absolute;
-  bottom: -2px;
+  bottom: -1px;
   left: 50%;
   width: 0;
-  height: 3px;
-  background: var(--gradient-brand);
-  border-radius: 2px;
+  height: 2px;
+  background: var(--color-accent);
+  border-radius: 1px;
   transform: translateX(-50%);
-  transition: width 0.3s ease;
+  transition: width 0.2s ease;
 }
 
 .tab-lily:hover {
-  color: var(--toad-green);
+  color: var(--foreground);
 }
 
 .tab-lily[data-state="active"] {
@@ -577,44 +470,32 @@
 }
 
 .tab-lily[data-state="active"]::before {
-  width: 60%;
-  box-shadow: 0 0 15px rgba(130, 226, 102, 0.5);
+  width: 70%;
+  box-shadow: none;
 }
 
 /* ============================================
-   BADGE STYLES
+   BADGES
    ============================================ */
 
-.badge-glow {
-  background: rgba(130, 226, 102, 0.15);
-  border: 1px solid rgba(130, 226, 102, 0.3);
-  color: var(--toad-green);
-  font-family: var(--font-mono);
-  font-size: 0.75rem;
-  padding: 0.25rem 0.75rem;
-  border-radius: 9999px;
-  transition: all 0.2s ease;
-}
-
-.badge-glow:hover {
-  background: rgba(130, 226, 102, 0.25);
-  box-shadow: var(--glow-green);
-}
-
+.badge-glow,
 .badge-purple {
-  background: rgba(144, 97, 249, 0.15);
-  border: 1px solid rgba(144, 97, 249, 0.3);
-  color: var(--warp-purple);
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--foreground-muted);
   font-family: var(--font-mono);
   font-size: 0.75rem;
   padding: 0.25rem 0.75rem;
   border-radius: 9999px;
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease, color 0.2s ease;
 }
 
+.badge-glow:hover,
 .badge-purple:hover {
-  background: rgba(144, 97, 249, 0.25);
-  box-shadow: var(--glow-purple);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background: transparent;
+  box-shadow: none;
 }
 
 /* ============================================
@@ -626,16 +507,15 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
-  background: rgba(15, 21, 26, 0.8);
-  border: 1px solid rgba(130, 226, 102, 0.15);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   cursor: pointer;
-  transition: all 0.2s ease;
+  transition: border-color 0.2s ease;
 }
 
 .chain-selector:hover {
-  border-color: rgba(130, 226, 102, 0.4);
-  background: rgba(15, 21, 26, 0.95);
+  border-color: var(--color-accent);
 }
 
 .chain-icon {
@@ -650,62 +530,36 @@
   color: white;
 }
 
-.chain-icon-eth {
-  background: linear-gradient(135deg, #627eea 0%, #3c4a9e 100%);
-}
-
-.chain-icon-scroll {
-  background: linear-gradient(135deg, #ffeeda 0%, #d4a574 100%);
-  color: #1a1a1a;
-}
-
-.chain-icon-aztec {
-  background: linear-gradient(135deg, var(--warp-purple) 0%, var(--warp-purple-dark) 100%);
-}
+.chain-icon-eth { background: linear-gradient(135deg, #627eea 0%, #3c4a9e 100%); }
+.chain-icon-scroll { background: linear-gradient(135deg, #ffeeda 0%, #d4a574 100%); color: #1a1a1a; }
+.chain-icon-aztec { background: var(--color-accent); }
 
 /* ============================================
-   SWAMP POPOVERS
+   POPOVERS
    ============================================ */
 
-/* Base popover styling */
-.swamp-popover {
-  background: linear-gradient(
-    135deg,
-    rgba(20, 28, 36, 0.95) 0%,
-    rgba(15, 21, 26, 0.98) 100%
-  );
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+.swamp-popover,
+.swamp-popover-green,
+.swamp-popover-purple {
+  background: var(--surface-elevated);
+  backdrop-filter: none;
+  border: 1px solid var(--border);
   border-radius: var(--radius);
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(255, 255, 255, 0.05);
+  box-shadow: 0 10px 30px rgba(15, 15, 15, 0.08), 0 4px 12px rgba(15, 15, 15, 0.04);
   overflow: hidden;
   min-width: 180px;
   z-index: 9999 !important;
   position: relative;
 }
 
-/* Green variant (source section) */
-.swamp-popover-green {
-  border: 1px solid rgba(130, 226, 102, 0.25);
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.5),
-    0 0 30px rgba(130, 226, 102, 0.1),
-    inset 0 1px 0 rgba(130, 226, 102, 0.1);
-}
-
-/* Purple variant (target section) */
-.swamp-popover-purple {
-  border: 1px solid rgba(144, 97, 249, 0.25);
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.5),
-    0 0 30px rgba(144, 97, 249, 0.1),
-    inset 0 1px 0 rgba(144, 97, 249, 0.1);
+.dark .swamp-popover,
+.dark .swamp-popover-green,
+.dark .swamp-popover-purple {
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 /* ============================================
-   SWAMP SELECTOR BUTTONS
+   SELECTOR BUTTONS
    ============================================ */
 
 .swamp-selector-btn {
@@ -714,26 +568,26 @@
   gap: 0.375rem;
   padding: 0.375rem 0.625rem;
   min-width: 110px;
-  background: rgba(15, 21, 26, 0.8);
-  border: 1px solid rgba(130, 226, 102, 0.15);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius);
   cursor: pointer;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: border-color 0.2s ease;
 }
 
 .swamp-selector-btn:hover {
-  border-color: rgba(130, 226, 102, 0.4);
-  background: rgba(15, 21, 26, 0.95);
-  box-shadow: 0 0 15px rgba(130, 226, 102, 0.1);
+  border-color: var(--color-accent);
+  background: var(--surface);
+  box-shadow: none;
 }
 
 .swamp-selector-btn.purple {
-  border-color: rgba(144, 97, 249, 0.15);
+  border-color: var(--border);
 }
 
 .swamp-selector-btn.purple:hover {
-  border-color: rgba(144, 97, 249, 0.4);
-  box-shadow: 0 0 15px rgba(144, 97, 249, 0.1);
+  border-color: var(--color-accent);
+  box-shadow: none;
 }
 
 .swamp-selector-btn.static {
@@ -742,12 +596,11 @@
 }
 
 .swamp-selector-btn.static:hover {
-  border-color: rgba(144, 97, 249, 0.15);
-  background: rgba(15, 21, 26, 0.8);
+  border-color: var(--border);
+  background: var(--surface);
   box-shadow: none;
 }
 
-/* Token/Chain icon in selector */
 .swamp-selector-icon {
   width: 24px;
   height: 24px;
@@ -759,7 +612,6 @@
   font-size: 0.65rem;
   color: white;
   flex-shrink: 0;
-  transition: box-shadow 0.2s ease;
 }
 
 .swamp-selector-icon-img {
@@ -767,16 +619,10 @@
   height: 24px;
   border-radius: 50%;
   flex-shrink: 0;
-  transition: box-shadow 0.2s ease, filter 0.2s ease;
-}
-
-.swamp-selector-btn:hover .swamp-selector-icon,
-.swamp-selector-btn:hover .swamp-selector-icon-img {
-  box-shadow: 0 0 12px var(--icon-glow, rgba(130, 226, 102, 0.4));
 }
 
 /* ============================================
-   SWAMP SELECTOR ITEMS (inside popover)
+   SELECTOR ITEMS
    ============================================ */
 
 .swamp-selector-item {
@@ -785,28 +631,25 @@
   gap: 0.5rem;
   padding: 0.5rem 0.75rem;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: background-color 0.15s ease;
   border-left: 2px solid transparent;
 }
 
-.swamp-selector-item:hover {
-  background: rgba(130, 226, 102, 0.08);
-  border-left-color: var(--toad-green);
-}
-
+.swamp-selector-item:hover,
 .swamp-selector-item.purple:hover {
-  background: rgba(144, 97, 249, 0.08);
-  border-left-color: var(--warp-purple);
+  background: rgba(139, 92, 246, 0.08);
+  border-left-color: var(--color-accent);
 }
 
-.swamp-selector-item.selected {
-  background: rgba(130, 226, 102, 0.12);
-  border-left-color: var(--toad-green);
+.dark .swamp-selector-item:hover,
+.dark .swamp-selector-item.purple:hover {
+  background: rgba(139, 92, 246, 0.15);
 }
 
+.swamp-selector-item.selected,
 .swamp-selector-item.selected.purple {
-  background: rgba(144, 97, 249, 0.12);
-  border-left-color: var(--warp-purple);
+  background: rgba(139, 92, 246, 0.12);
+  border-left-color: var(--color-accent);
 }
 
 .swamp-selector-item.disabled {
@@ -837,7 +680,6 @@
   height: 28px;
   border-radius: 50%;
   flex-shrink: 0;
-  transition: filter 0.2s ease;
 }
 
 .swamp-selector-item.disabled .swamp-selector-item-icon,
@@ -849,60 +691,40 @@
    SCROLLBAR
    ============================================ */
 
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: var(--swamp-deep);
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(130, 226, 102, 0.3);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(130, 226, 102, 0.5);
-}
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-accent); }
 
 /* ============================================
    UTILITIES
    ============================================ */
 
 .text-brand {
-  background: var(--gradient-brand);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-.bg-brand {
-  background: var(--gradient-brand);
-}
-
-.border-brand {
-  border-color: var(--toad-green);
-}
-
-/* Selection color */
-::selection {
-  background: rgba(130, 226, 102, 0.3);
+  background: none;
+  -webkit-background-clip: initial;
+  -webkit-text-fill-color: var(--foreground);
+  background-clip: initial;
   color: var(--foreground);
 }
 
-/* Focus visible */
+.text-brand .accent { color: var(--color-accent); }
+
+.bg-brand { background: var(--color-accent); }
+.border-brand { border-color: var(--color-accent); }
+
+::selection {
+  background: rgba(139, 92, 246, 0.2);
+  color: var(--foreground);
+}
+
 :focus-visible {
-  outline: 2px solid var(--toad-green);
+  outline: 2px solid var(--color-accent);
   outline-offset: 2px;
 }
 
-/* Disable animations for reduced motion */
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;

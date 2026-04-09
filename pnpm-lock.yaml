@@ -25,6 +25,9 @@ importers:
       '@aztec/bb.js':
         specifier: 5.0.0-nightly.20260407
         version: 5.0.0-nightly.20260407
+      '@aztec/constants':
+        specifier: 4.2.0-aztecnr-rc.2
+        version: 4.2.0-aztecnr-rc.2
       '@aztec/ethereum':
         specifier: 4.2.0-aztecnr-rc.2
         version: 4.2.0-aztecnr-rc.2(typescript@5.9.3)
@@ -37,6 +40,9 @@ importers:
       '@aztec/pxe':
         specifier: 4.2.0-aztecnr-rc.2
         version: 4.2.0-aztecnr-rc.2(typescript@5.9.3)(zod@3.25.76)
+      '@aztec/stdlib':
+        specifier: 4.2.0-aztecnr-rc.2
+        version: 4.2.0-aztecnr-rc.2(typescript@5.9.3)
       '@aztec/wallets':
         specifier: 4.2.0-aztecnr-rc.2
         version: 4.2.0-aztecnr-rc.2(typescript@5.9.3)(zod@3.25.76)

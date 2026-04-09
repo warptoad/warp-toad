@@ -34,6 +34,7 @@ import { WarpToadCoreContract, WarpToadCoreContractArtifact } from '@backend/azt
 import { loadContractArtifact } from '@aztec/aztec.js/abi';
 import { getContractInstanceFromInstantiationParams, type ContractInstanceWithAddress } from '@aztec/aztec.js/contracts';
 import { AZTEC_CONTRACTS, AZTEC_CONFIG, L1_CONFIG } from '$lib/config/environment.js';
+import { getSponsoredPaymentMethod } from '$lib/utils/aztec-wallet.js';
 import { Fr } from '@aztec/aztec.js/fields';
 import { MerkleTreeId } from '@aztec/stdlib/trees';
 import { siloNullifier } from '@aztec/stdlib/hash';
@@ -112,10 +113,12 @@ export interface AztecBurnResult {
 // Aztec tree depth for note hash tree
 const AZTEC_TREE_DEPTH = 42;
 
-// Generator indexes for Aztec note hashing (from Aztec protocol constants)
-const GENERATOR_INDEX__NOTE_HASH_NONCE = 2n;
-const GENERATOR_INDEX__UNIQUE_NOTE_HASH = 3n;
-const GENERATOR_INDEX__SILOED_NOTE_HASH = 4n;
+// Generator indexes for Aztec note hashing. These are domain separators used by
+// poseidon2HashWithSeparator and MUST match the values in backend/lib/constants.ts.
+// Using the wrong values silently produces hashes that don't match the note hash tree.
+const GENERATOR_INDEX__NOTE_HASH_NONCE = 1721808740n;
+const GENERATOR_INDEX__UNIQUE_NOTE_HASH = 226850429n;
+const GENERATOR_INDEX__SILOED_NOTE_HASH = 3361878420n;
 
 // =============================================================================
 // AZTEC NODE CLIENT
@@ -582,8 +585,10 @@ async function getAztecBlockNumberForGigaRoot(
 	const accounts = await aztecWallet.getAccounts();
 	const from = accounts[0].item;
 
-	// Get current gigaRoot from Aztec contract
-	const currentGigaRoot = await contract.methods.get_giga_root().simulate({ from });
+	// Get current gigaRoot from Aztec contract.
+	// v4: simulate() returns a SimulationResult wrapper { result, ... }
+	const currentGigaRootSim = await contract.methods.get_giga_root().simulate({ from }) as any;
+	const currentGigaRoot = currentGigaRootSim?.result ?? currentGigaRootSim;
 	const currentGigaRootValue = typeof currentGigaRoot === 'bigint'
 		? currentGigaRoot
 		: BigInt(currentGigaRoot.toString());
@@ -1079,8 +1084,10 @@ export async function getAztecWarpToadBalance(wallet: Wallet): Promise<bigint> {
 	const accounts = await wallet.getAccounts();
 	const ownerAddress = accounts[0].item;
 
-	// Call the unconstrained balance_of function
-	const balance = await contract.methods.balance_of(ownerAddress).simulate({ from: ownerAddress });
+	// Call the unconstrained balance_of function.
+	// v4: simulate() returns a SimulationResult wrapper { result, ... }
+	const balanceSim = await contract.methods.balance_of(ownerAddress).simulate({ from: ownerAddress }) as any;
+	const balance = balanceSim?.result ?? balanceSim;
 
 	console.log('Aztec WarpToad Balance:', balance.toString());
 	return BigInt(balance.toString());
@@ -1094,7 +1101,9 @@ export async function getAztecWarpToadDecimals(wallet: Wallet): Promise<number> 
 	const accounts = await wallet.getAccounts();
 	const from = accounts[0].item;
 
-	const decimals = await contract.methods.get_decimals().simulate({ from });
+	// v4: simulate() returns a SimulationResult wrapper { result, ... }
+	const decimalsSim = await contract.methods.get_decimals().simulate({ from }) as any;
+	const decimals = decimalsSim?.result ?? decimalsSim;
 	return Number(decimals);
 }
 
@@ -1188,10 +1197,13 @@ export async function getAztecGigaRoot(aztecWallet: Wallet): Promise<bigint | nu
 		const accounts = await aztecWallet.getAccounts();
 		const from = accounts[0].item;
 
-		const gigaRoot = await contract.methods.get_giga_root().simulate({ from });
+		// v4: simulate() returns a SimulationResult wrapper { result, ... }; the
+		// actual return value is on `.result`. Older versions returned the bare
+		// value, so accept both shapes.
+		const sim = await contract.methods.get_giga_root().simulate({ from }) as any;
+		const gigaRoot = sim?.result ?? sim;
 
 		// Convert Fr/Field object to bigint for proper comparison
-		// Fr objects have a toBigInt() method or can be converted via toString()
 		const gigaRootValue = typeof gigaRoot === 'bigint'
 			? gigaRoot
 			: BigInt(gigaRoot.toString());
@@ -1507,6 +1519,10 @@ export async function mintFromEVM(
 	//     evm_merkle_data: Evm_merkle_data<EVM_TREE_DEPTH>,
 	// )
 	// v4: .send() returns a Promise that already resolves to the receipt; no .wait() needed.
+	// Pay fees via the sponsored FPC (registered during wallet connect). Without it,
+	// the tx is rejected with "Insufficient fee payer balance" because the test
+	// account has no fee juice on the sandbox.
+	const sponsoredPaymentMethod = getSponsoredPaymentMethod();
 	const tx = await contract.methods.mint_giga_root_evm(
 		commitmentData.amount,           // amount: u64
 		commitmentData.secret,           // secret: Field
@@ -1516,7 +1532,10 @@ export async function mintFromEVM(
 		merkleData.originLocalRoot,      // origin_local_root: Field
 		gigaMerkleDataFormatted,         // giga_merkle_data
 		evmMerkleDataFormatted,          // evm_merkle_data
-	).send({ from });
+	).send({
+		from,
+		...(sponsoredPaymentMethod ? { fee: { paymentMethod: sponsoredPaymentMethod } } : {}),
+	});
 
 	// v4 result shape: tx.receipt.txHash (the receipt is already mined since
 	// .send() now waits internally).
@@ -1543,8 +1562,10 @@ export async function getAztecBalance(
 		? AztecAddress.fromString(ownerAddress)
 		: from;
 
-	// Note: balance_of is an unconstrained function, uses 'from' for simulation context
-	const balance = await contract.methods.balance_of(owner).simulate({ from });
+	// Note: balance_of is an unconstrained function, uses 'from' for simulation context.
+	// v4: simulate() returns a SimulationResult wrapper { result, ... }
+	const balanceSim = await contract.methods.balance_of(owner).simulate({ from }) as any;
+	const balance = balanceSim?.result ?? balanceSim;
 	return BigInt(balance.toString());
 }
 
@@ -1616,12 +1637,17 @@ export async function burnOnAztec(
 	// fn burn(amount: u64, destination_chain_id: Field, secret: Field, nullifier_preimage: Field)
 	console.log('Calling WarpToadCore.burn()...');
 	// v4: .send() returns a Promise that already resolves to the receipt; no .wait() needed.
+	// Pay fees via the sponsored FPC (registered during wallet connect).
+	const burnSponsoredPaymentMethod = getSponsoredPaymentMethod();
 	const tx = await contract.methods.burn(
 		amount,                    // amount: u64
 		destinationChainId,        // destination_chain_id: Field
 		secret,                    // secret: Field
 		nullifierPreimage          // nullifier_preimage: Field
-	).send({ from });
+	).send({
+		from,
+		...(burnSponsoredPaymentMethod ? { fee: { paymentMethod: burnSponsoredPaymentMethod } } : {}),
+	});
 
 	// v4 result shape: tx.receipt.txHash
 	console.log('Burn transaction completed:', tx.receipt.txHash.toString());
@@ -1738,36 +1764,37 @@ export async function getAztecMerkleData(
 	// Step 1: Get notes from the contract to find the note nonce
 	// The contract has a utility function that returns notes from the commitments storage
 	console.log('Fetching notes from contract...');
+	// Use get_notes_with_nonces (read-only) instead of get_notes_util (which nullifies!).
+	// Returns BoundedVec<{ note: WarpToadNote, note_nonce: Field }, 16>.
 	const contractNotesSim = await contract.methods
-		.get_notes_util(contract.artifact.storageLayout.commitments.slot)
+		.get_notes_with_nonces(contract.artifact.storageLayout.commitments.slot)
 		.simulate({ from }) as any;
-	// v4 wraps the return value in { result, ... }
 	const contractNotes = contractNotesSim.result ?? contractNotesSim;
 
 	console.log('Retrieved', contractNotes.storage.length, 'notes');
 
-	// Step 2: Find the note with matching commitment
-	// Notes contain: nullifier_preimage, secret, chain_id, amount
-	// We need to hash these to find the matching commitment
-	let noteNonce: bigint | null = null;
-
-	for (const note of contractNotes.storage) {
+	// Step 2: Collect ALL notes matching the commitment. The same
+	// (nullifier_preimage, secret, chain_id, amount) tuple can exist multiple times
+	// (e.g. stale + fresh burn entries), so we gather them all and try each one's
+	// unique note hash against the merkle tree, preferring the most recent first.
+	const matchingNonces: bigint[] = [];
+	for (const entry of contractNotes.storage) {
 		const noteCommitment = hashCommitment(
 			hashPreCommitment(
-				BigInt(note.note.nullifier_preimage.toString()),
-				BigInt(note.note.secret.toString()),
-				BigInt(note.note.chain_id.toString())
+				BigInt(entry.note.nullifier_preimage.toString()),
+				BigInt(entry.note.secret.toString()),
+				BigInt(entry.note.chain_id.toString())
 			),
-			BigInt(note.note.amount.toString())
+			BigInt(entry.note.amount.toString())
 		);
-
 		if (noteCommitment === commitment) {
-			// Found matching note - get its nonce from metadata
-			noteNonce = BigInt(note.metadata.maybe_note_nonce.toString());
-			console.log('Found matching note with nonce:', noteNonce.toString().slice(0, 20) + '...');
-			break;
+			matchingNonces.push(BigInt(entry.note_nonce.toString()));
 		}
 	}
+	console.log(`Found ${matchingNonces.length} note(s) matching commitment`);
+	// Try most recent first (storage order tends to be append-only, so reverse).
+	matchingNonces.reverse();
+	const noteNonce: bigint | null = matchingNonces[0] ?? null;
 
 	if (noteNonce === null) {
 		throw new Error(
@@ -1783,25 +1810,42 @@ export async function getAztecMerkleData(
 	const siloedNoteHash = await hashSiloedNoteHash(contractAddressBigInt, commitment);
 	console.log('Siloed note hash:', siloedNoteHash.toString().slice(0, 20) + '...');
 
-	const uniqueNoteHash = await hashUniqueNoteHash(noteNonce, siloedNoteHash);
-	console.log('Unique note hash:', uniqueNoteHash.toString().slice(0, 20) + '...');
-
-	// Step 4: Get merkle proof from the contract
-	// The contract has a utility function: get_note_proof(block_number, note_hash) -> MembershipWitness
-	console.log('Fetching merkle proof from contract...');
-	const witnessSim = await contract.methods
-		.get_note_proof(blockNumber, uniqueNoteHash)
-		.simulate({ from }) as any;
+	// Step 4: Try each matching note's unique hash against the historical tree.
+	// Stale notes (e.g. from a previous burn run) have a different settled nonce and
+	// will fail the membership lookup; the live one will succeed.
+	let witnessSim: any = null;
+	let usedNonce: bigint = noteNonce;
+	let lastErr: unknown = null;
+	for (const candidateNonce of matchingNonces) {
+		const uniqueNoteHash = await hashUniqueNoteHash(candidateNonce, siloedNoteHash);
+		console.log(`Trying nonce ${candidateNonce.toString().slice(0, 12)}... → uniqueHash ${uniqueNoteHash.toString().slice(0, 20)}... at anchorBlock=${blockNumber}`);
+		try {
+			witnessSim = await contract.methods
+				.get_note_proof(blockNumber, uniqueNoteHash)
+				.simulate({ from }) as any;
+			usedNonce = candidateNonce;
+			console.log(`  ✓ found in tree`);
+			break;
+		} catch (e) {
+			console.log(`  ✗ not in tree at block ${blockNumber}, trying next candidate`);
+			lastErr = e;
+		}
+	}
+	if (!witnessSim) {
+		throw lastErr ?? new Error('No matching note found in note hash tree at anchor block');
+	}
 	// v4 wraps the return value in { result, ... }
 	const witness = witnessSim.result ?? witnessSim;
+	const witnessIndex = witness.leaf_index ?? witness.index;
+	const witnessPath = witness.sibling_path ?? witness.path;
 
-	console.log('Retrieved merkle witness with index:', witness.index.toString());
+	console.log('Retrieved merkle witness with index:', witnessIndex.toString());
 
 	// Step 5: Format the merkle data for the circuit
 	const merkleData: AztecMerkleData = {
-		leaf_index: BigInt(witness.index.toString()),
-		hash_path: witness.path.map((h: bigint) => BigInt(h.toString())),
-		leaf_nonce: noteNonce,
+		leaf_index: BigInt(witnessIndex.toString()),
+		hash_path: witnessPath.map((h: any) => BigInt(h.toString())),
+		leaf_nonce: usedNonce,
 		contract_address: contractAddressBigInt,
 	};
 
@@ -2133,19 +2177,36 @@ export async function getMerkleDataForAztecToL1(
 	// Create public client for L1
 	const publicClient = createEvmClient(destinationChainId);
 
-	// Step 1: Get Aztec's local root data from the gigaRoot construction event
-	const {
-		aztecLocalRoot,
-		aztecLocalRootBlockNumber,
-		aztecLocalRootIndex,
-		gigaRootBlockNumber,
-	} = await getAztecLocalRootData(
-		publicClient,
-		addresses.GigaBridge,
-		addresses.L1AztecBridgeAdapter,
-		destinationChainId,
-		gigaRoot
-	);
+	// Step 1: Get Aztec's local root + L2 block directly from the L1AztecBridgeAdapter
+	// (mostRecentL2Root / mostRecentL2RootBlockNumber). This is the canonical source
+	// of truth - parsing ConstructedNewGigaRoot events is brittle when the same
+	// gigaRoot value recurs across runs.
+	const [adapterLocalRoot, adapterLocalRootBlock] = await publicClient.readContract({
+		address: addresses.L1AztecBridgeAdapter as `0x${string}`,
+		abi: [{
+			type: 'function', name: 'getLocalRootAndBlock', stateMutability: 'view',
+			inputs: [], outputs: [{ type: 'uint256' }, { type: 'uint256' }],
+		}],
+		functionName: 'getLocalRootAndBlock',
+	}) as [bigint, bigint];
+	const aztecLocalRoot = adapterLocalRoot;
+	const aztecLocalRootBlockNumber = Number(adapterLocalRootBlock);
+
+	// We still need the index of L1AztecBridgeAdapter in GigaBridge's localRootProviders,
+	// and the L1 block where the matching gigaRoot was constructed (for the giga proof).
+	const localRootIndexRaw = await publicClient.readContract({
+		address: addresses.GigaBridge as `0x${string}`,
+		abi: GigaBridgeAbi,
+		functionName: 'getLocalRootProvidersIndex',
+		args: [addresses.L1AztecBridgeAdapter as `0x${string}`],
+	});
+	const aztecLocalRootIndex = Number(localRootIndexRaw);
+
+	const gigaRootEvents = await getGigaRootEvents(publicClient, addresses.GigaBridge, destinationChainId, gigaRoot);
+	if (gigaRootEvents.length === 0) {
+		throw new Error(`GigaRoot ${gigaRoot} not found in L1 events.`);
+	}
+	const gigaRootBlockNumber = Number(gigaRootEvents[gigaRootEvents.length - 1].blockNumber);
 
 	console.log('Aztec local root:', aztecLocalRoot.toString().slice(0, 20) + '...');
 	console.log('Aztec local root block number:', aztecLocalRootBlockNumber);

@@ -139,7 +139,11 @@ export async function bridgeAZTECLocalRootToL1(
         }
     }
     let foundEpoch: number | undefined
-    const maxPolls = isSandBox ? 60 : 600
+    // Sandbox prover is single-threaded and falls behind on long-running sessions.
+    // 60 polls = 120s is enough when running tests (sandbox starts fresh for each
+    // test run); but in the sync script the sandbox may have been idle for hours
+    // and the prover needs to catch up many epochs. Bump to 300 polls = 10 minutes.
+    const maxPolls = isSandBox ? 300 : 600
     pollLoop: for (let i = 0; i < maxPolls; i++) {
         for (const e of [computedEpoch, computedEpoch - 1, computedEpoch + 1]) {
             if (await findMessageInEpoch(e)) {
