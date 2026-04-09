@@ -136,59 +136,96 @@
 				</div>
 
 				<Sheet bind:open={mobileMenuOpen}>
-					<SheetContent side="right" class="w-[300px] bg-background border-l border-border">
-						<SheetHeader>
-							<SheetTitle>Menu</SheetTitle>
+					<SheetContent side="right" class="w-[320px] bg-background border-l border-border p-0 flex flex-col gap-0">
+						<SheetHeader class="px-6 pt-6 pb-4 border-b border-border">
+							<SheetTitle class="flex items-center gap-2 text-lg font-bold tracking-tight">
+								<img src={warptoadLogo} alt="" class="h-7 w-7" />
+								warp<span style="color: var(--color-accent)">toad</span>
+							</SheetTitle>
 						</SheetHeader>
 
-						<div class="py-6 space-y-4">
-							<div class="space-y-3">
-								<h3 class="text-sm font-medium text-foreground-muted uppercase tracking-wider">
-									Wallet Status
+						<div class="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+							<!-- Wallet status section -->
+							<section class="space-y-3">
+								<h3 class="text-xs font-medium text-muted-foreground uppercase tracking-widest">
+									Wallets
 								</h3>
 
-								{#if walletStore.isEVMConnected}
-									<div class="p-3 rounded-lg border border-border">
-										<div class="flex items-center gap-2 text-xs mb-1" style="color: var(--color-accent)">
-											<div class="w-1.5 h-1.5 rounded-full" style="background: var(--color-accent)"></div>
-											EVM Wallet
+								<div class="space-y-2">
+									{#if walletStore.isEVMConnected}
+										<div class="p-3 rounded-lg border border-border">
+											<div class="flex items-center gap-2 text-[10px] font-medium uppercase tracking-wider mb-1.5" style="color: var(--color-accent)">
+												<div class="w-1.5 h-1.5 rounded-full" style="background: var(--color-accent)"></div>
+												EVM
+											</div>
+											<div class="font-mono text-xs break-all text-foreground/80">
+												{walletStore.wallets.evm}
+											</div>
 										</div>
-										<div class="font-mono text-sm break-all">
-											{walletStore.wallets.evm}
+									{:else}
+										<div class="p-3 border border-dashed border-border rounded-lg">
+											<div class="text-xs text-muted-foreground">EVM wallet not connected</div>
 										</div>
-									</div>
-								{:else}
-									<div class="p-3 border border-dashed border-border rounded-lg">
-										<div class="text-sm text-foreground-muted">EVM wallet not connected</div>
-									</div>
-								{/if}
+									{/if}
 
-								{#if walletStore.isAztecConnected}
-									<div class="p-3 rounded-lg border border-border">
-										<div class="flex items-center gap-2 text-xs mb-1" style="color: var(--color-accent)">
-											<div class="w-1.5 h-1.5 rounded-full" style="background: var(--color-accent)"></div>
-											Aztec Wallet
+									{#if walletStore.isAztecConnected}
+										<div class="p-3 rounded-lg border border-border">
+											<div class="flex items-center gap-2 text-[10px] font-medium uppercase tracking-wider mb-1.5" style="color: var(--color-accent)">
+												<div class="w-1.5 h-1.5 rounded-full" style="background: var(--color-accent)"></div>
+												Aztec
+											</div>
+											<div class="font-mono text-xs break-all text-foreground/80">
+												{walletStore.wallets.aztec}
+											</div>
 										</div>
-										<div class="font-mono text-sm break-all">
-											{walletStore.wallets.aztec}
+									{:else}
+										<div class="p-3 border border-dashed border-border rounded-lg">
+											<div class="text-xs text-muted-foreground">Aztec wallet not connected</div>
 										</div>
-									</div>
-								{:else}
-									<div class="p-3 border border-dashed border-border rounded-lg">
-										<div class="text-sm text-foreground-muted">Aztec wallet not connected</div>
-									</div>
-								{/if}
-							</div>
+									{/if}
+								</div>
+							</section>
 
-							<Separator />
+							<!-- Theme section -->
+							<section class="space-y-3">
+								<h3 class="text-xs font-medium text-muted-foreground uppercase tracking-widest">
+									Appearance
+								</h3>
+								<div class="grid grid-cols-3 gap-2">
+									<button
+										onclick={() => themeStore.setPreference("system")}
+										class="cursor-pointer flex flex-col items-center gap-1.5 px-3 py-3 rounded-lg border text-xs font-medium transition-colors {themeStore.preference === 'system' ? 'border-[color:var(--color-accent)] text-[color:var(--color-accent)]' : 'border-border text-muted-foreground'}"
+									>
+										<Monitor class="size-4" />
+										System
+									</button>
+									<button
+										onclick={() => themeStore.setPreference("light")}
+										class="cursor-pointer flex flex-col items-center gap-1.5 px-3 py-3 rounded-lg border text-xs font-medium transition-colors {themeStore.preference === 'light' ? 'border-[color:var(--color-accent)] text-[color:var(--color-accent)]' : 'border-border text-muted-foreground'}"
+									>
+										<Sun class="size-4" />
+										Light
+									</button>
+									<button
+										onclick={() => themeStore.setPreference("dark")}
+										class="cursor-pointer flex flex-col items-center gap-1.5 px-3 py-3 rounded-lg border text-xs font-medium transition-colors {themeStore.preference === 'dark' ? 'border-[color:var(--color-accent)] text-[color:var(--color-accent)]' : 'border-border text-muted-foreground'}"
+									>
+										<Moon class="size-4" />
+										Dark
+									</button>
+								</div>
+							</section>
+						</div>
 
-							<Button
-								class="w-full btn-warp rounded-lg py-3"
+						<!-- Footer action -->
+						<div class="px-6 pb-6 pt-4 border-t border-border">
+							<button
 								onclick={openWalletDialog}
+								class="w-full cursor-pointer flex items-center justify-center gap-2 px-4 py-3 rounded-full text-sm font-medium border border-border hover:border-[color:var(--color-accent)] hover:text-[color:var(--color-accent)] transition-colors"
 							>
-								<Wallet class="size-4 mr-2" />
+								<Wallet class="size-4" />
 								{walletStore.isBothConnected ? "Manage Wallets" : "Connect Wallets"}
-							</Button>
+							</button>
 						</div>
 					</SheetContent>
 				</Sheet>
@@ -197,10 +234,44 @@
 	</header>
 
 	<!-- Main Content -->
-	<main class="relative z-10 flex items-center justify-center px-6 pt-28 pb-12 md:pt-20 md:pb-0 md:min-h-screen">
-		<div class="w-full max-w-2xl rounded-xl border border-border bg-card overflow-hidden">
-			<Tabs bind:value={uiStore.activeTab} class="w-full">
-				<div class="border-b border-border px-2 pt-2">
+	<main class="relative z-10 flex flex-col items-stretch md:items-center justify-center min-h-[100dvh] px-4 pt-24 pb-6 md:px-6 md:pt-20 md:pb-6">
+		<Tabs bind:value={uiStore.activeTab} class="w-full max-w-2xl mx-auto flex flex-col flex-1 md:flex-none">
+			<div class="w-full rounded-xl border border-border bg-card overflow-hidden flex flex-col flex-1 md:flex-none">
+				<!-- Mobile: tab islands inside the card -->
+				<div class="md:hidden p-3 border-b border-border">
+					<TabsList class="w-full bg-transparent gap-2 h-auto p-0 flex">
+						<TabsTrigger
+							value="transfer"
+							class="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-background border border-border data-[state=active]:border-[color:var(--color-accent)] data-[state=active]:text-[color:var(--color-accent)] transition-colors"
+						>
+							<svg class="size-4 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+								<path d="M12 5v14M5 12l7-7 7 7" />
+							</svg>
+							Transfer
+						</TabsTrigger>
+						<TabsTrigger
+							value="bridge"
+							class="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-background border border-border data-[state=active]:border-[color:var(--color-accent)] data-[state=active]:text-[color:var(--color-accent)] transition-colors"
+						>
+							<svg class="size-4 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+								<path d="M4 12h16M4 12l4-4M4 12l4 4M20 12l-4-4M20 12l-4 4" />
+							</svg>
+							Bridge
+						</TabsTrigger>
+						<TabsTrigger
+							value="withdraw"
+							class="flex-1 flex items-center justify-center gap-2 px-3 py-2 rounded-full text-sm font-medium bg-background border border-border data-[state=active]:border-[color:var(--color-accent)] data-[state=active]:text-[color:var(--color-accent)] transition-colors"
+						>
+							<svg class="size-4 opacity-70" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+								<path d="M12 5v14M5 12l7 7 7-7" />
+							</svg>
+							Withdraw
+						</TabsTrigger>
+					</TabsList>
+				</div>
+
+				<!-- Desktop: in-card underline tabs -->
+				<div class="hidden md:block border-b border-border px-2 pt-2">
 					<TabsList class="w-full bg-transparent gap-1 h-auto p-0">
 						<TabsTrigger
 							value="transfer"
@@ -232,7 +303,7 @@
 					</TabsList>
 				</div>
 
-				<div class="p-4 md:p-6 md:min-h-[640px]">
+				<div class="p-4 md:p-6 flex-1 overflow-y-auto md:flex-none md:overflow-visible md:min-h-[640px]">
 					<TabsContent value="transfer" class="mt-0 focus-visible:outline-none focus-visible:ring-0">
 						<TransferForm />
 					</TabsContent>
@@ -245,8 +316,8 @@
 						<WithdrawForm />
 					</TabsContent>
 				</div>
-			</Tabs>
-		</div>
+			</div>
+		</Tabs>
 	</main>
 
 	<!-- Wallet Connection Dialog -->
