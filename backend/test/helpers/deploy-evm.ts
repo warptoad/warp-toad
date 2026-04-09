@@ -19,6 +19,7 @@ export interface EvmDeployment {
   l1WarpToad: any;
   gigaBridge: any;
   l1AztecBridgeAdapter: any | null;
+  l1ScrollBridgeAdapter: any | null;
   publicClient: PublicClient;
   deployer: WalletClient;
   wallets: WalletClient[];
@@ -31,9 +32,16 @@ function bindContract(address: Address, abi: any[], publicClient: PublicClient, 
 
 export async function deployEvmContracts(opts?: {
   withAztecAdapter?: boolean;
+  // When set, also deploys L1ScrollBridgeAdapter and includes it in
+  // gigaRootRecipients. Pass the L1 Scroll messenger address (chain-specific,
+  // see backend/lib/constants.ts).
+  withScrollAdapter?: { l1ScrollMessenger: Address } | false;
   aztecWarptoadAddress?: bigint;
+  // Hardhat network name (e.g. "local", "sepolia", "scrollSepolia"). Defaults
+  // to "local" so existing test invocations stay unchanged.
+  networkName?: string;
 }): Promise<EvmDeployment> {
-  const { deployer, publicClient, viem, testWallets } = await getViemClients();
+  const { deployer, publicClient, viem, testWallets } = await getViemClients(opts?.networkName);
 
   // 1. Libraries
   const poseidonT3Addr = await deployLibFromBuildInfo(
@@ -88,6 +96,19 @@ export async function deployEvmContracts(opts?: {
     gigaRootRecipients.push(l1AztecAdapterDeploy.address);
   }
 
+  // 6b. L1ScrollBridgeAdapter (optional). Constructor takes the L1 Scroll
+  // messenger address; the L2 adapter address is set later via initialize().
+  let l1ScrollAdapterDeploy: { address: Address; abi: any[] } | null = null;
+  if (opts?.withScrollAdapter) {
+    l1ScrollAdapterDeploy = await deployFromArtifact(
+      "L1ScrollBridgeAdapter",
+      [opts.withScrollAdapter.l1ScrollMessenger],
+      deployer,
+      publicClient,
+    );
+    gigaRootRecipients.push(l1ScrollAdapterDeploy.address);
+  }
+
   // 7. GigaBridge (needs LazyIMT)
   const gigaBridgeDeploy = await deployFromArtifact(
     "GigaBridge",
@@ -105,6 +126,9 @@ export async function deployEvmContracts(opts?: {
   const l1AztecBridgeAdapter = l1AztecAdapterDeploy
     ? bindContract(l1AztecAdapterDeploy.address, l1AztecAdapterDeploy.abi, publicClient, deployer)
     : null;
+  const l1ScrollBridgeAdapter = l1ScrollAdapterDeploy
+    ? bindContract(l1ScrollAdapterDeploy.address, l1ScrollAdapterDeploy.abi, publicClient, deployer)
+    : null;
 
   // 9. Initialize L1WarpToad for non-Aztec cases (Aztec path does it from setupFullEnvironment).
   if (!opts?.withAztecAdapter) {
@@ -119,6 +143,7 @@ export async function deployEvmContracts(opts?: {
     l1WarpToad,
     gigaBridge,
     l1AztecBridgeAdapter,
+    l1ScrollBridgeAdapter,
     publicClient,
     deployer,
     wallets: testWallets,

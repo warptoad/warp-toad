@@ -1,34 +1,53 @@
-# BridgeKeeper Service
+# bridge-sync (BridgeKeeper)
 
-HTTP service for triggering cross-chain bridge operations between EVM chains and Aztec.
+HTTP service that triggers cross-chain root sync between EVM chains
+(Sepolia, Scroll Sepolia, local anvil) and Aztec testnet.
 
-##  IMPORTANT: Bridge Operation Times
+Calls `backend/lib/bridging.ts` directly in-process via cross-workspace
+relative imports - no child processes, no stdout parsing, real promises with
+real stack traces. Same code path the backend tests + sandbox sync scripts
+exercise.
 
-Bridge operations take significant time to complete:
+## Architecture
 
-
-**Scroll** (any direction)  **2-3 hours** 
-**Aztec** (any direction)  **30 min - 1 hour** 
-**Local/Testing**  should be instant
-
-** DO NOT use `waitForCompletion: true` in production!**
-- This will keep the HTTP connection open for hours
-- Instead, use polling: call `GET /status/:operationId` every 30-60 seconds
-
-## API Endpoints
-
-### Bridge Operation
 ```
-POST /bridge/:fromChainId/:toChainId
+POST /bridge/{from}/{to}      ─┐
+                                ├─→  in-process executeBridge()
+                                │      ├─ viem clients (L1 + L2 EVM)
+                                │      ├─ Aztec wallet (sponsored FPC, ephemeral)
+                                │      ├─ contractLoader (reads Hardhat ABIs)
+                                │      └─ bridgeBetweenL1AndL2() from backend/lib
+GET  /status/{operationId}    ─┘
 ```
 
-Trigger a bridge operation to sync local root from `fromChainId` to `toChainId`.
+The Aztec wallet is generated fresh on the first bridge call (via `Fr.random()`)
+and cached for the rest of the service lifetime. The SponsoredFPC pays gas, so
+no Aztec credentials need to be funded.
 
-**Parameters:**
-- `fromChainId`: Source chain ID (`11155111`, `534351`, `31337`, or `aztec`)
-- `toChainId`: Destination chain ID
+## Bridge operation times
 
-**Body (optional):**
+| Route | Approx duration |
+|---|---|
+| Sandbox local (chain 31337) | seconds |
+| Sepolia ↔ Aztec testnet | 30 min - 1 hour |
+| Sepolia ↔ Scroll Sepolia | 2-3 hours |
+
+**Do NOT use `waitForCompletion: true` in production** - it'll hold the HTTP
+connection open for hours. Use `POST /bridge/...` to enqueue, then poll
+`GET /status/{operationId}` instead.
+
+## API
+
+| Method + path | Purpose |
+|---|---|
+| `POST /bridge/{fromChainId}/{toChainId}` | Enqueue a bridge operation |
+| `GET /status/{operationId}` | Check operation status |
+| `GET /health` | Health probe |
+| `GET /config` | List supported chains + routes |
+
+### POST /bridge/{from}/{to}
+
+Body (optional):
 ```json
 {
   "waitForCompletion": false,
@@ -36,96 +55,84 @@ Trigger a bridge operation to sync local root from `fromChainId` to `toChainId`.
 }
 ```
 
-**Response:**
+Chain IDs: `11155111` (Sepolia), `534351` (Scroll Sepolia), `31337` (local anvil), `aztec`.
+
+Supported routes (see `src/bridge/chainMapper.ts:VALID_ROUTES`):
+- `11155111 ↔ 534351`
+- `11155111 ↔ aztec`
+- `31337 → 534351` / `31337 → aztec` (local sandbox testing)
+
+Response:
 ```json
 {
   "ok": true,
   "operationId": "uuid",
   "status": "pending",
-  "message": "Bridge operation queued: 11155111 -> 534351",
-  "expectedDuration": "2-3 hours",
-  "note": "Poll /status/:operationId to check progress. Do not use waitForCompletion for production."
+  "expectedDuration": "30 min - 1 hour"
 }
 ```
 
-### Check Status
-```
-GET /status/:operationId
-```
+## Run
 
-### Health Check
-```
-GET /health
-```
+### Via Docker compose (recommended)
 
-### View Configuration
-```
-GET /config
-```
+The unified `docker-compose.yml` at the monorepo root runs bridge-sync,
+relay-service, and the frontend on a shared `warptoad-network`. Configure
+once via the root `.env`:
 
-### View Logs
-```
-GET /logs/:operationId
-```
-
-## Setup
-
-### 1. Install Dependencies
 ```bash
-cd bridgeSync
-yarn install
+cd /path/to/warp-toad
+cp .env.template .env
+$EDITOR .env
+docker compose up -d bridge-sync   # just this service
+# or:
+docker compose up -d               # all three
 ```
 
-### 2. Configure Environment
-Copy `.env.template` to `.env` and fill in:
-- `EVM_PRIVATE_KEY`: Your wallet private key (required)
-- `SEPOLIA_RPC_URL`: Infura/Alchemy Sepolia RPC
-- `ALLOWED_ORIGINS`: Comma-separated list of allowed CORS origins (default: `https://warptoad.xyz,http://localhost:5173,http://localhost:3000`)
-- Other RPC URLs as needed
+See the [root README](../README.md) for the full env-var list.
 
-### 3. Run in Development
+### Locally (dev)
+
 ```bash
-yarn dev
+cd bridge-sync
+EVM_PRIVATE_KEY=0x... \
+SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/<KEY> \
+SCROLL_RPC_URL=https://scroll-sepolia.infura.io/v3/<KEY> \
+AZTEC_NODE_URL=https://rpc.testnet.aztec-labs.com \
+PORT=6969 \
+pnpm dev
 ```
 
-### 4. Build for Production
-```bash
-yarn build
-yarn start
-```
+bridge-sync runs via `tsx` directly - no build step. The `start` and `dev`
+scripts both invoke `tsx src/server.ts`.
 
-## Docker Deployment
+## Required env
 
-### Build Image
-```bash
-yarn docker:build
-```
+| Var | Purpose |
+|---|---|
+| `EVM_PRIVATE_KEY` | Signs L1 root-update + Scroll-message-dispatch txs. Should NOT be the same wallet as `RELAYER_PRIVATE_KEY` to avoid mempool nonce races. |
+| `SEPOLIA_RPC_URL` | Sepolia L1 RPC |
+| `SCROLL_RPC_URL` | Scroll Sepolia L2 RPC |
+| `AZTEC_NODE_URL` | Aztec testnet full node, e.g. `https://rpc.testnet.aztec-labs.com` |
 
-### Run Container
-```bash
-docker-compose up -d
-```
+Optional:
+| Var | Default | Purpose |
+|---|---|---|
+| `PORT` | `6969` | HTTP port |
+| `ALLOWED_ORIGINS` | `https://warptoad.xyz,http://localhost:5173,http://localhost:3000` | CORS comma-separated list |
+| `DEFAULT_CONFIRMATIONS` | `3` | L1 confirmation count |
 
-The service will be available on port 6969.
+## Persistence
 
-## Security
-
-- **CORS Protection**: API uses CORS middleware to control which origins can access the service
-- **Allowed Origins**: By default, allows requests from:
-  - `https://warptoad.xyz` (production frontend)
-  - `http://localhost:5173` (Vite dev server)
-  - `http://localhost:3000` (alternative dev port)
-  - Any `localhost` or `127.0.0.1` with any port (development)
-- **Configuration**: Set `ALLOWED_ORIGINS` environment variable to customize allowed origins (comma-separated)
-- **No-Origin Requests**: Requests without an origin header (curl, Postman, server-to-server) are allowed
-- **CORS Headers**: 
-  - Credentials: enabled
-  - Methods: GET, POST, OPTIONS
-  - Max-Age: 24 hours (86400 seconds)
+Currently in-memory only - operation state is lost on restart. For a stateless
+root-syncer that's fine; the service just enqueues work and the work itself
+is durable on-chain.
 
 ## Notes
 
-- Operations are queued to prevent concurrent bridges to same route
-- Logs are stored in `./logs/` directory
-- Database is stored in `./db/` directory
-- Backend bridge logic is reused from `../backend/scripts/`
+- Operations to the same `{from}/{to}` route are serialized via an in-memory
+  lock to prevent concurrent bridges fighting on nonces
+- The Aztec wallet is ephemeral per service lifetime - every restart deploys
+  a fresh sponsored account on first use
+- bridge-sync depends on `backend/` source files at runtime via tsx; for Docker
+  builds the entire `backend/` workspace is copied into the image

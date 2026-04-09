@@ -9,10 +9,10 @@
     "build": "echo 'bridge-sync runs via tsx; no build step needed'",
     "start": "tsx src/server.ts",
     "typecheck": "tsc --noEmit",
-    "docker:build": "docker build -t bridge-sync -f Dockerfile ..",
-    "docker:run": "docker compose up --build -d",
-    "docker:logs": "docker compose logs -f",
-    "docker:down": "docker compose down"
+    "docker:build": "cd .. && docker compose build bridge-sync",
+    "docker:run": "cd .. && docker compose up -d bridge-sync",
+    "docker:logs": "cd .. && docker compose logs -f bridge-sync",
+    "docker:down": "cd .. && docker compose down"
   },
   "dependencies": {
     "@aztec/accounts": "4.2.0-aztecnr-rc.2",
@@ -20,6 +20,7 @@
     "@aztec/foundation": "4.2.0-aztecnr-rc.2",
     "@aztec/pxe": "4.2.0-aztecnr-rc.2",
     "@aztec/stdlib": "4.2.0-aztecnr-rc.2",
+    "@warp-toad/backend": "workspace:*",
     "cors": "^2.8.5",
     "dotenv": "^16.4.1",
     "express": "^4.18.2",

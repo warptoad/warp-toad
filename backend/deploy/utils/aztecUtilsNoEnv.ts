@@ -157,10 +157,15 @@ export async function getAztecWallet(nodeUrl: string, secrets: { secret: Fr, sal
     console.log({ feeJuice })
 
     //deploy account
+    // Use NO_FROM, not AztecAddress.ZERO. The latter triggers a wallet-DB
+    // lookup for an account that doesn't exist yet (we're DEPLOYING it),
+    // which throws "Account does not exist on this wallet". NO_FROM tells
+    // the wallet to skip the lookup and self-deploy via the entrypoint.
+    const { NO_FROM } = await import("@aztec/aztec.js/account") as any;
     const deployMethod = await accountManager.getDeployMethod();
     try {
         console.log("deploying account")
-        const accountTx = await deployMethod.send({ from: AztecAddress.ZERO, fee:{paymentMethod:sponsoredPaymentMethod} });
+        const accountTx = await deployMethod.send({ from: NO_FROM, fee:{paymentMethod:sponsoredPaymentMethod} });
         console.log({ accountTx: accountTx.receipt.txHash })
     } catch (error: any) {
         if (error.message.startsWith("Invalid tx: Existing nullifier")) {

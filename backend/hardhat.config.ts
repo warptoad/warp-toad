@@ -1,5 +1,14 @@
-import { defineConfig, configVariable } from "hardhat/config";
+import { defineConfig } from "hardhat/config";
 import hardhatToolboxViem from "@nomicfoundation/hardhat-toolbox-viem";
+
+// Resolve testnet RPC URLs / deployer key from process.env. The deploy script
+// is invoked via `dotenv -e .env -- hardhat run ...` (see deploy:testnet in
+// package.json), so by the time this config evaluates, the .env vars are
+// already in process.env. Hardhat 3's `configVariable()` is NOT used here
+// because it reads from an encrypted keystore by default, not env vars.
+const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL ?? "";
+const SCROLL_SEPOLIA_RPC_URL = process.env.SCROLL_SEPOLIA_RPC_URL ?? "";
+const DEPLOYER_PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY ?? "";
 
 const DEFAULT_PRIV_KEYS_ANVIL = [
   "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
@@ -59,14 +68,14 @@ export default defineConfig({
     },
     sepolia: {
       type: "http",
-      url: configVariable("SEPOLIA_RPC_URL"),
-      accounts: [configVariable("DEPLOYER_PRIVATE_KEY")],
+      url: SEPOLIA_RPC_URL,
+      accounts: DEPLOYER_PRIVATE_KEY ? [DEPLOYER_PRIVATE_KEY] : [],
       chainId: 11155111,
     },
     scrollSepolia: {
       type: "http",
-      url: configVariable("SCROLL_SEPOLIA_RPC_URL"),
-      accounts: [configVariable("DEPLOYER_PRIVATE_KEY")],
+      url: SCROLL_SEPOLIA_RPC_URL,
+      accounts: DEPLOYER_PRIVATE_KEY ? [DEPLOYER_PRIVATE_KEY] : [],
       chainId: 534351,
     },
   },

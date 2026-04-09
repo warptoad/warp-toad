@@ -1,0 +1,53 @@
+# Used by docker compose at the repo root. Both bridge-sync and relay-service
+# use the monorepo root as their build context, so excluding heavy/secret
+# things here speeds up builds and avoids leaking secrets into image layers.
+
+# Secrets / env files (NEVER ship into images)
+**/.env
+**/.env.local
+**/.env.*.local
+backend/.env
+
+# Frontend: source IS needed by the frontend image, but not by bridge-sync /
+# relay-service. Excluding node_modules + dist + cache; the build re-runs
+# install + build inside the image so leftover artifacts only bloat the
+# context. Each service Dockerfile only COPYs what it needs anyway.
+frontend/node_modules
+frontend/dist
+frontend/.svelte-kit
+frontend/.vite
+
+# Build outputs / node_modules (will be reinstalled inside the container)
+**/node_modules
+**/dist
+**/build
+**/.cache
+**/.vite
+
+# Hardhat compile cache (60K, not needed at runtime - artifacts/ has the
+# compiled output, cache/ just speeds up incremental compiles).
+backend/cache
+
+# Logs
+**/logs
+**/*.log
+
+# Misc
+.git
+.gitignore
+.github
+**/.DS_Store
+**/.vscode
+**/.idea
+**/coverage
+**/*.tsbuildinfo
+
+# Backend artifacts we DO want to ship (don't ignore them):
+#   backend/artifacts/contracts/  - Hardhat compiled artifacts (ABIs)
+#   backend/deploy/               - deployed_addresses.json files
+#   backend/lib/                  - bridging.ts, hashing.ts, constants.ts
+#   backend/aztec/                - Aztec contract artifact JS files
+#   backend/scripts/              - bridge.ts (legacy, still imported by some code)
+#   backend/deploy/utils/         - aztecUtilsNoEnv.ts
+#
+# These are NOT excluded above, just listing here for clarity.

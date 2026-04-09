@@ -14,38 +14,44 @@ import { type WalletClient, type PublicClient, type Address, type Hex } from "vi
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Cache the connection so all helpers share the same EDR instance
-let _connectionCache: any = null;
+// Cache connections per network so repeated callers share clients.
+const _connectionCache = new Map<string, any>();
 
-async function getConnection() {
-  if (!_connectionCache) {
+async function getConnection(networkName: string = "local") {
+  let cached = _connectionCache.get(networkName);
+  if (!cached) {
     // Hardhat 3 ignores `defaultNetwork` in user config and uses the CLI `--network`
     // flag or its built-in "default" (edr-simulated) network. We pass the name
-    // explicitly so tests use the `local` network from hardhat.config.ts, which
-    // points at the Aztec sandbox's L1 anvil.
-    _connectionCache = await hre.network.connect("local");
+    // explicitly so callers control which network from hardhat.config.ts they
+    // resolve - tests pass "local" (the default), the testnet deploy script
+    // passes "sepolia" / "scrollSepolia".
+    cached = await hre.network.connect(networkName);
+    _connectionCache.set(networkName, cached);
   }
-  return _connectionCache;
+  return cached;
 }
 
 /**
- * Get viem clients connected to the configured network.
+ * Get viem clients connected to the named network.
  *
- * IMPORTANT: we deliberately skip walletClients[0] (anvil account 0,
- * 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266) because the Aztec sandbox
- * sequencer publishes L1 txs from that same account. Using it for our test
- * deploys causes intermittent "nonce too low" races between our deploys and
- * the sandbox's background L1 publishing. walletClients[1+] are unused by
- * the sandbox, so deploys from there don't race.
+ * @param networkName - Hardhat network name. Defaults to "local" so existing
+ *   test code keeps working unchanged. Pass "sepolia" or "scrollSepolia" for
+ *   testnet deploys.
+ *
+ * IMPORTANT for the local network: walletClients[0] (anvil account 0,
+ * 0xf39fd6e51aad88f6f4ce6ab8827279cfffb92266) is reserved for the Aztec
+ * sandbox sequencer's background L1 publishing. We skip it so our deploys
+ * don't race with the sandbox. For non-local networks the wallet array only
+ * contains the configured DEPLOYER_PRIVATE_KEY, so wallets[0] is used.
  */
-export async function getViemClients() {
-  const connection = await getConnection();
+export async function getViemClients(networkName: string = "local") {
+  const connection = await getConnection(networkName);
   const wallets = await connection.viem.getWalletClients();
-  // Use the second account to avoid the sandbox's deployer.
-  const deployer = wallets[1] ?? wallets[0];
-  // `testWallets` are the wallets test bodies can destructure as [deployer, relayer, sender, recipient].
-  // We skip wallets[0] (anvil account 0) since the Aztec sandbox sequencer uses it.
-  const testWallets = wallets.slice(1);
+  const isLocal = networkName === "local";
+  // Local: skip wallets[0] (anvil acc 0 reserved for sandbox sequencer).
+  // Testnet: only one wallet (the deployer key from hardhat.config.ts), use it.
+  const deployer = isLocal ? (wallets[1] ?? wallets[0]) : wallets[0];
+  const testWallets = isLocal ? wallets.slice(1) : wallets;
   const publicClient = await connection.viem.getPublicClient();
   return { deployer, publicClient, viem: connection.viem, testWallets };
 }

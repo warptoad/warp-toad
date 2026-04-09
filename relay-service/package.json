@@ -9,10 +9,10 @@
     "build": "echo 'relay-service runs via tsx; no build step needed'",
     "start": "tsx src/server.ts",
     "typecheck": "tsc --noEmit",
-    "docker:build": "docker build -t relayer-service -f Dockerfile ..",
-    "docker:run": "docker compose up --build -d",
-    "docker:logs": "docker compose logs -f",
-    "docker:down": "docker compose down"
+    "docker:build": "cd .. && docker compose build relay-service",
+    "docker:run": "cd .. && docker compose up -d relay-service",
+    "docker:logs": "cd .. && docker compose logs -f relay-service",
+    "docker:down": "cd .. && docker compose down"
   },
   "dependencies": {
     "cors": "^2.8.5",

@@ -11,6 +11,7 @@
     "f:dev": "pnpm --filter frontend dev",
     "f:run": "pnpm --filter frontend build && pnpm --filter frontend preview",
     "l:deploy": "pnpm --filter @warp-toad/backend deploy:local && pnpm --filter frontend pull:addresses",
+    "t:deploy": "pnpm --filter @warp-toad/backend deploy:testnet && pnpm --filter frontend pull:addresses",
     "l:sync": "pnpm --filter @warp-toad/backend sync:local",
     "l:sync:from-aztec": "pnpm --filter @warp-toad/backend sync:local:from-aztec",
     "b:compile": "pnpm --filter @warp-toad/backend compile",
@@ -37,7 +38,12 @@
     "relayer:docker": "pnpm --filter @warp-toad/relay-service docker:build",
     "relayer:docker:run": "pnpm --filter @warp-toad/relay-service docker:run",
     "relayer:docker:logs": "pnpm --filter @warp-toad/relay-service docker:logs",
-    "relayer:docker:down": "pnpm --filter @warp-toad/relay-service docker:down"
+    "relayer:docker:down": "pnpm --filter @warp-toad/relay-service docker:down",
+    "services:build": "docker compose build",
+    "services:up": "docker compose up -d",
+    "services:logs": "docker compose logs -f",
+    "services:down": "docker compose down",
+    "services:restart": "docker compose restart"
   },
   "repository": "https://github.com/JossDuff/warp-toad.git",
   "author": "jossduff <jduff360@gmail.com>",
