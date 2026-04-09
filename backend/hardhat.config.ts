@@ -6,8 +6,15 @@ import hardhatToolboxViem from "@nomicfoundation/hardhat-toolbox-viem";
 // package.json), so by the time this config evaluates, the .env vars are
 // already in process.env. Hardhat 3's `configVariable()` is NOT used here
 // because it reads from an encrypted keystore by default, not env vars.
-const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL ?? "";
-const SCROLL_SEPOLIA_RPC_URL = process.env.SCROLL_SEPOLIA_RPC_URL ?? "";
+//
+// Hardhat 3 strict-validates the network config at every command (even
+// `hardhat compile`), so an empty URL string makes it fail with HHE15. We
+// fall back to `http://localhost:8545` as a syntactically valid placeholder
+// that's only used if you explicitly target the testnet network without
+// having set the env var. Compile / test / unrelated commands run unaffected.
+const PLACEHOLDER_URL = "http://localhost:8545";
+const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL || PLACEHOLDER_URL;
+const SCROLL_SEPOLIA_RPC_URL = process.env.SCROLL_SEPOLIA_RPC_URL || PLACEHOLDER_URL;
 const DEPLOYER_PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY ?? "";
 
 const DEFAULT_PRIV_KEYS_ANVIL = [
