@@ -83,28 +83,43 @@ ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN pnpm pull:addresses && pnpm build
 
 # =============================================================================
-# Stage 2: runtime - serve dist/ via vite preview
+# Stage 2: runtime - serve dist/ via nginx
+#
+# We don't need node, vite, or pnpm at runtime - the frontend is a static
+# SPA. nginx:alpine is ~25MB, no symlink fragility, and handles SPA fallback
+# routing trivially. The host's reverse-proxy nginx adds the COOP/COEP
+# headers needed for SharedArrayBuffer + wasm threads, so this inner nginx
+# only needs to serve files.
 # =============================================================================
-FROM node:22-trixie-slim AS runtime
-
-WORKDIR /app
+FROM nginx:alpine AS runtime
 
 # wget for the docker-compose healthcheck.
-RUN apt-get update && apt-get install -y --no-install-recommends \
-      wget ca-certificates \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache wget
 
-RUN corepack enable && corepack prepare pnpm@10.8.1 --activate
+# Minimal nginx config: listen on 4173, serve dist/, SPA fallback to index.html.
+RUN printf '%s\n' \
+    'server {' \
+    '    listen 4173;' \
+    '    listen [::]:4173;' \
+    '    server_name _;' \
+    '    root /usr/share/nginx/html;' \
+    '    index index.html;' \
+    '    location / {' \
+    '        try_files $uri $uri/ /index.html;' \
+    '    }' \
+    '    # Long cache for hashed assets, no-cache for index.html.' \
+    '    location ~* \.(js|css|wasm|woff2?|ttf|png|jpg|svg)$ {' \
+    '        expires 1y;' \
+    '        add_header Cache-Control "public, immutable";' \
+    '    }' \
+    '    location = /index.html {' \
+    '        add_header Cache-Control "no-cache";' \
+    '    }' \
+    '}' > /etc/nginx/conf.d/default.conf
 
-# Bring in the built dist + the minimum needed to run `vite preview`.
-COPY --from=builder /app/frontend/dist                ./dist
-COPY --from=builder /app/frontend/vite.config.ts      ./
-COPY --from=builder /app/frontend/package.json        ./
-COPY --from=builder /app/frontend/node_modules        ./node_modules
-COPY --from=builder /app/frontend/index.html          ./
+# Drop the built dist into the nginx web root.
+COPY --from=builder /app/frontend/dist /usr/share/nginx/html
 
 EXPOSE 4173
 
-# `vite preview` defaults to binding 127.0.0.1 inside the container, which
-# Docker can't reach. --host 0.0.0.0 lets the port mapping work.
-CMD ["pnpm", "exec", "vite", "preview", "--host", "0.0.0.0", "--port", "4173"]
+# nginx:alpine's default ENTRYPOINT already runs nginx in the foreground.
