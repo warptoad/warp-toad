@@ -74,7 +74,12 @@ ENV VITE_TEST_MODE=$VITE_TEST_MODE \
     VITE_RELAY_SERVICE_URL=$VITE_RELAY_SERVICE_URL
 
 # 6. Build (vite build + patch-dist.js postbuild for the Aztec class names).
+#
+# NODE_OPTIONS=--max-old-space-size=4096 bumps the V8 heap from the ~2GB
+# default to 4GB. The bundle is huge (Aztec + Noir + bb.js wasm) and the
+# default heap OOMs partway through Rollup's renderChunks pass.
 WORKDIR /app/frontend
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 RUN pnpm pull:addresses && pnpm build
 
 # =============================================================================
