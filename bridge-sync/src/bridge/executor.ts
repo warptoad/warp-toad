@@ -27,6 +27,9 @@ import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 // @ts-ignore
 import {
   bridgeBetweenL1AndL2,
+  updateGigaRoot,
+  sendGigaRoot,
+  receiveGigaRootOnAztec,
   getPayableGigaRootRecipients,
 } from '../../../backend/lib/bridging.js';
 // @ts-ignore
@@ -199,6 +202,15 @@ export async function executeBridge(
   console.log(`[${operationId}] starting bridge: ${fromChainId} -> ${toChainId}`);
 
   const { l1Rpc, l2Rpc, isAztec } = resolveRoute(fromChainId, toChainId);
+  const fromChain = getChainConfig(fromChainId);
+  const toChain = getChainConfig(toChainId);
+  // For the L1 -> Aztec direction we can skip the slow L2->L1 root push that
+  // bridgeBetweenL1AndL2 does first. Aztec testnet's prover lags real time
+  // and that step times out the bridge after ~40 minutes. The L1 -> Aztec
+  // proof flow doesn't need a fresh L2 root anyway, so we run the lighter
+  // updateGigaRoot + sendGigaRoot + receiveGigaRootOnAztec sequence (same as
+  // backend/scripts/syncTestnetToAztec.ts).
+  const isL1ToAztec = isAztec && !fromChain.isAztec && toChain.isAztec;
 
   // ----- L1 viem clients + contract handles -----
   const l1Account = privateKeyToAccount(privateKey as Hex);
@@ -256,7 +268,59 @@ export async function executeBridge(
   }
 
   // ----- Run the bridging orchestration -----
-  console.log(`[${operationId}] running bridgeBetweenL1AndL2...`);
+  if (isL1ToAztec) {
+    // Light L1 -> Aztec path: skip the L2 -> L1 root push.
+    console.log(`[${operationId}] running L1 -> Aztec light flow (skipping L2->L1 root push)`);
+    const isSandbox = l1ChainId === 31337n;
+    const confirmations = isSandbox ? 1 : 3;
+
+    console.log(`[${operationId}]   step 1/3: updateGigaRoot on L1`);
+    const { gigaRootUpdateTxHash } = await updateGigaRoot(
+      l1PublicClient as any,
+      l1WalletClient as any,
+      gigaBridge,
+      localRootProviders,
+      confirmations,
+    );
+    console.log(`[${operationId}]   ✓ updateGigaRoot ${gigaRootUpdateTxHash}`);
+
+    console.log(`[${operationId}]   step 2/3: sendGigaRoot via L1->L2 message`);
+    const { sendGigaRootTx, sendGigaRootTxHash } = await sendGigaRoot(
+      l1PublicClient as any,
+      l1WalletClient as any,
+      gigaBridge,
+      localRootProviders,
+      payableLocalRootProviders,
+      confirmations,
+    );
+    console.log(`[${operationId}]   ✓ sendGigaRoot ${sendGigaRootTxHash}`);
+
+    console.log(`[${operationId}]   step 3/3: receiveGigaRootOnAztec`);
+    await receiveGigaRootOnAztec(
+      L2Adapter,
+      L1Adapter,
+      L2WarpToad,
+      l1PublicClient as any,
+      sendGigaRootTx,
+      aztecNode,
+      isSandbox,
+      sponsoredPaymentMethod,
+      aztecWallet,
+    );
+    console.log(`[${operationId}]   ✓ receiveGigaRootOnAztec`);
+
+    console.log(`[${operationId}] bridge complete (light L1->Aztec)`);
+    return {
+      sendRootToL1TxHash: undefined,
+      updateGigaRootTxHash: gigaRootUpdateTxHash,
+      sendGigaRootTxHash: sendGigaRootTxHash,
+    };
+  }
+
+  // Full bidirectional flow for Aztec -> L1 and any L1 <-> Scroll route.
+  // The L2 -> L1 root push IS needed here because the destination chain's
+  // local proof needs the freshest source-chain root.
+  console.log(`[${operationId}] running bridgeBetweenL1AndL2 (full bidirectional)...`);
   const result = await bridgeBetweenL1AndL2(
     l1PublicClient as any,
     l1WalletClient as any,

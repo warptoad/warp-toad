@@ -11,6 +11,7 @@
     "test": "BB_BINARY_PATH=\"${BB_BINARY_PATH:-/home/nodestarq/Projects/warptoad/aztec-packages/barretenberg/cpp/build/bin/bb}\" hardhat test",
     "deploy:local": "BB_BINARY_PATH=\"${BB_BINARY_PATH:-/home/nodestarq/Projects/warptoad/aztec-packages/barretenberg/cpp/build/bin/bb}\" hardhat run scripts/deployLocal.ts --network local",
     "deploy:testnet": "BB_BINARY_PATH=\"${BB_BINARY_PATH:-/home/nodestarq/Projects/warptoad/aztec-packages/barretenberg/cpp/build/bin/bb}\" dotenv -e .env -- hardhat run scripts/deployTestnet.ts --network sepolia",
+    "sync:testnet:to-aztec": "dotenv -e .env -- hardhat run scripts/syncTestnetToAztec.ts --network sepolia",
     "sync:local": "BB_BINARY_PATH=\"${BB_BINARY_PATH:-/home/nodestarq/Projects/warptoad/aztec-packages/barretenberg/cpp/build/bin/bb}\" hardhat run scripts/syncLocal.ts --network local",
     "sync:local:from-aztec": "BB_BINARY_PATH=\"${BB_BINARY_PATH:-/home/nodestarq/Projects/warptoad/aztec-packages/barretenberg/cpp/build/bin/bb}\" hardhat run scripts/syncLocalFromAztec.ts --network local",
     "build:esm": "tsc -p tsconfig.json",
