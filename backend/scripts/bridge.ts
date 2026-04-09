@@ -3,11 +3,11 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { ArgumentParser } from 'argparse';
 
 // local
-import { getL1Contracts, getL2Contracts, getAztecTestWallet } from "../scripts/deployment"//'@warp-toad/backend/deployment';
-import { getLocalRootProviders, getPayableGigaRootRecipients, bridgeBetweenL1AndL2, sleep } from "../lib/bridging"//'@warp-toad/backend/bridging';
+import { getL1Contracts, getL2Contracts, getAztecTestWallet } from "./deployment.js";
+import { getLocalRootProviders, getPayableGigaRootRecipients, bridgeBetweenL1AndL2, sleep } from "../lib/bridging.js";
 import { PXE } from '@aztec/pxe/server';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
-import { getAztecTestAccounts, getAztecWallet, initPXE } from 'scripts/deploy/utils/aztecUtilsNoEnv';
+import { getAztecTestAccounts, getAztecWallet, initPXE } from "../deploy/utils/aztecUtilsNoEnv.js";
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 
 const AZTEC_NODE_URL = "https://aztec-alpha-testnet-fullnode.zkv.xyz"
@@ -130,6 +130,12 @@ async function main() {
 
 }
 
-if (require.main === module) {
-    main()
+// ESM main-module check (the package is "type": "module").
+import { fileURLToPath } from 'url';
+const isMain = process.argv[1] === fileURLToPath(import.meta.url);
+if (isMain) {
+    main().catch((err) => {
+        console.error(err);
+        process.exit(1);
+    });
 }

@@ -7,7 +7,24 @@
 
 import type { Chain } from '$lib/types/bridge.js';
 
-const BRIDGE_KEEPER_URL = import.meta.env.VITE_BRIDGE_KEEPER_URL || 'http://localhost:6969';
+/**
+ * Whether the BridgeKeeper service is reachable from this build.
+ *
+ * - Testnet/mainnet build (`VITE_TEST_MODE != 'true'`): always enabled,
+ *   defaults to bridge.warptoad.xyz, override via VITE_BRIDGE_KEEPER_URL.
+ * - Local sandbox build (`VITE_TEST_MODE = 'true'`): off by default
+ *   (fall back to running `pnpm l:sync` manually). Set
+ *   `VITE_BRIDGE_KEEPER_URL=http://localhost:6969` (or any URL) to opt in -
+ *   useful for testing the bridge-sync service against the sandbox.
+ */
+const isTestMode = import.meta.env.VITE_TEST_MODE === 'true';
+export const isBridgeKeeperEnabled = !isTestMode || !!import.meta.env.VITE_BRIDGE_KEEPER_URL;
+
+// Default to the production URL on testnet/mainnet builds, otherwise use the
+// explicit local override (only set when opting in to local bridge-sync).
+const BRIDGE_KEEPER_URL =
+	import.meta.env.VITE_BRIDGE_KEEPER_URL ||
+	(isTestMode ? 'http://localhost:6969' : 'https://bridge.warptoad.xyz');
 
 export interface BridgeKeeperResponse {
 	ok: boolean;

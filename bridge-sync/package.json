@@ -6,22 +6,25 @@
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/server.ts",
-    "build": "tsc",
-    "start": "node dist/server.js",
+    "build": "echo 'bridge-sync runs via tsx; no build step needed'",
+    "start": "tsx src/server.ts",
+    "typecheck": "tsc --noEmit",
     "docker:build": "docker build -t bridge-sync -f Dockerfile ..",
     "docker:run": "docker compose up --build -d",
     "docker:logs": "docker compose logs -f",
     "docker:down": "docker compose down"
   },
   "dependencies": {
+    "@aztec/accounts": "4.2.0-aztecnr-rc.2",
     "@aztec/aztec.js": "4.2.0-aztecnr-rc.2",
     "@aztec/foundation": "4.2.0-aztecnr-rc.2",
     "@aztec/pxe": "4.2.0-aztecnr-rc.2",
     "@aztec/stdlib": "4.2.0-aztecnr-rc.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.1",
-    "ethers": "^6.13.0",
     "express": "^4.18.2",
+    "tsx": "^4.7.0",
+    "viem": "^2.41.2",
     "winston": "^3.11.0"
   },
   "devDependencies": {

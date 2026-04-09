@@ -30,6 +30,8 @@
 		isValidL1LocalRoot,
 		storeL1LocalRootInHistory,
 		decodeNote,
+		getMerkleDataForL1ToScroll,
+		getMerkleDataForScrollToL1,
 	} from "$lib/utils/evm-interactions.js";
 	import {
 		getScrollGigaRoot,
@@ -38,10 +40,13 @@
 		isValidScrollLocalRoot,
 		storeScrollLocalRootInHistory,
 		getScrollChainId,
+		getEvmMerkleDataForScroll,
 	} from "$lib/utils/scroll-interactions.js";
 	import {
 		prepareProofInputsForAztecToL1,
 		prepareProofInputsForSameChain,
+		prepareProofInputsForL1ToScroll,
+		prepareProofInputsForScrollToL1,
 		generateWithdrawProof,
 		formatProofForL1,
 		type FeeConfig,
@@ -791,10 +796,7 @@
 		// Step 4: Get GigaBridge data (L1 local root in gigaRoot)
 		withdrawMessage = "Getting L1 local root from GigaBridge...";
 
-		// @ts-ignore - Function exists but TypeScript hasn't picked it up yet
-		const { getMerkleDataForL1ToScroll } = await import("$lib/utils/evm-interactions.js");
 		const { l1LocalRoot, l1LocalRootBlockNumber, gigaMerkleData } =
-			// @ts-ignore
 			await getMerkleDataForL1ToScroll(l1ChainId, gigaRoot);
 
 		console.log("L1 local root:", l1LocalRoot.toString());
@@ -811,9 +813,6 @@
 			maxFee: BigInt(selectedProof.commitmentData.amount) // Allow up to full amount
 		} : undefined; // undefined = use self-relay defaults
 
-		// @ts-ignore - Function exists but TypeScript hasn't picked it up yet
-		const { prepareProofInputsForL1ToScroll } = await import("$lib/utils/proof-generation.js");
-		// @ts-ignore
 		const proofInputs = prepareProofInputsForL1ToScroll(
 			selectedProof.commitmentData,
 			l1EvmMerkleData,
@@ -971,9 +970,6 @@
 		withdrawStep = "building-proofs";
 		withdrawMessage = "Getting Scroll burn proof...";
 
-		// @ts-ignore - Function exists but TypeScript hasn't picked it up yet
-		const { getEvmMerkleDataForScroll } = await import("$lib/utils/scroll-interactions.js");
-		// @ts-ignore
 		const { evmMerkleData: scrollEvmMerkleData, aztecWarptoadAddress, localRootBlockNumber } =
 			await getEvmMerkleDataForScroll(commitment);
 
@@ -982,9 +978,6 @@
 		// Step 4: Get GigaBridge data (Scroll local root in gigaRoot)
 		withdrawMessage = "Getting Scroll local root from GigaBridge...";
 
-		// @ts-ignore - Function exists but TypeScript hasn't picked it up yet
-		const { getMerkleDataForScrollToL1 } = await import("$lib/utils/evm-interactions.js");
-		// @ts-ignore
 		const { scrollLocalRoot, scrollLocalRootBlockNumber, gigaMerkleData } =
 			await getMerkleDataForScrollToL1(chainId, gigaRoot);
 
@@ -1002,9 +995,6 @@
 			maxFee: BigInt(selectedProof.commitmentData.amount) // Allow up to full amount
 		} : undefined; // undefined = use self-relay defaults
 
-		// @ts-ignore - Function exists but TypeScript hasn't picked it up yet
-		const { prepareProofInputsForScrollToL1 } = await import("$lib/utils/proof-generation.js");
-		// @ts-ignore
 		const proofInputs = prepareProofInputsForScrollToL1(
 			selectedProof.commitmentData,
 			scrollEvmMerkleData,

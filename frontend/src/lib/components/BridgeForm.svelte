@@ -46,10 +46,11 @@
 	} from "$lib/utils/scroll-interactions.js";
 	import { getWalletInstance } from "$lib/utils/aztec-wallet.js";
 	import { getEVMChain, isChainEnabled } from "$lib/config/chains.js";
-	import { 
-		triggerBridge, 
-		getChainIdForBridgeKeeper, 
+	import {
+		triggerBridge,
+		getChainIdForBridgeKeeper,
 		getExpectedDuration,
+		isBridgeKeeperEnabled,
 		savePendingBridgeSync 
 	} from "$lib/utils/bridge-keeper.js";
 
@@ -273,6 +274,15 @@ You can close this page. Your note has been downloaded.`;
 	 * This is called after note generation to automatically sync roots
 	 */
 	async function triggerRootSync() {
+		// In sandbox/local-dev mode the BridgeKeeper service isn't reachable
+		// (and the testnet one at bridge.warptoad.xyz is irrelevant). Skip the
+		// HTTP call entirely; the user runs `pnpm l:sync` / `pnpm l:sync:from-aztec`
+		// manually after burns.
+		if (!isBridgeKeeperEnabled) {
+			console.log("[BridgeKeeper] Skipped (sandbox/local dev mode). Run `pnpm l:sync` manually.");
+			return;
+		}
+
 		generationStep = "triggering-sync";
 		generationMessage = "Initiating root synchronization...";
 

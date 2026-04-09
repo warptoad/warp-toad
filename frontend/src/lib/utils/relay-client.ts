@@ -4,7 +4,11 @@
  * Client for interacting with the WarpToad relay service for gasless withdrawals.
  */
 
-const RELAY_SERVICE_URL = import.meta.env.VITE_RELAY_SERVICE_URL || 'http://localhost:7777';
+// Default to the production URL on testnet/mainnet builds, localhost in test mode.
+const isTestMode = import.meta.env.VITE_TEST_MODE === 'true';
+const RELAY_SERVICE_URL =
+	import.meta.env.VITE_RELAY_SERVICE_URL ||
+	(isTestMode ? 'http://localhost:7777' : 'https://relay.warptoad.xyz');
 
 export interface RelayerInfo {
   relayerAddress: string;
