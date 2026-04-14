@@ -222,15 +222,21 @@ export function hashNullifier(nullifierPreimage: bigint): bigint {
  */
 function createEvmClient(chainId: number, rpcUrl?: string): PublicClient {
 	// Use environment config for RPC URLs
-	let defaultRpcUrl: string;
+	let defaultRpcUrl: string | undefined;
 	if (chainId === L1_CONFIG.chainId || chainId === 31337) {
 		defaultRpcUrl = L1_CONFIG.rpcUrl;
 	} else if (chainId === 11155111) {
 		defaultRpcUrl = import.meta.env.VITE_SEPOLIA_RPC_URL;
 	} else if (chainId === 534351) {
 		defaultRpcUrl = import.meta.env.VITE_SCROLL_SEPOLIA_RPC_URL;
-	} else {
-		defaultRpcUrl = 'http://localhost:8545';
+	}
+
+	const resolvedRpc = rpcUrl ?? defaultRpcUrl;
+	if (!resolvedRpc) {
+		throw new Error(
+			`[createEvmClient] No RPC URL configured for chainId ${chainId}. ` +
+			`Pass an explicit rpcUrl or set the corresponding VITE_*_RPC_URL build arg.`
+		);
 	}
 
 	return createPublicClient({
@@ -239,8 +245,8 @@ function createEvmClient(chainId: number, rpcUrl?: string): PublicClient {
 			name: chainId === 31337 ? 'Localhost' : chainId === 11155111 ? 'Sepolia' : `Chain ${chainId}`,
 			nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
 			rpcUrls: {
-				default: { http: [rpcUrl || defaultRpcUrl] },
-				public: { http: [rpcUrl || defaultRpcUrl] },
+				default: { http: [resolvedRpc] },
+				public: { http: [resolvedRpc] },
 			},
 		},
 		transport: http()

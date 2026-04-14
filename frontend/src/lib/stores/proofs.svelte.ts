@@ -1,7 +1,6 @@
 import { USDcoinAbi } from '$lib/contracts/abis';
 import type { Proof, Token, Chain, MockTokenBalance, TokenContract, CommitmentPreImage } from '$lib/types/bridge.js';
 import { createPublicClient, http } from 'viem';
-import { anvil } from 'viem/chains';
 import { walletStore } from './wallets.svelte';
 import { decodeNote } from '$lib/utils/evm-interactions';
 import { getWalletInstance } from '$lib/utils/aztec-wallet';
@@ -134,10 +133,20 @@ class ProofStore {
 			return 'Connect wallet';
 		}
 
+		// Resolve the active chain config (Sepolia/Scroll in prod, Anvil in test mode).
+		// Defaulting to viem's `anvil` chain with `http()` silently pins RPC to
+		// localhost:8545 in production builds, so always go through the registry.
+		const chainName = chain === 'Scroll' ? 'Scroll' : 'Ethereum';
+		const chainDef = getEVMChain(chainName);
+		if (!chainDef) {
+			console.warn(`[getBalance] Chain ${chainName} not configured`);
+			return '0.00';
+		}
+
 		const publicClient = createPublicClient({
-			chain: anvil,
-			transport: http()
-		})
+			chain: chainDef.viemChain,
+			transport: http(chainDef.rpcUrl),
+		});
 
 		const decimals = await publicClient.readContract({
 			address: tokenAddress as `0x${string}`,
