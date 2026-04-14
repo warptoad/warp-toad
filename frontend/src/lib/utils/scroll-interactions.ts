@@ -13,6 +13,7 @@
 
 import { createPublicClient, http, type Hash } from 'viem';
 import { L2WarpToadAbi, L2ScrollBridgeAdapterAbi, USDcoinAbi } from '$lib/contracts/abis';
+import { queryEventInChunks } from './viem-chunks';
 import { getEVMChain, type EVMChainDefinition } from '$lib/config/chains.js';
 import { createClient, getChainId } from './evm-wallet.js';
 import type { CommitmentPreImage } from '$lib/types/bridge.js';
@@ -474,19 +475,15 @@ export async function getScrollMerkleData(
 	});
 
 	// Get all Burn events to build the tree
-	const burnEvents = await publicClient.getLogs({
-		address: scroll.contracts.warpToad as `0x${string}`,
-		event: {
-			type: 'event',
-			name: 'Burn',
-			inputs: [
-				{ type: 'uint256', name: 'commitment', indexed: true },
-				{ type: 'uint256', name: 'amount', indexed: false },
-				{ type: 'uint256', name: 'index', indexed: false },
-			],
-		},
-		fromBlock: 'earliest',
-		toBlock: 'latest',
+	const { getContractAddresses } = await import('$lib/contracts/addresses');
+	const scrollAddrs = getContractAddresses(scroll.chainId);
+	const scrollDeploymentBlock = BigInt(scrollAddrs.deploymentBlock || 0);
+
+	const burnEvents = await queryEventInChunks({
+		publicClient,
+		contract: { address: scroll.contracts.warpToad as `0x${string}`, abi: L2WarpToadAbi },
+		eventName: 'Burn',
+		firstBlock: scrollDeploymentBlock,
 	});
 
 	// Find our commitment
@@ -611,21 +608,13 @@ export async function getEvmMerkleDataForScroll(
 	const toBlock = await publicClient.getBlockNumber();
 	
 	console.log(`Querying Scroll Burn events from block ${deploymentBlock} to ${toBlock}...`);
-	
-	// Query all Burn events from L2WarpToad
-	const burnEvents = await publicClient.getLogs({
-		address: scroll.contracts.warpToad as `0x${string}`,
-		event: {
-			type: 'event',
-			name: 'Burn',
-			inputs: [
-				{ type: 'uint256', name: 'commitment', indexed: true },
-				{ type: 'uint256', name: 'amount', indexed: false },
-				{ type: 'uint256', name: 'index', indexed: false },
-			],
-		},
-		fromBlock: deploymentBlock,
-		toBlock,
+
+	const burnEvents = await queryEventInChunks({
+		publicClient,
+		contract: { address: scroll.contracts.warpToad as `0x${string}`, abi: L2WarpToadAbi },
+		eventName: 'Burn',
+		firstBlock: deploymentBlock,
+		lastBlock: toBlock,
 	});
 	
 	console.log(`Found ${burnEvents.length} Burn events on Scroll`);

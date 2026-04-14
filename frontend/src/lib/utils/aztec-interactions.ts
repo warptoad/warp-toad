@@ -19,7 +19,8 @@
 import type { CommitmentPreImage } from '$lib/types/bridge';
 import { createPublicClient, http, keccak256, toHex, type PublicClient } from 'viem';
 import { getContractAddresses, CONTRACT_ADDRESSES } from '$lib/contracts/addresses';
-import { GigaBridgeAbi } from '$lib/contracts/abis';
+import { GigaBridgeAbi, L1WarpToadAbi, L2WarpToadAbi } from '$lib/contracts/abis';
+import { queryEventInChunks } from './viem-chunks';
 import { poseidon1, poseidon2, poseidon3 } from 'poseidon-lite';
 import { MerkleTree, type Element } from 'fixed-merkle-tree';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
@@ -296,23 +297,17 @@ async function getBurnEvents(
 	toBlock: bigint | 'latest' = 'latest'
 ): Promise<Array<{ commitment: bigint; amount: bigint; index: number }>> {
 	const fromBlock = getDeploymentBlock(chainId);
+	const lastBlock = toBlock === 'latest' ? undefined : toBlock;
 
-	const logs = await publicClient.getLogs({
-		address: warpToadAddress as `0x${string}`,
-		event: {
-			type: 'event',
-			name: 'Burn',
-			inputs: [
-				{ type: 'uint256', name: 'commitment', indexed: true },
-				{ type: 'uint256', name: 'amount', indexed: false },
-				{ type: 'uint256', name: 'index', indexed: false },
-			],
-		},
-		fromBlock,
-		toBlock,
+	const logs = await queryEventInChunks({
+		publicClient,
+		contract: { address: warpToadAddress as `0x${string}`, abi: L1WarpToadAbi },
+		eventName: 'Burn',
+		firstBlock: fromBlock,
+		lastBlock,
 	});
 
-	return logs.map((log:any) => ({
+	return logs.map((log: any) => ({
 		commitment: log.args.commitment as bigint,
 		amount: log.args.amount as bigint,
 		index: Number(log.args.index),
@@ -331,23 +326,17 @@ async function getLocalRootEvents(
 	toBlock: bigint | 'latest' = 'latest'
 ): Promise<Array<{ localRoot: bigint; index: number; blockNumber: number; eventBlockNumber: bigint }>> {
 	const fromBlock = getDeploymentBlock(chainId);
+	const lastBlock = toBlock === 'latest' ? undefined : toBlock;
 
-	const logs = await publicClient.getLogs({
-		address: gigaBridgeAddress as `0x${string}`,
-		event: {
-			type: 'event',
-			name: 'ReceivedNewLocalRoot',
-			inputs: [
-				{ type: 'uint256', name: 'newLocalRoot', indexed: true },
-				{ type: 'uint40', name: 'localRootIndex', indexed: true },
-				{ type: 'uint256', name: 'localRootBlockNumber', indexed: false },
-			],
-		},
-		fromBlock,
-		toBlock,
+	const logs = await queryEventInChunks({
+		publicClient,
+		contract: { address: gigaBridgeAddress as `0x${string}`, abi: GigaBridgeAbi },
+		eventName: 'ReceivedNewLocalRoot',
+		firstBlock: fromBlock,
+		lastBlock,
 	});
 
-	return logs.map((log:any) => ({
+	return logs.map((log: any) => ({
 		localRoot: log.args.newLocalRoot as bigint,
 		index: Number(log.args.localRootIndex),
 		blockNumber: Number(log.args.localRootBlockNumber),
@@ -367,22 +356,19 @@ async function getGigaRootEvents(
 ): Promise<Array<{ gigaRoot: bigint; blockNumber: bigint; transactionHash: `0x${string}` }>> {
 	const fromBlock = getDeploymentBlock(chainId);
 
-	const logs = await publicClient.getLogs({
-		address: gigaBridgeAddress as `0x${string}`,
-		event: {
-			type: 'event',
-			name: 'ConstructedNewGigaRoot',
-			inputs: [
-				{ type: 'uint256', name: 'newGigaRoot', indexed: true },
-			],
-		},
-		// Filter by specific gigaRoot if provided (indexed parameter)
-		args: filterGigaRoot ? { newGigaRoot: filterGigaRoot } : undefined,
-		fromBlock,
-		toBlock: 'latest',
+	// When filtering for a specific gigaRoot, scan backwards and stop at the first
+	// hit - the event is emitted once and we don't need to scan deployment → head.
+	const logs = await queryEventInChunks({
+		publicClient,
+		contract: { address: gigaBridgeAddress as `0x${string}`, abi: GigaBridgeAbi },
+		eventName: 'ConstructedNewGigaRoot',
+		eventFilterArgs: filterGigaRoot ? { newGigaRoot: filterGigaRoot } : undefined,
+		firstBlock: fromBlock,
+		reverseOrder: filterGigaRoot !== undefined,
+		maxEvents: filterGigaRoot !== undefined ? 1 : Infinity,
 	});
 
-	return logs.map((log:any) => ({
+	return logs.map((log: any) => ({
 		gigaRoot: log.args.newGigaRoot as bigint,
 		blockNumber: log.blockNumber,
 		transactionHash: log.transactionHash,
@@ -399,17 +385,12 @@ async function getGigaRootEventsInRange(
 	fromBlock: bigint,
 	toBlock: bigint
 ): Promise<Array<{ gigaRoot: bigint; blockNumber: number; transactionHash: `0x${string}` }>> {
-	const logs = await publicClient.getLogs({
-		address: gigaBridgeAddress as `0x${string}`,
-		event: {
-			type: 'event',
-			name: 'ConstructedNewGigaRoot',
-			inputs: [
-				{ type: 'uint256', name: 'newGigaRoot', indexed: true },
-			],
-		},
-		fromBlock,
-		toBlock,
+	const logs = await queryEventInChunks({
+		publicClient,
+		contract: { address: gigaBridgeAddress as `0x${string}`, abi: GigaBridgeAbi },
+		eventName: 'ConstructedNewGigaRoot',
+		firstBlock: fromBlock,
+		lastBlock: toBlock,
 	});
 
 	return logs.map((log: any) => ({
@@ -1156,26 +1137,19 @@ export async function validateCommitmentExists(
 
 		// Use deployment block to avoid scanning entire blockchain history
 		const fromBlock = getDeploymentBlock(sourceChainId);
-		
+
 		console.log(`[validateCommitmentExists] Scanning for commitment ${commitment.toString()} from block ${fromBlock} to latest on chain ${sourceChainId}`);
 
-		// Query for specific commitment
-		const logs = await publicClient.getLogs({
-			address: warpToadAddress as `0x${string}`,
-			event: {
-				type: 'event',
-				name: 'Burn',
-				inputs: [
-					{ type: 'uint256', name: 'commitment', indexed: true },
-					{ type: 'uint256', name: 'amount', indexed: false },
-					{ type: 'uint256', name: 'index', indexed: false },
-				],
-			},
-			args: {
-				commitment,
-			},
-			fromBlock,
-			toBlock: 'latest',
+		// Burn is emitted once per commitment - scan backwards and stop at first hit.
+		const abi = addresses.L2WarpToad ? L2WarpToadAbi : L1WarpToadAbi;
+		const logs = await queryEventInChunks({
+			publicClient,
+			contract: { address: warpToadAddress as `0x${string}`, abi },
+			eventName: 'Burn',
+			eventFilterArgs: { commitment },
+			firstBlock: fromBlock,
+			reverseOrder: true,
+			maxEvents: 1,
 		});
 
 		console.log(`[validateCommitmentExists] Found ${logs.length} matching Burn events`);
