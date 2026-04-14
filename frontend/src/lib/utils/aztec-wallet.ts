@@ -59,6 +59,11 @@ const ACCOUNT_MODE_KEY = 'warptoad:aztec:account-mode';
 const CUSTOM_SECRET_KEY = 'warptoad:aztec:custom-secret';
 const CUSTOM_SALT_KEY = 'warptoad:aztec:custom-salt';
 const CUSTOM_SIGNING_KEY = 'warptoad:aztec:custom-signing-key';
+// Marks a custom account as already deployed on chain, so we don't re-run the
+// ~20s simulate + ClientIVC-prove cycle on every page reload only to have the
+// node reject with "Existing nullifier". Value is the address string for
+// traceability / future account-rotation.
+const CUSTOM_DEPLOYED_KEY = 'warptoad:aztec:custom-deployed-address';
 
 // Canonical sandbox test account #0 (matches @aztec/accounts/testing INITIAL_TEST_*).
 // Pre-deployed and pre-funded by the Aztec sandbox at startup; safe to hardcode.
@@ -117,6 +122,7 @@ export function clearCustomSecrets(): void {
 	localStorage.removeItem(CUSTOM_SECRET_KEY);
 	localStorage.removeItem(CUSTOM_SALT_KEY);
 	localStorage.removeItem(CUSTOM_SIGNING_KEY);
+	localStorage.removeItem(CUSTOM_DEPLOYED_KEY);
 }
 
 // ============================================================================
@@ -204,34 +210,47 @@ export async function connectAztecBrowserWallet(
 	}
 
 	const accountManager = await wallet.createSchnorrAccount(secret, salt, signingKey);
+	const address = accountManager.address.toString();
 
-	// 4. Deploy the account if needed. Sandbox-test is pre-deployed; custom needs a deploy.
+	// 4. Deploy the account if needed. Sandbox-test is pre-deployed; custom needs a deploy
+	//    on first use. The PXE runs with `ephemeral: true`, so every page load rebuilds its
+	//    in-memory state from scratch - we use a localStorage flag to remember that this
+	//    address already went through the deploy flow, and skip the ~20s simulate + prove
+	//    + rejected-by-node cycle on reconnects. The Existing-nullifier catch remains as a
+	//    defensive net in case the flag is out of sync with chain state (e.g. cleared
+	//    localStorage, user restored keys on a new device).
+	//
 	//    Pass `from: NO_FROM` so DeployAccountMethod routes through the self-deploy path
 	//    (the account contract pays its own fee via AccountEntrypointMetaPaymentMethod) and
 	//    simulation uses DefaultEntrypoint instead of looking the deployer up in walletDB.
-	//    Swallow "Existing nullifier" so reconnects are idempotent.
 	if (mode === 'custom') {
-		report('account-deploy');
-		try {
-			const deployMethod = await accountManager.getDeployMethod();
-			await deployMethod.send({
-				from: NO_FROM,
-				fee: { paymentMethod: sponsoredPaymentMethod },
-			});
-		} catch (error: any) {
-			// Aztec's `contextualizeError` wraps errors so the message might appear as
-			// `[Error: Invalid tx: Existing nullifier]` or similar. Use `.includes()`
-			// rather than `.startsWith()` to catch all wrapping shapes.
-			const msg = String(error?.message ?? '') + ' ' + String(error?.cause?.message ?? '');
-			if (!msg.includes('Existing nullifier') && !msg.includes('existing nullifier')) {
-				throw new Error(`Failed to deploy custom Aztec account: ${msg}`, { cause: error });
+		const alreadyDeployed = localStorage.getItem(CUSTOM_DEPLOYED_KEY) === address;
+
+		if (!alreadyDeployed) {
+			report('account-deploy');
+			try {
+				const deployMethod = await accountManager.getDeployMethod();
+				await deployMethod.send({
+					from: NO_FROM,
+					fee: { paymentMethod: sponsoredPaymentMethod },
+				});
+				localStorage.setItem(CUSTOM_DEPLOYED_KEY, address);
+			} catch (error: any) {
+				// Aztec's `contextualizeError` wraps errors so the message might appear as
+				// `[Error: Invalid tx: Existing nullifier]` or similar. Use `.includes()`
+				// rather than `.startsWith()` to catch all wrapping shapes.
+				const msg = String(error?.message ?? '') + ' ' + String(error?.cause?.message ?? '');
+				if (msg.includes('Existing nullifier') || msg.includes('existing nullifier')) {
+					// Already on chain - mark it so we skip the redeploy next reload.
+					localStorage.setItem(CUSTOM_DEPLOYED_KEY, address);
+				} else {
+					throw new Error(`Failed to deploy custom Aztec account: ${msg}`, { cause: error });
+				}
 			}
-			// Account already deployed on the sandbox - safe to proceed.
 		}
 	}
 
 	walletInstance = wallet;
-	const address = accountManager.address.toString();
 	report('complete');
 	return { wallet, address };
 }
