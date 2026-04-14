@@ -22,6 +22,7 @@ import {
 	setAccountMode,
 	clearCustomSecrets,
 	type AztecAccountMode,
+	type AztecConnectStage,
 } from '$lib/utils/aztec-wallet.js';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 
@@ -74,6 +75,8 @@ class WalletStore {
 	private _chainId = $state<number | null>(loadChainId());
 	private _isConnecting = $state<boolean>(false);
 	private _isConnectingAztec = $state<boolean>(false);
+	private _aztecConnectStage = $state<AztecConnectStage | null>(null);
+	private _aztecConnectMessage = $state<string | null>(null);
 	private _error = $state<string | null>(null);
 	private _aztecError = $state<string | null>(null);
 	private _balance = $state<bigint | null>(null);
@@ -109,6 +112,14 @@ class WalletStore {
 
 	get isConnectingAztec(): boolean {
 		return this._isConnectingAztec;
+	}
+
+	get aztecConnectStage(): AztecConnectStage | null {
+		return this._aztecConnectStage;
+	}
+
+	get aztecConnectMessage(): string | null {
+		return this._aztecConnectMessage;
 	}
 
 	get error(): string | null {
@@ -208,8 +219,17 @@ class WalletStore {
 	async autoReconnectAztec(): Promise<void> {
 		if (!isAztecWalletAvailable()) return;
 
+		this._isConnectingAztec = true;
+		this._aztecConnectStage = null;
+		this._aztecConnectMessage = null;
+
 		try {
-			const result = await autoReconnectAztec();
+			const result = await autoReconnectAztec({
+				onProgress: (stage, message) => {
+					this._aztecConnectStage = stage;
+					this._aztecConnectMessage = message;
+				},
+			});
 			if (result) {
 				this._aztecWallet = result.wallet;
 				this._wallets.aztec = result.address;
@@ -220,6 +240,10 @@ class WalletStore {
 			}
 		} catch (error) {
 			console.debug('Aztec auto-reconnect failed:', error);
+		} finally {
+			this._isConnectingAztec = false;
+			this._aztecConnectStage = null;
+			this._aztecConnectMessage = null;
 		}
 	}
 
@@ -269,9 +293,16 @@ class WalletStore {
 	async connectAztec(): Promise<void> {
 		this._isConnectingAztec = true;
 		this._aztecError = null;
+		this._aztecConnectStage = null;
+		this._aztecConnectMessage = null;
 
 		try {
-			const { wallet, address } = await connectAztecBrowserWallet();
+			const { wallet, address } = await connectAztecBrowserWallet({
+				onProgress: (stage, message) => {
+					this._aztecConnectStage = stage;
+					this._aztecConnectMessage = message;
+				},
+			});
 
 			this._aztecWallet = wallet;
 			this._wallets.aztec = address;
@@ -286,6 +317,8 @@ class WalletStore {
 			throw error;
 		} finally {
 			this._isConnectingAztec = false;
+			this._aztecConnectStage = null;
+			this._aztecConnectMessage = null;
 		}
 	}
 

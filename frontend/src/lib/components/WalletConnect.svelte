@@ -375,11 +375,17 @@
 						>
 							{#if walletStore.isConnectingAztec}
 								<Loader2 class="size-3 animate-spin" />
-								Connecting...
+								{walletStore.aztecConnectMessage ?? 'Connecting…'}
 							{:else}
 								Connect
 							{/if}
 						</button>
+						{#if walletStore.isConnectingAztec && walletStore.aztecConnectStage === 'account-deploy'}
+							<p class="text-[0.65rem] text-[var(--muted-foreground)] text-center leading-snug mt-1">
+								Generating client-side ZK proof to deploy your account. This only
+								happens once per key and can take up to a minute.
+							</p>
+						{/if}
 						{#if walletStore.aztecAccountMode === 'custom'}
 							<button
 								onclick={handleResetCustomAccount}

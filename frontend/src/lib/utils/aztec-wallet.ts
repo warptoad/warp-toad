@@ -32,6 +32,29 @@ import { getAztecChain, isTestMode } from '$lib/config/chains.js';
 
 export type AztecAccountMode = 'sandbox-test' | 'custom';
 
+/**
+ * Stages of the connect flow, used by the UI to show what's happening
+ * while `connectAztecBrowserWallet()` runs. Testnet account deploy can take
+ * ~1 minute (client-side proving), so a plain "Connecting..." spinner feels
+ * broken - the UI pipes these stages through to a status line.
+ */
+export type AztecConnectStage =
+	| 'pxe-init'
+	| 'register-fpc'
+	| 'account-setup'
+	| 'account-deploy'
+	| 'complete';
+
+export type AztecConnectProgress = (stage: AztecConnectStage, message: string) => void;
+
+const STAGE_MESSAGES: Record<AztecConnectStage, string> = {
+	'pxe-init': 'Initializing Aztec PXE…',
+	'register-fpc': 'Registering sponsored fee contract…',
+	'account-setup': 'Setting up Schnorr account…',
+	'account-deploy': 'Deploying account on Aztec (~1 min)…',
+	'complete': 'Connected',
+};
+
 const ACCOUNT_MODE_KEY = 'warptoad:aztec:account-mode';
 const CUSTOM_SECRET_KEY = 'warptoad:aztec:custom-secret';
 const CUSTOM_SALT_KEY = 'warptoad:aztec:custom-salt';
@@ -130,10 +153,16 @@ export function isAztecWalletAvailable(): boolean {
  *  4. For custom mode, ensure the account is deployed on chain (try-catch
  *     "Existing nullifier" so reconnects are idempotent).
  */
-export async function connectAztecBrowserWallet(): Promise<{ wallet: Wallet; address: string }> {
+export async function connectAztecBrowserWallet(
+	options?: { onProgress?: AztecConnectProgress },
+): Promise<{ wallet: Wallet; address: string }> {
+	const report = (stage: AztecConnectStage) =>
+		options?.onProgress?.(stage, STAGE_MESSAGES[stage]);
+
 	if (walletInstance) {
 		const accounts = await walletInstance.getAccounts();
 		const address = accounts[0]?.item.toString() ?? '';
+		report('complete');
 		return { wallet: walletInstance, address };
 	}
 
@@ -141,12 +170,14 @@ export async function connectAztecBrowserWallet(): Promise<{ wallet: Wallet; add
 	const sandbox = isTestMode;
 
 	// 1. Build the embedded wallet (creates a lazy PXE under the hood).
+	report('pxe-init');
 	const wallet = await EmbeddedWallet.create(nodeUrl, {
 		ephemeral: true,
 		pxeConfig: { proverEnabled: !sandbox },
 	});
 
 	// 2. Sponsored FPC for fee payment.
+	report('register-fpc');
 	const sponsoredPFCContract = await getContractInstanceFromInstantiationParams(
 		SponsoredFPCContractArtifact,
 		{ salt: new Fr(SPONSORED_FPC_SALT) },
@@ -155,6 +186,7 @@ export async function connectAztecBrowserWallet(): Promise<{ wallet: Wallet; add
 	await wallet.registerContract(sponsoredPFCContract, SponsoredFPCContractArtifact);
 
 	// 3. Schnorr account from the chosen mode.
+	report('account-setup');
 	const mode = getAccountMode();
 	let secret: Fr;
 	let salt: Fr;
@@ -179,6 +211,7 @@ export async function connectAztecBrowserWallet(): Promise<{ wallet: Wallet; add
 	//    simulation uses DefaultEntrypoint instead of looking the deployer up in walletDB.
 	//    Swallow "Existing nullifier" so reconnects are idempotent.
 	if (mode === 'custom') {
+		report('account-deploy');
 		try {
 			const deployMethod = await accountManager.getDeployMethod();
 			await deployMethod.send({
@@ -199,6 +232,7 @@ export async function connectAztecBrowserWallet(): Promise<{ wallet: Wallet; add
 
 	walletInstance = wallet;
 	const address = accountManager.address.toString();
+	report('complete');
 	return { wallet, address };
 }
 
@@ -234,7 +268,9 @@ export async function disconnectAztecWallet(): Promise<void> {
  * secret was previously persisted to localStorage (otherwise we'd silently mint a
  * fresh account on every page load, which would be confusing).
  */
-export async function autoReconnect(): Promise<{ wallet: Wallet; address: string } | null> {
+export async function autoReconnect(
+	options?: { onProgress?: AztecConnectProgress },
+): Promise<{ wallet: Wallet; address: string } | null> {
 	if (typeof window === 'undefined') return null;
 
 	const mode = getAccountMode();
@@ -243,7 +279,7 @@ export async function autoReconnect(): Promise<{ wallet: Wallet; address: string
 	}
 
 	try {
-		return await connectAztecBrowserWallet();
+		return await connectAztecBrowserWallet(options);
 	} catch (error) {
 		console.debug('Aztec auto-reconnect failed:', error);
 		return null;
