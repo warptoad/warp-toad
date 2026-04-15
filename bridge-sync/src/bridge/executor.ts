@@ -30,7 +30,9 @@ import {
   updateGigaRoot,
   sendGigaRoot,
   receiveGigaRootOnAztec,
+  receiveGigaRootOnEvmL2,
   getPayableGigaRootRecipients,
+  getLocalRootProviders,
 } from '../../../backend/lib/bridging.js';
 // @ts-ignore
 import { initPXE, getAztecWallet } from '../../../backend/deploy/utils/aztecUtilsNoEnv.js';
@@ -49,6 +51,7 @@ import {
   loadL1Contracts,
   loadScrollContracts,
   loadAztecContractMetadata,
+  loadL1AdapterByType,
 } from './contractLoader.js';
 import { getChainConfig } from './chainMapper.js';
 import type { ChainId, BridgeResult } from '../types/index.js';
@@ -118,8 +121,15 @@ async function getOrCreateAztecWallet(
 
 interface BridgeRoute {
   l1Rpc: string;
-  l2Rpc: string;
-  isAztec: boolean;
+  aztecRpc?: string;
+  scrollRpc?: string;
+  isFromAztec: boolean;
+  isToAztec: boolean;
+  fromIsScroll: boolean;
+  toIsScroll: boolean;
+  isMultiHop: boolean;
+  fromIsL1: boolean;
+  toIsL1: boolean;
 }
 
 function resolveRoute(fromChainId: ChainId, toChainId: ChainId): BridgeRoute {
@@ -128,19 +138,31 @@ function resolveRoute(fromChainId: ChainId, toChainId: ChainId): BridgeRoute {
 
   const isFromAztec = fromChain.isAztec;
   const isToAztec = toChain.isAztec;
-  const isAztec = isFromAztec || isToAztec;
+  const fromIsScroll = fromChain.type === 'L2' && !isFromAztec;
+  const toIsScroll = toChain.type === 'L2' && !isToAztec;
+  const fromIsL1 = fromChain.type === 'L1';
+  const toIsL1 = toChain.type === 'L1';
+  const isMultiHop = (isFromAztec && toIsScroll) || (fromIsScroll && isToAztec);
 
-  const l1Rpc =
-    fromChain.type === 'L1' || fromChain.type === 'L2' ? fromChain.rpcUrl : toChain.rpcUrl;
-  const l2Rpc = isAztec
-    ? isFromAztec
-      ? fromChain.rpcUrl
-      : toChain.rpcUrl
-    : fromChain.type === 'L2'
-      ? fromChain.rpcUrl
-      : toChain.rpcUrl;
+  let l1Rpc: string;
+  if (isMultiHop) {
+    // aztec↔scroll: L1 hub is Sepolia (testnet) since no local scroll exists.
+    const hub = getChainConfig('11155111');
+    l1Rpc = hub.rpcUrl;
+    if (!l1Rpc) throw new Error('SEPOLIA_RPC_URL must be set for aztec↔scroll multi-hop routes');
+  } else if (fromIsL1) {
+    l1Rpc = fromChain.rpcUrl;
+  } else if (toIsL1) {
+    l1Rpc = toChain.rpcUrl;
+  } else {
+    // aztec↔L1 or scroll↔L1 handled above; fallback shouldn't hit.
+    l1Rpc = isFromAztec ? toChain.rpcUrl : fromChain.rpcUrl;
+  }
 
-  return { l1Rpc, l2Rpc, isAztec };
+  const aztecRpc = isFromAztec ? fromChain.rpcUrl : isToAztec ? toChain.rpcUrl : undefined;
+  const scrollRpc = fromIsScroll ? fromChain.rpcUrl : toIsScroll ? toChain.rpcUrl : undefined;
+
+  return { l1Rpc, aztecRpc, scrollRpc, isFromAztec, isToAztec, fromIsScroll, toIsScroll, isMultiHop, fromIsL1, toIsL1 };
 }
 
 /**
@@ -195,155 +217,198 @@ export async function executeBridge(
   fromChainId: ChainId,
   toChainId: ChainId,
   privateKey: string,
-  // Accepted for caller compatibility; bridgeBetweenL1AndL2 derives the
-  // correct value from isSandBox internally (1 conf locally, 3 on testnet).
   _confirmations?: number,
 ): Promise<BridgeResult> {
   console.log(`[${operationId}] starting bridge: ${fromChainId} -> ${toChainId}`);
 
-  const { l1Rpc, l2Rpc, isAztec } = resolveRoute(fromChainId, toChainId);
-  const fromChain = getChainConfig(fromChainId);
-  const toChain = getChainConfig(toChainId);
-  // For the L1 -> Aztec direction we can skip the slow L2->L1 root push that
-  // bridgeBetweenL1AndL2 does first. Aztec testnet's prover lags real time
-  // and that step times out the bridge after ~40 minutes. The L1 -> Aztec
-  // proof flow doesn't need a fresh L2 root anyway, so we run the lighter
-  // updateGigaRoot + sendGigaRoot + receiveGigaRootOnAztec sequence (same as
-  // backend/scripts/syncTestnetToAztec.ts).
-  const isL1ToAztec = isAztec && !fromChain.isAztec && toChain.isAztec;
+  const route = resolveRoute(fromChainId, toChainId);
 
-  // ----- L1 viem clients + contract handles -----
+  // ----- L1 clients -----
   const l1Account = privateKeyToAccount(privateKey as Hex);
-  const l1PublicClient = createPublicClient({ transport: http(l1Rpc) });
-  const l1WalletClient = createWalletClient({ account: l1Account, transport: http(l1Rpc) });
+  const l1PublicClient = createPublicClient({ transport: http(route.l1Rpc) });
+  const l1WalletClient = createWalletClient({ account: l1Account, transport: http(route.l1Rpc) });
   const l1ChainId = BigInt(await l1PublicClient.getChainId());
-  console.log(`[${operationId}] L1 chainId=${l1ChainId} rpc=${l1Rpc}`);
+  const isSandbox = l1ChainId === 31337n;
+  const confirmations = isSandbox ? 1 : 3;
+  console.log(`[${operationId}] L1 chainId=${l1ChainId} rpc=${route.l1Rpc}`);
 
-  const { L1Warptoad, gigaBridge, L1Adapter, l1WarpToadAddress, l1AdapterAddress } =
-    loadL1Contracts(l1ChainId, l1PublicClient as any, l1WalletClient as any, isAztec);
+  // GigaBridge + L1 WarpToad are chain-level, not adapter-specific.
+  // Load the "primary" L1Adapter based on source/dest semantics:
+  //   - if source is non-L1, primary matches source kind
+  //   - else primary matches dest kind (L1→L2 direction)
+  const primaryIsAztec = route.isFromAztec || (route.fromIsL1 && route.isToAztec);
+  const { gigaBridge, L1Adapter: primaryL1Adapter } =
+    loadL1Contracts(l1ChainId, l1PublicClient as any, l1WalletClient as any, primaryIsAztec);
 
-  const localRootProviders: Address[] = [l1WarpToadAddress, l1AdapterAddress];
+  // `localRootProviders` pulls all three (L1WarpToad + both adapters) from the
+  // deployment JSON so updateGigaRoot folds in every known local root.
+  // `updateGigaRoot` itself skips providers whose mostRecentL2Root is still 0.
+  const localRootProviders: Address[] = await getLocalRootProviders(l1ChainId);
   const payableLocalRootProviders: Address[] = await getPayableGigaRootRecipients(l1ChainId);
 
-  // ----- L2 leg: Aztec or Scroll EVM -----
-  let l2ChainId: bigint = 0n;
-  let L2Adapter: any;
-  let L2WarpToad: any;
-  let aztecNode: any;
-  let aztecPXE: any;
-  let aztecWallet: any;
-  let sponsoredPaymentMethod: any;
+  // ----- Aztec state (lazy) -----
+  let aztec: { wallet: any; pxe: any; node: any; sponsoredPaymentMethod: any; L2Adapter: any; L2WarpToad: any; } | null = null;
+  if (route.isFromAztec || route.isToAztec) {
+    if (!route.aztecRpc) throw new Error('aztecRpc missing for route');
+    console.log(`[${operationId}] acquiring Aztec wallet for ${route.aztecRpc}`);
+    const cached = await getOrCreateAztecWallet(l1ChainId, route.aztecRpc);
+    const { aztecWarpToad, aztecBridgeAdapter } = await reconstructAztecContracts(l1ChainId, cached.wallet);
+    aztec = {
+      wallet: cached.wallet,
+      pxe: cached.pxe,
+      node: cached.node,
+      sponsoredPaymentMethod: cached.sponsoredPaymentMethod,
+      L2Adapter: aztecBridgeAdapter,
+      L2WarpToad: aztecWarpToad,
+    };
+  }
 
-  if (isAztec) {
-    console.log(`[${operationId}] acquiring Aztec wallet for ${l2Rpc}`);
-    const cached = await getOrCreateAztecWallet(l1ChainId, l2Rpc);
-    aztecNode = cached.node;
-    aztecWallet = cached.wallet;
-    sponsoredPaymentMethod = cached.sponsoredPaymentMethod;
-    aztecPXE = cached.pxe;
-
-    // Reconstruct on-chain Aztec contract handles from saved metadata. Cheap
-    // (no on-chain calls), safe to repeat per bridge run.
-    const { aztecWarpToad, aztecBridgeAdapter } = await reconstructAztecContracts(
-      l1ChainId,
-      aztecWallet,
-    );
-    L2WarpToad = aztecWarpToad;
-    L2Adapter = aztecBridgeAdapter;
-  } else {
-    // Scroll EVM L2: same private key, different RPC.
+  // ----- Scroll state (lazy) -----
+  let scroll: { l2PublicClient: any; l2WalletClient: any; l2ChainId: bigint; L2Adapter: any; L2WarpToad: any; } | null = null;
+  if (route.fromIsScroll || route.toIsScroll) {
+    if (!route.scrollRpc) throw new Error('scrollRpc missing for route');
     const l2Account = privateKeyToAccount(privateKey as Hex);
-    const l2PublicClient = createPublicClient({ transport: http(l2Rpc) });
-    const l2WalletClient = createWalletClient({ account: l2Account, transport: http(l2Rpc) });
-    l2ChainId = BigInt(await l2PublicClient.getChainId());
-    console.log(`[${operationId}] L2 (Scroll) chainId=${l2ChainId} rpc=${l2Rpc}`);
-
-    const scrollHandles = loadScrollContracts(
+    const l2PublicClient = createPublicClient({ transport: http(route.scrollRpc) });
+    const l2WalletClient = createWalletClient({ account: l2Account, transport: http(route.scrollRpc) });
+    const l2ChainId = BigInt(await l2PublicClient.getChainId());
+    console.log(`[${operationId}] Scroll L2 chainId=${l2ChainId} rpc=${route.scrollRpc}`);
+    const { L2WarpToad, L2Adapter } = loadScrollContracts(
       l2ChainId,
       l2PublicClient as any,
       l2WalletClient as any,
     );
-    L2WarpToad = scrollHandles.L2WarpToad;
-    L2Adapter = scrollHandles.L2Adapter;
+    scroll = { l2PublicClient, l2WalletClient, l2ChainId, L2Adapter, L2WarpToad };
   }
 
-  // ----- Run the bridging orchestration -----
-  if (isL1ToAztec) {
-    // Light L1 -> Aztec path: skip the L2 -> L1 root push.
-    console.log(`[${operationId}] running L1 -> Aztec light flow (skipping L2->L1 root push)`);
-    const isSandbox = l1ChainId === 31337n;
-    const confirmations = isSandbox ? 1 : 3;
+  // ============================================================================
+  // Route dispatch.
+  //   Cases covered:
+  //     L1 → Aztec          (light: skip L2→L1 root push)
+  //     L1 → Scroll         (light: skip L2→L1 root push)
+  //     Aztec → L1          (full: bridgeBetweenL1AndL2 aztec leg)
+  //     Scroll → L1         (full: bridgeBetweenL1AndL2 scroll leg)
+  //     Aztec → Scroll      (aztec leg, then await Scroll NewGigaRoot)
+  //     Scroll → Aztec      (scroll leg, then receiveGigaRootOnAztec)
+  // ============================================================================
 
-    console.log(`[${operationId}]   step 1/3: updateGigaRoot on L1`);
+  // --- L1 → Aztec (light) ---
+  if (route.fromIsL1 && route.isToAztec) {
+    if (!aztec) throw new Error('aztec state not initialized');
+    console.log(`[${operationId}] L1 → Aztec light flow`);
     const { gigaRootUpdateTxHash } = await updateGigaRoot(
-      l1PublicClient as any,
-      l1WalletClient as any,
-      gigaBridge,
-      localRootProviders,
-      confirmations,
+      l1PublicClient as any, l1WalletClient as any, gigaBridge, localRootProviders, confirmations,
     );
-    console.log(`[${operationId}]   ✓ updateGigaRoot ${gigaRootUpdateTxHash}`);
-
-    console.log(`[${operationId}]   step 2/3: sendGigaRoot via L1->L2 message`);
     const { sendGigaRootTx, sendGigaRootTxHash } = await sendGigaRoot(
-      l1PublicClient as any,
-      l1WalletClient as any,
-      gigaBridge,
-      localRootProviders,
-      payableLocalRootProviders,
-      confirmations,
+      l1PublicClient as any, l1WalletClient as any, gigaBridge, localRootProviders, payableLocalRootProviders, confirmations,
     );
-    console.log(`[${operationId}]   ✓ sendGigaRoot ${sendGigaRootTxHash}`);
-
-    console.log(`[${operationId}]   step 3/3: receiveGigaRootOnAztec`);
     await receiveGigaRootOnAztec(
-      L2Adapter,
-      L1Adapter,
-      L2WarpToad,
-      l1PublicClient as any,
-      sendGigaRootTx,
-      aztecNode,
-      isSandbox,
-      sponsoredPaymentMethod,
-      aztecWallet,
+      aztec.L2Adapter, primaryL1Adapter, aztec.L2WarpToad, l1PublicClient as any,
+      sendGigaRootTx, aztec.node, isSandbox, aztec.sponsoredPaymentMethod, aztec.wallet,
     );
-    console.log(`[${operationId}]   ✓ receiveGigaRootOnAztec`);
+    return { sendRootToL1TxHash: undefined, updateGigaRootTxHash: gigaRootUpdateTxHash, sendGigaRootTxHash };
+  }
 
-    console.log(`[${operationId}] bridge complete (light L1->Aztec)`);
+  // --- L1 → Scroll (light) ---
+  if (route.fromIsL1 && route.toIsScroll) {
+    if (!scroll) throw new Error('scroll state not initialized');
+    console.log(`[${operationId}] L1 → Scroll light flow`);
+    const { gigaRootUpdateTxHash } = await updateGigaRoot(
+      l1PublicClient as any, l1WalletClient as any, gigaBridge, localRootProviders, confirmations,
+    );
+    const { sendGigaRootTxHash, gigaRootSent } = await sendGigaRoot(
+      l1PublicClient as any, l1WalletClient as any, gigaBridge, localRootProviders, payableLocalRootProviders, confirmations,
+    );
+    console.log(`[${operationId}] awaiting NewGigaRoot(${gigaRootSent}) on Scroll L2...`);
+    await receiveGigaRootOnEvmL2(scroll.l2PublicClient, scroll.L2Adapter, BigInt(gigaRootSent));
+    return { sendRootToL1TxHash: undefined, updateGigaRootTxHash: gigaRootUpdateTxHash, sendGigaRootTxHash };
+  }
+
+  // --- Aztec → L1 (full) ---
+  if (route.isFromAztec && route.toIsL1) {
+    if (!aztec) throw new Error('aztec state not initialized');
+    console.log(`[${operationId}] Aztec → L1 full flow`);
+    const result = await bridgeBetweenL1AndL2(
+      l1PublicClient as any, l1WalletClient as any, primaryL1Adapter, gigaBridge,
+      aztec.L2Adapter, aztec.L2WarpToad,
+      localRootProviders, payableLocalRootProviders,
+      { isAztec: true, PXE: aztec.pxe, sponsoredPaymentMethod: aztec.sponsoredPaymentMethod, aztecNode: aztec.node, aztecWallet: aztec.wallet },
+    );
     return {
-      sendRootToL1TxHash: undefined,
-      updateGigaRootTxHash: gigaRootUpdateTxHash,
-      sendGigaRootTxHash: sendGigaRootTxHash,
+      sendRootToL1TxHash: result.txHashes.sendRootToL1TxHash,
+      updateGigaRootTxHash: result.txHashes.gigaRootUpdateTxHash,
+      sendGigaRootTxHash: result.txHashes.sendGigaRootTxHash,
     };
   }
 
-  // Full bidirectional flow for Aztec -> L1 and any L1 <-> Scroll route.
-  // The L2 -> L1 root push IS needed here because the destination chain's
-  // local proof needs the freshest source-chain root.
-  console.log(`[${operationId}] running bridgeBetweenL1AndL2 (full bidirectional)...`);
-  const result = await bridgeBetweenL1AndL2(
-    l1PublicClient as any,
-    l1WalletClient as any,
-    L1Adapter,
-    gigaBridge,
-    L2Adapter,
-    L2WarpToad,
-    localRootProviders,
-    payableLocalRootProviders,
-    {
-      isAztec,
-      PXE: aztecPXE,
-      sponsoredPaymentMethod,
-      aztecNode,
-      aztecWallet: isAztec ? aztecWallet : undefined,
-    },
-  );
+  // --- Scroll → L1 (full) ---
+  if (route.fromIsScroll && route.toIsL1) {
+    if (!scroll) throw new Error('scroll state not initialized');
+    console.log(`[${operationId}] Scroll → L1 full flow`);
+    const result = await bridgeBetweenL1AndL2(
+      l1PublicClient as any, l1WalletClient as any, primaryL1Adapter, gigaBridge,
+      scroll.L2Adapter, scroll.L2WarpToad,
+      localRootProviders, payableLocalRootProviders,
+      undefined,
+      { l2PublicClient: scroll.l2PublicClient, l2WalletClient: scroll.l2WalletClient },
+    );
+    return {
+      sendRootToL1TxHash: result.txHashes.sendRootToL1TxHash,
+      updateGigaRootTxHash: result.txHashes.gigaRootUpdateTxHash,
+      sendGigaRootTxHash: result.txHashes.sendGigaRootTxHash,
+    };
+  }
 
-  console.log(`[${operationId}] bridge complete:`, result.txHashes);
+  // --- Aztec → Scroll (multi-hop) ---
+  // Aztec leg does local-root push + updateGigaRoot + sendGigaRoot (which fans
+  // out to Scroll since L1ScrollAdapter is a payable recipient). Then we poll
+  // Scroll for the gigaRoot arrival.
+  if (route.isFromAztec && route.toIsScroll) {
+    if (!aztec || !scroll) throw new Error('aztec+scroll state not initialized');
+    console.log(`[${operationId}] Aztec → Scroll multi-hop`);
+    const result = await bridgeBetweenL1AndL2(
+      l1PublicClient as any, l1WalletClient as any, primaryL1Adapter, gigaBridge,
+      aztec.L2Adapter, aztec.L2WarpToad,
+      localRootProviders, payableLocalRootProviders,
+      { isAztec: true, PXE: aztec.pxe, sponsoredPaymentMethod: aztec.sponsoredPaymentMethod, aztecNode: aztec.node, aztecWallet: aztec.wallet },
+    );
+    console.log(`[${operationId}] awaiting NewGigaRoot(${result.roots.gigaRootSent}) on Scroll L2...`);
+    await receiveGigaRootOnEvmL2(scroll.l2PublicClient, scroll.L2Adapter, BigInt(result.roots.gigaRootSent));
+    return {
+      sendRootToL1TxHash: result.txHashes.sendRootToL1TxHash,
+      updateGigaRootTxHash: result.txHashes.gigaRootUpdateTxHash,
+      sendGigaRootTxHash: result.txHashes.sendGigaRootTxHash,
+    };
+  }
 
-  return {
-    sendRootToL1TxHash: result.txHashes.sendRootToL1TxHash,
-    updateGigaRootTxHash: result.txHashes.gigaRootUpdateTxHash,
-    sendGigaRootTxHash: result.txHashes.sendGigaRootTxHash,
-  };
+  // --- Scroll → Aztec (multi-hop) ---
+  // Scroll leg does L2→L1 claim + updateGigaRoot + sendGigaRoot. The Scroll leg
+  // receives the round-trip gigaRoot on Scroll. We additionally finalize the
+  // L1→Aztec leg via receiveGigaRootOnAztec, using the L1AztecAdapter handle.
+  if (route.fromIsScroll && route.isToAztec) {
+    if (!aztec || !scroll) throw new Error('aztec+scroll state not initialized');
+    console.log(`[${operationId}] Scroll → Aztec multi-hop`);
+    const result = await bridgeBetweenL1AndL2(
+      l1PublicClient as any, l1WalletClient as any, primaryL1Adapter, gigaBridge,
+      scroll.L2Adapter, scroll.L2WarpToad,
+      localRootProviders, payableLocalRootProviders,
+      undefined,
+      { l2PublicClient: scroll.l2PublicClient, l2WalletClient: scroll.l2WalletClient },
+    );
+    // Finalize Aztec leg: use the L1AztecAdapter handle (different from primary scroll adapter).
+    const { adapter: L1AztecAdapter } = loadL1AdapterByType(
+      l1ChainId, l1PublicClient as any, l1WalletClient as any, 'aztec',
+    );
+    console.log(`[${operationId}] finalizing L1 → Aztec leg (receiveGigaRootOnAztec)...`);
+    await receiveGigaRootOnAztec(
+      aztec.L2Adapter, L1AztecAdapter, aztec.L2WarpToad, l1PublicClient as any,
+      result.txObjects.sendGigaRootTx, aztec.node, isSandbox, aztec.sponsoredPaymentMethod, aztec.wallet,
+    );
+    return {
+      sendRootToL1TxHash: result.txHashes.sendRootToL1TxHash,
+      updateGigaRootTxHash: result.txHashes.gigaRootUpdateTxHash,
+      sendGigaRootTxHash: result.txHashes.sendGigaRootTxHash,
+    };
+  }
+
+  throw new Error(`Unsupported route: ${fromChainId} → ${toChainId}`);
 }

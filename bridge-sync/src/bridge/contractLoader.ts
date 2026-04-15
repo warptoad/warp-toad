@@ -121,6 +121,32 @@ export function loadL1Contracts(
   return { L1Warptoad, gigaBridge, L1Adapter, l1WarpToadAddress, gigaBridgeAddress, l1AdapterAddress };
 }
 
+/**
+ * Load a specific L1 adapter contract handle by type. Useful for multi-hop
+ * routes (aztec↔scroll) where both adapters need to be accessed from the same
+ * executor run.
+ */
+export function loadL1AdapterByType(
+  l1ChainId: bigint,
+  publicClient: PublicClient,
+  walletClient: WalletClient,
+  kind: 'aztec' | 'scroll',
+): { adapter: any; address: Address } {
+  const addrs = loadDeployedAddresses(l1ChainId);
+  const address = (
+    kind === 'aztec'
+      ? addrs['L1InfraModule#L1AztecBridgeAdapter']
+      : addrs['L1InfraModule#L1ScrollBridgeAdapter']
+  ) as Address;
+  if (!address) throw new Error(`L1 ${kind} adapter address missing for chain ${l1ChainId}`);
+  const adapter = getContract({
+    address,
+    abi: kind === 'aztec' ? L1_AZTEC_BRIDGE_ADAPTER_ABI() : L1_SCROLL_BRIDGE_ADAPTER_ABI(),
+    client: { public: publicClient, wallet: walletClient },
+  });
+  return { adapter, address };
+}
+
 export interface ScrollContractHandles {
   L2WarpToad: any;
   L2Adapter: any;

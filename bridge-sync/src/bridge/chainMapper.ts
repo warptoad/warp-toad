@@ -64,6 +64,8 @@ const VALID_ROUTES = new Set([
   '11155111:aztec',   // Sepolia -> Aztec
   '534351:11155111',  // Scroll -> Sepolia
   'aztec:11155111',   // Aztec -> Sepolia
+  'aztec:534351',     // Aztec -> Scroll (multi-hop via Sepolia L1 hub)
+  '534351:aztec',     // Scroll -> Aztec (multi-hop via Sepolia L1 hub)
   '31337:534351',     // Local -> Scroll (for testing)
   '31337:aztec',      // Local -> Aztec (for testing)
 ]);
@@ -83,9 +85,10 @@ export function getSupportedRoutes(): Array<{ from: ChainId; to: ChainId }> {
 // Bridge operation timeouts (in milliseconds)
 // These are based on observed bridge completion times
 const BRIDGE_TIMEOUTS = {
-  scroll: 10800000,  // 3 hours - Scroll L2->L1 requires waiting for finalization
-  aztec: 3600000,    // 1 hour - Aztec messages need L1 confirmations
-  local: 1800000,    // 30 minutes - Local testing, should be faster
+  scroll: 10800000,     // 3 hours - Scroll L2->L1 requires waiting for finalization
+  aztec: 3600000,       // 1 hour - Aztec messages need L1 confirmations
+  scrollAztec: 14400000,// 4 hours - multi-hop: aztec leg + scroll messenger
+  local: 1800000,       // 30 minutes - Local testing, should be faster
 };
 
 const MAX_TIMEOUT = 21600000; // 6 hours - absolute maximum
@@ -100,23 +103,23 @@ const MAX_TIMEOUT = 21600000; // 6 hours - absolute maximum
 export function getBridgeTimeout(fromChainId: ChainId, toChainId: ChainId): number {
   const fromChain = getChainConfig(fromChainId);
   const toChain = getChainConfig(toChainId);
-  
-  // If either chain is Aztec, use Aztec timeout
-  if (fromChain.isAztec || toChain.isAztec) {
+
+  const involvesAztec = fromChain.isAztec || toChain.isAztec;
+  const involvesScroll = fromChain.type === 'L2' || toChain.type === 'L2';
+
+  // Multi-hop: aztec + scroll
+  if (involvesAztec && involvesScroll) {
+    return BRIDGE_TIMEOUTS.scrollAztec;
+  }
+  if (involvesAztec) {
     return BRIDGE_TIMEOUTS.aztec;
   }
-  
-  // If either chain is Scroll (L2), use Scroll timeout (longest)
-  if (fromChain.type === 'L2' || toChain.type === 'L2') {
+  if (involvesScroll) {
     return BRIDGE_TIMEOUTS.scroll;
   }
-  
-  // Local testing
   if (fromChainId === '31337' || toChainId === '31337') {
     return BRIDGE_TIMEOUTS.local;
   }
-  
-  // Default to Aztec timeout (safer)
   return BRIDGE_TIMEOUTS.aztec;
 }
 
@@ -130,22 +133,22 @@ export function getBridgeTimeout(fromChainId: ChainId, toChainId: ChainId): numb
 export function getExpectedBridgeDuration(fromChainId: ChainId, toChainId: ChainId): string {
   const fromChain = getChainConfig(fromChainId);
   const toChain = getChainConfig(toChainId);
-  
-  // Aztec bridges
-  if (fromChain.isAztec || toChain.isAztec) {
+
+  const involvesAztec = fromChain.isAztec || toChain.isAztec;
+  const involvesScroll = fromChain.type === 'L2' || toChain.type === 'L2';
+
+  if (involvesAztec && involvesScroll) {
+    return '2-4 hours (multi-hop via L1)';
+  }
+  if (involvesAztec) {
     return '30 minutes - 1 hour';
   }
-  
-  // Scroll bridges
-  if (fromChain.type === 'L2' || toChain.type === 'L2') {
+  if (involvesScroll) {
     return '2-3 hours';
   }
-  
-  // Local
   if (fromChainId === '31337' || toChainId === '31337') {
     return '15-30 minutes';
   }
-  
   return '30 minutes - 1 hour';
 }
 
