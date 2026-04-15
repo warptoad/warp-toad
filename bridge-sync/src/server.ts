@@ -19,7 +19,7 @@ dotenv.config();
 
 const app = express();
 const PORT = parseInt(process.env.PORT || '6969');
-const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'https://warptoad.xyz,http://localhost:5173,http://localhost:3000').split(',');
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'https://warptoad.xyz,https://www.warptoad.xyz,http://localhost:5173,http://localhost:3000').split(',');
 const EVM_PRIVATE_KEY = process.env.EVM_PRIVATE_KEY || '';
 
 if (!EVM_PRIVATE_KEY) {

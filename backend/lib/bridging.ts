@@ -129,12 +129,14 @@ export async function bridgeAZTECLocalRootToL1(
 
     const findMessageInEpoch = async (epoch: number): Promise<Fr[][][][] | null> => {
         if (epoch < 0) return null
-        const messagesInEpoch = await aztecNode.getL2ToL1Messages(EpochNumber(epoch))
-        if (messagesInEpoch.length === 0) return null
         try {
+            const messagesInEpoch = await aztecNode.getL2ToL1Messages(EpochNumber(epoch))
+            if (messagesInEpoch.length === 0) return null
             computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, contentHash)
             return messagesInEpoch
-        } catch {
+        } catch (err) {
+            // Transient RPC failures (e.g. Bad Gateway from the Aztec node) would
+            // otherwise kill the whole bridge op; the poll loop is here to retry.
             return null
         }
     }
