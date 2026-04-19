@@ -1,13 +1,16 @@
 /**
  * Bridge sync executor.
  *
- * Exports `runFullSyncCycle` - the single unit of work that
- * `syncOrchestrator` queues and batches. One cycle:
- *   1. pushes Aztec local root → L1
- *   2. pushes Scroll local root → L1
- *   3. updates the L1 GigaRoot (folds in both fresh roots)
- *   4. sends the new GigaRoot to all L2 adapters
- *   5. waits for receipt on each L2
+ * Exports `runSyncCycle` - the single unit of work that `syncOrchestrator`
+ * queues and batches. Each cycle is route-aware: given a `SyncRequirements`
+ * flag set (the union of every attached waiter's needs), it runs only the
+ * sub-tasks needed to satisfy the batch.
+ *
+ * Pattern mirrors the working `backend/scripts/syncTestnetToAztec.ts`:
+ * - L2→L1 local-root pushes only run when a waiter's source chain is that L2.
+ * - L1→L2 dispatches (updateGigaRoot + sendGigaRoot → specific adapter) only
+ *   run when a waiter's destination chain is that L2.
+ * - Step 5 receive polling is best-effort (messenger auto-relays anyway).
  *
  * Why we don't import from `@warp-toad/backend/*`:
  * - The published `dist/` is stale (pre-viem-migration). The live source under
@@ -25,8 +28,6 @@ import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 
-// Direct relative source imports (resolved by tsx at runtime). These modules
-// only depend on viem + @aztec/* and do NOT pull in hardhat.
 // @ts-ignore
 import {
   bridgeAZTECLocalRootToL1,
@@ -36,7 +37,6 @@ import {
   receiveGigaRootOnAztec,
   receiveGigaRootOnEvmL2,
   getPayableGigaRootRecipients,
-  getLocalRootProviders,
 } from '../../../backend/lib/bridging.js';
 // @ts-ignore
 import { initPXE, getAztecWallet } from '../../../backend/deploy/utils/aztecUtilsNoEnv.js';
@@ -58,6 +58,7 @@ import {
   loadL1AdapterByType,
 } from './contractLoader.js';
 import { getChainConfig } from './chainMapper.js';
+import type { SyncRequirements } from './syncRequirements.js';
 
 /**
  * Module-level Aztec wallet cache.
@@ -66,11 +67,6 @@ import { getChainConfig } from './chainMapper.js';
  * seconds and burns DA bandwidth, so we do it exactly once per (l1ChainId,
  * nodeUrl) pair and reuse the wallet + sponsoredPaymentMethod across all
  * subsequent sync cycles.
- *
- * On testnet we generate a fresh random ephemeral wallet on first use; the
- * SponsoredFPC pays the gas so the service needs zero funded ETH-side
- * Aztec credentials. On sandbox we keep using deterministic test account #0
- * because the sandbox ships them pre-funded.
  */
 interface CachedAztecWallet {
   wallet: any;
@@ -112,19 +108,12 @@ async function getOrCreateAztecWallet(
   })();
 
   aztecWalletCache.set(cacheKey, promise);
-  // Drop the cache entry on init failure so the next call retries.
   promise.catch(() => aztecWalletCache.delete(cacheKey));
   return promise;
 }
 
-/**
- * Reconstruct an Aztec WarpToad + L2AztecBridgeAdapter contract handle from
- * the saved deployment metadata. Mirrors syncLocal.ts:108-129.
- */
 async function reconstructAztecContracts(l1ChainId: bigint, aztecWallet: any) {
   const aztecAddrs = loadAztecContractMetadata(l1ChainId);
-
-  // Last constructor arg (decimals) needs to be a bigint; rest are strings.
   const warpToadCtorArgs = aztecAddrs.AztecWarpToad.constructorArgs.map(
     (v: any, i: number, arr: any[]) => (i === arr.length - 1 ? BigInt(v) : v),
   );
@@ -171,23 +160,43 @@ export interface FullSyncResult {
   gigaRootSent: string;
 }
 
+// Safety-net ceilings so a stuck leg can't block the cycle indefinitely.
+// These only kick in if a step exceeds normal testnet latency; success on
+// the happy path is much faster.
+const AZTEC_LEG_TIMEOUT_MS = 75 * 60_000;    // step 1
+const SCROLL_LEG_TIMEOUT_MS = 3 * 60 * 60_000; // step 2
+const AZTEC_RECV_TIMEOUT_MS = 45 * 60_000;   // step 5 Aztec
+const SCROLL_RECV_TIMEOUT_MS = 90 * 60_000;  // step 5 Scroll
+
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  let timer: NodeJS.Timeout | undefined;
+  const timeout = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms);
+  });
+  return Promise.race([p, timeout]).finally(() => { if (timer) clearTimeout(timer); }) as Promise<T>;
+}
+
 /**
- * Run one complete cross-chain root sync cycle. Sequential order:
- *   1. push Aztec local root → L1   (~30-60 min on testnet)
- *   2. push Scroll local root → L1  (~2-3 hours on testnet)
- *   3. updateGigaRoot on L1          (seconds)
- *   4. sendGigaRoot to all L2 adapters (seconds)
- *   5. await receipt on each L2 in parallel (~10-30 min for Aztec L1->L2)
+ * Run a route-aware sync cycle. `requirements` is the OR-union of all waiters
+ * batched into this cycle; each sub-task runs only if its flag is set.
  *
- * A leg is skipped when its env RPC isn't configured. Throws on any failure
- * so the orchestrator can retry.
+ * Flag → step mapping:
+ *   needAztecL2ToL1   → step 1 (bridgeAZTECLocalRootToL1)
+ *   needScrollL2ToL1  → step 2 (bridgeEVMLocalRootToL1)
+ *   any flag          → step 3 (updateGigaRoot) with the minimal provider list
+ *   dispatchTo*       → step 4 (sendGigaRoot) with flagged recipients
+ *   dispatchTo*       → step 5 (receive on that L2, best-effort)
+ *
+ * Steps 3 and 4 throw on failure (orchestrator retries). Steps 1, 2, 5 also
+ * throw on failure if their flag was set; the orchestrator's retry kicks in,
+ * and an eventual second failure rejects the waiters so they can surface the
+ * error. Step 5 is bounded so a stuck messenger doesn't block forever.
  */
-export async function runFullSyncCycle(
+export async function runSyncCycle(
   privateKey: string,
   confirmations: number,
+  requirements: SyncRequirements,
 ): Promise<FullSyncResult> {
-  // The orchestrator's EVM_PRIVATE_KEY signs against this single L1 throughout
-  // the cycle. SYNC_L1_CHAIN_ID lets dev override (default Sepolia).
   const l1ChainIdStr = process.env.SYNC_L1_CHAIN_ID || '11155111';
   const l1ChainConfig = getChainConfig(l1ChainIdStr);
   const l1Account = privateKeyToAccount(privateKey as Hex);
@@ -196,55 +205,37 @@ export async function runFullSyncCycle(
   const l1ChainId = BigInt(await l1PublicClient.getChainId());
   const isSandbox = l1ChainId === 31337n;
   const conf = isSandbox ? 1 : confirmations;
-  console.log(`[sync] cycle starting on L1 chainId=${l1ChainId}`);
+  console.log(`[sync] cycle starting on L1 chainId=${l1ChainId} requirements=${JSON.stringify(requirements)}`);
 
-  const { gigaBridge } = loadL1Contracts(
-    l1ChainId, l1PublicClient as any, l1WalletClient as any, true,
-  );
-  const { adapter: L1AztecAdapter } = loadL1AdapterByType(
-    l1ChainId, l1PublicClient as any, l1WalletClient as any, 'aztec',
-  );
+  const l1Contracts = loadL1Contracts(l1ChainId, l1PublicClient as any, l1WalletClient as any, true);
+  const { gigaBridge, l1WarpToadAddress } = l1Contracts;
 
-  const localRootProviders: Address[] = await getLocalRootProviders(l1ChainId);
-  const payableLocalRootProviders: Address[] = await getPayableGigaRootRecipients(l1ChainId);
+  const touchesAztec = requirements.needAztecL2ToL1 || requirements.dispatchToAztec;
+  const touchesScroll = requirements.needScrollL2ToL1 || requirements.dispatchToScroll;
 
-  // A leg runs only if its RPC env is set. README requires both for prod
-  // testnet; the skip path exists so local-sandbox dev can run partial cycles.
-  const aztecRpc = process.env.AZTEC_NODE_URL;
-  const scrollRpc = process.env.SCROLL_RPC_URL;
+  // L1 adapter handles + addresses. Only resolved for legs we'll touch.
+  const aztecAdapter = touchesAztec
+    ? loadL1AdapterByType(l1ChainId, l1PublicClient as any, l1WalletClient as any, 'aztec')
+    : null;
+  const scrollAdapter = touchesScroll
+    ? loadL1AdapterByType(l1ChainId, l1PublicClient as any, l1WalletClient as any, 'scroll')
+    : null;
 
-  // === Step 1/5: Aztec local root → L1 ===
-  let aztecLeg: FullSyncResult['aztec'] = null;
+  // Aztec-side state (wallet + contracts) - needed for any Aztec-touching flag.
   let aztecState: { wallet: any; pxe: any; node: any; sponsoredPaymentMethod: any; aztecWarpToad: any; aztecBridgeAdapter: any } | null = null;
-  if (aztecRpc) {
-    console.log('[sync] step 1/5: pushing Aztec local root to L1');
+  if (touchesAztec) {
+    const aztecRpc = process.env.AZTEC_NODE_URL;
+    if (!aztecRpc) throw new Error('AZTEC_NODE_URL required for Aztec legs');
     const cached = await getOrCreateAztecWallet(l1ChainId, aztecRpc);
     const { aztecWarpToad, aztecBridgeAdapter } = await reconstructAztecContracts(l1ChainId, cached.wallet);
     aztecState = { ...cached, aztecWarpToad, aztecBridgeAdapter };
-    const r = await bridgeAZTECLocalRootToL1(
-      cached.node,
-      aztecBridgeAdapter,
-      L1AztecAdapter,
-      l1PublicClient as any,
-      l1WalletClient as any,
-      cached.wallet,
-      cached.sponsoredPaymentMethod,
-      conf,
-    );
-    aztecLeg = {
-      sendRootToL1TxHash: r.sendRootToL1Tx.receipt.txHash.toString(),
-      refreshRootTxHash: r.refreshRootTx.transactionHash,
-      receiveGigaRootTxHash: '',
-    };
-  } else {
-    console.log('[sync] step 1/5: skipped (AZTEC_NODE_URL not set)');
   }
 
-  // === Step 2/5: Scroll local root → L1 ===
-  let scrollLeg: FullSyncResult['scroll'] = null;
+  // Scroll-side state - needed for any Scroll-touching flag.
   let scrollState: { l2PublicClient: any; l2WalletClient: any; L2WarpToad: any; L2Adapter: any } | null = null;
-  if (scrollRpc) {
-    console.log('[sync] step 2/5: pushing Scroll local root to L1');
+  if (touchesScroll) {
+    const scrollRpc = process.env.SCROLL_RPC_URL;
+    if (!scrollRpc) throw new Error('SCROLL_RPC_URL required for Scroll legs');
     const l2Account = privateKeyToAccount(privateKey as Hex);
     const l2PublicClient = createPublicClient({ transport: http(scrollRpc) });
     const l2WalletClient = createWalletClient({ account: l2Account, transport: http(scrollRpc) });
@@ -253,75 +244,140 @@ export async function runFullSyncCycle(
       l2ChainId, l2PublicClient as any, l2WalletClient as any,
     );
     scrollState = { l2PublicClient, l2WalletClient, L2WarpToad, L2Adapter };
-    const r = await bridgeEVMLocalRootToL1(
-      l1PublicClient as any,
-      l1WalletClient as any,
-      l2PublicClient as any,
-      l2WalletClient as any,
-      L2Adapter,
-      conf,
+  }
+
+  // === Step 1: Aztec L2→L1 push ===
+  let aztecLeg: FullSyncResult['aztec'] = null;
+  if (requirements.needAztecL2ToL1) {
+    console.log('[sync] step 1: pushing Aztec local root → L1');
+    const r = await withTimeout(
+      bridgeAZTECLocalRootToL1(
+        aztecState!.node,
+        aztecState!.aztecBridgeAdapter,
+        aztecAdapter!.adapter,
+        l1PublicClient as any,
+        l1WalletClient as any,
+        aztecState!.wallet,
+        aztecState!.sponsoredPaymentMethod,
+        conf,
+      ),
+      AZTEC_LEG_TIMEOUT_MS,
+      'Aztec L2→L1',
+    );
+    aztecLeg = {
+      sendRootToL1TxHash: r.sendRootToL1Tx.receipt.txHash.toString(),
+      refreshRootTxHash: r.refreshRootTx.transactionHash,
+      receiveGigaRootTxHash: '',
+    };
+  }
+
+  // === Step 2: Scroll L2→L1 push ===
+  let scrollLeg: FullSyncResult['scroll'] = null;
+  if (requirements.needScrollL2ToL1) {
+    console.log('[sync] step 2: pushing Scroll local root → L1');
+    const r = await withTimeout(
+      bridgeEVMLocalRootToL1(
+        l1PublicClient as any,
+        l1WalletClient as any,
+        scrollState!.l2PublicClient,
+        scrollState!.l2WalletClient,
+        scrollState!.L2Adapter,
+        conf,
+      ),
+      SCROLL_LEG_TIMEOUT_MS,
+      'Scroll L2→L1',
     );
     scrollLeg = {
       sendRootToL1TxHash: r.sendRootToL1TxHash,
       receiveGigaRootTxHash: '',
     };
-  } else {
-    console.log('[sync] step 2/5: skipped (SCROLL_RPC_URL not set)');
   }
 
-  // === Step 3/5: updateGigaRoot ===
-  console.log('[sync] step 3/5: updating GigaRoot on L1');
+  // Build the minimal provider/recipient list from flags. L1WarpToad is always
+  // in the list (its own local root updates on L1 deposits, and it's a valid
+  // self-recipient per the old working syncTestnetToAztec.ts pattern).
+  const recipients: Address[] = [l1WarpToadAddress];
+  if (aztecAdapter) recipients.push(aztecAdapter.address);
+  if (scrollAdapter) recipients.push(scrollAdapter.address);
+
+  // === Step 3: updateGigaRoot ===
+  console.log(`[sync] step 3: updateGigaRoot (${recipients.length} providers)`);
   const { gigaRootUpdateTxHash } = await updateGigaRoot(
     l1PublicClient as any,
     l1WalletClient as any,
     gigaBridge,
-    localRootProviders,
+    recipients,
     conf,
   );
 
-  // === Step 4/5: sendGigaRoot ===
-  console.log('[sync] step 4/5: sending GigaRoot to all L2 adapters');
-  const { sendGigaRootTx, sendGigaRootTxHash, gigaRootSent } = await sendGigaRoot(
-    l1PublicClient as any,
-    l1WalletClient as any,
-    gigaBridge,
-    localRootProviders,
-    payableLocalRootProviders,
-    conf,
-  );
-
-  // === Step 5/5: receive on each L2 (parallel) ===
-  console.log('[sync] step 5/5: awaiting GigaRoot arrival on L2s');
-  const [aztecRecv, scrollRecv] = await Promise.allSettled([
-    aztecState
-      ? receiveGigaRootOnAztec(
-          aztecState.aztecBridgeAdapter,
-          L1AztecAdapter,
-          aztecState.aztecWarpToad,
-          l1PublicClient as any,
-          sendGigaRootTx,
-          aztecState.node,
-          isSandbox,
-          aztecState.sponsoredPaymentMethod,
-          aztecState.wallet,
-        )
-      : Promise.resolve(null),
-    scrollState
-      ? receiveGigaRootOnEvmL2(scrollState.l2PublicClient, scrollState.L2Adapter, BigInt(gigaRootSent))
-      : Promise.resolve(null),
-  ]);
-
-  if (aztecLeg && aztecRecv.status === 'fulfilled' && aztecRecv.value) {
-    aztecLeg.receiveGigaRootTxHash = (aztecRecv.value as any).receiveGigaRootTx.receipt.txHash.toString();
-  }
-  if (scrollLeg && scrollRecv.status === 'fulfilled' && scrollRecv.value) {
-    scrollLeg.receiveGigaRootTxHash = (scrollRecv.value as any).receiveGigaRootTxHash;
+  // === Step 4: sendGigaRoot (skip when no dispatch is flagged) ===
+  let sendGigaRootTx: any = null;
+  let sendGigaRootTxHash = 'N/A';
+  let gigaRootSent = '';
+  const anyDispatch = requirements.dispatchToAztec || requirements.dispatchToScroll;
+  if (anyDispatch) {
+    const payable = await getPayableGigaRootRecipients(l1ChainId);
+    console.log(`[sync] step 4: sendGigaRoot to ${recipients.length} recipients`);
+    const r = await sendGigaRoot(
+      l1PublicClient as any,
+      l1WalletClient as any,
+      gigaBridge,
+      recipients,
+      payable,
+      conf,
+    );
+    sendGigaRootTx = r.sendGigaRootTx;
+    sendGigaRootTxHash = r.sendGigaRootTxHash;
+    gigaRootSent = r.gigaRootSent;
+  } else {
+    console.log('[sync] step 4: skipped (no dispatch flagged)');
   }
 
-  if (aztecRecv.status === 'rejected') throw aztecRecv.reason;
-  if (scrollRecv.status === 'rejected') throw scrollRecv.reason;
+  // === Step 5: receive on each flagged L2 (best-effort, parallel) ===
+  if (sendGigaRootTx) {
+    console.log('[sync] step 5: awaiting GigaRoot arrival on flagged L2s (best-effort)');
+    const [aztecRecv, scrollRecv] = await Promise.allSettled([
+      requirements.dispatchToAztec && aztecState
+        ? withTimeout(
+            receiveGigaRootOnAztec(
+              aztecState.aztecBridgeAdapter,
+              aztecAdapter!.adapter,
+              aztecState.aztecWarpToad,
+              l1PublicClient as any,
+              sendGigaRootTx,
+              aztecState.node,
+              isSandbox,
+              aztecState.sponsoredPaymentMethod,
+              aztecState.wallet,
+            ),
+            AZTEC_RECV_TIMEOUT_MS,
+            'Aztec L1→L2 receive',
+          )
+        : Promise.resolve(null),
+      requirements.dispatchToScroll && scrollState
+        ? withTimeout(
+            receiveGigaRootOnEvmL2(scrollState.l2PublicClient, scrollState.L2Adapter, BigInt(gigaRootSent)),
+            SCROLL_RECV_TIMEOUT_MS,
+            'Scroll L1→L2 receive',
+          )
+        : Promise.resolve(null),
+    ]);
 
-  console.log(`[sync] cycle complete (gigaRoot=${gigaRootSent})`);
+    if (aztecRecv.status === 'fulfilled' && aztecRecv.value) {
+      if (!aztecLeg) aztecLeg = { sendRootToL1TxHash: 'N/A', refreshRootTxHash: 'N/A', receiveGigaRootTxHash: '' };
+      aztecLeg.receiveGigaRootTxHash = (aztecRecv.value as any).receiveGigaRootTx.receipt.txHash.toString();
+    } else if (aztecRecv.status === 'rejected') {
+      console.warn('[sync] step 5 Aztec receive failed:', (aztecRecv.reason as Error).message || aztecRecv.reason);
+    }
+    if (scrollRecv.status === 'fulfilled' && scrollRecv.value) {
+      if (!scrollLeg) scrollLeg = { sendRootToL1TxHash: 'N/A', receiveGigaRootTxHash: '' };
+      scrollLeg.receiveGigaRootTxHash = (scrollRecv.value as any).receiveGigaRootTxHash;
+    } else if (scrollRecv.status === 'rejected') {
+      console.warn('[sync] step 5 Scroll receive failed:', (scrollRecv.reason as Error).message || scrollRecv.reason);
+    }
+  }
+
+  console.log(`[sync] cycle complete (gigaRootSent=${gigaRootSent || 'N/A'})`);
   return {
     aztec: aztecLeg,
     scroll: scrollLeg,

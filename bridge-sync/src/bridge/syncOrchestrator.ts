@@ -1,43 +1,52 @@
 /**
  * Sync orchestrator. Queues HTTP-triggered sync requests and batches them
- * into single cross-chain root-sync cycles.
+ * into route-aware cross-chain root-sync cycles.
  *
  * Behavior:
- * - First request starts a cycle immediately.
- * - Requests arriving during an in-flight cycle attach to a single "pending"
- *   batch that runs after the current cycle completes.
- * - On cycle failure the orchestrator retries once. If a pending batch is
- *   already accumulating, the retry folds those waiters in so everyone
- *   shares one retry instead of queueing two separate follow-ups.
- * - After the retry fails, inflight waiters reject and any still-pending
+ * - First request starts a cycle immediately with its requirements.
+ * - Requests arriving during an in-flight cycle queue into `pending`; at the
+ *   start of the next cycle (or the next retry of the in-flight one), the
+ *   orchestrator ORs their flags into whatever's already running.
+ * - On cycle failure the orchestrator retries once. If pending waiters have
+ *   accumulated, the retry folds them in so everyone shares one cycle
+ *   instead of queueing two consecutive ones.
+ * - After a second failure, attached waiters reject; any newer pending
  *   waiters become the next fresh cycle.
  *
- * This decouples gas cost from request volume: N concurrent HTTP requests
- * cost one cycle's worth of L1 gas, not N.
+ * Per-route flags (see syncRequirements.ts) ensure N concurrent HTTP requests
+ * cost one cycle's worth of L1 gas AND only trigger the sub-tasks any of
+ * them actually need.
  */
-import { runFullSyncCycle, type FullSyncResult } from './executor.js';
+import { runSyncCycle, type FullSyncResult } from './executor.js';
+import {
+  type SyncRequirements,
+  EMPTY_REQUIREMENTS,
+  mergeRequirements,
+  hasAnyRequirement,
+} from './syncRequirements.js';
 
-interface Deferred {
+interface Waiter {
   resolve: (r: FullSyncResult) => void;
   reject: (e: any) => void;
+  requirements: SyncRequirements;
 }
 
-let inflight: Deferred[] = [];
-let pending: Deferred[] = [];
+let inflight: Waiter[] = [];
+let pending: Waiter[] = [];
 let cycleLoopRunning = false;
 
-/**
- * Enqueue a sync request. Returns a promise that resolves when the cycle
- * this request is attached to completes (success or final failure).
- */
-export function requestSync(privateKey: string, confirmations: number): Promise<FullSyncResult> {
+export function requestSync(
+  privateKey: string,
+  confirmations: number,
+  requirements: SyncRequirements,
+): Promise<FullSyncResult> {
   return new Promise((resolve, reject) => {
-    const d: Deferred = { resolve, reject };
+    const w: Waiter = { resolve, reject, requirements };
     if (cycleLoopRunning) {
-      pending.push(d);
+      pending.push(w);
       console.log(`[sync-orch] queued request (${pending.length} pending)`);
     } else {
-      inflight.push(d);
+      inflight.push(w);
       void cycleLoop(privateKey, confirmations);
     }
   });
@@ -45,6 +54,13 @@ export function requestSync(privateKey: string, confirmations: number): Promise<
 
 export function getOrchestratorState() {
   return { inflight: inflight.length, pending: pending.length, running: cycleLoopRunning };
+}
+
+function unionOf(waiters: Waiter[]): SyncRequirements {
+  return waiters.reduce<SyncRequirements>(
+    (acc, w) => mergeRequirements(acc, w.requirements),
+    EMPTY_REQUIREMENTS,
+  );
 }
 
 async function cycleLoop(privateKey: string, confirmations: number) {
@@ -57,16 +73,30 @@ async function cycleLoop(privateKey: string, confirmations: number) {
 
       while (attempt < 2) {
         attempt++;
-        // Fold any newly pending waiters into this cycle (initial run OR retry).
-        // Lets a retry absorb the next batch so we don't run two cycles in a row.
+        // Fold pending waiters into inflight at the start of each attempt.
+        // This lets a retry absorb any requests that arrived since the last
+        // failure, so the batch converges instead of spawning follow-ups.
         if (pending.length > 0) {
           console.log(`[sync-orch] folding ${pending.length} pending into attempt ${attempt}`);
           inflight.push(...pending);
           pending = [];
         }
-        console.log(`[sync-orch] running cycle (attempt ${attempt}, ${inflight.length} waiters)`);
+        const merged = unionOf(inflight);
+        if (!hasAnyRequirement(merged)) {
+          // Degenerate case: somehow all waiters have empty requirements.
+          // Resolve them with a no-op synthetic result and move on.
+          result = {
+            aztec: null,
+            scroll: null,
+            updateGigaRootTxHash: 'N/A',
+            sendGigaRootTxHash: 'N/A',
+            gigaRootSent: '',
+          };
+          break;
+        }
+        console.log(`[sync-orch] running cycle (attempt ${attempt}, ${inflight.length} waiters) requirements=${JSON.stringify(merged)}`);
         try {
-          result = await runFullSyncCycle(privateKey, confirmations);
+          result = await runSyncCycle(privateKey, confirmations, merged);
           finalErr = null;
           break;
         } catch (e) {
@@ -76,13 +106,12 @@ async function cycleLoop(privateKey: string, confirmations: number) {
       }
 
       if (result) {
-        for (const d of inflight) d.resolve(result);
+        for (const w of inflight) w.resolve(result);
       } else {
-        for (const d of inflight) d.reject(finalErr);
+        for (const w of inflight) w.reject(finalErr);
       }
       inflight = [];
 
-      // New pending may have arrived during dispatch. Start another cycle.
       if (pending.length > 0) {
         inflight = pending;
         pending = [];

@@ -10,6 +10,7 @@ import {
   getExpectedBridgeDuration,
 } from './bridge/chainMapper.js';
 import { requestSync, getOrchestratorState } from './bridge/syncOrchestrator.js';
+import { routeToRequirements } from './bridge/syncRequirements.js';
 import type { FullSyncResult } from './bridge/executor.js';
 import type { BridgeRequest, BridgeOperation } from './types/index.js';
 
@@ -64,7 +65,7 @@ app.get('/config', (req, res) => {
     supportedChains: chains.map(c => ({ id: c.id, name: c.name, type: c.type })),
     supportedRoutes: routes,
     port: PORT,
-    note: 'All /bridge/:from/:to requests funnel into a single batched sync cycle. Route params are informational.',
+    note: 'Each /bridge/:from/:to request triggers only the sync sub-tasks needed for its route. Concurrent requests are batched.',
   });
 });
 
@@ -113,9 +114,11 @@ app.post('/bridge/:fromChainId/:toChainId', async (req, res) => {
   };
   operations.set(operationId, operation);
 
-  // Attach to orchestrator. This either kicks off a fresh cycle or joins the
-  // pending batch. All waiters on the same cycle resolve together.
-  requestSync(EVM_PRIVATE_KEY, confirmations)
+  // Derive the minimal work this route needs, then hand off to the
+  // orchestrator. If a cycle is already running, our requirements get OR'd
+  // into its batch; otherwise we kick off a fresh one.
+  const requirements = routeToRequirements(fromChainId, toChainId);
+  requestSync(EVM_PRIVATE_KEY, confirmations, requirements)
     .then((result) => {
       operation.status = 'completed';
       operation.endTime = Date.now();
