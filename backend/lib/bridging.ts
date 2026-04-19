@@ -318,20 +318,48 @@ export async function bridgeAZTECLocalRootToL1(
         }
     }
     let foundEpoch: number | undefined
-    // Sandbox prover is single-threaded and falls behind on long-running sessions.
-    // 60 polls = 120s is enough when running tests (sandbox starts fresh for each
-    // test run); but in the sync script the sandbox may have been idle for hours
-    // and the prover needs to catch up many epochs. Bump to 300 polls = 10 minutes.
-    const maxPolls = isSandBox ? 300 : 600
+    // The search window tracks the Aztec prover's proven tip rather than a
+    // fixed ±1 offset - testnet prover lag is routinely several epochs, so
+    // a static window silently misses the message when the proof lands late.
+    //
+    // Each iteration:
+    //   1. Read getProvenBlockNumber() → derive provenEpoch from its slot.
+    //   2. Scan every epoch in [computedEpoch-1 .. provenEpoch+1].
+    //
+    // Sandbox prover is single-threaded; poll fast (2s) with a smaller ceiling
+    // so a broken sandbox fails fast. Testnet polls every 15s for up to 1h -
+    // the prover lag observed in production has exceeded 20 min, and slower
+    // polling also keeps the Infura RPC budget reasonable.
+    const pollIntervalMs = isSandBox ? 2_000 : 15_000
+    const maxPolls = isSandBox ? 300 : 240
+    let lastLoggedProvenEpoch = -1
     pollLoop: for (let i = 0; i < maxPolls; i++) {
-        for (const e of [computedEpoch, computedEpoch - 1, computedEpoch + 1]) {
+        let provenEpoch = computedEpoch
+        try {
+            const provenBlockNum = Number(await aztecNode.getProvenBlockNumber())
+            if (provenBlockNum > 0) {
+                const provenBlock = await aztecNode.getBlock(provenBlockNum)
+                if (provenBlock) {
+                    provenEpoch = Number(BigInt(provenBlock.slot) / epochDuration)
+                }
+            }
+        } catch {
+            // Transient node failures just mean we stick with the prior
+            // bound for this iteration; next poll will retry.
+        }
+        const lo = Math.max(0, computedEpoch - 1)
+        const hi = Math.max(computedEpoch + 1, provenEpoch + 1)
+        for (let e = lo; e <= hi; e++) {
             if (await findMessageInEpoch(e)) {
                 foundEpoch = e
                 break pollLoop
             }
         }
-        if (i % 10 === 0) console.log(`waiting for L2->L1 message ${contentHash.toString()} to be proven in epoch ${computedEpoch} (slot=${messageSlot}, dur=${epochDuration})... (${i}/${maxPolls})`)
-        await sleep(2000)
+        if (i % 5 === 0 || provenEpoch !== lastLoggedProvenEpoch) {
+            console.log(`waiting for L2->L1 message ${contentHash.toString()} to be proven in epoch ${computedEpoch} (provenEpoch=${provenEpoch}, search=[${lo}..${hi}], slot=${messageSlot}, dur=${epochDuration})... (${i}/${maxPolls})`)
+            lastLoggedProvenEpoch = provenEpoch
+        }
+        await sleep(pollIntervalMs)
     }
     if (foundEpoch === undefined) {
         throw new Error(`Timed out waiting for L2->L1 message ${contentHash.toString()} to land in a proven epoch (computed epoch ${computedEpoch})`)
