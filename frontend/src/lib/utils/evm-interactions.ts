@@ -1009,13 +1009,17 @@ export interface EvmMerkleData {
 /**
  * Query Burn events from L1WarpToad contract in chunks.
  * Thin adapter over queryEventInChunks that preserves the original tuple shape.
+ *
+ * Defaults to reverseOrder when `maxEvents` is supplied so callers that know
+ * the exact leaf count (via lastLeafIndex) stop scanning as soon as the tree
+ * is whole, instead of walking deployment → head every time.
  */
 async function queryBurnEventsInChunks(
 	publicClient: ReturnType<typeof createPublicClient>,
 	warpToadAddress: `0x${string}`,
 	fromBlock: bigint,
 	toBlock: bigint,
-	chunkSize = 499n
+	opts: { reverseOrder?: boolean; maxEvents?: number; chunkSize?: bigint } = {}
 ): Promise<{ commitment: bigint; amount: bigint; index: bigint }[]> {
 	const logs = await queryEventInChunks({
 		publicClient: publicClient as any,
@@ -1023,7 +1027,9 @@ async function queryBurnEventsInChunks(
 		eventName: 'Burn',
 		firstBlock: fromBlock,
 		lastBlock: toBlock,
-		chunkSize,
+		reverseOrder: opts.reverseOrder,
+		maxEvents: opts.maxEvents,
+		chunkSize: opts.chunkSize,
 	});
 
 	return logs.map((log: any) => ({
@@ -1094,19 +1100,34 @@ export async function getEvmMerkleDataForL1(
 	const toBlock = localRootBlockNumber
 		? BigInt(localRootBlockNumber)
 		: await publicClient.getBlockNumber();
-	
+
 	// Query from deployment block to avoid scanning entire chain history
 	const fromBlock = getDeploymentBlock(chainId);
-	
-	console.log(`Querying Burn events from block ${fromBlock} to ${toBlock}...`);
-	
-	// Query all Burn events
-	const burnEvents = await queryBurnEventsInChunks(
-		publicClient,
-		addresses.L1WarpToad as `0x${string}`, 	// @TODO danish docstring says this function can do scroll<->scroll but here address is L1Warptoad only!
-		fromBlock,
-		toBlock
-	);
+
+	// Read the leaf count at toBlock so we know exactly how many Burn events to
+	// collect; indices are sequential 0..N-1 so total == lastLeafIndex.
+	const lastLeafIndex = (await publicClient.readContract({
+		address: addresses.L1WarpToad as `0x${string}`,
+		abi: L1WarpToadAbi,
+		functionName: 'lastLeafIndex',
+		blockNumber: toBlock,
+	})) as bigint;
+	const totalLeaves = Number(lastLeafIndex);
+
+	console.log(`Querying ${totalLeaves} Burn events from block ${fromBlock} to ${toBlock}...`);
+
+	// Reverse-scan and stop as soon as we've collected all leaves. Burns cluster
+	// near the head in practice, so this usually short-circuits after a few
+	// chunks instead of scanning the full deployment→head window.
+	const burnEvents = totalLeaves > 0
+		? await queryBurnEventsInChunks(
+			publicClient,
+			addresses.L1WarpToad as `0x${string}`, 	// @TODO danish docstring says this function can do scroll<->scroll but here address is L1Warptoad only!
+			fromBlock,
+			toBlock,
+			{ reverseOrder: true, maxEvents: totalLeaves }
+		)
+		: [];
 
 	// @TODO danish here i make the same wrong assumption like above! Sorry!
 	// address: can both be a L1Warptoad or L2WarptoadScroll doesn't matter!

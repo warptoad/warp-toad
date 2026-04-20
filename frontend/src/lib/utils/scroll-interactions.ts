@@ -607,16 +607,29 @@ export async function getEvmMerkleDataForScroll(
 	const deploymentBlock = BigInt(addresses.deploymentBlock || 0);
 	const toBlock = await publicClient.getBlockNumber();
 	
-	console.log(`Querying Scroll Burn events from block ${deploymentBlock} to ${toBlock}...`);
+	// Read leaf count at toBlock so we can early-exit once the tree is whole.
+	const lastLeafIndex = (await publicClient.readContract({
+		address: scroll.contracts.warpToad as `0x${string}`,
+		abi: L2WarpToadAbi,
+		functionName: 'lastLeafIndex',
+		blockNumber: toBlock,
+	})) as bigint;
+	const totalLeaves = Number(lastLeafIndex);
 
-	const burnEvents = await queryEventInChunks({
-		publicClient,
-		contract: { address: scroll.contracts.warpToad as `0x${string}`, abi: L2WarpToadAbi },
-		eventName: 'Burn',
-		firstBlock: deploymentBlock,
-		lastBlock: toBlock,
-	});
-	
+	console.log(`Querying ${totalLeaves} Scroll Burn events from block ${deploymentBlock} to ${toBlock}...`);
+
+	const burnEvents = totalLeaves > 0
+		? await queryEventInChunks({
+			publicClient,
+			contract: { address: scroll.contracts.warpToad as `0x${string}`, abi: L2WarpToadAbi },
+			eventName: 'Burn',
+			firstBlock: deploymentBlock,
+			lastBlock: toBlock,
+			reverseOrder: true,
+			maxEvents: totalLeaves,
+		})
+		: [];
+
 	console.log(`Found ${burnEvents.length} Burn events on Scroll`);
 	
 	// Sort events by index
