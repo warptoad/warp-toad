@@ -21,6 +21,8 @@ import { createPublicClient, http, keccak256, toHex, type PublicClient } from 'v
 import { getContractAddresses, CONTRACT_ADDRESSES } from '$lib/contracts/addresses';
 import { GigaBridgeAbi, L1WarpToadAbi, L2WarpToadAbi } from '$lib/contracts/abis';
 import { queryEventInChunks } from './viem-chunks';
+import { rpcSettings } from '$lib/stores/rpc-settings.svelte';
+import { fetchGigaStateFromKeeper } from './bridge-keeper';
 import { poseidon1, poseidon2, poseidon3 } from 'poseidon-lite';
 import { MerkleTree, type Element } from 'fixed-merkle-tree';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
@@ -334,12 +336,20 @@ async function getLocalRootEvents(
 	const fromBlock = getDeploymentBlock(chainId);
 	const lastBlock = toBlock === 'latest' ? undefined : toBlock;
 
+	// Reverse-scan with a small cap so we don't rescan ~700k blocks every time.
+	// We only need the LATEST event per local-root index to reconstruct the
+	// giga tree leaves; in practice recent updateGigaRoot calls emit all
+	// three leaves close together near `toBlock`, so a handful of chunks
+	// already fills the window. The cap is generous enough to tolerate
+	// skewed emission (e.g. aztec leaf updated long before scroll leaf).
 	const logs = await queryEventInChunks({
 		publicClient,
 		contract: { address: gigaBridgeAddress as `0x${string}`, abi: GigaBridgeAbi },
 		eventName: 'ReceivedNewLocalRoot',
 		firstBlock: fromBlock,
 		lastBlock,
+		reverseOrder: true,
+		maxEvents: 30,
 	});
 
 	return logs.map((log: any) => ({
@@ -2025,51 +2035,60 @@ async function buildGigaMerkleProofForAztec(
 	gigaRootBlockNumber: number,
 	expectedGigaRoot: bigint
 ): Promise<EvmMerkleData> {
-	// Get the number of local root providers from GigaBridge
-	const amountOfLocalRoots = await publicClient.readContract({
-		address: gigaBridgeAddress as `0x${string}`,
-		abi: GigaBridgeAbi,
-		functionName: 'amountOfLocalRoots',
-	});
-	console.log('Amount of local roots in GigaBridge:', amountOfLocalRoots);
-
-	// Get all local root events up to the giga root block
-	const localRootEvents = await getLocalRootEvents(
-		publicClient,
-		gigaBridgeAddress,
-		chainId,
-		BigInt(gigaRootBlockNumber)
-	);
-
-	if (localRootEvents.length === 0) {
-		throw new Error('No local root events found in GigaBridge');
-	}
-
-	// Group events by index and get the latest for each
-	const eventsPerIndex: Record<number, typeof localRootEvents> = {};
-	const allIndexes = new Set<number>();
-
-	for (const event of localRootEvents) {
-		allIndexes.add(event.index);
-		if (!eventsPerIndex[event.index]) {
-			eventsPerIndex[event.index] = [];
+	// Two paths:
+	//   (a) default — call BridgeKeeper's /giga-state endpoint, which reads
+	//       the tree state in a handful of contract reads (cached 5s). Handles
+	//       rate-limit pressure centrally.
+	//   (b) user opted into their own RPC — scan events client-side against
+	//       their endpoint. We don't know their URL to relay for them, and
+	//       they explicitly opted in, so they eat the cost.
+	const usingCustomRpc = rpcSettings.isUsingCustom(chainId);
+	let sortedLeaves: bigint[];
+	let amountOfLocalRoots: number;
+	if (!usingCustomRpc) {
+		const state = await fetchGigaStateFromKeeper(String(chainId));
+		amountOfLocalRoots = state.amountOfLocalRoots;
+		sortedLeaves = [];
+		for (let i = 0; i < amountOfLocalRoots; i++) {
+			const leaf = state.leaves.find((l) => l.index === i);
+			sortedLeaves[i] = leaf ? BigInt(leaf.localRoot) : 0n;
 		}
-		eventsPerIndex[event.index].push(event);
-	}
+		console.log('Amount of local roots in GigaBridge:', amountOfLocalRoots, '(via keeper)');
+	} else {
+		// Opted-in client-side scan path. Kept for parity with the server
+		// aggregator so custom-RPC users aren't locked out of withdrawing.
+		amountOfLocalRoots = Number(await publicClient.readContract({
+			address: gigaBridgeAddress as `0x${string}`,
+			abi: GigaBridgeAbi,
+			functionName: 'amountOfLocalRoots',
+		}));
+		console.log('Amount of local roots in GigaBridge:', amountOfLocalRoots, '(via custom RPC scan)');
 
-	// Build sorted leaves with latest root for each index
-	// This matches the backend logic in getGigaMerkleData
-	const sortedLeaves: bigint[] = [];
-	for (let i = 0; i < Number(amountOfLocalRoots); i++) {
-		if (eventsPerIndex[i] && eventsPerIndex[i].length > 0) {
-			// Get latest event for this index (by event block number)
-			const latestEvent = eventsPerIndex[i].reduce((latest, ev) =>
-				ev.eventBlockNumber > latest.eventBlockNumber ? ev : latest
-			);
-			sortedLeaves[i] = latestEvent.localRoot;
-		} else {
-			// No events for this index - use 0 (default value in tree)
-			sortedLeaves[i] = 0n;
+		const localRootEvents = await getLocalRootEvents(
+			publicClient,
+			gigaBridgeAddress,
+			chainId,
+			BigInt(gigaRootBlockNumber),
+		);
+		if (localRootEvents.length === 0) {
+			throw new Error('No local root events found in GigaBridge');
+		}
+
+		const eventsPerIndex: Record<number, typeof localRootEvents> = {};
+		for (const event of localRootEvents) {
+			if (!eventsPerIndex[event.index]) eventsPerIndex[event.index] = [];
+			eventsPerIndex[event.index].push(event);
+		}
+		sortedLeaves = [];
+		for (let i = 0; i < amountOfLocalRoots; i++) {
+			if (eventsPerIndex[i] && eventsPerIndex[i].length > 0) {
+				const latestEvent = eventsPerIndex[i].reduce((latest, ev) =>
+					ev.eventBlockNumber > latest.eventBlockNumber ? ev : latest,
+				);
+				sortedLeaves[i] = latestEvent.localRoot;
+			} else {
+				sortedLeaves[i] = 0n;
+			}
 		}
 	}
 

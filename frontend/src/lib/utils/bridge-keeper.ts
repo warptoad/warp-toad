@@ -104,6 +104,43 @@ export function getExpectedDuration(fromChain: Chain, toChain: Chain): string {
 }
 
 /**
+ * Snapshot of the L1 GigaBridge state as returned by `/giga-state/:chainId`.
+ * Computed server-side from a handful of contract reads (cached briefly) so
+ * the frontend doesn't have to replay 70+ getLogs chunks to reconstruct the
+ * same data from ReceivedNewLocalRoot events.
+ */
+export interface GigaStateResponse {
+	ok: true;
+	chainId: string;
+	gigaBridge: string;
+	gigaRoot: string;
+	amountOfLocalRoots: number;
+	leaves: Array<{
+		provider: string;
+		index: number;
+		localRoot: string;
+		localRootBlockNumber: number;
+	}>;
+	fetchedAtMs: number;
+}
+
+/**
+ * Fetch the L1 giga state from BridgeKeeper. Use this whenever the user is
+ * on the default (proxied) RPC path - the server does the aggregation. When
+ * the user supplied their own RPC via the wallet settings they take the
+ * client-side scan instead (they get to pay the RPC cost themselves, and
+ * we don't know their endpoint to relay for them).
+ */
+export async function fetchGigaStateFromKeeper(chainId: string): Promise<GigaStateResponse> {
+	const url = `${BRIDGE_KEEPER_URL}/giga-state/${chainId}`;
+	const res = await fetch(url);
+	if (!res.ok) throw new Error(`HTTP ${res.status} fetching giga state`);
+	const data = await res.json();
+	if (!data?.ok) throw new Error(data?.error ?? 'giga-state endpoint returned ok=false');
+	return data as GigaStateResponse;
+}
+
+/**
  * Trigger a bridge operation on BridgeKeeper
  * 
  * @param fromChainId - Source chain ID

@@ -13,6 +13,7 @@ import { requestSync, getOrchestratorState } from './bridge/syncOrchestrator.js'
 import { routeToRequirements } from './bridge/syncRequirements.js';
 import type { FullSyncResult } from './bridge/executor.js';
 import type { BridgeRequest, BridgeOperation } from './types/index.js';
+import { fetchGigaState } from './bridge/gigaState.js';
 
 dotenv.config();
 
@@ -133,6 +134,30 @@ app.post('/rpc/:chain', async (req, res) => {
     const msg = typeof err?.message === 'string' ? err.message.replace(/https?:\/\/\S+/g, '<upstream>') : 'upstream fetch failed';
     console.error(`[rpc-proxy] ${chain} upstream error:`, msg);
     res.status(502).json(rpcError(null, -32603, 'Upstream RPC error'));
+  }
+});
+
+/**
+ * Returns a snapshot of the L1 GigaBridge state: current gigaRoot + the
+ * current leaf (local root + block number) for every registered provider.
+ *
+ * The frontend's merkle-proof builder used to recover this by scanning
+ * ReceivedNewLocalRoot events from deployment → head on every withdraw,
+ * which routinely tripped rate limits. This endpoint replaces that with a
+ * handful of contract reads (cached 5 s). Users who opted into a custom
+ * RPC via the wallet settings bypass it and do the scan client-side.
+ */
+app.get('/giga-state/:chainId', async (req, res) => {
+  const { chainId } = req.params;
+  if (!isValidChainId(chainId)) {
+    return res.status(400).json({ ok: false, error: `Invalid chain ID: ${chainId}` });
+  }
+  try {
+    const state = await fetchGigaState(chainId);
+    res.json({ ok: true, ...state });
+  } catch (err: any) {
+    console.error(`[giga-state] error for chain ${chainId}:`, err);
+    res.status(502).json({ ok: false, error: err?.message ?? 'Failed to fetch giga state' });
   }
 });
 
