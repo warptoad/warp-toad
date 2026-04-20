@@ -41,9 +41,8 @@ import { SiblingPath } from "@aztec/foundation/trees";
 import {
     type L2ToL1MembershipWitness,
     computeL2ToL1MembershipWitness,
-    computeL2ToL1MembershipWitnessFromMessagesInEpoch,
 } from '@aztec/stdlib/messaging';
-import { BlockNumber, EpochNumber } from "@aztec/foundation/branded-types";
+import { TxHash } from "@aztec/stdlib/tx";
 
 // Minimal ABIs for ad-hoc viem reads against contracts we don't have full handles for.
 const LOCAL_ROOT_PROVIDER_ABI = [
@@ -267,6 +266,23 @@ export async function receiveGigaRootOnEvmL2(
  * bridges noteHashTreeRoot from aztec L2 to L1
  * L2aztecAdapter -> L1AztecAdapter
  */
+/**
+ * Optional resume state for a previously-sent L2→L1 root message. If supplied,
+ * `bridgeAZTECLocalRootToL1` skips the send step and picks up at the epoch
+ * scan. Used by bridge-sync to survive container restarts without resetting
+ * the 75-min clock.
+ */
+export interface AztecRootSendResume {
+    aztecTxHashHex: string;
+    blockNumberOfRoot: number;
+    pxeL2RootHex: string;
+}
+
+/** Invoked right after a fresh `send_root_to_l1` call goes out on Aztec, so
+ * the caller can persist the tx hash + anchor block before we start waiting.
+ * Safe to leave undefined for callers that don't care about resumption. */
+export type OnAztecRootSent = (state: AztecRootSendResume) => void | Promise<void>;
+
 export async function bridgeAZTECLocalRootToL1(
     aztecNode: AztecNode,
     L2AztecBridgeAdapter: L2AztecBridgeAdapterContract,
@@ -276,25 +292,75 @@ export async function bridgeAZTECLocalRootToL1(
     aztecWallet: AztecWallet,
     sponsoredPaymentMethod?: SponsoredFeePaymentMethod | undefined,
     confirmations = 1,
+    resumeFrom?: AztecRootSendResume,
+    onSent?: OnAztecRootSent,
 ) {
-    const blockNumberOfRoot = await aztecNode.getBlockNumber()
-    const PXE_L2Root = (await aztecNode.getBlock(blockNumberOfRoot))?.header.state.partial.noteHashTree.root as Fr
-    const sendRootToL1Tx = await L2AztecBridgeAdapter.methods.send_root_to_l1(blockNumberOfRoot).send({ fee: { paymentMethod: sponsoredPaymentMethod }, from: (await aztecWallet.getAccounts())[0].item });
     const l1ChainId = BigInt(await publicClient.getChainId())
-
     const isSandBox = l1ChainId === 31337n
     const blocksToWait = isSandBox ? 2 : 10
-    await waitForBlocksAztec(blocksToWait, aztecNode, isSandBox, L2AztecBridgeAdapter, aztecWallet)
 
-    const sendRootEffect = await aztecNode.getTxEffect(sendRootToL1Tx.receipt.txHash)
+    // Either resume from a previously-sent tx (picked up off disk after a
+    // restart) or send fresh now. After this block we have three locals set:
+    // `aztecTxHash`, `blockNumberOfRoot`, `PXE_L2Root` - which is all the
+    // downstream code needs.
+    let aztecTxHash: TxHash
+    let blockNumberOfRoot: number
+    let PXE_L2Root: Fr
+    // Kept for back-compat with callers that treat this as an opaque tx handle.
+    // Undefined on the resume path since we only have the hash at that point.
+    let sendRootToL1Tx: any | undefined
+    if (resumeFrom) {
+        aztecTxHash = TxHash.fromString(resumeFrom.aztecTxHashHex)
+        blockNumberOfRoot = resumeFrom.blockNumberOfRoot
+        PXE_L2Root = Fr.fromHexString(resumeFrom.pxeL2RootHex)
+        sendRootToL1Tx = undefined
+        console.log(`resuming aztec L2->L1 leg from tx ${resumeFrom.aztecTxHashHex} @ block ${blockNumberOfRoot}`)
+    } else {
+        blockNumberOfRoot = await aztecNode.getBlockNumber()
+        PXE_L2Root = (await aztecNode.getBlock(blockNumberOfRoot))?.header.state.partial.noteHashTree.root as Fr
+        sendRootToL1Tx = await L2AztecBridgeAdapter.methods.send_root_to_l1(blockNumberOfRoot).send({ fee: { paymentMethod: sponsoredPaymentMethod }, from: (await aztecWallet.getAccounts())[0].item });
+        aztecTxHash = sendRootToL1Tx.receipt.txHash
+        if (onSent) {
+            // Persist BEFORE the long waits so a crash between here and the
+            // outbox settle is recoverable. Best-effort: a callback that
+            // throws is logged but doesn't block the leg.
+            try {
+                await onSent({
+                    aztecTxHashHex: aztecTxHash.toString(),
+                    blockNumberOfRoot,
+                    pxeL2RootHex: PXE_L2Root.toString(),
+                })
+            } catch (e) {
+                console.warn('onSent callback threw:', e)
+            }
+        }
+        await waitForBlocksAztec(blocksToWait, aztecNode, isSandBox, L2AztecBridgeAdapter, aztecWallet)
+    }
+
+    const sendRootEffect = await aztecNode.getTxEffect(aztecTxHash)
     const messageLeaf = sendRootEffect?.data.l2ToL1Msgs[0] as Fr
-    const messageBlockNumber = sendRootEffect?.l2BlockNumber as number
+    if (!messageLeaf) throw new Error(`send_root_to_l1 tx ${aztecTxHash.toString()} has no L2->L1 message in its tx effect`)
     const contentHash = messageLeaf
 
-    // Compute epoch from L2 block's slot using epochDuration read from L1 Rollup contract.
-    const txL2Block = await aztecNode.getBlock(messageBlockNumber)
-    if (!txL2Block) throw new Error(`Could not fetch L2 block ${messageBlockNumber} for message witness`)
-    const messageSlot = BigInt(txL2Block.slot)
+    // Poll the canonical SDK helper: it takes (node, messageHash, txHash),
+    // walks the tx's epoch itself, and returns the full witness (including
+    // epochNumber/leafIndex/siblingPath) once the epoch is proven. Returns
+    // undefined while the tx isn't yet in a proven epoch.
+    //
+    // Earlier versions of this file tried to compute the epoch from slot math
+    // and call `computeL2ToL1MembershipWitnessFromMessagesInEpoch` with too
+    // few args - the SDK helper throws, the catch swallows it, and the poll
+    // loop spins until the 75-min outer timeout. That's the bug pattern the
+    // aztec→L1 cycle kept hitting.
+    //
+    // Sandbox prover is single-threaded; poll fast (2s) with a smaller ceiling
+    // so a broken sandbox fails fast. Testnet polls every 15s for up to 1h -
+    // the prover lag observed in production has exceeded 20 min, and slower
+    // polling also keeps the RPC budget reasonable.
+    const pollIntervalMs = isSandBox ? 2_000 : 15_000
+    const maxPolls = isSandBox ? 300 : 240
+
+    // Only used for diagnostic logging of how close the prover is.
     const aztecNodeInfo = await aztecNode.getNodeInfo()
     const rollupAddressForEpoch = aztecNodeInfo.l1ContractAddresses.rollupAddress.toString() as Address
     const epochDuration = BigInt(await publicClient.readContract({
@@ -302,70 +368,35 @@ export async function bridgeAZTECLocalRootToL1(
         abi: ROLLUP_EPOCH_ABI,
         functionName: "getEpochDuration",
     }))
-    const computedEpoch = Number(messageSlot / epochDuration)
 
-    const findMessageInEpoch = async (epoch: number): Promise<Fr[][][][] | null> => {
-        if (epoch < 0) return null
+    let messageWitness: L2ToL1MembershipWitness | undefined
+    for (let i = 0; i < maxPolls; i++) {
         try {
-            const messagesInEpoch = await aztecNode.getL2ToL1Messages(EpochNumber(epoch))
-            if (messagesInEpoch.length === 0) return null
-            computeL2ToL1MembershipWitnessFromMessagesInEpoch(messagesInEpoch, contentHash)
-            return messagesInEpoch
+            messageWitness = (await computeL2ToL1MembershipWitness(aztecNode, contentHash, aztecTxHash)) as L2ToL1MembershipWitness | undefined
         } catch (err) {
-            // Transient RPC failures (e.g. Bad Gateway from the Aztec node) would
-            // otherwise kill the whole bridge op; the poll loop is here to retry.
-            return null
+            // Transient RPC failures (Bad Gateway, etc); log and keep polling.
+            if (i % 5 === 0) console.log(`computeL2ToL1MembershipWitness threw (will retry): ${(err as Error).message ?? err}`)
         }
-    }
-    let foundEpoch: number | undefined
-    // The search window tracks the Aztec prover's proven tip rather than a
-    // fixed ±1 offset - testnet prover lag is routinely several epochs, so
-    // a static window silently misses the message when the proof lands late.
-    //
-    // Each iteration:
-    //   1. Read getProvenBlockNumber() → derive provenEpoch from its slot.
-    //   2. Scan every epoch in [computedEpoch-1 .. provenEpoch+1].
-    //
-    // Sandbox prover is single-threaded; poll fast (2s) with a smaller ceiling
-    // so a broken sandbox fails fast. Testnet polls every 15s for up to 1h -
-    // the prover lag observed in production has exceeded 20 min, and slower
-    // polling also keeps the Infura RPC budget reasonable.
-    const pollIntervalMs = isSandBox ? 2_000 : 15_000
-    const maxPolls = isSandBox ? 300 : 240
-    let lastLoggedProvenEpoch = -1
-    pollLoop: for (let i = 0; i < maxPolls; i++) {
-        let provenEpoch = computedEpoch
-        try {
-            const provenBlockNum = Number(await aztecNode.getProvenBlockNumber())
-            if (provenBlockNum > 0) {
-                const provenBlock = await aztecNode.getBlock(provenBlockNum)
-                if (provenBlock) {
-                    provenEpoch = Number(BigInt(provenBlock.slot) / epochDuration)
+        if (messageWitness) break
+
+        if (i % 5 === 0) {
+            let provenEpoch = -1
+            try {
+                const provenBlockNum = Number(await aztecNode.getProvenBlockNumber())
+                if (provenBlockNum > 0) {
+                    const provenBlock = await aztecNode.getBlock(provenBlockNum)
+                    if (provenBlock) provenEpoch = Number(BigInt(provenBlock.slot) / epochDuration)
                 }
-            }
-        } catch {
-            // Transient node failures just mean we stick with the prior
-            // bound for this iteration; next poll will retry.
-        }
-        const lo = Math.max(0, computedEpoch - 1)
-        const hi = Math.max(computedEpoch + 1, provenEpoch + 1)
-        for (let e = lo; e <= hi; e++) {
-            if (await findMessageInEpoch(e)) {
-                foundEpoch = e
-                break pollLoop
-            }
-        }
-        if (i % 5 === 0 || provenEpoch !== lastLoggedProvenEpoch) {
-            console.log(`waiting for L2->L1 message ${contentHash.toString()} to be proven in epoch ${computedEpoch} (provenEpoch=${provenEpoch}, search=[${lo}..${hi}], slot=${messageSlot}, dur=${epochDuration})... (${i}/${maxPolls})`)
-            lastLoggedProvenEpoch = provenEpoch
+            } catch {}
+            console.log(`waiting for L2->L1 message ${contentHash.toString()} to be proven (provenEpoch=${provenEpoch})... (${i}/${maxPolls})`)
         }
         await sleep(pollIntervalMs)
     }
-    if (foundEpoch === undefined) {
-        throw new Error(`Timed out waiting for L2->L1 message ${contentHash.toString()} to land in a proven epoch (computed epoch ${computedEpoch})`)
+    if (!messageWitness) {
+        throw new Error(`Timed out waiting for L2->L1 message ${contentHash.toString()} to land in a proven epoch`)
     }
 
-    const messageWitness = await computeL2ToL1MembershipWitness(aztecNode, EpochNumber(foundEpoch), contentHash) as L2ToL1MembershipWitness
+    const foundEpoch = Number(messageWitness.epochNumber)
     const siblingPathArray = messageWitness.siblingPath.toFields().map((f: any) => f.toString())
 
     const outboxAddress = (await L1AztecBridgeAdapter.read.outbox()) as Address
@@ -401,7 +432,7 @@ export async function bridgeAZTECLocalRootToL1(
     const refreshRootHash = await L1AztecBridgeAdapter.write.getNewRootFromL2(args, { account: walletClient.account, chain: walletClient.chain })
     const refreshRootTx = await publicClient.waitForTransactionReceipt({ hash: refreshRootHash, confirmations })
 
-    return { refreshRootTx, sendRootToL1Tx, PXE_L2Root }
+    return { refreshRootTx, sendRootToL1Tx, PXE_L2Root, aztecTxHash }
 }
 
 export async function bridgeLocalRootToL1(
@@ -421,7 +452,7 @@ export async function bridgeLocalRootToL1(
     const isSandBox = l1ChainId === 31337n
     if (isAztec) {
         if (aztecNode === undefined) throw new Error("aztecNode cant be undefined")
-        const { sendRootToL1Tx, refreshRootTx, PXE_L2Root } = await bridgeAZTECLocalRootToL1(
+        const { sendRootToL1Tx, refreshRootTx, PXE_L2Root, aztecTxHash } = await bridgeAZTECLocalRootToL1(
             aztecNode,
             L2Adapter as L2AztecBridgeAdapterContract,
             L1Adapter as L1AztecBridgeAdapter,
@@ -431,7 +462,7 @@ export async function bridgeLocalRootToL1(
             sponsoredPaymentMethodAZTEC,
             confirmations,
         )
-        return { sendRootToL1Tx, sendRootToL1TxHash: sendRootToL1Tx.receipt.txHash.toString() }
+        return { sendRootToL1Tx, sendRootToL1TxHash: aztecTxHash.toString() }
     } else {
         if (!evmL2Inputs) throw new Error("bridgeLocalRootToL1: evmL2Inputs (l2PublicClient, l2WalletClient) required for non-aztec (scroll) path")
         const { sendRootToL1Tx, sendRootToL1TxHash } = await bridgeEVMLocalRootToL1(

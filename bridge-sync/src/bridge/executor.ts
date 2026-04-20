@@ -25,6 +25,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { TxHash } from '@aztec/stdlib/tx';
 import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
 import { getInitialTestAccountsData } from '@aztec/accounts/testing';
 
@@ -59,6 +60,7 @@ import {
 } from './contractLoader.js';
 import { getChainConfig } from './chainMapper.js';
 import type { SyncRequirements } from './syncRequirements.js';
+import { loadPending, savePending, clearPending } from './aztecPending.js';
 
 /**
  * Module-level Aztec wallet cache.
@@ -250,6 +252,36 @@ export async function runSyncCycle(
   let aztecLeg: FullSyncResult['aztec'] = null;
   if (requirements.needAztecL2ToL1) {
     console.log('[sync] step 1: pushing Aztec local root → L1');
+
+    // Resume-from-disk support: if a previous cycle sent a root message but
+    // crashed/restarted before it landed on L1, we have its state in the
+    // db volume. Hand it to the bridging lib so it skips the costly resend
+    // and picks up the epoch scan where the last container left off. If the
+    // tx is unfetchable (e.g. Aztec node rolled state, stale entry), we fall
+    // through to a fresh send.
+    let resumeFrom: { aztecTxHashHex: string; blockNumberOfRoot: number; pxeL2RootHex: string } | undefined;
+    const pending = loadPending(l1ChainId);
+    if (pending) {
+      try {
+        const txHash = TxHash.fromString(pending.aztecTxHashHex);
+        const effect = await aztecState!.node.getTxEffect(txHash);
+        if (effect) {
+          resumeFrom = {
+            aztecTxHashHex: pending.aztecTxHashHex,
+            blockNumberOfRoot: pending.blockNumberOfRoot,
+            pxeL2RootHex: pending.pxeL2RootHex,
+          };
+          console.log(`[sync] resuming aztec leg from pending tx ${pending.aztecTxHashHex}`);
+        } else {
+          console.log(`[sync] pending aztec tx ${pending.aztecTxHashHex} not found on node, dropping and starting fresh`);
+          clearPending(l1ChainId);
+        }
+      } catch (e) {
+        console.warn('[sync] could not verify pending aztec tx, starting fresh:', e);
+        clearPending(l1ChainId);
+      }
+    }
+
     const r = await withTimeout(
       bridgeAZTECLocalRootToL1(
         aztecState!.node,
@@ -260,12 +292,18 @@ export async function runSyncCycle(
         aztecState!.wallet,
         aztecState!.sponsoredPaymentMethod,
         conf,
+        resumeFrom,
+        async (state) => {
+          savePending(l1ChainId, { ...state, createdAtMs: Date.now() });
+        },
       ),
       AZTEC_LEG_TIMEOUT_MS,
       'Aztec L2→L1',
     );
+    // Leg succeeded; clear the pending marker so the next cycle starts fresh.
+    clearPending(l1ChainId);
     aztecLeg = {
-      sendRootToL1TxHash: r.sendRootToL1Tx.receipt.txHash.toString(),
+      sendRootToL1TxHash: r.aztecTxHash.toString(),
       refreshRootTxHash: r.refreshRootTx.transactionHash,
       receiveGigaRootTxHash: '',
     };
