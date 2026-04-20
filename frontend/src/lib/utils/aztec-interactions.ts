@@ -2176,11 +2176,7 @@ export async function getMerkleDataForAztecToL1(
 		functionName: 'mostRecentL2Root',
 	}) as bigint;
 	if (mostRecentL2Root === 0n) {
-		throw new Error(
-			'Aztec local root has not been bridged to L1 yet. ' +
-			'This is the slow leg of the Aztec→Ethereum sync (typically 30-90 min on testnet) and must complete before the withdraw proof can be built. ' +
-			'If you already initiated a bridge from Aztec, wait for the bridge-keeper to finish; otherwise trigger a sync from the bridge page.',
-		);
+		throw new Error('Aztec root not yet synced to L1. Try again in 30-90 min.');
 	}
 
 	const [adapterLocalRoot, adapterLocalRootBlock] = await publicClient.readContract({
