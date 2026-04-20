@@ -14,11 +14,23 @@
 	import { proofStore } from "$lib/stores/proofs.svelte.js";
 	import type { Proof } from "$lib/types/bridge.js";
 
+	import type { Snippet } from "svelte";
+	import { slide } from "svelte/transition";
+	import { cubicOut } from "svelte/easing";
+
 	interface Props {
 		onselect?: (proof: Proof) => void;
+		/** Proof ID currently loaded into the withdraw panel, so we can
+		 * highlight the matching row. Undefined = nothing selected. */
+		selectedId?: string | null;
+		/** Optional snippet rendered as an expanded accordion row beneath the
+		 * selected proof. Keeps the withdraw form inline with its row so users
+		 * with long proof lists don't lose the visual link between the panel
+		 * and the source row. */
+		details?: Snippet<[Proof]>;
 	}
 
-	let { onselect }: Props = $props();
+	let { onselect, selectedId = null, details }: Props = $props();
 
 	// Selection state management
 	let selectedProofIds = $state<Set<string>>(new Set());
@@ -146,13 +158,12 @@
 		</div>
 		<div class="flex gap-2">
 			<Button
-				variant="outline"
 				size="sm"
 				disabled={selectedProofIds.size === 0}
 				onclick={handleBatchDownload}
-				class="h-8 text-xs"
+				class="h-8 text-xs border-transparent bg-[var(--warp-purple)] text-white hover:bg-[color-mix(in_oklab,var(--warp-purple)_90%,black)]"
 			>
-				<Download class="size-3.5 mr-1.5" />
+				<Download class="size-3.5" />
 				Download {#if selectedProofIds.size > 0}({selectedProofIds.size}){/if}
 			</Button>
 			<Button
@@ -162,20 +173,20 @@
 				onclick={handleBatchDeleteClick}
 				class="h-8 text-xs"
 			>
-				<Trash2 class="size-3.5 mr-1.5" />
+				<Trash2 class="size-3.5" />
 				Delete {#if selectedProofIds.size > 0}({selectedProofIds.size}){/if}
 			</Button>
 		</div>
 	</div>
 
 	<!-- Proof Table -->
-	<div class="rounded-md border overflow-x-auto">
+	<div class="rounded-sm border overflow-x-auto">
 		<Table>
 			<TableHeader>
 				<TableRow>
-					<TableHead class="w-[50px]">
-						<input 
-							type="checkbox" 
+					<TableHead class="w-[36px] proof-select-col">
+						<input
+							type="checkbox"
 							checked={isAllSelected}
 							indeterminate={isIndeterminate}
 							onchange={toggleSelectAll}
@@ -193,13 +204,17 @@
 			</TableHeader>
 			<TableBody>
 				{#each proofStore.allProofs as proof (proof.id)}
-					<TableRow 
-						class={proof.used ? 'proof-row-used' : 'proof-row-ready'}
+					<TableRow
+						class={[
+							proof.used ? 'proof-row-used' : 'proof-row-ready',
+							proof.id === selectedId ? 'proof-row-active' : '',
+						].filter(Boolean).join(' ')}
 						onclick={(e) => handleRowClick(proof, e)}
+						data-expanded={proof.id === selectedId && details ? 'true' : undefined}
 					>
-						<TableCell>
-							<input 
-								type="checkbox" 
+						<TableCell class="proof-select-col">
+							<input
+								type="checkbox"
 								checked={selectedProofIds.has(proof.id)}
 								onclick={(e) => e.stopPropagation()}
 								onchange={() => toggleSelectProof(proof.id)}
@@ -226,6 +241,18 @@
 							{/if}
 						</TableCell>
 					</TableRow>
+					{#if proof.id === selectedId && details}
+						<TableRow class="proof-row-details">
+							<TableCell colspan={7} class="!p-0 overflow-hidden">
+								<div
+									transition:slide={{ duration: 220, easing: cubicOut }}
+									class="p-4 bg-[var(--swamp-deep)] border-t border-[rgba(130,226,102,0.2)] whitespace-normal space-y-3"
+								>
+									{@render details(proof)}
+								</div>
+							</TableCell>
+						</TableRow>
+					{/if}
 				{/each}
 			</TableBody>
 		</Table>
@@ -320,6 +347,61 @@
 	:global(.proof-row-used) {
 		opacity: 0.65;
 		cursor: default;
+	}
+
+	/* Active row: the one currently loaded into the withdraw panel. Persists
+	 * after click so the user can see at a glance which proof they're about to
+	 * withdraw. Left-border accent + slightly stronger background than :hover. */
+	:global(.proof-row-active) {
+		background-color: rgba(130, 226, 102, 0.12) !important;
+		box-shadow: inset 3px 0 0 var(--toad-green) !important;
+	}
+
+	:global(.proof-row-active:hover) {
+		background-color: rgba(130, 226, 102, 0.16) !important;
+	}
+
+	/* Visually isolate the batch-select column from the row data, so users
+	 * read the checkbox as a multi-select control rather than the
+	 * "click-to-withdraw" affordance (which is the whole row). Tight gutter
+	 * with symmetric spacing around the divider: ~8px between checkbox and
+	 * divider, matches the next cell's px-2 on the other side. Checkbox is
+	 * centered both axes within the gutter via display: table-cell's
+	 * vertical-align + text-align on its inline content. */
+	:global(.proof-select-col) {
+		background-color: rgba(255, 255, 255, 0.02);
+		border-right: 1px solid rgba(255, 255, 255, 0.06);
+		padding-left: 0.5rem !important;
+		padding-right: 0.5rem !important;
+		text-align: center;
+		vertical-align: middle;
+	}
+
+	/* The checkbox defaults to inline with baseline alignment, which leaves
+	 * it riding low in cells with taller text. Force block + margin:auto so
+	 * it centers regardless of sibling line-height. */
+	:global(.proof-select-col .checkbox-swamp) {
+		display: block;
+		margin-left: auto;
+		margin-right: auto;
+	}
+
+	/* Keep the active-row left accent, but make sure the gutter's tint
+	 * doesn't fight the row's green highlight. */
+	:global(.proof-row-active .proof-select-col) {
+		background-color: rgba(130, 226, 102, 0.18);
+	}
+
+	/* Accordion detail row: rendered directly under the selected proof.
+	 * Disable the row hover/cursor treatment inherited from proof-row-ready
+	 * and let the inner padded container own the look. */
+	:global(.proof-row-details) {
+		cursor: default;
+	}
+
+	:global(.proof-row-details:hover) {
+		background-color: transparent;
+		box-shadow: none;
 	}
 
 	/* Touch-friendly checkbox styling */

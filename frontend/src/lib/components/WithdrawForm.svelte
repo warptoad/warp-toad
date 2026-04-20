@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Upload, CheckCircle2, Loader2, AlertCircle, Download, Shield } from "@lucide/svelte";
+	import { badgeVariants } from "$lib/components/ui/badge";
 	import { walletStore } from "$lib/stores/wallets.svelte.js";
 	import { proofStore } from "$lib/stores/proofs.svelte.js";
 	import { balanceStore } from "$lib/stores/balances.svelte.js";
@@ -70,6 +71,7 @@
 
 	import { onMount } from "svelte";
 	import { toHex } from "viem";
+	import { rpcSettings } from "$lib/stores/rpc-settings.svelte";
 
 	let selectedProof = $state<Proof | null>(null);
 	let fileInput: HTMLInputElement;
@@ -99,6 +101,37 @@
 	let feePercentage = $state(0.25); // Min 0.25%, max 5%
 	let relayOperationId = $state<string | null>(null);
 	let relayStatusText = $state<string>("idle");
+
+	// Inline hint when the user flips the RPC toggle to "custom" without one
+	// configured. Reset whenever the user navigates away from the toggle.
+	let rpcHintVisible = $state(false);
+
+	// Source chain for the current withdraw flow. Only EVM chains have an RPC
+	// override applied (Aztec source uses a different stack).
+	let rpcOverrideChainId = $derived.by<number | null>(() => {
+		if (!selectedProof) return null;
+		if (selectedProof.sourceChain !== "Ethereum" && selectedProof.sourceChain !== "Scroll") return null;
+		const def = getEVMChain(selectedProof.sourceChain);
+		return def?.chainId ?? null;
+	});
+
+	let rpcOverrideHasCustom = $derived.by<boolean>(() =>
+		rpcOverrideChainId !== null && rpcSettings.hasCustom(rpcOverrideChainId),
+	);
+
+	let rpcOverrideEnabled = $derived.by<boolean>(() =>
+		rpcOverrideChainId !== null && rpcSettings.isUsingCustom(rpcOverrideChainId),
+	);
+
+	function toggleRpcOverride() {
+		if (rpcOverrideChainId === null) return;
+		if (!rpcOverrideHasCustom) {
+			rpcHintVisible = true;
+			return;
+		}
+		rpcHintVisible = false;
+		rpcSettings.setUseCustom(rpcOverrideChainId, !rpcSettings.isUsingCustom(rpcOverrideChainId));
+	}
 
 	// Get source chain ID dynamically based on source chain
 	function getSourceChainId(): number {
@@ -166,6 +199,14 @@
 	);
 
 	function handleProofSelect(proof: Proof) {
+		// Re-clicking the currently selected row closes the panel. Matches the
+		// "Close" button's behaviour so users have two equivalent gestures. The
+		// in-flight guard keeps this from interrupting an active withdraw.
+		if (selectedProof?.id === proof.id) {
+			if (isWithdrawing) return;
+			selectedProof = null;
+			return;
+		}
 		selectedProof = proof;
 		uploadError = null;
 		successMessage = null;
@@ -1990,20 +2031,31 @@
 			<div class="w-0.5 h-3 bg-[var(--toad-green)] rounded-full"></div>
 			<span class="text-[0.65rem] font-semibold text-[var(--toad-green-muted)] uppercase tracking-widest">Saved Proofs</span>
 		</div>
-		<div class="rounded-lg border border-[rgba(130,226,102,0.15)] overflow-hidden">
-			<ProofTable onselect={handleProofSelect} />
-		</div>
+		<ProofTable
+			onselect={handleProofSelect}
+			selectedId={selectedProof?.id ?? null}
+			details={expandedDetails}
+		/>
 	</div>
 
-	{#if selectedProof}
-		<!-- Divider -->
-		<div class="h-px bg-[rgba(130,226,102,0.15)]"></div>
-
+	{#snippet expandedDetails(_proof: Proof)}
 		<!-- Selected Proof Details -->
 		<div class="space-y-2">
-			<div class="flex items-center gap-1.5">
-				<div class="w-0.5 h-3 bg-[var(--toad-green)] rounded-full"></div>
-				<span class="text-[0.65rem] font-semibold text-[var(--toad-green-muted)] uppercase tracking-widest">Selected Proof</span>
+			<div class="flex items-center justify-between">
+				<div class="flex items-center gap-1.5">
+					<div class="w-0.5 h-3 bg-[var(--toad-green)] rounded-full"></div>
+					<span class="text-[0.65rem] font-semibold text-[var(--toad-green-muted)] uppercase tracking-widest">Selected Proof</span>
+				</div>
+				{#if !isWithdrawing}
+					<button
+						type="button"
+						onclick={() => { selectedProof = null; }}
+						class="{badgeVariants({ variant: 'default' })} !rounded-sm cursor-pointer hover:bg-primary/90"
+						title="Close withdraw panel"
+					>
+						Close
+					</button>
+				{/if}
 			</div>
 
 			<div class="swamp-card-source">
@@ -2184,6 +2236,41 @@
 			</div>
 		{/if}
 
+		<!-- RPC source toggle: only surfaces for EVM source chains, where we -->
+		<!-- actually read events to build the merkle proof. -->
+		{#if rpcOverrideChainId !== null}
+			<div class="p-3 rounded-lg bg-[var(--swamp-deep)] border border-[rgba(130,226,102,0.15)]">
+				<div class="flex items-center justify-between">
+					<div class="space-y-0.5">
+						<label for="use-custom-rpc" class="cursor-pointer text-xs font-medium text-[var(--foreground)]">
+							Use my own {selectedProof.sourceChain} RPC
+						</label>
+						<p class="text-[0.65rem] text-[var(--muted-foreground)]">
+							{rpcOverrideHasCustom
+								? (rpcOverrideEnabled ? "Reads go through your configured endpoint." : "Reads go through the warptoad proxy.")
+								: "No custom endpoint saved yet."}
+						</p>
+					</div>
+					<label class="relative inline-flex items-center cursor-pointer">
+						<input
+							id="use-custom-rpc"
+							type="checkbox"
+							checked={rpcOverrideEnabled}
+							disabled={!rpcOverrideHasCustom}
+							onclick={(e) => { e.preventDefault(); toggleRpcOverride(); }}
+							class="sr-only peer"
+						/>
+						<div class="w-9 h-5 bg-[rgba(130,226,102,0.2)] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[var(--toad-green)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--toad-green)] peer-disabled:opacity-50"></div>
+					</label>
+				</div>
+				{#if rpcHintVisible && !rpcOverrideHasCustom}
+					<p class="mt-2 text-[0.65rem] text-[var(--eye-yellow)]">
+						Add a custom {selectedProof.sourceChain} RPC in the Wallet panel first.
+					</p>
+				{/if}
+			</div>
+		{/if}
+
 		<!-- Same-chain transfer info -->
 		{#if isSameChainTransfer()}
 			<div class="p-2.5 rounded-lg bg-[rgba(144,97,249,0.08)] border border-[rgba(144,97,249,0.15)]">
@@ -2263,7 +2350,7 @@
 				{/if}
 			</span>
 		</button>
-	{/if}
+	{/snippet}
 
 	<!-- Success Message -->
 	{#if successMessage}

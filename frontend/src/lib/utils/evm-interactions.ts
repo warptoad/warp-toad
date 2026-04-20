@@ -7,27 +7,35 @@ import { getContractAddresses, CONTRACT_ADDRESSES } from '$lib/contracts/address
 import { poseidon2, poseidon3 } from 'poseidon-lite';
 import { getEVMChain } from '$lib/config/chains';
 import { queryEventInChunks } from './viem-chunks';
+import { rpcSettings } from '$lib/stores/rpc-settings.svelte';
 
 // Field size for BN254 curve (used by Aztec)
 const FIELD_MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
 
 /**
- * Get RPC URL for a chain ID from the chain registry
- * This ensures we use configured RPC URLs (like Infura) instead of default public endpoints
+ * Get RPC URL for a chain ID.
+ *
+ * Order of preference:
+ *   1. User's custom RPC (if they've both configured one AND have the toggle
+ *      enabled in `rpcSettings`).
+ *   2. The chain registry default, which in production is the bridge.warptoad
+ *      proxy baked in at build time via VITE_*_RPC_URL.
+ *
+ * Callers don't need to know about the override; every read-client factory in
+ * this file goes through here, and `scroll-interactions.ts` goes through the
+ * exported version.
  */
-function getRpcUrl(chainId: number): string | undefined {
-	// Map chain ID to chain name
+export function getRpcUrl(chainId: number): string | undefined {
 	const chainMap: Record<number, 'Ethereum' | 'Scroll'> = {
-		31337: 'Ethereum', // Localhost Anvil
-		11155111: 'Ethereum', // Sepolia
-		534351: 'Scroll', // Scroll Sepolia
+		31337: 'Ethereum',
+		11155111: 'Ethereum',
+		534351: 'Scroll',
 	};
-	
+
 	const chainName = chainMap[chainId];
 	if (!chainName) return undefined;
-	
 	const chainDef = getEVMChain(chainName);
-	return chainDef?.rpcUrl;
+	return rpcSettings.resolve(chainId, chainDef?.rpcUrl);
 }
 
 /**

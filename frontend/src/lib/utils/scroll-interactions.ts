@@ -16,6 +16,7 @@ import { L2WarpToadAbi, L2ScrollBridgeAdapterAbi, USDcoinAbi } from '$lib/contra
 import { queryEventInChunks } from './viem-chunks';
 import { getEVMChain, type EVMChainDefinition } from '$lib/config/chains.js';
 import { createClient, getChainId } from './evm-wallet.js';
+import { getRpcUrl } from './evm-interactions.js';
 import type { CommitmentPreImage } from '$lib/types/bridge.js';
 import {
 	hashPreCommitment,
@@ -69,7 +70,7 @@ export async function getScrollWrappedBalance(address: string): Promise<bigint> 
 
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl),
+		transport: http(getRpcUrl(scroll.chainId)),
 	});
 
 	const balance = await publicClient.readContract({
@@ -90,7 +91,7 @@ export async function getScrollTokenDecimals(): Promise<number> {
 
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl),
+		transport: http(getRpcUrl(scroll.chainId)),
 	});
 
 	const decimals = await publicClient.readContract({
@@ -116,7 +117,7 @@ export async function getScrollNativeBalance(address: string): Promise<bigint> {
 
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl),
+		transport: http(getRpcUrl(scroll.chainId)),
 	});
 
 	const balance = await publicClient.readContract({
@@ -140,7 +141,7 @@ export async function mintFreeScrollTokens(amount: bigint): Promise<Hash> {
 
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl),
+		transport: http(getRpcUrl(scroll.chainId)),
 	});
 
 	const userAddress = (await client.getAddresses())[0];
@@ -172,7 +173,7 @@ export async function getScrollGigaRoot(): Promise<bigint> {
 
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl),
+		transport: http(getRpcUrl(scroll.chainId)),
 	});
 
 	const gigaRoot = await publicClient.readContract({
@@ -193,7 +194,7 @@ export async function getScrollLocalRoot(): Promise<bigint> {
 
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl),
+		transport: http(getRpcUrl(scroll.chainId)),
 	});
 
 	const localRoot = await publicClient.readContract({
@@ -213,7 +214,7 @@ export async function getScrollCachedLocalRoot(): Promise<bigint> {
 
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl),
+		transport: http(getRpcUrl(scroll.chainId)),
 	});
 
 	const cachedRoot = await publicClient.readContract({
@@ -233,7 +234,7 @@ export async function isValidScrollGigaRoot(gigaRoot: bigint): Promise<boolean> 
 
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl),
+		transport: http(getRpcUrl(scroll.chainId)),
 	});
 
 	const isValid = await publicClient.readContract({
@@ -254,7 +255,7 @@ export async function isValidScrollLocalRoot(localRoot: bigint): Promise<boolean
 
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl),
+		transport: http(getRpcUrl(scroll.chainId)),
 	});
 
 	const isValid = await publicClient.readContract({
@@ -293,7 +294,7 @@ export async function burnOnScroll(
 
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl),
+		transport: http(getRpcUrl(scroll.chainId)),
 	});
 
 	const userAddress = (await client.getAddresses())[0];
@@ -413,7 +414,7 @@ export async function claimOnScroll(
 
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl),
+		transport: http(getRpcUrl(scroll.chainId)),
 	});
 
 	const userAddress = (await client.getAddresses())[0];
@@ -471,7 +472,7 @@ export async function getScrollMerkleData(
 
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl),
+		transport: http(getRpcUrl(scroll.chainId)),
 	});
 
 	// Get all Burn events to build the tree
@@ -531,7 +532,7 @@ async function buildScrollMerkleProof(commitments: bigint[], index: number): Pro
 
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl),
+		transport: http(getRpcUrl(scroll.chainId)),
 	});
 
 	// Get tree depth
@@ -598,7 +599,7 @@ export async function getEvmMerkleDataForScroll(
 	
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl),
+		transport: http(getRpcUrl(scroll.chainId)),
 	});
 	
 	// Get deployment block for Scroll from contract addresses
@@ -726,7 +727,7 @@ export async function storeScrollLocalRootInHistory(): Promise<string | undefine
 	
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl)
+		transport: http(getRpcUrl(scroll.chainId))
 	});
 	
 	const userAddress = (await client.getAddresses())[0];

@@ -34,6 +34,40 @@
 	import type { AztecAccountMode } from "$lib/utils/aztec-wallet";
 	import { onMount } from "svelte";
 	import { Droplet } from "@lucide/svelte";
+	import { rpcSettings, RPC_OVERRIDE_CHAINS } from "$lib/stores/rpc-settings.svelte";
+
+	// Custom RPC section: per-chain input + probe/save/reset, driven by
+	// `rpcSettings`. Probing does an eth_blockNumber against the URL before
+	// we accept it so users don't persist a broken endpoint.
+	let rpcDrafts = $state<Record<number, string>>(
+		Object.fromEntries(RPC_OVERRIDE_CHAINS.map((c) => [c.chainId, rpcSettings.getCustom(c.chainId) ?? ""])),
+	);
+	let rpcProbeState = $state<Record<number, { status: "idle" | "probing" | "ok" | "err"; message?: string }>>(
+		Object.fromEntries(RPC_OVERRIDE_CHAINS.map((c) => [c.chainId, { status: "idle" }])),
+	);
+
+	async function handleRpcSave(chainId: number) {
+		const url = (rpcDrafts[chainId] ?? "").trim();
+		if (!url) {
+			rpcSettings.clearCustom(chainId);
+			rpcProbeState[chainId] = { status: "idle" };
+			return;
+		}
+		rpcProbeState[chainId] = { status: "probing" };
+		try {
+			const block = await rpcSettings.probe(url);
+			rpcSettings.setCustom(chainId, url);
+			rpcProbeState[chainId] = { status: "ok", message: `OK - block ${block}` };
+		} catch (e: any) {
+			rpcProbeState[chainId] = { status: "err", message: e?.message ?? "Probe failed" };
+		}
+	}
+
+	function handleRpcReset(chainId: number) {
+		rpcDrafts[chainId] = "";
+		rpcSettings.clearCustom(chainId);
+		rpcProbeState[chainId] = { status: "idle" };
+	}
 
 	interface Props {
 		open?: boolean;
@@ -453,6 +487,59 @@
 				</div>
 			</div>
 		{/if}
+
+		<!-- Custom RPC Endpoints -->
+		<div class="pt-2 border-t border-[rgba(255,255,255,0.05)]">
+			<p class="text-[0.65rem] text-[var(--muted-foreground)] mb-1">Custom RPC endpoints (optional)</p>
+			<p class="text-[0.6rem] text-[var(--toad-green)] mb-2">
+				Your URL stays in this browser session. warptoad can't see it.
+			</p>
+			{#each RPC_OVERRIDE_CHAINS as chain}
+				{@const probe = rpcProbeState[chain.chainId]}
+				<div class="mb-3">
+					<div class="flex items-center justify-between mb-1">
+						<label for="rpc-{chain.chainId}" class="text-[0.65rem] text-[var(--muted-foreground)]">{chain.label}</label>
+						{#if rpcSettings.hasCustom(chain.chainId)}
+							<span class="text-[0.6rem] text-[var(--toad-green)]">saved</span>
+						{/if}
+					</div>
+					<div class="flex gap-2">
+						<input
+							id="rpc-{chain.chainId}"
+							type="url"
+							placeholder="https://..."
+							bind:value={rpcDrafts[chain.chainId]}
+							class="flex-1 py-1.5 px-2 rounded text-xs bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.05)] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:border-[var(--toad-green)]"
+						/>
+						<button
+							type="button"
+							onclick={() => handleRpcSave(chain.chainId)}
+							disabled={probe.status === "probing"}
+							class="cursor-pointer py-1.5 px-3 rounded text-xs transition-all disabled:opacity-50 bg-[rgba(130,226,102,0.12)] text-[var(--toad-green)] hover:bg-[rgba(130,226,102,0.2)]"
+						>
+							{probe.status === "probing" ? "..." : "Save"}
+						</button>
+						{#if rpcSettings.hasCustom(chain.chainId) || rpcDrafts[chain.chainId]}
+							<button
+								type="button"
+								onclick={() => handleRpcReset(chain.chainId)}
+								class="cursor-pointer py-1.5 px-3 rounded text-xs transition-all text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[rgba(255,255,255,0.03)]"
+							>
+								Reset
+							</button>
+						{/if}
+					</div>
+					{#if probe.status === "ok"}
+						<p class="mt-1 text-[0.6rem] text-[var(--toad-green)]">{probe.message}</p>
+					{:else if probe.status === "err"}
+						<p class="mt-1 text-[0.6rem] text-red-400">Probe failed: {probe.message}</p>
+					{/if}
+				</div>
+			{/each}
+			<p class="text-[0.6rem] text-[var(--muted-foreground)] leading-snug">
+				Custom endpoints only affect reads. Transactions still go through your wallet.
+			</p>
+		</div>
 
 		<!-- Footer -->
 		{#if walletStore.isBothConnected}
