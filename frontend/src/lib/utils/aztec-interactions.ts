@@ -2161,6 +2161,28 @@ export async function getMerkleDataForAztecToL1(
 	// (mostRecentL2Root / mostRecentL2RootBlockNumber). This is the canonical source
 	// of truth - parsing ConstructedNewGigaRoot events is brittle when the same
 	// gigaRoot value recurs across runs.
+	//
+	// getLocalRootAndBlock() reverts with a cryptic "refreshRoot must be called"
+	// message whenever the Aztec L2→L1 sync hasn't landed yet, so we pre-check
+	// mostRecentL2Root and surface an actionable message. The Aztec leg takes
+	// 30-90 min on testnet (prover lag + outbox settle) and users hitting this
+	// usually just need to wait, not chase a bug.
+	const mostRecentL2Root = await publicClient.readContract({
+		address: addresses.L1AztecBridgeAdapter as `0x${string}`,
+		abi: [{
+			type: 'function', name: 'mostRecentL2Root', stateMutability: 'view',
+			inputs: [], outputs: [{ type: 'uint256' }],
+		}],
+		functionName: 'mostRecentL2Root',
+	}) as bigint;
+	if (mostRecentL2Root === 0n) {
+		throw new Error(
+			'Aztec local root has not been bridged to L1 yet. ' +
+			'This is the slow leg of the Aztec→Ethereum sync (typically 30-90 min on testnet) and must complete before the withdraw proof can be built. ' +
+			'If you already initiated a bridge from Aztec, wait for the bridge-keeper to finish; otherwise trigger a sync from the bridge page.',
+		);
+	}
+
 	const [adapterLocalRoot, adapterLocalRootBlock] = await publicClient.readContract({
 		address: addresses.L1AztecBridgeAdapter as `0x${string}`,
 		abi: [{
