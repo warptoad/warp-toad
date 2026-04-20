@@ -348,28 +348,33 @@ export async function runSyncCycle(
     conf,
   );
 
-  // === Step 4: sendGigaRoot (skip when no dispatch is flagged) ===
-  let sendGigaRootTx: any = null;
-  let sendGigaRootTxHash = 'N/A';
-  let gigaRootSent = '';
-  const anyDispatch = requirements.dispatchToAztec || requirements.dispatchToScroll;
-  if (anyDispatch) {
-    const payable = await getPayableGigaRootRecipients(l1ChainId);
-    console.log(`[sync] step 4: sendGigaRoot to ${recipients.length} recipients`);
-    const r = await sendGigaRoot(
-      l1PublicClient as any,
-      l1WalletClient as any,
-      gigaBridge,
-      recipients,
-      payable,
-      conf,
-    );
-    sendGigaRootTx = r.sendGigaRootTx;
-    sendGigaRootTxHash = r.sendGigaRootTxHash;
-    gigaRootSent = r.gigaRootSent;
-  } else {
-    console.log('[sync] step 4: skipped (no dispatch flagged)');
-  }
+  // === Step 4: sendGigaRoot ===
+  //
+  // Even when no L2 dispatch is flagged, we MUST call sendGigaRoot with at
+  // least L1WarpToad in the recipient list: its `gigaRoot` / `gigaRootHistory`
+  // fields only update when `receiveGigaRoot` is invoked on it, and both the
+  // frontend's gigaRoot read and `L1WarpToad.mint()`'s validity check depend
+  // on those. Skipping this leaves L1WarpToad pinned to whatever root the
+  // *last* dispatched cycle happened to produce - so aztec→L1 withdraws see
+  // a stale root and fail the merkle-reconstruction check.
+  //
+  // L2 adapters (aztec / scroll) are added only when a dispatch is flagged,
+  // since forwarding to them costs messenger fees and triggers an L1→L2
+  // message we don't want on pure "settle-only" cycles.
+  const sendGigaRootRecipients: Address[] = [l1WarpToadAddress];
+  if (requirements.dispatchToAztec && aztecAdapter) sendGigaRootRecipients.push(aztecAdapter.address);
+  if (requirements.dispatchToScroll && scrollAdapter) sendGigaRootRecipients.push(scrollAdapter.address);
+
+  const payable = await getPayableGigaRootRecipients(l1ChainId);
+  console.log(`[sync] step 4: sendGigaRoot to ${sendGigaRootRecipients.length} recipients`);
+  const { sendGigaRootTx, sendGigaRootTxHash, gigaRootSent } = await sendGigaRoot(
+    l1PublicClient as any,
+    l1WalletClient as any,
+    gigaBridge,
+    sendGigaRootRecipients,
+    payable,
+    conf,
+  );
 
   // === Step 5: receive on each flagged L2 (best-effort, parallel) ===
   if (sendGigaRootTx) {

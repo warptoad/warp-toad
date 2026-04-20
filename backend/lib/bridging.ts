@@ -516,7 +516,10 @@ export async function sendGigaRoot(
 ) {
     const defaultEthAmountGas = 5n * 10n ** 16n;
     const amounts = gigaRootRecipients.map((v) => allPayableGigaRootRecipients.includes(v) ? defaultEthAmountGas : 0n)
-    const totalEth = BigInt(allPayableGigaRootRecipients.length) * defaultEthAmountGas
+    // Sum over current recipients, not the whole payable set - otherwise pure
+    // L1-settle cycles (recipients=[L1WarpToad], payable=[scrollAdapter]) send
+    // 0.05 ETH that sits unused in the GigaBridge contract.
+    const totalEth = amounts.reduce((sum, a) => sum + a, 0n)
     console.log({ gigaBridge: gigaBridge.address, gigaRootRecipients, amounts, totalEth, confirmations })
 
     const hash = await gigaBridge.write.sendGigaRoot([gigaRootRecipients, amounts], {
