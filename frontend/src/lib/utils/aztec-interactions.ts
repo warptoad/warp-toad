@@ -1800,41 +1800,53 @@ export async function getAztecMerkleData(
 	const siloedNoteHash = await hashSiloedNoteHash(contractAddressBigInt, commitment);
 	console.log('Siloed note hash:', siloedNoteHash.toString().slice(0, 20) + '...');
 
-	// Step 4: Try each matching note's unique hash against the historical tree.
-	// Stale notes (e.g. from a previous burn run) have a different settled nonce and
-	// will fail the membership lookup; the live one will succeed.
-	let witnessSim: any = null;
+	// Step 4: Query the Aztec node directly for the membership witness.
+	//
+	// Earlier versions called `contract.methods.get_note_proof(...).simulate()`,
+	// which routes through PXE's private-function simulator. That path picks
+	// an "anchor block" based on PXE's local chain view and then asks the node
+	// for state at `blockNumber` constrained to that anchor hash. On testnet
+	// the anchor hash that PXE settles on is not always one the node will
+	// recognise (proven tip drift, partial sync, etc.), producing cryptic
+	// "Block hash X not found in world state at block number N" errors even
+	// after a full PXE reset.
+	//
+	// `aztecNode.getNoteHashMembershipWitness` skips PXE entirely: the node
+	// computes the witness against its own canonical view of `blockNumber`.
+	// Returns undefined when the leaf isn't in the tree at that block, which
+	// is the signal to try the next candidate nonce (same UX as before).
+	const node = await getAztecNode();
+	let witness: { leafIndex: bigint; siblingPath: readonly { toString(): string }[] } | null = null;
 	let usedNonce: bigint = noteNonce;
 	let lastErr: unknown = null;
 	for (const candidateNonce of matchingNonces) {
 		const uniqueNoteHash = await hashUniqueNoteHash(candidateNonce, siloedNoteHash);
-		console.log(`Trying nonce ${candidateNonce.toString().slice(0, 12)}... → uniqueHash ${uniqueNoteHash.toString().slice(0, 20)}... at anchorBlock=${blockNumber}`);
+		console.log(`Trying nonce ${candidateNonce.toString().slice(0, 12)}... → uniqueHash ${uniqueNoteHash.toString().slice(0, 20)}... at block=${blockNumber}`);
 		try {
-			witnessSim = await contract.methods
-				.get_note_proof(blockNumber, uniqueNoteHash)
-				.simulate({ from }) as any;
-			usedNonce = candidateNonce;
-			console.log(`  ✓ found in tree`);
-			break;
-		} catch (e) {
+			const uniqueNoteHashFr = Fr.fromString('0x' + uniqueNoteHash.toString(16).padStart(64, '0'));
+			const w = await (node as any).getNoteHashMembershipWitness(blockNumber, uniqueNoteHashFr);
+			if (w) {
+				witness = w;
+				usedNonce = candidateNonce;
+				console.log(`  ✓ found in tree at leafIndex ${(w as any).leafIndex?.toString()}`);
+				break;
+			}
 			console.log(`  ✗ not in tree at block ${blockNumber}, trying next candidate`);
+		} catch (e) {
+			console.log(`  ✗ node error for candidate nonce:`, (e as Error)?.message ?? e);
 			lastErr = e;
 		}
 	}
-	if (!witnessSim) {
-		throw lastErr ?? new Error('No matching note found in note hash tree at anchor block');
+	if (!witness) {
+		throw lastErr ?? new Error(`No matching note found in note hash tree at block ${blockNumber}`);
 	}
-	// v4 wraps the return value in { result, ... }
-	const witness = witnessSim.result ?? witnessSim;
-	const witnessIndex = witness.leaf_index ?? witness.index;
-	const witnessPath = witness.sibling_path ?? witness.path;
 
-	console.log('Retrieved merkle witness with index:', witnessIndex.toString());
+	console.log('Retrieved merkle witness with index:', witness.leafIndex.toString());
 
-	// Step 5: Format the merkle data for the circuit
+	// Step 5: Format the merkle data for the circuit.
 	const merkleData: AztecMerkleData = {
-		leaf_index: BigInt(witnessIndex.toString()),
-		hash_path: witnessPath.map((h: any) => BigInt(h.toString())),
+		leaf_index: BigInt(witness.leafIndex.toString()),
+		hash_path: witness.siblingPath.map((h) => BigInt(h.toString())),
 		leaf_nonce: usedNonce,
 		contract_address: contractAddressBigInt,
 	};
