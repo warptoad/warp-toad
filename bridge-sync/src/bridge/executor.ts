@@ -215,13 +215,14 @@ export async function runSyncCycle(
   const touchesAztec = requirements.needAztecL2ToL1 || requirements.dispatchToAztec;
   const touchesScroll = requirements.needScrollL2ToL1 || requirements.dispatchToScroll;
 
-  // L1 adapter handles + addresses. Only resolved for legs we'll touch.
-  const aztecAdapter = touchesAztec
-    ? loadL1AdapterByType(l1ChainId, l1PublicClient as any, l1WalletClient as any, 'aztec')
-    : null;
-  const scrollAdapter = touchesScroll
-    ? loadL1AdapterByType(l1ChainId, l1PublicClient as any, l1WalletClient as any, 'scroll')
-    : null;
+  // L1 adapter handles. Always resolved (cheap: just reads deployment file +
+  // builds a viem contract instance) so that every cycle can include them as
+  // sendGigaRoot recipients regardless of the route that triggered it. Without
+  // this, an aztec→L1 cycle refreshes the L1 giga tree but leaves Scroll
+  // pinned to whatever root it last received - breaking aztec→scroll
+  // withdraws that read Scroll's stale gigaRoot.
+  const aztecAdapter = loadL1AdapterByType(l1ChainId, l1PublicClient as any, l1WalletClient as any, 'aztec');
+  const scrollAdapter = loadL1AdapterByType(l1ChainId, l1PublicClient as any, l1WalletClient as any, 'scroll');
 
   // Aztec-side state (wallet + contracts) - needed for any Aztec-touching flag.
   let aztecState: { wallet: any; pxe: any; node: any; sponsoredPaymentMethod: any; aztecWarpToad: any; aztecBridgeAdapter: any } | null = null;
@@ -350,20 +351,23 @@ export async function runSyncCycle(
 
   // === Step 4: sendGigaRoot ===
   //
-  // Even when no L2 dispatch is flagged, we MUST call sendGigaRoot with at
-  // least L1WarpToad in the recipient list: its `gigaRoot` / `gigaRootHistory`
-  // fields only update when `receiveGigaRoot` is invoked on it, and both the
-  // frontend's gigaRoot read and `L1WarpToad.mint()`'s validity check depend
-  // on those. Skipping this leaves L1WarpToad pinned to whatever root the
-  // *last* dispatched cycle happened to produce - so aztec→L1 withdraws see
-  // a stale root and fail the merkle-reconstruction check.
+  // Every cycle dispatches to L1WarpToad AND both L2 adapters. Reasoning:
   //
-  // L2 adapters (aztec / scroll) are added only when a dispatch is flagged,
-  // since forwarding to them costs messenger fees and triggers an L1→L2
-  // message we don't want on pure "settle-only" cycles.
-  const sendGigaRootRecipients: Address[] = [l1WarpToadAddress];
-  if (requirements.dispatchToAztec && aztecAdapter) sendGigaRootRecipients.push(aztecAdapter.address);
-  if (requirements.dispatchToScroll && scrollAdapter) sendGigaRootRecipients.push(scrollAdapter.address);
+  //  - L1WarpToad: its `gigaRoot` / `gigaRootHistory` only update via
+  //    receiveGigaRoot; both the frontend gigaRoot read and L1WarpToad.mint's
+  //    validity check depend on those. Missing it breaks L1 withdraws.
+  //  - L2 adapters: the withdraw flow on an L2 reads that L2's stored gigaRoot
+  //    and expects the L1 event trail to back it up. If we only dispatch to an
+  //    L2 when its route-flag is set, any sync that doesn't touch that L2
+  //    leaves it pinned to whatever stale root it last received. That's
+  //    exactly why aztec→scroll was silently broken: aztec→L1 cycles refreshed
+  //    the L1 tree but never pushed to Scroll, so Scroll kept serving a root
+  //    that pre-dated any aztec leaf.
+  //
+  // Step 5 still gates the *receive* on the dispatch flags - we don't want to
+  // wait for the L2 receive on cycles the user doesn't care about - but the
+  // dispatch itself is cheap and keeps everyone in sync.
+  const sendGigaRootRecipients: Address[] = [l1WarpToadAddress, aztecAdapter.address, scrollAdapter.address];
 
   const payable = await getPayableGigaRootRecipients(l1ChainId);
   console.log(`[sync] step 4: sendGigaRoot to ${sendGigaRootRecipients.length} recipients`);
