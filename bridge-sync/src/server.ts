@@ -46,7 +46,95 @@ app.use(cors({
   maxAge: 86400,
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: '2mb' }));
+
+/**
+ * JSON-RPC proxy.
+ *
+ * The frontend talks to the user's wallet for *signing* (window.ethereum) but
+ * uses a plain viem publicClient for reads (getLogs, readContract, etc.). If
+ * we point that publicClient directly at Infura, the key ends up in the URL
+ * visible in devtools Network tab AND any viem HttpRequestError thrown into
+ * console. Routing read traffic through here keeps the key server-side.
+ *
+ * We allowlist only the read methods the frontend actually uses; anything
+ * else (sendTransaction, admin_*, debug_*) is rejected so this endpoint can't
+ * be abused as a free generic RPC. Wallets keep using their own provider for
+ * writes, so nothing legitimate needs write methods here.
+ */
+const RPC_METHOD_ALLOWLIST = new Set([
+  'eth_blockNumber',
+  'eth_getBlockByNumber',
+  'eth_getBlockByHash',
+  'eth_getTransactionByHash',
+  'eth_getTransactionReceipt',
+  'eth_getLogs',
+  'eth_call',
+  'eth_chainId',
+  'eth_gasPrice',
+  'eth_estimateGas',
+  'eth_getBalance',
+  'eth_getCode',
+  'eth_getStorageAt',
+  'eth_getTransactionCount',
+  'eth_feeHistory',
+  'eth_maxPriorityFeePerGas',
+  'net_version',
+]);
+
+const RPC_UPSTREAMS: Record<string, string | undefined> = {
+  sepolia: process.env.SEPOLIA_RPC_URL,
+  'scroll-sepolia': process.env.SCROLL_RPC_URL,
+};
+
+interface JsonRpcRequest {
+  jsonrpc?: string;
+  id?: number | string | null;
+  method?: string;
+  params?: unknown;
+}
+
+function rpcError(id: number | string | null | undefined, code: number, message: string) {
+  return { jsonrpc: '2.0', id: id ?? null, error: { code, message } };
+}
+
+app.post('/rpc/:chain', async (req, res) => {
+  const chain = req.params.chain;
+  const upstream = RPC_UPSTREAMS[chain];
+  if (!upstream) {
+    return res.status(404).json({ ok: false, error: `Unknown RPC chain: ${chain}` });
+  }
+
+  // Accept both a single JSON-RPC call and viem's batch form (array of calls).
+  const body = req.body as JsonRpcRequest | JsonRpcRequest[];
+  const batch = Array.isArray(body) ? body : [body];
+  for (const call of batch) {
+    if (!call || typeof call.method !== 'string') {
+      return res.status(400).json(rpcError(call?.id, -32600, 'Invalid JSON-RPC request'));
+    }
+    if (!RPC_METHOD_ALLOWLIST.has(call.method)) {
+      return res.status(403).json(rpcError(call.id, -32601, `Method not allowed: ${call.method}`));
+    }
+  }
+
+  try {
+    const upstreamRes = await fetch(upstream, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const text = await upstreamRes.text();
+    // Pass through the upstream status so the client still sees 429 on rate
+    // limits (viem respects Retry-After). We deliberately do NOT forward the
+    // upstream URL in any header, so the key never reaches the browser.
+    res.status(upstreamRes.status).type('application/json').send(text);
+  } catch (err: any) {
+    // Scrub: err.message from node-fetch / undici can contain the upstream URL.
+    const msg = typeof err?.message === 'string' ? err.message.replace(/https?:\/\/\S+/g, '<upstream>') : 'upstream fetch failed';
+    console.error(`[rpc-proxy] ${chain} upstream error:`, msg);
+    res.status(502).json(rpcError(null, -32603, 'Upstream RPC error'));
+  }
+});
 
 app.get('/health', (req, res) => {
   res.json({
