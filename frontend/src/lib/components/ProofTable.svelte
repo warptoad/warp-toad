@@ -23,6 +23,10 @@
 		/** Proof ID currently loaded into the withdraw panel, so we can
 		 * highlight the matching row. Undefined = nothing selected. */
 		selectedId?: string | null;
+		/** Lock non-active rows (click + checkbox + delete) while a withdraw
+		 * is in progress, so the in-flight selection can't be swapped out
+		 * from under the running flow. */
+		disabled?: boolean;
 		/** Optional snippet rendered as an expanded accordion row beneath the
 		 * selected proof. Keeps the withdraw form inline with its row so users
 		 * with long proof lists don't lose the visual link between the panel
@@ -30,7 +34,7 @@
 		details?: Snippet<[Proof]>;
 	}
 
-	let { onselect, selectedId = null, details }: Props = $props();
+	let { onselect, selectedId = null, disabled = false, details }: Props = $props();
 
 	// Selection state management
 	let selectedProofIds = $state<Set<string>>(new Set());
@@ -76,6 +80,10 @@
 	}
 
 	function handleRowClick(proof: Proof, event: MouseEvent) {
+		// Table is locked during an active withdraw - block selection changes
+		// so the in-flight proof can't be swapped out mid-flow.
+		if (disabled && proof.id !== selectedId) return;
+
 		// Don't trigger if clicking on checkbox
 		const target = event.target as HTMLElement;
 		if (target.tagName === 'INPUT' || target.closest('input[type="checkbox"]')) {
@@ -169,7 +177,7 @@
 			<Button
 				variant="destructive"
 				size="sm"
-				disabled={selectedProofIds.size === 0}
+				disabled={selectedProofIds.size === 0 || disabled}
 				onclick={handleBatchDeleteClick}
 				class="h-8 text-xs"
 			>
@@ -204,18 +212,22 @@
 			</TableHeader>
 			<TableBody>
 				{#each proofStore.allProofs as proof (proof.id)}
+					{@const isActive = proof.id === selectedId}
+					{@const isLocked = disabled && !isActive}
 					<TableRow
 						class={[
 							proof.used ? 'proof-row-used' : 'proof-row-ready',
-							proof.id === selectedId ? 'proof-row-active' : '',
+							isActive ? 'proof-row-active' : '',
+							isLocked ? 'proof-row-locked' : '',
 						].filter(Boolean).join(' ')}
 						onclick={(e) => handleRowClick(proof, e)}
-						data-expanded={proof.id === selectedId && details ? 'true' : undefined}
+						data-expanded={isActive && details ? 'true' : undefined}
 					>
 						<TableCell class="proof-select-col">
 							<input
 								type="checkbox"
 								checked={selectedProofIds.has(proof.id)}
+								disabled={isLocked}
 								onclick={(e) => e.stopPropagation()}
 								onchange={() => toggleSelectProof(proof.id)}
 								class="checkbox-swamp"
@@ -347,6 +359,19 @@
 	:global(.proof-row-used) {
 		opacity: 0.65;
 		cursor: default;
+	}
+
+	/* Locked rows - table is disabled (e.g. during an in-flight withdraw).
+	 * Heavier dim than .proof-row-used and blocks hover affordances so users
+	 * understand the row can't be selected right now. */
+	:global(.proof-row-locked) {
+		opacity: 0.35;
+		cursor: not-allowed !important;
+	}
+
+	:global(.proof-row-locked:hover) {
+		background-color: transparent !important;
+		box-shadow: none !important;
 	}
 
 	/* Active row: the one currently loaded into the withdraw panel. Persists

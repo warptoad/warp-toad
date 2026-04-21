@@ -207,6 +207,11 @@
 			selectedProof = null;
 			return;
 		}
+		// Switching to a different proof mid-withdraw would hijack the flow:
+		// the running path calls proofStore.markProofAsUsed(selectedProof.id)
+		// at the end, so it would mark the new proof as used while leaving
+		// the real one as Ready. Block the swap entirely.
+		if (isWithdrawing) return;
 		selectedProof = proof;
 		uploadError = null;
 		successMessage = null;
@@ -1994,7 +1999,7 @@
 		/>
 		<button
 			onclick={triggerFileUpload}
-			disabled={isCheckingNullifier}
+			disabled={isCheckingNullifier || isWithdrawing}
 			class="w-full p-3 rounded-lg border border-dashed border-[rgba(144,97,249,0.3)] bg-[var(--swamp-deep)] hover:bg-[rgba(144,97,249,0.05)] hover:border-[rgba(144,97,249,0.5)] transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
 		>
 			{#if isCheckingNullifier}
@@ -2034,6 +2039,7 @@
 		<ProofTable
 			onselect={handleProofSelect}
 			selectedId={selectedProof?.id ?? null}
+			disabled={isWithdrawing}
 			details={expandedDetails}
 		/>
 	</div>
