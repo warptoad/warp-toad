@@ -14,6 +14,7 @@ import { routeToRequirements } from './bridge/syncRequirements.js';
 import type { FullSyncResult } from './bridge/executor.js';
 import type { BridgeRequest, BridgeOperation } from './types/index.js';
 import { fetchGigaState } from './bridge/gigaState.js';
+import { startAztecHeartbeat, getHeartbeatState } from './bridge/aztecHeartbeat.js';
 
 dotenv.config();
 
@@ -22,6 +23,15 @@ const PORT = parseInt(process.env.PORT || '6969');
 const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || 'https://warptoad.xyz,https://www.warptoad.xyz,http://localhost:5173,http://localhost:3000').split(',');
 const EVM_PRIVATE_KEY = process.env.EVM_PRIVATE_KEY || '';
 const DEFAULT_CONFIRMATIONS = parseInt(process.env.DEFAULT_CONFIRMATIONS || '3');
+
+// Aztec heartbeat config. Defaults target the testnet node's ~100-block retention:
+// check every 5 min, push once the L1-anchored aztec block is >80 blocks behind
+// the aztec head (20-block safety margin). Set AZTEC_HEARTBEAT_ENABLED=false to
+// opt out (e.g. when running a second bridge-sync instance that shouldn't push).
+const AZTEC_HEARTBEAT_ENABLED = (process.env.AZTEC_HEARTBEAT_ENABLED ?? 'true').toLowerCase() !== 'false';
+const AZTEC_HEARTBEAT_CHECK_INTERVAL_MS = parseInt(process.env.AZTEC_HEARTBEAT_CHECK_INTERVAL_MS || '300000');
+const AZTEC_HEARTBEAT_THRESHOLD_BLOCKS = parseInt(process.env.AZTEC_HEARTBEAT_THRESHOLD_BLOCKS || '80');
+const AZTEC_HEARTBEAT_RETENTION_BLOCKS = parseInt(process.env.AZTEC_HEARTBEAT_RETENTION_BLOCKS || '100');
 
 if (!EVM_PRIVATE_KEY) {
   console.error('ERROR: EVM_PRIVATE_KEY environment variable is required');
@@ -167,6 +177,7 @@ app.get('/health', (req, res) => {
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
     orchestrator: getOrchestratorState(),
+    heartbeat: getHeartbeatState(),
   });
 });
 
@@ -272,4 +283,16 @@ app.listen(PORT, () => {
     console.log(`  ${route.from} -> ${route.to}`);
   });
   console.log(`\nAll routes funnel through the sync orchestrator (batched cross-chain root sync).`);
+
+  if (AZTEC_HEARTBEAT_ENABLED) {
+    startAztecHeartbeat({
+      privateKey: EVM_PRIVATE_KEY,
+      confirmations: DEFAULT_CONFIRMATIONS,
+      checkIntervalMs: AZTEC_HEARTBEAT_CHECK_INTERVAL_MS,
+      pushThresholdBlocks: AZTEC_HEARTBEAT_THRESHOLD_BLOCKS,
+      retentionBlocks: AZTEC_HEARTBEAT_RETENTION_BLOCKS,
+    });
+  } else {
+    console.log('[heartbeat] disabled via AZTEC_HEARTBEAT_ENABLED=false');
+  }
 });
