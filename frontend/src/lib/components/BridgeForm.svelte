@@ -660,20 +660,15 @@ You can close this page. Your note has been downloaded.`;
 	<!-- Submit Button -->
 	<button
 		class="w-full py-3 rounded-xl font-semibold text-sm transition-all duration-300 relative overflow-hidden group
-			{canSubmit
+			{canSubmit || needsNetworkSwitch
 				? 'btn-warp cursor-pointer'
 				: 'bg-[var(--swamp-surface)] text-[var(--muted-foreground)] cursor-not-allowed border border-[rgba(130,226,102,0.1)]'
 			}"
-		disabled={!canSubmit}
-		onclick={confirmBridge}
+		disabled={(!canSubmit && !needsNetworkSwitch) || isGenerating}
+		onclick={needsNetworkSwitch ? switchNetwork : confirmBridge}
 	>
 		<span class="relative z-10 flex items-center justify-center gap-1.5">
-			{#if generationStep === "idle"}
-				<svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<path d="M4 12h16M4 12l4-4M4 12l4 4M20 12l-4-4M20 12l-4 4" />
-				</svg>
-				Initiate Bridge
-			{:else if generationStep === "preparing"}
+			{#if generationStep === "preparing"}
 				<Loader2 class="size-4 animate-spin" />
 				Preparing...
 			{:else if generationStep === "approving"}
@@ -691,7 +686,12 @@ You can close this page. Your note has been downloaded.`;
 			{:else if generationStep === "complete" || generationStep === "done"}
 				<CheckCircle2 class="size-4" />
 				Complete!
+			{:else if needsNetworkSwitch}
+				Switch to {sourceChain}
 			{:else}
+				<svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path d="M4 12h16M4 12l4-4M4 12l4 4M20 12l-4-4M20 12l-4 4" />
+				</svg>
 				Initiate Bridge
 			{/if}
 		</span>
