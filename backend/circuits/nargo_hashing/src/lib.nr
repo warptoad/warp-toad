@@ -23,8 +23,12 @@ fn poseidon_hasher(leaves: [Field; 2]) -> Field {
 }
 
 // TODO import it instead when nargo beta.4 is more stable
-pub global GENERATOR_INDEX__UNIQUE_NOTE_HASH: u32 = 3;
-pub global GENERATOR_INDEX__SILOED_NOTE_HASH: u32 = 4;
+// Aztec 4.2.0+ uses derived domain separators (not sequential indices 3/4).
+// Source: aztec-packages/noir-projects/noir-protocol-circuits/crates/types/src/constants.nr
+//   pub global DOM_SEP__UNIQUE_NOTE_HASH: u32 = 226850429;
+//   pub global DOM_SEP__SILOED_NOTE_HASH: u32 = 3361878420;
+pub global GENERATOR_INDEX__UNIQUE_NOTE_HASH: u32 = 226850429;
+pub global GENERATOR_INDEX__SILOED_NOTE_HASH: u32 = 3361878420;
 
 //     commitmentHash (hashed onchain on deposit)
 //              /                       \

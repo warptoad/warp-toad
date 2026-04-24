@@ -1,0 +1,6 @@
+{
+  "TestToken#USDcoin": "0xeccb9a0d202338114bae6ccff416d28d4edffbe3",
+  "L2ScrollModule#WithdrawVerifier": "0x229dbfd2d424d8209290fd2a82fe78ab27ba204f",
+  "L2ScrollModule#L2WarpToad": "0xf9f537e76985abdce6321958564743b3f6b17c7b",
+  "L2ScrollModule#L2ScrollBridgeAdapter": "0xb8295892505c1a8b86d2abc18b21ddfb6e776fcb"
+}

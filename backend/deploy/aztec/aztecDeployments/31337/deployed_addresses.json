@@ -1,0 +1,21 @@
+{
+  "AztecWarpToad": {
+    "address": "0x1a60325443b0af00aa8d9357a1f8a50562ac8faeef529d137089d80a6e3f2934",
+    "constructorArgs": [
+      "0x948b3c65b89df0b4894abe91e6d02fe579834f8f",
+      "wrpToad-TestUSD",
+      "wrpToad-TUSD",
+      "6"
+    ],
+    "salt": "0x11d196ad72a6733f21f8dde46706fdb7fe9609379f4639878f4d73f4ee92fbe0",
+    "deployer": "0x13aaeade7d4d8a9a83d2ed31281c2d673816743a189928bcef0e8e30cb292854"
+  },
+  "L2AztecBridgeAdapter": {
+    "address": "0x25cf2535462fac774e9b259dd415e133e35ed95a550640eb96cbbaac0625bf4d",
+    "constructorArgs": [
+      "0xc6ba8c3233ecf65b761049ef63466945c362edd2"
+    ],
+    "salt": "0x0d962e618e708649105a94c7e674b77c7c1016de9231c0eb160777f73b459c06",
+    "deployer": "0x13aaeade7d4d8a9a83d2ed31281c2d673816743a189928bcef0e8e30cb292854"
+  }
+}

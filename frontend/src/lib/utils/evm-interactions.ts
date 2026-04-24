@@ -6,27 +6,36 @@ import { createPublicClient, http, toHex, type Hash } from 'viem';
 import { getContractAddresses, CONTRACT_ADDRESSES } from '$lib/contracts/addresses';
 import { poseidon2, poseidon3 } from 'poseidon-lite';
 import { getEVMChain } from '$lib/config/chains';
+import { queryEventInChunks } from './viem-chunks';
+import { rpcSettings } from '$lib/stores/rpc-settings.svelte';
 
 // Field size for BN254 curve (used by Aztec)
 const FIELD_MODULUS = 21888242871839275222246405745257275088548364400416034343698204186575808495617n;
 
 /**
- * Get RPC URL for a chain ID from the chain registry
- * This ensures we use configured RPC URLs (like Infura) instead of default public endpoints
+ * Get RPC URL for a chain ID.
+ *
+ * Order of preference:
+ *   1. User's custom RPC (if they've both configured one AND have the toggle
+ *      enabled in `rpcSettings`).
+ *   2. The chain registry default, which in production is the bridge.warptoad
+ *      proxy baked in at build time via VITE_*_RPC_URL.
+ *
+ * Callers don't need to know about the override; every read-client factory in
+ * this file goes through here, and `scroll-interactions.ts` goes through the
+ * exported version.
  */
-function getRpcUrl(chainId: number): string | undefined {
-	// Map chain ID to chain name
+export function getRpcUrl(chainId: number): string | undefined {
 	const chainMap: Record<number, 'Ethereum' | 'Scroll'> = {
-		31337: 'Ethereum', // Localhost Anvil
-		11155111: 'Ethereum', // Sepolia
-		534351: 'Scroll', // Scroll Sepolia
+		31337: 'Ethereum',
+		11155111: 'Ethereum',
+		534351: 'Scroll',
 	};
-	
+
 	const chainName = chainMap[chainId];
 	if (!chainName) return undefined;
-	
 	const chainDef = getEVMChain(chainName);
-	return chainDef?.rpcUrl;
+	return rpcSettings.resolve(chainId, chainDef?.rpcUrl);
 }
 
 /**
@@ -1006,49 +1015,36 @@ export interface EvmMerkleData {
 }
 
 /**
- * Query Burn events from L1WarpToad contract in chunks
- * Handles large event ranges by querying in batches
+ * Query Burn events from L1WarpToad contract in chunks.
+ * Thin adapter over queryEventInChunks that preserves the original tuple shape.
+ *
+ * Defaults to reverseOrder when `maxEvents` is supplied so callers that know
+ * the exact leaf count (via lastLeafIndex) stop scanning as soon as the tree
+ * is whole, instead of walking deployment → head every time.
  */
 async function queryBurnEventsInChunks(
 	publicClient: ReturnType<typeof createPublicClient>,
 	warpToadAddress: `0x${string}`,
 	fromBlock: bigint,
 	toBlock: bigint,
-	chunkSize = 499n
+	opts: { reverseOrder?: boolean; maxEvents?: number; chunkSize?: bigint } = {}
 ): Promise<{ commitment: bigint; amount: bigint; index: bigint }[]> {
-	const allEvents: { commitment: bigint; amount: bigint; index: bigint }[] = [];
-	
-	let currentFrom = fromBlock;
-	while (currentFrom <= toBlock) {
-		const currentTo = currentFrom + chunkSize > toBlock ? toBlock : currentFrom + chunkSize;
-		
-		const logs = await publicClient.getLogs({
-			address: warpToadAddress,
-			event: {
-				type: 'event',
-				name: 'Burn',
-				inputs: [
-					{ type: 'uint256', name: 'commitment', indexed: true },
-					{ type: 'uint256', name: 'amount', indexed: false },
-					{ type: 'uint256', name: 'index', indexed: false },
-				],
-			},
-			fromBlock: currentFrom,
-			toBlock: currentTo,
-		});
-		
-		for (const log of logs) {
-			allEvents.push({
-				commitment: log.args.commitment as bigint,
-				amount: log.args.amount as bigint,
-				index: log.args.index as bigint,
-			});
-		}
-		
-		currentFrom = currentTo + 1n;
-	}
-	
-	return allEvents;
+	const logs = await queryEventInChunks({
+		publicClient: publicClient as any,
+		contract: { address: warpToadAddress, abi: L1WarpToadAbi },
+		eventName: 'Burn',
+		firstBlock: fromBlock,
+		lastBlock: toBlock,
+		reverseOrder: opts.reverseOrder,
+		maxEvents: opts.maxEvents,
+		chunkSize: opts.chunkSize,
+	});
+
+	return logs.map((log: any) => ({
+		commitment: log.args.commitment as bigint,
+		amount: log.args.amount as bigint,
+		index: log.args.index as bigint,
+	}));
 }
 
 /**
@@ -1112,19 +1108,34 @@ export async function getEvmMerkleDataForL1(
 	const toBlock = localRootBlockNumber
 		? BigInt(localRootBlockNumber)
 		: await publicClient.getBlockNumber();
-	
+
 	// Query from deployment block to avoid scanning entire chain history
 	const fromBlock = getDeploymentBlock(chainId);
-	
-	console.log(`Querying Burn events from block ${fromBlock} to ${toBlock}...`);
-	
-	// Query all Burn events
-	const burnEvents = await queryBurnEventsInChunks(
-		publicClient,
-		addresses.L1WarpToad as `0x${string}`, 	// @TODO danish docstring says this function can do scroll<->scroll but here address is L1Warptoad only!
-		fromBlock,
-		toBlock
-	);
+
+	// Read the leaf count at toBlock so we know exactly how many Burn events to
+	// collect; indices are sequential 0..N-1 so total == lastLeafIndex.
+	const lastLeafIndex = (await publicClient.readContract({
+		address: addresses.L1WarpToad as `0x${string}`,
+		abi: L1WarpToadAbi,
+		functionName: 'lastLeafIndex',
+		blockNumber: toBlock,
+	})) as bigint;
+	const totalLeaves = Number(lastLeafIndex);
+
+	console.log(`Querying ${totalLeaves} Burn events from block ${fromBlock} to ${toBlock}...`);
+
+	// Reverse-scan and stop as soon as we've collected all leaves. Burns cluster
+	// near the head in practice, so this usually short-circuits after a few
+	// chunks instead of scanning the full deployment→head window.
+	const burnEvents = totalLeaves > 0
+		? await queryBurnEventsInChunks(
+			publicClient,
+			addresses.L1WarpToad as `0x${string}`, 	// @TODO danish docstring says this function can do scroll<->scroll but here address is L1Warptoad only!
+			fromBlock,
+			toBlock,
+			{ reverseOrder: true, maxEvents: totalLeaves }
+		)
+		: [];
 
 	// @TODO danish here i make the same wrong assumption like above! Sorry!
 	// address: can both be a L1Warptoad or L2WarptoadScroll doesn't matter!
@@ -1241,33 +1252,28 @@ export async function getMerkleDataForL1ToScroll(
 	
 	const fromBlock = getDeploymentBlock(l1ChainId);
 	const toBlock = await publicClient.getBlockNumber();
-	
-	const gigaRootEvents = await publicClient.getLogs({
-		address: addresses.GigaBridge as `0x${string}`,
-		event: {
-			type: 'event',
-			name: 'ConstructedNewGigaRoot',
-			inputs: [
-				{ type: 'uint256', name: 'newGigaRoot', indexed: true }
-			]
-		},
-		args: {
-			newGigaRoot: gigaRoot
-		},
-		fromBlock,
-		toBlock
+
+	const gigaRootEvents = await queryEventInChunks({
+		publicClient,
+		contract: { address: addresses.GigaBridge as `0x${string}`, abi: GigaBridgeAbi },
+		eventName: 'ConstructedNewGigaRoot',
+		eventFilterArgs: { newGigaRoot: gigaRoot },
+		firstBlock: fromBlock,
+		lastBlock: toBlock,
+		reverseOrder: true,
+		maxEvents: 1,
 	});
-	
+
 	if (gigaRootEvents.length === 0) {
 		throw new Error(
 			`GigaRoot ${gigaRoot} not found on L1. ` +
 			`Please wait for bridge sync to complete.`
 		);
 	}
-	
+
 	const gigaRootBlock = gigaRootEvents[0].blockNumber;
 	console.log(`Found gigaRoot at block ${gigaRootBlock}`);
-	
+
 	// Step 2: Get L1WarpToad's index in the giga tree
 	const l1WarpToadIndex = await publicClient.readContract({
 		address: addresses.GigaBridge as `0x${string}`,
@@ -1405,33 +1411,28 @@ export async function getMerkleDataForScrollToL1(
 	
 	const fromBlock = getDeploymentBlock(l1ChainId);
 	const toBlock = await publicClient.getBlockNumber();
-	
-	const gigaRootEvents = await publicClient.getLogs({
-		address: addresses.GigaBridge as `0x${string}`,
-		event: {
-			type: 'event',
-			name: 'ConstructedNewGigaRoot',
-			inputs: [
-				{ type: 'uint256', name: 'newGigaRoot', indexed: true }
-			]
-		},
-		args: {
-			newGigaRoot: gigaRoot
-		},
-		fromBlock,
-		toBlock
+
+	const gigaRootEvents = await queryEventInChunks({
+		publicClient,
+		contract: { address: addresses.GigaBridge as `0x${string}`, abi: GigaBridgeAbi },
+		eventName: 'ConstructedNewGigaRoot',
+		eventFilterArgs: { newGigaRoot: gigaRoot },
+		firstBlock: fromBlock,
+		lastBlock: toBlock,
+		reverseOrder: true,
+		maxEvents: 1,
 	});
-	
+
 	if (gigaRootEvents.length === 0) {
 		throw new Error(
 			`GigaRoot ${gigaRoot} not found on L1. ` +
 			`Please wait for bridge sync to complete.`
 		);
 	}
-	
+
 	const gigaRootBlock = gigaRootEvents[0].blockNumber;
 	console.log(`Found gigaRoot at block ${gigaRootBlock}`);
-	
+
 	// Step 2: Get L1ScrollBridgeAdapter's index in the giga tree
 	const scrollAdapterIndex = await publicClient.readContract({
 		address: addresses.GigaBridge as `0x${string}`,

@@ -1,0 +1,176 @@
+# =============================================================================
+# warp-toad services - unified docker compose
+#
+# Runs both bridge-sync (BridgeKeeper) and relay-service on a shared
+# `warptoad-network` so they can be co-located on a single host (and talk to
+# each other in the future if we ever need to).
+#
+# Each service still has its own per-workspace docker-compose.yml that you can
+# use to run them independently.
+#
+# Usage:
+#   docker compose up -d              # build + run both in background
+#   docker compose logs -f            # tail both
+#   docker compose logs -f bridge-sync
+#   docker compose down               # stop both, leave images
+#
+# Required env (in this dir, ./.env at the repo root):
+#
+#   # bridge-sync
+#   EVM_PRIVATE_KEY=0x...               # signs L1 root-update txs
+#   SEPOLIA_RPC_URL=https://...
+#   SCROLL_RPC_URL=https://...
+#   AZTEC_NODE_URL=https://rpc.testnet.aztec-labs.com
+#
+#   # relay-service
+#   RELAYER_PRIVATE_KEY=0x...           # signs mint() relay txs
+#   L1_RPC_URL=https://...              # same Sepolia RPC; relay-service uses
+#                                       # a different var name than bridge-sync
+#                                       # for historical reasons
+#   # SCROLL_RPC_URL is reused from bridge-sync section above
+#
+#   # both
+#   ALLOWED_ORIGINS=https://your.frontend,https://other.frontend
+#
+# The two private keys can be the SAME wallet, but it's safer to use a
+# different one for each so the relayer's mempool nonce isn't fighting with
+# the keeper's.
+# =============================================================================
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+      # Vite bakes VITE_* env vars at BUILD time, not runtime. To reconfigure
+      # any of these, you must rebuild the image (`docker compose build frontend`).
+      args:
+        VITE_TEST_MODE: ${VITE_TEST_MODE:-false}
+        VITE_SEPOLIA_RPC_URL: ${VITE_SEPOLIA_RPC_URL:-${SEPOLIA_RPC_URL}}
+        VITE_SCROLL_SEPOLIA_RPC_URL: ${VITE_SCROLL_SEPOLIA_RPC_URL:-${SCROLL_RPC_URL}}
+        VITE_AZTEC_NODE_URL: ${VITE_AZTEC_NODE_URL:-${AZTEC_NODE_URL}}
+        VITE_LOCAL_AZTEC_NODE_URL: ${VITE_LOCAL_AZTEC_NODE_URL:-http://localhost:8080}
+        # The frontend bundle runs in the user's BROWSER, so these URLs must
+        # be reachable from the browser - they go through the host port
+        # mappings (127.0.0.1:6969 / 127.0.0.1:7777), not Docker's internal
+        # service-name DNS.
+        VITE_BRIDGE_KEEPER_URL: ${VITE_BRIDGE_KEEPER_URL:-http://localhost:6969}
+        VITE_RELAY_SERVICE_URL: ${VITE_RELAY_SERVICE_URL:-http://localhost:7777}
+        VITE_FAUCET_SERVICE_URL: ${VITE_FAUCET_SERVICE_URL:-http://localhost:8888}
+    image: warptoad/frontend:latest
+    container_name: warptoad-frontend
+    ports:
+      - "127.0.0.1:4173:4173"
+    restart: unless-stopped
+    networks:
+      - warptoad-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:4173/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    depends_on:
+      - bridge-sync
+      - relay-service
+      - faucet-service
+
+  bridge-sync:
+    build:
+      context: .
+      dockerfile: bridge-sync/Dockerfile
+    image: warptoad/bridge-sync:latest
+    container_name: warptoad-bridge-sync
+    ports:
+      - "127.0.0.1:6969:6969"
+    environment:
+      NODE_ENV: production
+      PORT: 6969
+      EVM_PRIVATE_KEY: ${EVM_PRIVATE_KEY}
+      SEPOLIA_RPC_URL: ${SEPOLIA_RPC_URL}
+      SCROLL_RPC_URL: ${SCROLL_RPC_URL}
+      AZTEC_NODE_URL: ${AZTEC_NODE_URL}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      DEFAULT_CONFIRMATIONS: ${DEFAULT_CONFIRMATIONS:-3}
+      AZTEC_HEARTBEAT_ENABLED: ${AZTEC_HEARTBEAT_ENABLED:-true}
+      AZTEC_HEARTBEAT_CHECK_INTERVAL_MS: ${AZTEC_HEARTBEAT_CHECK_INTERVAL_MS:-300000}
+      AZTEC_HEARTBEAT_THRESHOLD_BLOCKS: ${AZTEC_HEARTBEAT_THRESHOLD_BLOCKS:-80}
+      AZTEC_HEARTBEAT_RETENTION_BLOCKS: ${AZTEC_HEARTBEAT_RETENTION_BLOCKS:-100}
+    volumes:
+      - bridge-sync-logs:/app/bridge-sync/logs
+      - bridge-sync-db:/app/bridge-sync/db
+    restart: unless-stopped
+    networks:
+      - warptoad-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:6969/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  relay-service:
+    build:
+      context: .
+      dockerfile: relay-service/Dockerfile
+    image: warptoad/relay-service:latest
+    container_name: warptoad-relay-service
+    ports:
+      - "127.0.0.1:7777:7777"
+    environment:
+      NODE_ENV: production
+      PORT: 7777
+      RELAYER_PRIVATE_KEY: ${RELAYER_PRIVATE_KEY}
+      L1_RPC_URL: ${L1_RPC_URL:-${SEPOLIA_RPC_URL}}
+      SCROLL_RPC_URL: ${SCROLL_RPC_URL}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+      MIN_FEE_FACTOR: ${MIN_FEE_FACTOR:-0}
+      MAX_FEE_FACTOR: ${MAX_FEE_FACTOR:-0}
+      MIN_PROFIT_USD: ${MIN_PROFIT_USD:-0}
+    restart: unless-stopped
+    networks:
+      - warptoad-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:7777/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  faucet-service:
+    build:
+      context: .
+      dockerfile: faucet-service/Dockerfile
+    image: warptoad/faucet-service:latest
+    container_name: warptoad-faucet-service
+    ports:
+      - "127.0.0.1:8888:8888"
+    environment:
+      NODE_ENV: production
+      PORT: 8888
+      FAUCET_PRIVATE_KEY: ${FAUCET_PRIVATE_KEY}
+      SEPOLIA_RPC_URL: ${SEPOLIA_RPC_URL}
+      SCROLL_RPC_URL: ${SCROLL_RPC_URL}
+      FAUCET_DRIP_AMOUNT_ETH: ${FAUCET_DRIP_AMOUNT_ETH:-0.05}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
+    volumes:
+      - faucet-db:/app/faucet-service/db
+    restart: unless-stopped
+    networks:
+      - warptoad-network
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:8888/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+volumes:
+  bridge-sync-logs:
+  bridge-sync-db:
+  faucet-db:
+
+networks:
+  warptoad-network:
+    name: warptoad-network
+    driver: bridge

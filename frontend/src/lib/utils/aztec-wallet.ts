@@ -1,214 +1,317 @@
-import { AztecWallet } from '@azguardwallet/aztec-wallet';
+/**
+ * Aztec Browser Wallet
+ *
+ * In-browser embedded Aztec wallet that runs its own PXE inside the page via
+ * `BrowserEmbeddedWallet` from `@aztec/wallets/embedded`. Replaces the
+ * removed Azguard integration.
+ *
+ * Two account modes:
+ *  - 'sandbox-test'  pre-deployed, pre-funded canonical sandbox test account
+ *                    (INITIAL_TEST_SECRET_KEYS[0]). Zero-config first run on local dev.
+ *  - 'custom'        a fresh Schnorr account derived from a locally-stored secret
+ *                    (Fr.random() on first use, persisted to localStorage). On first
+ *                    use the account is deployed via the sponsored FPC payment method.
+ *
+ * The mode is selected from `walletStore` (UI toggle) and persisted alongside.
+ */
+
+// Both the browser and node entrypoints of @aztec/wallets/embedded re-export their
+// concrete class under the name `EmbeddedWallet`. At type-check time (Node) the alias
+// resolves to NodeEmbeddedWallet; at runtime in the browser, Vite picks the browser
+// conditional export and the same name resolves to BrowserEmbeddedWallet. Both share
+// the same `static create(nodeOrUrl, options?)` signature.
+import { EmbeddedWallet } from '@aztec/wallets/embedded';
 import type { Wallet } from '@aztec/aztec.js/wallet';
-import { AZTEC_CONFIG } from '$lib/config/environment.js';
+import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
+import { NO_FROM } from '@aztec/aztec.js/account';
+import { SponsoredFeePaymentMethod } from '@aztec/aztec.js/fee';
+import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/contracts';
+import { SponsoredFPCContractArtifact } from '@aztec/noir-contracts.js/SponsoredFPC';
+import { SPONSORED_FPC_SALT } from '@aztec/constants';
+import { getAztecChain, isTestMode } from '$lib/config/chains.js';
 
-// Dapp metadata for Azguard connection
-const DAPP_METADATA = {
-	name: 'Warptoad',
-	description: 'Cross-chain privacy bridge',
-	logo: '', // To be filled later
-	url: typeof window !== 'undefined' ? window.location.origin : ''
-};
-
-// Store the wallet instance globally
-let walletInstance: Wallet | null = null;
+export type AztecAccountMode = 'sandbox-test' | 'custom';
 
 /**
- * Check if Azguard wallet is available
- * Note: The package uses browser extension detection internally
+ * Stages of the connect flow, used by the UI to show what's happening
+ * while `connectAztecBrowserWallet()` runs. Testnet account deploy can take
+ * ~1 minute (client-side proving), so a plain "Connecting..." spinner feels
+ * broken - the UI pipes these stages through to a status line.
  */
-export function isAzguardAvailable(): boolean {
-	// The AztecWallet.connect() will handle detection
-	// For now, we assume it's available in browser context
+export type AztecConnectStage =
+	| 'pxe-init'
+	| 'register-fpc'
+	| 'account-setup'
+	| 'account-deploy'
+	| 'complete';
+
+export type AztecConnectProgress = (stage: AztecConnectStage, message: string) => void;
+
+const STAGE_MESSAGES: Record<AztecConnectStage, string> = {
+	'pxe-init': 'Initializing Aztec PXE…',
+	'register-fpc': 'Registering sponsored fee contract…',
+	'account-setup': 'Setting up Schnorr account…',
+	'account-deploy': 'Deploying account on Aztec (~1 min)…',
+	'complete': 'Connected',
+};
+
+const ACCOUNT_MODE_KEY = 'warptoad:aztec:account-mode';
+const CUSTOM_SECRET_KEY = 'warptoad:aztec:custom-secret';
+const CUSTOM_SALT_KEY = 'warptoad:aztec:custom-salt';
+const CUSTOM_SIGNING_KEY = 'warptoad:aztec:custom-signing-key';
+// Marks a custom account as already deployed on chain, so we don't re-run the
+// ~20s simulate + ClientIVC-prove cycle on every page reload only to have the
+// node reject with "Existing nullifier". Value is the address string for
+// traceability / future account-rotation.
+const CUSTOM_DEPLOYED_KEY = 'warptoad:aztec:custom-deployed-address';
+
+// Canonical sandbox test account #0 (matches @aztec/accounts/testing INITIAL_TEST_*).
+// Pre-deployed and pre-funded by the Aztec sandbox at startup; safe to hardcode.
+const SANDBOX_TEST_SECRET = '0x2153536ff6628eee01cf4024889ff977a18d9fa61d0e414422f7681cf085c281';
+const SANDBOX_TEST_SALT = '0x0000000000000000000000000000000000000000000000000000000000000000';
+
+// Module-level cache: building a PXE in the browser is expensive (lazy WASM, IndexedDB),
+// we want one instance per page lifetime.
+let walletInstance: Wallet | null = null;
+let sponsoredPaymentMethod: SponsoredFeePaymentMethod | null = null;
+
+// ============================================================================
+// Account mode persistence
+// ============================================================================
+
+export function getAccountMode(): AztecAccountMode {
+	if (typeof window === 'undefined') return 'sandbox-test';
+	const stored = localStorage.getItem(ACCOUNT_MODE_KEY) as AztecAccountMode | null;
+	if (stored === 'sandbox-test' || stored === 'custom') return stored;
+	// Default: sandbox-test in dev mode, custom on testnet
+	return isTestMode ? 'sandbox-test' : 'custom';
+}
+
+export function setAccountMode(mode: AztecAccountMode): void {
+	if (typeof window === 'undefined') return;
+	localStorage.setItem(ACCOUNT_MODE_KEY, mode);
+}
+
+function loadOrCreateCustomSecrets(): { secret: Fr; salt: Fr; signingKey: GrumpkinScalar } {
+	let secretHex = localStorage.getItem(CUSTOM_SECRET_KEY);
+	let saltHex = localStorage.getItem(CUSTOM_SALT_KEY);
+	let signingHex = localStorage.getItem(CUSTOM_SIGNING_KEY);
+
+	if (!secretHex || !saltHex || !signingHex) {
+		const secret = Fr.random();
+		const salt = Fr.random();
+		const signingKey = GrumpkinScalar.random();
+		secretHex = secret.toString();
+		saltHex = salt.toString();
+		signingHex = signingKey.toString();
+		localStorage.setItem(CUSTOM_SECRET_KEY, secretHex);
+		localStorage.setItem(CUSTOM_SALT_KEY, saltHex);
+		localStorage.setItem(CUSTOM_SIGNING_KEY, signingHex);
+	}
+
+	return {
+		secret: Fr.fromHexString(secretHex),
+		salt: Fr.fromHexString(saltHex),
+		signingKey: GrumpkinScalar.fromString(signingHex),
+	};
+}
+
+/** Wipe the locally-generated custom account. Forces a fresh one on next connect. */
+export function clearCustomSecrets(): void {
+	if (typeof window === 'undefined') return;
+	localStorage.removeItem(CUSTOM_SECRET_KEY);
+	localStorage.removeItem(CUSTOM_SALT_KEY);
+	localStorage.removeItem(CUSTOM_SIGNING_KEY);
+	localStorage.removeItem(CUSTOM_DEPLOYED_KEY);
+}
+
+// ============================================================================
+// Wallet lifecycle
+// ============================================================================
+
+/**
+ * Returns the configured Aztec node URL (sandbox in dev mode, devnet/testnet otherwise).
+ */
+export function getAztecNodeUrl(): string {
+	const chain = getAztecChain('Aztec');
+	if (!chain) throw new Error('Aztec chain not configured');
+	return chain.nodeUrl;
+}
+
+/**
+ * Browser-side wallet is always available; no extension required.
+ */
+export function isAztecWalletAvailable(): boolean {
 	return typeof window !== 'undefined';
 }
 
 /**
- * Connect to Azguard wallet
+ * Connect (or reconnect) the in-browser Aztec wallet.
+ *
+ * Steps:
+ *  1. Spin up `BrowserEmbeddedWallet` against the configured node URL.
+ *     PXE state is ephemeral within the page (in-memory) - we cache the
+ *     instance at module level so a single page session shares one PXE.
+ *  2. Register the sponsored FPC contract instance + payment method, used
+ *     for any tx that needs fees (mandatory on testnet, harmless on sandbox).
+ *  3. Materialize the Schnorr account using either the canonical sandbox
+ *     test secret or the user's persisted custom secret.
+ *  4. For custom mode, ensure the account is deployed on chain (try-catch
+ *     "Existing nullifier" so reconnects are idempotent).
  */
-export async function connectAzguardWallet(): Promise<{ wallet: Wallet; address: string }> {
-	try {
-		// Connect with metadata and network from environment config
-		const wallet = await AztecWallet.connect(DAPP_METADATA, AZTEC_CONFIG.network);
-		
-		// Store the wallet instance for later use
-		walletInstance = wallet;
+export async function connectAztecBrowserWallet(
+	options?: { onProgress?: AztecConnectProgress },
+): Promise<{ wallet: Wallet; address: string }> {
+	const report = (stage: AztecConnectStage) =>
+		options?.onProgress?.(stage, STAGE_MESSAGES[stage]);
 
-		// Get accounts from the wallet
-		const accounts = await wallet.getAccounts();
-		
-		if (!accounts || accounts.length === 0) {
-			throw new Error('No accounts found in Azguard wallet');
-		}
-		// Get address of first account 
-		const address: string = accounts[0].item.toString();
-		
-		console.log('Final address string:', address);
-
-		return { wallet, address };
-	} catch (error: unknown) {
-		console.error('Failed to connect to Azguard:', error);
-		
-		if (error instanceof Error) {
-			// Check for common error types
-			if (error.message.includes('rejected') || error.message.includes('denied')) {
-				throw new Error('Connection rejected. Please approve the connection in Azguard wallet.');
-			}
-			if (error.message.includes('not found') || error.message.includes('not installed')) {
-				throw new Error('Azguard wallet not found. Please install the Azguard wallet extension.');
-			}
-			throw error;
-		}
-		
-		throw new Error('Failed to connect to Azguard wallet');
+	if (walletInstance) {
+		const accounts = await walletInstance.getAccounts();
+		const address = accounts[0]?.item.toString() ?? '';
+		report('complete');
+		return { wallet: walletInstance, address };
 	}
+
+	const nodeUrl = getAztecNodeUrl();
+	const sandbox = isTestMode;
+
+	// 1. Build the embedded wallet (creates a lazy PXE under the hood).
+	report('pxe-init');
+	const wallet = await EmbeddedWallet.create(nodeUrl, {
+		ephemeral: true,
+		pxeConfig: { proverEnabled: !sandbox },
+	});
+
+	// 2. Sponsored FPC for fee payment.
+	report('register-fpc');
+	const sponsoredPFCContract = await getContractInstanceFromInstantiationParams(
+		SponsoredFPCContractArtifact,
+		{ salt: new Fr(SPONSORED_FPC_SALT) },
+	);
+	sponsoredPaymentMethod = new SponsoredFeePaymentMethod(sponsoredPFCContract.address);
+	await wallet.registerContract(sponsoredPFCContract, SponsoredFPCContractArtifact);
+
+	// 3. Schnorr account from the chosen mode.
+	report('account-setup');
+	const mode = getAccountMode();
+	let secret: Fr;
+	let salt: Fr;
+	let signingKey: GrumpkinScalar | undefined;
+
+	if (mode === 'sandbox-test') {
+		secret = Fr.fromHexString(SANDBOX_TEST_SECRET);
+		salt = Fr.fromHexString(SANDBOX_TEST_SALT);
+		signingKey = undefined; // sandbox test accounts derive their signing key
+	} else {
+		const custom = loadOrCreateCustomSecrets();
+		secret = custom.secret;
+		salt = custom.salt;
+		signingKey = custom.signingKey;
+	}
+
+	const accountManager = await wallet.createSchnorrAccount(secret, salt, signingKey);
+	const address = accountManager.address.toString();
+
+	// 4. Deploy the account if needed. Sandbox-test is pre-deployed; custom needs a deploy
+	//    on first use. The PXE runs with `ephemeral: true`, so every page load rebuilds its
+	//    in-memory state from scratch - we use a localStorage flag to remember that this
+	//    address already went through the deploy flow, and skip the ~20s simulate + prove
+	//    + rejected-by-node cycle on reconnects. The Existing-nullifier catch remains as a
+	//    defensive net in case the flag is out of sync with chain state (e.g. cleared
+	//    localStorage, user restored keys on a new device).
+	//
+	//    Pass `from: NO_FROM` so DeployAccountMethod routes through the self-deploy path
+	//    (the account contract pays its own fee via AccountEntrypointMetaPaymentMethod) and
+	//    simulation uses DefaultEntrypoint instead of looking the deployer up in walletDB.
+	if (mode === 'custom') {
+		const alreadyDeployed = localStorage.getItem(CUSTOM_DEPLOYED_KEY) === address;
+
+		if (!alreadyDeployed) {
+			report('account-deploy');
+			try {
+				const deployMethod = await accountManager.getDeployMethod();
+				await deployMethod.send({
+					from: NO_FROM,
+					fee: { paymentMethod: sponsoredPaymentMethod },
+				});
+				localStorage.setItem(CUSTOM_DEPLOYED_KEY, address);
+			} catch (error: any) {
+				// Aztec's `contextualizeError` wraps errors so the message might appear as
+				// `[Error: Invalid tx: Existing nullifier]` or similar. Use `.includes()`
+				// rather than `.startsWith()` to catch all wrapping shapes.
+				const msg = String(error?.message ?? '') + ' ' + String(error?.cause?.message ?? '');
+				if (msg.includes('Existing nullifier') || msg.includes('existing nullifier')) {
+					// Already on chain - mark it so we skip the redeploy next reload.
+					localStorage.setItem(CUSTOM_DEPLOYED_KEY, address);
+				} else {
+					throw new Error(`Failed to deploy custom Aztec account: ${msg}`, { cause: error });
+				}
+			}
+		}
+	}
+
+	walletInstance = wallet;
+	report('complete');
+	return { wallet, address };
 }
 
-/**
- * Get the current wallet instance
- */
 export function getWalletInstance(): Wallet | null {
 	return walletInstance;
 }
 
-/**
- * Get the Aztec node URL from the connected Azguard wallet
- * Falls back to environment config if wallet doesn't expose it
- */
-export async function getAztecNodeUrlFromWallet(): Promise<string> {
-	if (!walletInstance) {
-		// No wallet connected, use environment config
-		return AZTEC_CONFIG.nodeUrl;
-	}
-	
-	try {
-		// Try to get chain info from wallet (may include node URL)
-		const chainInfo = await walletInstance.getChainInfo();
-		
-		// Check if chainInfo has a node/pxe URL property
-		// The Azguard wallet may expose this differently
-		const walletWithUrl = chainInfo as any;
-		if (walletWithUrl.nodeUrl) {
-			console.log('Using Aztec node URL from Azguard wallet:', walletWithUrl.nodeUrl);
-			return walletWithUrl.nodeUrl;
-		}
-		if (walletWithUrl.pxeUrl) {
-			console.log('Using Aztec PXE URL from Azguard wallet:', walletWithUrl.pxeUrl);
-			return walletWithUrl.pxeUrl;
-		}
-		
-		// If Azguard doesn't expose the URL, check the wallet object directly
-		const walletObj = walletInstance as any;
-		if (walletObj.nodeUrl) {
-			console.log('Using node URL from wallet object:', walletObj.nodeUrl);
-			return walletObj.nodeUrl;
-		}
-		if (walletObj.pxe?.nodeUrl) {
-			console.log('Using node URL from PXE:', walletObj.pxe.nodeUrl);
-			return walletObj.pxe.nodeUrl;
-		}
-	} catch (error) {
-		console.warn('Could not get node URL from Azguard wallet, using config:', error);
-	}
-	
-	// Fallback to environment config
-	console.log('Using Aztec node URL from environment config:', AZTEC_CONFIG.nodeUrl);
-	return AZTEC_CONFIG.nodeUrl;
+export function getSponsoredPaymentMethod(): SponsoredFeePaymentMethod | null {
+	return sponsoredPaymentMethod;
 }
 
-/**
- * Check if wallet is currently connected
- */
 export function isWalletConnected(): boolean {
-	if (!walletInstance) return false;
-	
-	// Check if wallet instance has connected property
-	const azguardWallet = walletInstance as unknown as { connected?: boolean };
+	return walletInstance !== null;
+}
 
-	return azguardWallet.connected ?? false;
+export async function disconnectAztecWallet(): Promise<void> {
+	if (walletInstance && typeof (walletInstance as any).stop === 'function') {
+		try {
+			await (walletInstance as any).stop();
+		} catch (error) {
+			console.warn('Error stopping Aztec wallet PXE:', error);
+		}
+	}
+	walletInstance = null;
+	sponsoredPaymentMethod = null;
 }
 
 /**
- * Disconnect from Azguard wallet
+ * Auto-reconnect on page load. Returns null if there's nothing to reconnect.
+ *
+ * For sandbox-test mode, the canonical account is always available, so auto-reconnect
+ * actually re-creates the wallet. For custom mode, we only reconnect if a custom
+ * secret was previously persisted to localStorage (otherwise we'd silently mint a
+ * fresh account on every page load, which would be confusing).
  */
-export async function disconnectAzguardWallet(): Promise<void> {
-	if (!walletInstance) return;
+export async function autoReconnect(
+	options?: { onProgress?: AztecConnectProgress },
+): Promise<{ wallet: Wallet; address: string } | null> {
+	if (typeof window === 'undefined') return null;
 
-	try {
-		// Check if disconnect method exists
-		const azguardWallet = walletInstance as unknown as { disconnect?: () => Promise<void> };
-		if (azguardWallet.disconnect) {
-			await azguardWallet.disconnect();
-		}
-		walletInstance = null;
-	} catch (error) {
-		console.error('Failed to disconnect Azguard wallet:', error);
-		// Clear instance anyway
-		walletInstance = null;
-	}
-}
-
-/**
- * Setup event listeners for connection state changes
- */
-export function onConnectionChanged(
-	onConnected: () => void,
-	onDisconnected: () => void
-): () => void {
-	if (!walletInstance) return () => {};
-
-	const azguardWallet = walletInstance as unknown as {
-		onConnected?: { addHandler: (handler: () => void) => void };
-		onDisconnected?: { addHandler: (handler: () => void) => void };
-	};
-
-	// Add handlers if available
-	if (azguardWallet.onConnected) {
-		azguardWallet.onConnected.addHandler(onConnected);
-	}
-	if (azguardWallet.onDisconnected) {
-		azguardWallet.onDisconnected.addHandler(onDisconnected);
-	}
-
-	// Return cleanup function
-	return () => {
-		// Note: The package doesn't expose removeHandler,
-		// so cleanup is handled by disconnecting
-	};
-}
-
-/**
- * Auto-reconnect if wallet was previously connected
- */
-export async function autoReconnect(): Promise<{ wallet: Wallet; address: string } | null> {
-	if (!isAzguardAvailable()) return null;
-
-	try {
-		// Try to connect (Azguard handles session persistence internally)
-		const wallet = await AztecWallet.connect(DAPP_METADATA, AZTEC_CONFIG.network);
-		
-		// Check if already connected
-		const azguardWallet = wallet as unknown as { connected?: boolean };
-		if (!azguardWallet.connected) {
-			return null;
-		}
-
-		// Azguard is not updated to the new devnet yet
-		walletInstance = wallet;
-		const accounts = await wallet.getAccounts();
-		
-		if (!accounts || accounts.length === 0) {
-			return null;
-		}
-
-		// Extract address from account
-		const address: string = accounts[0].item.toString();
-		
-
-		return { wallet, address };
-	} catch (error) {
-		// Silent fail for auto-reconnect
-		console.debug('Auto-reconnect failed:', error);
+	const mode = getAccountMode();
+	if (mode === 'custom' && !localStorage.getItem(CUSTOM_SECRET_KEY)) {
 		return null;
 	}
+
+	try {
+		return await connectAztecBrowserWallet(options);
+	} catch (error) {
+		console.debug('Aztec auto-reconnect failed:', error);
+		return null;
+	}
+}
+
+/**
+ * No-op event listener placeholder. Browser embedded wallet is purely in-process,
+ * so there's nothing equivalent to MetaMask's `accountsChanged`. Kept for API parity.
+ */
+export function onConnectionChanged(
+	_onConnected: () => void,
+	_onDisconnected: () => void,
+): () => void {
+	return () => {};
 }

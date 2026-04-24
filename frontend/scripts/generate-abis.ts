@@ -153,10 +153,15 @@ function generateABIs() {
  * Generate index.ts barrel export file
  */
 function generateIndexFile(generatedFiles: string[]) {
+  // Re-export only the value `XAbi` (a const). Each ABI file also declares
+  // `export type XAbi = typeof XAbi` next to the const, sharing the same name.
+  // Re-exporting both `X` and `type X` from the barrel produces "duplicate
+  // identifier" errors under verbatimModuleSyntax. Anyone needing the type can
+  // do `import { XAbi } from '$lib/contracts/abis'; type X = typeof XAbi;`.
   const exports = generatedFiles
     .map(file => {
       const contractName = file.replace('.ts', '');
-      return `export { ${contractName}Abi, type ${contractName}Abi } from './${contractName}';`;
+      return `export { ${contractName}Abi } from './${contractName}';`;
     })
     .join('\n');
   

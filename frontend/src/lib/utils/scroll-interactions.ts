@@ -13,8 +13,10 @@
 
 import { createPublicClient, http, type Hash } from 'viem';
 import { L2WarpToadAbi, L2ScrollBridgeAdapterAbi, USDcoinAbi } from '$lib/contracts/abis';
+import { queryEventInChunks } from './viem-chunks';
 import { getEVMChain, type EVMChainDefinition } from '$lib/config/chains.js';
 import { createClient, getChainId } from './evm-wallet.js';
+import { getRpcUrl } from './evm-interactions.js';
 import type { CommitmentPreImage } from '$lib/types/bridge.js';
 import {
 	hashPreCommitment,
@@ -68,7 +70,7 @@ export async function getScrollWrappedBalance(address: string): Promise<bigint> 
 
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl),
+		transport: http(getRpcUrl(scroll.chainId)),
 	});
 
 	const balance = await publicClient.readContract({
@@ -89,7 +91,7 @@ export async function getScrollTokenDecimals(): Promise<number> {
 
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl),
+		transport: http(getRpcUrl(scroll.chainId)),
 	});
 
 	const decimals = await publicClient.readContract({
@@ -115,7 +117,7 @@ export async function getScrollNativeBalance(address: string): Promise<bigint> {
 
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl),
+		transport: http(getRpcUrl(scroll.chainId)),
 	});
 
 	const balance = await publicClient.readContract({
@@ -139,7 +141,7 @@ export async function mintFreeScrollTokens(amount: bigint): Promise<Hash> {
 
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl),
+		transport: http(getRpcUrl(scroll.chainId)),
 	});
 
 	const userAddress = (await client.getAddresses())[0];
@@ -171,7 +173,7 @@ export async function getScrollGigaRoot(): Promise<bigint> {
 
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl),
+		transport: http(getRpcUrl(scroll.chainId)),
 	});
 
 	const gigaRoot = await publicClient.readContract({
@@ -192,7 +194,7 @@ export async function getScrollLocalRoot(): Promise<bigint> {
 
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl),
+		transport: http(getRpcUrl(scroll.chainId)),
 	});
 
 	const localRoot = await publicClient.readContract({
@@ -212,7 +214,7 @@ export async function getScrollCachedLocalRoot(): Promise<bigint> {
 
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl),
+		transport: http(getRpcUrl(scroll.chainId)),
 	});
 
 	const cachedRoot = await publicClient.readContract({
@@ -232,7 +234,7 @@ export async function isValidScrollGigaRoot(gigaRoot: bigint): Promise<boolean> 
 
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl),
+		transport: http(getRpcUrl(scroll.chainId)),
 	});
 
 	const isValid = await publicClient.readContract({
@@ -253,7 +255,7 @@ export async function isValidScrollLocalRoot(localRoot: bigint): Promise<boolean
 
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl),
+		transport: http(getRpcUrl(scroll.chainId)),
 	});
 
 	const isValid = await publicClient.readContract({
@@ -292,7 +294,7 @@ export async function burnOnScroll(
 
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl),
+		transport: http(getRpcUrl(scroll.chainId)),
 	});
 
 	const userAddress = (await client.getAddresses())[0];
@@ -412,7 +414,7 @@ export async function claimOnScroll(
 
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl),
+		transport: http(getRpcUrl(scroll.chainId)),
 	});
 
 	const userAddress = (await client.getAddresses())[0];
@@ -470,23 +472,19 @@ export async function getScrollMerkleData(
 
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl),
+		transport: http(getRpcUrl(scroll.chainId)),
 	});
 
 	// Get all Burn events to build the tree
-	const burnEvents = await publicClient.getLogs({
-		address: scroll.contracts.warpToad as `0x${string}`,
-		event: {
-			type: 'event',
-			name: 'Burn',
-			inputs: [
-				{ type: 'uint256', name: 'commitment', indexed: true },
-				{ type: 'uint256', name: 'amount', indexed: false },
-				{ type: 'uint256', name: 'index', indexed: false },
-			],
-		},
-		fromBlock: 'earliest',
-		toBlock: 'latest',
+	const { getContractAddresses } = await import('$lib/contracts/addresses');
+	const scrollAddrs = getContractAddresses(scroll.chainId);
+	const scrollDeploymentBlock = BigInt(scrollAddrs.deploymentBlock || 0);
+
+	const burnEvents = await queryEventInChunks({
+		publicClient,
+		contract: { address: scroll.contracts.warpToad as `0x${string}`, abi: L2WarpToadAbi },
+		eventName: 'Burn',
+		firstBlock: scrollDeploymentBlock,
 	});
 
 	// Find our commitment
@@ -534,7 +532,7 @@ async function buildScrollMerkleProof(commitments: bigint[], index: number): Pro
 
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl),
+		transport: http(getRpcUrl(scroll.chainId)),
 	});
 
 	// Get tree depth
@@ -601,7 +599,7 @@ export async function getEvmMerkleDataForScroll(
 	
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl),
+		transport: http(getRpcUrl(scroll.chainId)),
 	});
 	
 	// Get deployment block for Scroll from contract addresses
@@ -610,24 +608,29 @@ export async function getEvmMerkleDataForScroll(
 	const deploymentBlock = BigInt(addresses.deploymentBlock || 0);
 	const toBlock = await publicClient.getBlockNumber();
 	
-	console.log(`Querying Scroll Burn events from block ${deploymentBlock} to ${toBlock}...`);
-	
-	// Query all Burn events from L2WarpToad
-	const burnEvents = await publicClient.getLogs({
+	// Read leaf count at toBlock so we can early-exit once the tree is whole.
+	const lastLeafIndex = (await publicClient.readContract({
 		address: scroll.contracts.warpToad as `0x${string}`,
-		event: {
-			type: 'event',
-			name: 'Burn',
-			inputs: [
-				{ type: 'uint256', name: 'commitment', indexed: true },
-				{ type: 'uint256', name: 'amount', indexed: false },
-				{ type: 'uint256', name: 'index', indexed: false },
-			],
-		},
-		fromBlock: deploymentBlock,
-		toBlock,
-	});
-	
+		abi: L2WarpToadAbi,
+		functionName: 'lastLeafIndex',
+		blockNumber: toBlock,
+	})) as bigint;
+	const totalLeaves = Number(lastLeafIndex);
+
+	console.log(`Querying ${totalLeaves} Scroll Burn events from block ${deploymentBlock} to ${toBlock}...`);
+
+	const burnEvents = totalLeaves > 0
+		? await queryEventInChunks({
+			publicClient,
+			contract: { address: scroll.contracts.warpToad as `0x${string}`, abi: L2WarpToadAbi },
+			eventName: 'Burn',
+			firstBlock: deploymentBlock,
+			lastBlock: toBlock,
+			reverseOrder: true,
+			maxEvents: totalLeaves,
+		})
+		: [];
+
 	console.log(`Found ${burnEvents.length} Burn events on Scroll`);
 	
 	// Sort events by index
@@ -724,7 +727,7 @@ export async function storeScrollLocalRootInHistory(): Promise<string | undefine
 	
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
-		transport: http(scroll.rpcUrl)
+		transport: http(getRpcUrl(scroll.chainId))
 	});
 	
 	const userAddress = (await client.getAddresses())[0];

@@ -7,7 +7,24 @@
 
 import type { Chain } from '$lib/types/bridge.js';
 
-const BRIDGE_KEEPER_URL = import.meta.env.VITE_BRIDGE_KEEPER_URL || 'http://localhost:6969';
+/**
+ * Whether the BridgeKeeper service is reachable from this build.
+ *
+ * - Testnet/mainnet build (`VITE_TEST_MODE != 'true'`): always enabled,
+ *   defaults to bridge.warptoad.xyz, override via VITE_BRIDGE_KEEPER_URL.
+ * - Local sandbox build (`VITE_TEST_MODE = 'true'`): off by default
+ *   (fall back to running `pnpm l:sync` manually). Set
+ *   `VITE_BRIDGE_KEEPER_URL=http://localhost:6969` (or any URL) to opt in -
+ *   useful for testing the bridge-sync service against the sandbox.
+ */
+const isTestMode = import.meta.env.VITE_TEST_MODE === 'true';
+export const isBridgeKeeperEnabled = !isTestMode || !!import.meta.env.VITE_BRIDGE_KEEPER_URL;
+
+// Default to the production URL on testnet/mainnet builds, otherwise use the
+// explicit local override (only set when opting in to local bridge-sync).
+const BRIDGE_KEEPER_URL =
+	import.meta.env.VITE_BRIDGE_KEEPER_URL ||
+	(isTestMode ? 'http://localhost:6969' : 'https://bridge.warptoad.xyz');
 
 export interface BridgeKeeperResponse {
 	ok: boolean;
@@ -84,6 +101,43 @@ export function getExpectedDuration(fromChain: Chain, toChain: Chain): string {
 	
 	// Default
 	return '30 minutes - 1 hour';
+}
+
+/**
+ * Snapshot of the L1 GigaBridge state as returned by `/giga-state/:chainId`.
+ * Computed server-side from a handful of contract reads (cached briefly) so
+ * the frontend doesn't have to replay 70+ getLogs chunks to reconstruct the
+ * same data from ReceivedNewLocalRoot events.
+ */
+export interface GigaStateResponse {
+	ok: true;
+	chainId: string;
+	gigaBridge: string;
+	gigaRoot: string;
+	amountOfLocalRoots: number;
+	leaves: Array<{
+		provider: string;
+		index: number;
+		localRoot: string;
+		localRootBlockNumber: number;
+	}>;
+	fetchedAtMs: number;
+}
+
+/**
+ * Fetch the L1 giga state from BridgeKeeper. Use this whenever the user is
+ * on the default (proxied) RPC path - the server does the aggregation. When
+ * the user supplied their own RPC via the wallet settings they take the
+ * client-side scan instead (they get to pay the RPC cost themselves, and
+ * we don't know their endpoint to relay for them).
+ */
+export async function fetchGigaStateFromKeeper(chainId: string): Promise<GigaStateResponse> {
+	const url = `${BRIDGE_KEEPER_URL}/giga-state/${chainId}`;
+	const res = await fetch(url);
+	if (!res.ok) throw new Error(`HTTP ${res.status} fetching giga state`);
+	const data = await res.json();
+	if (!data?.ok) throw new Error(data?.error ?? 'giga-state endpoint returned ok=false');
+	return data as GigaStateResponse;
 }
 
 /**

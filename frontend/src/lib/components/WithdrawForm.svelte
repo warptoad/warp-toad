@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { Upload, CheckCircle2, Loader2, AlertCircle, Download, Shield } from "@lucide/svelte";
+	import { badgeVariants } from "$lib/components/ui/badge";
 	import { walletStore } from "$lib/stores/wallets.svelte.js";
 	import { proofStore } from "$lib/stores/proofs.svelte.js";
 	import { balanceStore } from "$lib/stores/balances.svelte.js";
@@ -30,6 +31,8 @@
 		isValidL1LocalRoot,
 		storeL1LocalRootInHistory,
 		decodeNote,
+		getMerkleDataForL1ToScroll,
+		getMerkleDataForScrollToL1,
 	} from "$lib/utils/evm-interactions.js";
 	import {
 		getScrollGigaRoot,
@@ -38,10 +41,13 @@
 		isValidScrollLocalRoot,
 		storeScrollLocalRootInHistory,
 		getScrollChainId,
+		getEvmMerkleDataForScroll,
 	} from "$lib/utils/scroll-interactions.js";
 	import {
 		prepareProofInputsForAztecToL1,
 		prepareProofInputsForSameChain,
+		prepareProofInputsForL1ToScroll,
+		prepareProofInputsForScrollToL1,
 		generateWithdrawProof,
 		formatProofForL1,
 		type FeeConfig,
@@ -65,6 +71,7 @@
 
 	import { onMount } from "svelte";
 	import { toHex } from "viem";
+	import { rpcSettings } from "$lib/stores/rpc-settings.svelte";
 
 	let selectedProof = $state<Proof | null>(null);
 	let fileInput: HTMLInputElement;
@@ -94,6 +101,37 @@
 	let feePercentage = $state(0.25); // Min 0.25%, max 5%
 	let relayOperationId = $state<string | null>(null);
 	let relayStatusText = $state<string>("idle");
+
+	// Inline hint when the user flips the RPC toggle to "custom" without one
+	// configured. Reset whenever the user navigates away from the toggle.
+	let rpcHintVisible = $state(false);
+
+	// Source chain for the current withdraw flow. Only EVM chains have an RPC
+	// override applied (Aztec source uses a different stack).
+	let rpcOverrideChainId = $derived.by<number | null>(() => {
+		if (!selectedProof) return null;
+		if (selectedProof.sourceChain !== "Ethereum" && selectedProof.sourceChain !== "Scroll") return null;
+		const def = getEVMChain(selectedProof.sourceChain);
+		return def?.chainId ?? null;
+	});
+
+	let rpcOverrideHasCustom = $derived.by<boolean>(() =>
+		rpcOverrideChainId !== null && rpcSettings.hasCustom(rpcOverrideChainId),
+	);
+
+	let rpcOverrideEnabled = $derived.by<boolean>(() =>
+		rpcOverrideChainId !== null && rpcSettings.isUsingCustom(rpcOverrideChainId),
+	);
+
+	function toggleRpcOverride() {
+		if (rpcOverrideChainId === null) return;
+		if (!rpcOverrideHasCustom) {
+			rpcHintVisible = true;
+			return;
+		}
+		rpcHintVisible = false;
+		rpcSettings.setUseCustom(rpcOverrideChainId, !rpcSettings.isUsingCustom(rpcOverrideChainId));
+	}
 
 	// Get source chain ID dynamically based on source chain
 	function getSourceChainId(): number {
@@ -161,6 +199,19 @@
 	);
 
 	function handleProofSelect(proof: Proof) {
+		// Re-clicking the currently selected row closes the panel. Matches the
+		// "Close" button's behaviour so users have two equivalent gestures. The
+		// in-flight guard keeps this from interrupting an active withdraw.
+		if (selectedProof?.id === proof.id) {
+			if (isWithdrawing) return;
+			selectedProof = null;
+			return;
+		}
+		// Switching to a different proof mid-withdraw would hijack the flow:
+		// the running path calls proofStore.markProofAsUsed(selectedProof.id)
+		// at the end, so it would mark the new proof as used while leaving
+		// the real one as Ready. Block the swap entirely.
+		if (isWithdrawing) return;
 		selectedProof = proof;
 		uploadError = null;
 		successMessage = null;
@@ -366,20 +417,38 @@
 				return;
 			}
 
-			const tokenConfig = getTokenConfig(selectedProof?.token || 'USDC');
 			const wrappedTokenAddress = chain.contracts.warpToad;
-			const decimals = tokenConfig?.decimals ?? 6;
-			const symbol = `wrptd-${selectedProof?.token || 'USDC'}`;
 
-			// Request to add token to MetaMask using EIP-747
+			// Read the actual symbol + decimals from the deployed contract.
+			// Constructing them client-side is fragile: the L1WarpToad contracts
+			// are deployed with the wrapped name/symbol derived from the source
+			// token at deploy time, so the on-chain values are the source of
+			// truth. MetaMask validates `wallet_watchAsset` against contract.symbol()
+			// and rejects mismatches.
+			const { createPublicClient, http, getContract, parseAbi } = await import('viem');
+			const publicClient = createPublicClient({ transport: http(chain.rpcUrl) });
+			const erc20Abi = parseAbi([
+				'function symbol() view returns (string)',
+				'function decimals() view returns (uint8)',
+			]);
+			const tokenContract: any = getContract({
+				address: wrappedTokenAddress as `0x${string}`,
+				abi: erc20Abi,
+				client: publicClient,
+			});
+			const [symbol, decimals] = await Promise.all([
+				tokenContract.read.symbol(),
+				tokenContract.read.decimals(),
+			]);
+
 			await eth.request({
 				method: 'wallet_watchAsset',
 				params: {
 					type: 'ERC20',
 					options: {
 						address: wrappedTokenAddress,
-						symbol: symbol,
-						decimals: decimals,
+						symbol,
+						decimals,
 					},
 				} as any,
 			});
@@ -511,7 +580,7 @@
 		const aztecWallet = getWalletInstance();
 		if (!aztecWallet) {
 			throw new Error(
-				"Aztec wallet not connected. Please connect your Azguard wallet.",
+				"Aztec wallet not connected. Please connect the Aztec wallet.",
 			);
 		}
 
@@ -644,7 +713,7 @@
 		const aztecWallet = getWalletInstance();
 		if (!aztecWallet) {
 			throw new Error(
-				"Aztec wallet not connected. Please connect your Azguard wallet.",
+				"Aztec wallet not connected. Please connect the Aztec wallet.",
 			);
 		}
 
@@ -791,10 +860,7 @@
 		// Step 4: Get GigaBridge data (L1 local root in gigaRoot)
 		withdrawMessage = "Getting L1 local root from GigaBridge...";
 
-		// @ts-ignore - Function exists but TypeScript hasn't picked it up yet
-		const { getMerkleDataForL1ToScroll } = await import("$lib/utils/evm-interactions.js");
 		const { l1LocalRoot, l1LocalRootBlockNumber, gigaMerkleData } =
-			// @ts-ignore
 			await getMerkleDataForL1ToScroll(l1ChainId, gigaRoot);
 
 		console.log("L1 local root:", l1LocalRoot.toString());
@@ -811,9 +877,6 @@
 			maxFee: BigInt(selectedProof.commitmentData.amount) // Allow up to full amount
 		} : undefined; // undefined = use self-relay defaults
 
-		// @ts-ignore - Function exists but TypeScript hasn't picked it up yet
-		const { prepareProofInputsForL1ToScroll } = await import("$lib/utils/proof-generation.js");
-		// @ts-ignore
 		const proofInputs = prepareProofInputsForL1ToScroll(
 			selectedProof.commitmentData,
 			l1EvmMerkleData,
@@ -971,9 +1034,6 @@
 		withdrawStep = "building-proofs";
 		withdrawMessage = "Getting Scroll burn proof...";
 
-		// @ts-ignore - Function exists but TypeScript hasn't picked it up yet
-		const { getEvmMerkleDataForScroll } = await import("$lib/utils/scroll-interactions.js");
-		// @ts-ignore
 		const { evmMerkleData: scrollEvmMerkleData, aztecWarptoadAddress, localRootBlockNumber } =
 			await getEvmMerkleDataForScroll(commitment);
 
@@ -982,9 +1042,6 @@
 		// Step 4: Get GigaBridge data (Scroll local root in gigaRoot)
 		withdrawMessage = "Getting Scroll local root from GigaBridge...";
 
-		// @ts-ignore - Function exists but TypeScript hasn't picked it up yet
-		const { getMerkleDataForScrollToL1 } = await import("$lib/utils/evm-interactions.js");
-		// @ts-ignore
 		const { scrollLocalRoot, scrollLocalRootBlockNumber, gigaMerkleData } =
 			await getMerkleDataForScrollToL1(chainId, gigaRoot);
 
@@ -1002,9 +1059,6 @@
 			maxFee: BigInt(selectedProof.commitmentData.amount) // Allow up to full amount
 		} : undefined; // undefined = use self-relay defaults
 
-		// @ts-ignore - Function exists but TypeScript hasn't picked it up yet
-		const { prepareProofInputsForScrollToL1 } = await import("$lib/utils/proof-generation.js");
-		// @ts-ignore
 		const proofInputs = prepareProofInputsForScrollToL1(
 			selectedProof.commitmentData,
 			scrollEvmMerkleData,
@@ -1251,6 +1305,7 @@
 				if (!l1Chain) throw new Error('Ethereum chain config not found');
 
 				const relayResponse = await submitWithdrawRelay({
+					chainId: l1Chain.chainId.toString(),
 					contractAddress: l1Chain.contracts.warpToad,
 					nullifier: publicInputs[0].toString(),
 					amount: publicInputs[2].toString(),
@@ -1639,7 +1694,7 @@
 		const aztecWallet = getWalletInstance();
 		if (!aztecWallet) {
 			throw new Error(
-				"Aztec wallet not connected. Please connect your Azguard wallet to fetch your note.",
+				"Aztec wallet not connected. Please connect the Aztec wallet to fetch your note.",
 			);
 		}
 
@@ -1740,6 +1795,7 @@
 					throw new Error("Ethereum chain config not found");
 
 				const relayResponse = await submitWithdrawRelay({
+					chainId: l1Chain.chainId.toString(),
 					contractAddress: l1Chain.contracts.warpToad,
 					nullifier: publicInputs[0].toString(),
 					amount: publicInputs[2].toString(),
@@ -1943,7 +1999,7 @@
 		/>
 		<button
 			onclick={triggerFileUpload}
-			disabled={isCheckingNullifier}
+			disabled={isCheckingNullifier || isWithdrawing}
 			class="w-full p-3 rounded-lg border border-dashed border-[rgba(144,97,249,0.3)] bg-[var(--swamp-deep)] hover:bg-[rgba(144,97,249,0.05)] hover:border-[rgba(144,97,249,0.5)] transition-all duration-200 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
 		>
 			{#if isCheckingNullifier}
@@ -1980,20 +2036,32 @@
 			<div class="w-0.5 h-3 bg-[var(--toad-green)] rounded-full"></div>
 			<span class="text-[0.65rem] font-semibold text-[var(--toad-green-muted)] uppercase tracking-widest">Saved Proofs</span>
 		</div>
-		<div class="rounded-lg border border-[rgba(130,226,102,0.15)] overflow-hidden">
-			<ProofTable onselect={handleProofSelect} />
-		</div>
+		<ProofTable
+			onselect={handleProofSelect}
+			selectedId={selectedProof?.id ?? null}
+			disabled={isWithdrawing}
+			details={expandedDetails}
+		/>
 	</div>
 
-	{#if selectedProof}
-		<!-- Divider -->
-		<div class="h-px bg-[rgba(130,226,102,0.15)]"></div>
-
+	{#snippet expandedDetails(_proof: Proof)}
 		<!-- Selected Proof Details -->
 		<div class="space-y-2">
-			<div class="flex items-center gap-1.5">
-				<div class="w-0.5 h-3 bg-[var(--toad-green)] rounded-full"></div>
-				<span class="text-[0.65rem] font-semibold text-[var(--toad-green-muted)] uppercase tracking-widest">Selected Proof</span>
+			<div class="flex items-center justify-between">
+				<div class="flex items-center gap-1.5">
+					<div class="w-0.5 h-3 bg-[var(--toad-green)] rounded-full"></div>
+					<span class="text-[0.65rem] font-semibold text-[var(--toad-green-muted)] uppercase tracking-widest">Selected Proof</span>
+				</div>
+				{#if !isWithdrawing}
+					<button
+						type="button"
+						onclick={() => { selectedProof = null; }}
+						class="{badgeVariants({ variant: 'default' })} !rounded-sm cursor-pointer hover:bg-primary/90"
+						title="Close withdraw panel"
+					>
+						Close
+					</button>
+				{/if}
 			</div>
 
 			<div class="swamp-card-source">
@@ -2042,7 +2110,7 @@
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
 							</svg>
 							<p class="text-[0.65rem] text-[var(--foreground)]">
-								Missing commitment — upload note file
+								Missing commitment, upload note file
 							</p>
 						</div>
 					{/if}
@@ -2070,7 +2138,7 @@
 				<div class="text-xs">
 					<span class="font-medium text-[var(--foreground)]">Connect {selectedProof.targetChain} wallet</span>
 					{#if selectedProof.targetChain === "Aztec"}
-						<span class="text-[var(--muted-foreground)]"> — Use Azguard extension</span>
+						<span class="text-[var(--muted-foreground)]"> - In-browser wallet</span>
 					{/if}
 				</div>
 			</div>
@@ -2174,6 +2242,41 @@
 			</div>
 		{/if}
 
+		<!-- RPC source toggle: only surfaces for EVM source chains, where we -->
+		<!-- actually read events to build the merkle proof. -->
+		{#if rpcOverrideChainId !== null}
+			<div class="p-3 rounded-lg bg-[var(--swamp-deep)] border border-[rgba(130,226,102,0.15)]">
+				<div class="flex items-center justify-between">
+					<div class="space-y-0.5">
+						<label for="use-custom-rpc" class="cursor-pointer text-xs font-medium text-[var(--foreground)]">
+							Use my own {selectedProof.sourceChain} RPC
+						</label>
+						<p class="text-[0.65rem] text-[var(--muted-foreground)]">
+							{rpcOverrideHasCustom
+								? (rpcOverrideEnabled ? "Reads go through your configured endpoint." : "Reads go through the warptoad proxy.")
+								: "No custom endpoint saved yet."}
+						</p>
+					</div>
+					<label class="relative inline-flex items-center cursor-pointer">
+						<input
+							id="use-custom-rpc"
+							type="checkbox"
+							checked={rpcOverrideEnabled}
+							disabled={!rpcOverrideHasCustom}
+							onclick={(e) => { e.preventDefault(); toggleRpcOverride(); }}
+							class="sr-only peer"
+						/>
+						<div class="w-9 h-5 bg-[rgba(130,226,102,0.2)] peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-[var(--toad-green)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:bg-[var(--toad-green)] peer-disabled:opacity-50"></div>
+					</label>
+				</div>
+				{#if rpcHintVisible && !rpcOverrideHasCustom}
+					<p class="mt-2 text-[0.65rem] text-[var(--eye-yellow)]">
+						Add a custom {selectedProof.sourceChain} RPC in the Wallet panel first.
+					</p>
+				{/if}
+			</div>
+		{/if}
+
 		<!-- Same-chain transfer info -->
 		{#if isSameChainTransfer()}
 			<div class="p-2.5 rounded-lg bg-[rgba(144,97,249,0.08)] border border-[rgba(144,97,249,0.15)]">
@@ -2253,7 +2356,7 @@
 				{/if}
 			</span>
 		</button>
-	{/if}
+	{/snippet}
 
 	<!-- Success Message -->
 	{#if successMessage}

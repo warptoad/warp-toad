@@ -1,11 +1,11 @@
 import { USDcoinAbi } from '$lib/contracts/abis';
 import type { Proof, Token, Chain, MockTokenBalance, TokenContract, CommitmentPreImage } from '$lib/types/bridge.js';
 import { createPublicClient, http } from 'viem';
-import { anvil } from 'viem/chains';
 import { walletStore } from './wallets.svelte';
 import { decodeNote } from '$lib/utils/evm-interactions';
 import { getWalletInstance } from '$lib/utils/aztec-wallet';
 import { getAztecWarpToadBalance, getAztecWarpToadDecimals } from '$lib/utils/aztec-interactions';
+import { getEVMChain } from '$lib/config/chains';
 
 const STORAGE_KEY = 'warptoad:proofs';
 
@@ -16,29 +16,24 @@ const MOCK_BALANCES: MockTokenBalance[] = [
 	{ token: 'DAI', ethereum: '500.00', scroll: '250.00', aztec: '0.00' },
 	{ token: 'WBTC', ethereum: '0.152', scroll: '0.075', aztec: '0.000' }
 ];
-// @TODO Danish make this not hardcoded. You can do it anyway you like.
-// WarptoadL1/L2 have the func nativeToken which returns the L1 token but not the L2 native token since the contract is unaware of native L2 token bridges
-// So "TOKEN_CONTRACTS" seems ambiguous to me here. I think we are not consistent on that through out our code. 
-
-// i think this is also from confusing design + research i was talking about. 
-// So let we clarify and decide on what we will do 
-
-// in THIS REPO:
-// There is always a nativeL1 token, 
-// sometimes a nativeL2 token but not always (scroll has canonical native token bridge, but facet, aztec, etc not)
-// There is always a wrptd-token, this is just warptoadL1/L2
-// you can ONLY wrap and unwrap on L1.
-
-// FUTURE VERSION (new repo)
-// NEVER unwrap on L2. 
-// can wrap on L2
-// if no canonical token bridge exist we either make our own canonical token
+// Per-environment USDC addresses, sourced from the chain registry (which itself
+// reads from the static deployment files in `frontend/src/lib/contracts/addresses.ts`).
+// In dev mode this resolves to the local anvil USDcoin; in testnet mode it resolves
+// to Sepolia USDcoin. Either way, callers don't need to think about the active mode.
+//
+// Caveats from the original design comments:
+// - "ethereum" address is L1 native USDC (the wrappable underlying token)
+// - "scroll" address is currently the L2 wrptd-USDC (the WarpToad-issued wrapped token)
+// - L1 -> wrap -> bridge -> unwrap on L1 only
+const ethereumChain = getEVMChain('Ethereum');
+const scrollChain = getEVMChain('Scroll');
 export const TOKEN_CONTRACTS: TokenContract[] = [
-	{ 
-		token: 'USDC', 
-		ethereumAddress: '0xa0CAa84ebFf522ec43b7Aec844AF36C2ccF86c75', 	// this is native USDC
-		scrollAddress: '0xEEBc8d07d54A4Da01DaF41c41acf3597EF11cF93'		// but this is wrptd-USDC!!!
-	}
+	{
+		token: 'USDC',
+		ethereumAddress: ethereumChain?.contracts.nativeToken ?? '',
+		// Scroll's "USDC" in this app is actually the L2 WarpToad wrapper.
+		scrollAddress: scrollChain?.contracts.warpToad ?? '',
+	},
 ]
 
 // Custom JSON serialization for BigInt
@@ -138,10 +133,20 @@ class ProofStore {
 			return 'Connect wallet';
 		}
 
+		// Resolve the active chain config (Sepolia/Scroll in prod, Anvil in test mode).
+		// Defaulting to viem's `anvil` chain with `http()` silently pins RPC to
+		// localhost:8545 in production builds, so always go through the registry.
+		const chainName = chain === 'Scroll' ? 'Scroll' : 'Ethereum';
+		const chainDef = getEVMChain(chainName);
+		if (!chainDef) {
+			console.warn(`[getBalance] Chain ${chainName} not configured`);
+			return '0.00';
+		}
+
 		const publicClient = createPublicClient({
-			chain: anvil,
-			transport: http()
-		})
+			chain: chainDef.viemChain,
+			transport: http(chainDef.rpcUrl),
+		});
 
 		const decimals = await publicClient.readContract({
 			address: tokenAddress as `0x${string}`,

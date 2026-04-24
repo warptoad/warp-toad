@@ -23,7 +23,51 @@
 	import { getChainId, NETWORKS } from "$lib/utils/evm-wallet";
 	import { getAztecWarpToadBalance } from "$lib/utils/aztec-interactions";
 	import { getWalletInstance } from "$lib/utils/aztec-wallet";
+	import {
+		getFaucetInfo,
+		claimFaucet,
+		isFaucetServiceAvailable,
+		type FaucetChainStatus,
+	} from "$lib/utils/faucet-client";
 	import type { Chain } from "$lib/types/bridge";
+	import { isTestMode } from "$lib/config/chains.js";
+	import type { AztecAccountMode } from "$lib/utils/aztec-wallet";
+	import { onMount } from "svelte";
+	import { Droplet } from "@lucide/svelte";
+	import { rpcSettings, RPC_OVERRIDE_CHAINS } from "$lib/stores/rpc-settings.svelte";
+
+	// Custom RPC section: per-chain input + probe/save/reset, driven by
+	// `rpcSettings`. Probing does an eth_blockNumber against the URL before
+	// we accept it so users don't persist a broken endpoint.
+	let rpcDrafts = $state<Record<number, string>>(
+		Object.fromEntries(RPC_OVERRIDE_CHAINS.map((c) => [c.chainId, rpcSettings.getCustom(c.chainId) ?? ""])),
+	);
+	let rpcProbeState = $state<Record<number, { status: "idle" | "probing" | "ok" | "err"; message?: string }>>(
+		Object.fromEntries(RPC_OVERRIDE_CHAINS.map((c) => [c.chainId, { status: "idle" }])),
+	);
+
+	async function handleRpcSave(chainId: number) {
+		const url = (rpcDrafts[chainId] ?? "").trim();
+		if (!url) {
+			rpcSettings.clearCustom(chainId);
+			rpcProbeState[chainId] = { status: "idle" };
+			return;
+		}
+		rpcProbeState[chainId] = { status: "probing" };
+		try {
+			const block = await rpcSettings.probe(url);
+			rpcSettings.setCustom(chainId, url);
+			rpcProbeState[chainId] = { status: "ok", message: `OK - block ${block}` };
+		} catch (e: any) {
+			rpcProbeState[chainId] = { status: "err", message: e?.message ?? "Probe failed" };
+		}
+	}
+
+	function handleRpcReset(chainId: number) {
+		rpcDrafts[chainId] = "";
+		rpcSettings.clearCustom(chainId);
+		rpcProbeState[chainId] = { status: "idle" };
+	}
 
 	interface Props {
 		open?: boolean;
@@ -34,6 +78,68 @@
 	let isSyncing = $state(false);
 	let syncError = $state<string | null>(null);
 	let syncSuccess = $state<string | null>(null);
+
+	// Faucet state
+	const FAUCET_SUPPORTED_CHAINS = new Set([11155111, 534351]);
+	let faucetAvailable = $state(false);
+	let faucetStatus = $state<Record<string, FaucetChainStatus> | null>(null);
+	let faucetLoading = $state(false);
+	let faucetClaiming = $state(false);
+	let faucetError = $state<string | null>(null);
+	let faucetSuccess = $state<string | null>(null);
+
+	let isFaucetSupportedChain = $derived(
+		walletStore.chainId !== null && FAUCET_SUPPORTED_CHAINS.has(walletStore.chainId),
+	);
+	let currentChainClaimStatus = $derived.by<FaucetChainStatus | null>(() => {
+		if (!faucetStatus || walletStore.chainId === null) return null;
+		return faucetStatus[walletStore.chainId.toString()] ?? null;
+	});
+
+	async function refreshFaucetStatus() {
+		if (!walletStore.wallets.evm || !faucetAvailable) {
+			faucetStatus = null;
+			return;
+		}
+		faucetLoading = true;
+		try {
+			const info = await getFaucetInfo(walletStore.wallets.evm);
+			faucetStatus = info?.chains ?? null;
+		} finally {
+			faucetLoading = false;
+		}
+	}
+
+	async function handleClaimFaucet() {
+		if (!walletStore.wallets.evm || walletStore.chainId === null) return;
+		faucetClaiming = true;
+		faucetError = null;
+		faucetSuccess = null;
+		try {
+			const result = await claimFaucet(walletStore.wallets.evm, walletStore.chainId);
+			faucetSuccess = `Sent! tx ${result.txHash.slice(0, 10)}...`;
+			await refreshFaucetStatus();
+			// Refresh balances so the new ETH shows up if the UI displays it.
+			await balanceStore.refresh();
+		} catch (err) {
+			faucetError = err instanceof Error ? err.message : "Faucet claim failed";
+		} finally {
+			faucetClaiming = false;
+		}
+	}
+
+	onMount(async () => {
+		faucetAvailable = await isFaucetServiceAvailable();
+		if (faucetAvailable) await refreshFaucetStatus();
+	});
+
+	// Re-fetch claim status whenever the connected EVM address changes.
+	$effect(() => {
+		// touch reactive deps so the effect re-runs on change
+		void walletStore.wallets.evm;
+		void walletStore.chainId;
+		if (faucetAvailable) refreshFaucetStatus();
+	});
 
 	// Compute if user is on an unsupported network
 	let isOnUnsupportedNetwork = $derived.by(() => {
@@ -92,6 +198,14 @@
 			// Error is already stored in walletStore.aztecError
 			console.error("Aztec connection error:", error);
 		}
+	}
+
+	async function handleSelectAccountMode(mode: AztecAccountMode) {
+		await walletStore.setAztecAccountMode(mode);
+	}
+
+	async function handleResetCustomAccount() {
+		await walletStore.resetCustomAztecAccount();
 	}
 
 	async function handleDisconnectAztec() {
@@ -171,6 +285,38 @@
 						</button>
 					{/if}
 
+					<!-- Faucet: claim 0.05 testnet ETH on the current chain -->
+					{#if faucetAvailable && isFaucetSupportedChain}
+						{#if currentChainClaimStatus?.claimed}
+							<div class="w-full py-1.5 px-3 rounded text-xs text-center text-[var(--muted-foreground)] border border-dashed border-[rgba(130,226,102,0.15)]">
+								Faucet already claimed
+								{#if currentChainClaimStatus.txHash}
+									<span class="font-mono opacity-70">({currentChainClaimStatus.txHash.slice(0, 8)}...)</span>
+								{/if}
+							</div>
+						{:else}
+							<button
+								onclick={handleClaimFaucet}
+								disabled={faucetClaiming || faucetLoading}
+								class="cursor-pointer w-full py-1.5 px-3 rounded text-xs font-medium text-[var(--toad-green)] hover:bg-[rgba(130,226,102,0.1)] transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+							>
+								{#if faucetClaiming}
+									<Loader2 class="size-3 animate-spin" />
+									Sending...
+								{:else}
+									<Droplet class="size-3" />
+									Claim 0.05 testnet ETH
+								{/if}
+							</button>
+							{#if faucetError}
+								<div class="text-[0.65rem] text-red-400 text-center">{faucetError}</div>
+							{/if}
+							{#if faucetSuccess}
+								<div class="text-[0.65rem] text-[var(--toad-green)] text-center">{faucetSuccess}</div>
+							{/if}
+						{/if}
+					{/if}
+
 					<button
 						onclick={handleDisconnectEVM}
 						disabled={walletStore.isConnecting}
@@ -225,6 +371,10 @@
 							{walletStore.formatAddress(walletStore.wallets.aztec)}
 						</div>
 
+						<div class="text-[0.6rem] text-[var(--muted-foreground)]">
+							{walletStore.aztecAccountMode === 'sandbox-test' ? 'Sandbox test account' : 'Custom account'}
+						</div>
+
 						<button
 							onclick={handleDisconnectAztec}
 							disabled={walletStore.isConnectingAztec}
@@ -233,31 +383,53 @@
 							Disconnect
 						</button>
 					</div>
-				{:else if !walletStore.isAzguardInstalled}
-					<div class="text-xs text-center text-[var(--muted-foreground)] py-2">
-						<p>Azguard not detected.</p>
-						<a
-							href="https://azguard.io"
-							target="_blank"
-							rel="noopener noreferrer"
-							class="text-[var(--warp-purple)] hover:underline"
-						>
-							Install
-						</a>
-					</div>
 				{:else}
-					<button
-						onclick={handleConnectAztec}
-						disabled={walletStore.isConnectingAztec}
-						class="cursor-pointer w-full py-2 rounded text-xs font-medium border border-[rgba(144,97,249,0.3)] text-[var(--warp-purple)] hover:bg-[rgba(144,97,249,0.1)] transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
-					>
-						{#if walletStore.isConnectingAztec}
-							<Loader2 class="size-3 animate-spin" />
-							Connecting...
-						{:else}
-							Connect
+					<div class="space-y-2">
+						<!-- Account mode toggle: only meaningful in dev mode (sandbox-test only works against sandbox) -->
+						{#if isTestMode}
+							<div class="flex gap-1 text-[0.6rem]">
+								<button
+									onclick={() => handleSelectAccountMode('sandbox-test')}
+									class="cursor-pointer flex-1 py-1 px-2 rounded transition-colors {walletStore.aztecAccountMode === 'sandbox-test' ? 'bg-[rgba(144,97,249,0.2)] text-[var(--warp-purple)]' : 'text-[var(--muted-foreground)] hover:bg-[rgba(255,255,255,0.03)]'}"
+								>
+									Sandbox test
+								</button>
+								<button
+									onclick={() => handleSelectAccountMode('custom')}
+									class="cursor-pointer flex-1 py-1 px-2 rounded transition-colors {walletStore.aztecAccountMode === 'custom' ? 'bg-[rgba(144,97,249,0.2)] text-[var(--warp-purple)]' : 'text-[var(--muted-foreground)] hover:bg-[rgba(255,255,255,0.03)]'}"
+								>
+									My key
+								</button>
+							</div>
 						{/if}
-					</button>
+						<button
+							onclick={handleConnectAztec}
+							disabled={walletStore.isConnectingAztec}
+							class="cursor-pointer w-full py-2 rounded text-xs font-medium border border-[rgba(144,97,249,0.3)] text-[var(--warp-purple)] hover:bg-[rgba(144,97,249,0.1)] transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+						>
+							{#if walletStore.isConnectingAztec}
+								<Loader2 class="size-3 animate-spin" />
+								{walletStore.aztecConnectMessage ?? 'Connecting…'}
+							{:else}
+								Connect
+							{/if}
+						</button>
+						{#if walletStore.isConnectingAztec && walletStore.aztecConnectStage === 'account-deploy'}
+							<p class="text-[0.65rem] text-[var(--muted-foreground)] text-center leading-snug mt-1">
+								Generating client-side ZK proof to deploy your account. This only
+								happens once per key and can take up to a minute.
+							</p>
+						{/if}
+						{#if walletStore.aztecAccountMode === 'custom'}
+							<button
+								onclick={handleResetCustomAccount}
+								disabled={walletStore.isConnectingAztec}
+								class="cursor-pointer w-full py-1 px-2 rounded text-[0.6rem] text-[var(--muted-foreground)] hover:text-red-400 hover:bg-[rgba(239,68,68,0.05)] transition-colors disabled:opacity-50"
+							>
+								Reset custom key
+							</button>
+						{/if}
+					</div>
 				{/if}
 			</div>
 		</div>
@@ -315,6 +487,59 @@
 				</div>
 			</div>
 		{/if}
+
+		<!-- Custom RPC Endpoints -->
+		<div class="pt-2 border-t border-[rgba(255,255,255,0.05)]">
+			<p class="text-[0.65rem] text-[var(--muted-foreground)] mb-1">Custom RPC endpoints (optional)</p>
+			<p class="text-[0.6rem] text-[var(--toad-green)] mb-2">
+				Your URL stays in this browser session. warptoad can't see it.
+			</p>
+			{#each RPC_OVERRIDE_CHAINS as chain}
+				{@const probe = rpcProbeState[chain.chainId]}
+				<div class="mb-3">
+					<div class="flex items-center justify-between mb-1">
+						<label for="rpc-{chain.chainId}" class="text-[0.65rem] text-[var(--muted-foreground)]">{chain.label}</label>
+						{#if rpcSettings.hasCustom(chain.chainId)}
+							<span class="text-[0.6rem] text-[var(--toad-green)]">saved</span>
+						{/if}
+					</div>
+					<div class="flex gap-2">
+						<input
+							id="rpc-{chain.chainId}"
+							type="url"
+							placeholder="https://..."
+							bind:value={rpcDrafts[chain.chainId]}
+							class="flex-1 py-1.5 px-2 rounded text-xs bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.05)] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:border-[var(--toad-green)]"
+						/>
+						<button
+							type="button"
+							onclick={() => handleRpcSave(chain.chainId)}
+							disabled={probe.status === "probing"}
+							class="cursor-pointer py-1.5 px-3 rounded text-xs transition-all disabled:opacity-50 bg-[rgba(130,226,102,0.12)] text-[var(--toad-green)] hover:bg-[rgba(130,226,102,0.2)]"
+						>
+							{probe.status === "probing" ? "..." : "Save"}
+						</button>
+						{#if rpcSettings.hasCustom(chain.chainId) || rpcDrafts[chain.chainId]}
+							<button
+								type="button"
+								onclick={() => handleRpcReset(chain.chainId)}
+								class="cursor-pointer py-1.5 px-3 rounded text-xs transition-all text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[rgba(255,255,255,0.03)]"
+							>
+								Reset
+							</button>
+						{/if}
+					</div>
+					{#if probe.status === "ok"}
+						<p class="mt-1 text-[0.6rem] text-[var(--toad-green)]">{probe.message}</p>
+					{:else if probe.status === "err"}
+						<p class="mt-1 text-[0.6rem] text-red-400">Probe failed: {probe.message}</p>
+					{/if}
+				</div>
+			{/each}
+			<p class="text-[0.6rem] text-[var(--muted-foreground)] leading-snug">
+				Custom endpoints only affect reads. Transactions still go through your wallet.
+			</p>
+		</div>
 
 		<!-- Footer -->
 		{#if walletStore.isBothConnected}

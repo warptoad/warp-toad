@@ -6,8 +6,9 @@ import { L1_CONFIG, L2_SCROLL_CONFIG, getNetworkConfigs, isTestMode } from '$lib
 // Network configurations from environment
 export const NETWORKS: Record<string, ViemChain> = getNetworkConfigs();
 
-// Chain ID to Chain name mapping
-export const CHAIN_ID_TO_NAME: Record<number, Chain> = {
+// Chain ID to Chain name mapping. Use Partial because TS narrows the spread
+// from a conditional `... ? {} : {}` to `Chain | undefined`.
+export const CHAIN_ID_TO_NAME: Partial<Record<number, Chain>> = {
 	[L1_CONFIG.chainId]: 'Ethereum',
 	// Always include anvil for backwards compatibility in test mode
 	...(isTestMode ? { [anvil.id]: 'Ethereum' } : {}),

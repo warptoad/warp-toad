@@ -1,0 +1,141 @@
+import { createPublicClient, createWalletClient, http, type Hex } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { ArgumentParser } from 'argparse';
+
+// local
+import { getL1Contracts, getL2Contracts, getAztecTestWallet } from "./deployment.js";
+import { getLocalRootProviders, getPayableGigaRootRecipients, bridgeBetweenL1AndL2, sleep } from "../lib/bridging.js";
+import { PXE } from '@aztec/pxe/server';
+import { createAztecNodeClient } from '@aztec/aztec.js/node';
+import { getAztecTestAccounts, getAztecWallet, initPXE } from "../deploy/utils/aztecUtilsNoEnv.js";
+import { getInitialTestAccountsData } from '@aztec/accounts/testing';
+
+const AZTEC_NODE_URL = "https://aztec-alpha-testnet-fullnode.zkv.xyz"
+
+
+async function connectAztec(PXE_URL: string, chainId: bigint) {
+    const aztecNode = createAztecNodeClient(PXE_URL);
+    const isSanbox = chainId === 31337n
+    // const PXE = await initPXE(aztecNode, chainId)
+    // //const { wallet, sponsoredPaymentMethod } = await getAztecTestWallet(PXE, chainId,AZTEC_NODE_URL)
+    // const wallet = (await getAztecTestAccounts(aztecNode))[0]
+    const [alice] = await getInitialTestAccountsData()
+    const { wallet, sponsoredPaymentMethod } = await getAztecWallet(PXE_URL, alice, isSanbox)
+    const PXE = await initPXE(aztecNode,chainId) //TOD remove this. No PXE anymore just wallet!
+    return { aztecNode, aztecWallet: wallet, sponsoredPaymentMethod: sponsoredPaymentMethod, PXE:PXE }
+
+}
+
+async function main() {
+    const parser = new ArgumentParser({
+        description: 'quick lil script bridge some root',
+        usage: `TODO`
+    });
+
+    parser.add_argument('-a', '--isAztec', { help: 'is it aztec L2 or EVM L2?', required: false, default: false, action: 'store_true' });
+    parser.add_argument('-ep', '--evmPrivatekey', { help: 'give me ur evmPrivatekey you can trust me! Defaults to standard anvil key', required: false, default: "0x4bbbf85ce3377467afe5d46f804f221813b2bb87f24d81f60f1fcdbf7cbf4356" });
+    // TODO actually use this key. Rn it's using a hardcoded default
+    parser.add_argument('-ap', '--aztecPrivatekey', { help: 'give me ur aztecPrivatekey you can trust me! Defaults to getInitialTestAccountsWallets() but that only works on sandbox', required: false, default: "sandbox" });
+    parser.add_argument('-l', '--localRootProviders', { help: 'a list of contracts to get the local roots from on L1 (can be L1Warptoad or/and any L1<l2name>adapter)', required: false, type: 'str', nargs: "+" });
+    //parser.add_argument('-g', '--gigaRootRecipients', { help: 'a list of contracts to send the gigaRoot to on L1 (can be L1Warptoad or/and any L1<l2name>adapter)', required: false, type: 'str' });
+    parser.add_argument('-L1', '--L1Rpc', { help: 'url for the ethereum L1 rpc', required: false, type: 'str', default: "http://localhost:8545" });
+    parser.add_argument('-L2', '--L2Rpc', { help: 'url for L2 rpc', required: false, type: 'str', default: "http://localhost:8080" });
+    parser.add_argument('-r', '--repeat', { help: 'if set repeatably bridges every 10 min', required: false, default: false, action: 'store_true' });
+
+
+    const args = parser.parse_args()
+
+    // ------------------- process user inputs -------------------
+    const l1Account = privateKeyToAccount(args.evmPrivatekey as Hex);
+    const l1PublicClient = createPublicClient({ transport: http(args.L1Rpc) });
+    const l1Wallet = createWalletClient({ account: l1Account, transport: http(args.L1Rpc) });
+    const l1ChainId = BigInt(await l1PublicClient.getChainId())
+    if (args.evmPrivatekey === "0x4bbbf85ce3377467afe5d46f804f221813b2bb87f24d81f60f1fcdbf7cbf4356" && l1ChainId !== 31337n) { console.warn("default anvil key used on a l1 network that is not chainId 31337!") }
+
+    // aztec is not evm!
+    const l2Data = {} as any; //TODO
+    if (args.isAztec) {
+        const { PXE, aztecWallet, sponsoredPaymentMethod, aztecNode } = await connectAztec(args.L2Rpc, l1ChainId)
+        l2Data.l2Wallet = aztecWallet
+        l2Data.PXE = PXE
+        l2Data.sponsoredPaymentMethod = sponsoredPaymentMethod
+        l2Data.aztecNode = aztecNode
+    } else {
+        const l2Account = privateKeyToAccount(args.evmPrivatekey as Hex);
+        l2Data.l2Provider = createPublicClient({ transport: http(args.L2Rpc) });
+        l2Data.l2Wallet = createWalletClient({ account: l2Account, transport: http(args.L2Rpc) });
+        l2Data.l2ChainId = BigInt(await l2Data.l2Provider.getChainId())
+    }
+    const { l2Provider, l2Wallet, l2ChainId, PXE, sponsoredPaymentMethod } = l2Data
+    //----------------------------------------------------------------
+
+    //------------------- get contract details -------------------------------
+    const localRootProviders = args.localRootProviders ? args.localRootProviders : await getLocalRootProviders(l1ChainId)
+    if (!args.localRootProviders) { console.log("selecting all adapters as gigaRoot recipients. THIS WILL BREAK ON SANDBOX!!!!!!!!!!!!!!!!!!!!!!!!!\n if you dont want that, manually put in the addresses of L1Warptoad and L1AztecAdapter with the flag: --localRootProviders") }
+    const { L1Adapter, gigaBridge, l1Warptoad } = await getL1Contracts(l1ChainId, l2ChainId as bigint, l1PublicClient, l1Wallet, args.isAztec)
+    const { L2Adapter, L2WarpToad } = await getL2Contracts(l2Wallet, l1ChainId, l2ChainId, args.isAztec, PXE as PXE, AZTEC_NODE_URL, l2Data.l2Provider)
+    const payableLocalRootProviders = await getPayableGigaRootRecipients(l1ChainId)
+    //--------------------------------------------------------------------------
+
+    // ----------------------- bridge! ----------------------------------------
+    console.log({ localRootProviders, payableLocalRootProviders })
+    let bridgeIteration = 0
+    const errorsLimit = 1000
+    let errors: any[] = []
+    let lastBridgePromise;
+    console.log("----------------------starting bridging loop----------------------")
+    do {
+        if (errors.length > errorsLimit) {
+            console.log(errors)
+            throw new Error(`ran into too many errors: ${errors.length} errors`, { cause: errors[errors.length - 1] })
+        }
+        bridgeIteration += 1
+        console.log(`starting ${bridgeIteration}th L1<->L2 bridge run`)
+
+        // quick and ugly try and catch wrapper
+        const bridgeBetweenL1AndL2TryCatch = async (inputs: Parameters<typeof bridgeBetweenL1AndL2>) => {
+            try {
+                return await bridgeBetweenL1AndL2(...inputs)
+            } catch (error) {
+                //throw error
+                errors.push(error)
+                console.log(`whoops an error at bridge run: ${bridgeIteration}. Total errors since running: ${errors.length}, error limit: ${errorsLimit} `, error)
+            }
+        }
+        lastBridgePromise = bridgeBetweenL1AndL2TryCatch([
+            l1Wallet,
+            L1Adapter,
+            gigaBridge,
+            L2Adapter,
+            L2WarpToad,
+            localRootProviders,
+            payableLocalRootProviders,
+            {
+                isAztec: args.isAztec,
+                PXE: PXE,
+                sponsoredPaymentMethod: sponsoredPaymentMethod,
+                aztecNode: l2Data.aztecNode,
+                aztecWallet: l2Wallet
+            }
+        ]).then((res) => console.log(`completed ${bridgeIteration}th bridge run`, res?.txHashes))
+
+        if (args.repeat) {
+            await sleep(600000) // 10 min
+        }
+    } while (args.repeat)
+
+    // incase --repeat is not set. We wait!
+    await lastBridgePromise;
+
+
+}
+
+// ESM main-module check (the package is "type": "module").
+import { fileURLToPath } from 'url';
+const isMain = process.argv[1] === fileURLToPath(import.meta.url);
+if (isMain) {
+    main().catch((err) => {
+        console.error(err);
+        process.exit(1);
+    });
+}

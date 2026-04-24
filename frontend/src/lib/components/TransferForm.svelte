@@ -300,7 +300,7 @@
 			</div>
 			<div class="text-xs">
 				<span class="font-medium text-[var(--foreground)]">Wallet Not Connected</span>
-				<span class="text-[var(--muted-foreground)]"> — Connect your {selectedChain} wallet</span>
+				<span class="text-[var(--muted-foreground)]"> -Connect your {selectedChain} wallet</span>
 			</div>
 		</div>
 	{:else if needsNetworkSwitch}
@@ -312,7 +312,7 @@
 			</div>
 			<div class="text-xs">
 				<span class="font-medium text-[var(--foreground)]">Wrong Network</span>
-				<span class="text-[var(--muted-foreground)]"> — Switch to {selectedChain}</span>
+				<span class="text-[var(--muted-foreground)]"> -Switch to {selectedChain}</span>
 			</div>
 		</div>
 	{:else if !isChainAvailable(selectedChain)}
@@ -325,7 +325,7 @@
 			<div class="text-xs">
 				<span class="font-medium text-[var(--foreground)]">{selectedChain} Unavailable</span>
 				{#if selectedChain === "Scroll"}
-					<span class="text-[var(--muted-foreground)]"> — Switch to testnet mode</span>
+					<span class="text-[var(--muted-foreground)]"> -Switch to testnet mode</span>
 				{/if}
 			</div>
 		</div>
@@ -386,20 +386,15 @@
 	<!-- Submit Button -->
 	<button
 		class="w-full py-3 rounded-xl font-semibold text-sm transition-all duration-300 relative overflow-hidden group cursor-pointer
-			{canSubmit
+			{canSubmit || needsNetworkSwitch
 				? 'btn-warp'
 				: 'bg-[var(--swamp-surface)] text-[var(--muted-foreground)] cursor-not-allowed border border-[rgba(130,226,102,0.1)]'
 			}"
-		disabled={!canSubmit}
-		onclick={generateTransfer}
+		disabled={(!canSubmit && !needsNetworkSwitch) || isGenerating}
+		onclick={needsNetworkSwitch ? switchNetwork : generateTransfer}
 	>
 		<span class="relative z-10 flex items-center justify-center gap-1.5">
-			{#if generationStep === "idle"}
-				<svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<path d="M17 3l4 4-4 4" /><path d="M3 11h18" /><path d="M7 21l-4-4 4-4" /><path d="M21 13H3" />
-				</svg>
-				Transfer Privately
-			{:else if generationStep === "preparing"}
+			{#if generationStep === "preparing"}
 				<Loader2 class="size-4 animate-spin" />
 				Preparing...
 			{:else if generationStep === "approving"}
@@ -414,7 +409,12 @@
 			{:else if generationStep === "complete" || generationStep === "done"}
 				<CheckCircle2 class="size-4" />
 				Complete!
+			{:else if needsNetworkSwitch}
+				Switch to {selectedChain}
 			{:else}
+				<svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path d="M17 3l4 4-4 4" /><path d="M3 11h18" /><path d="M7 21l-4-4 4-4" /><path d="M21 13H3" />
+				</svg>
 				Transfer Privately
 			{/if}
 		</span>

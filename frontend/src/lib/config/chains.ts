@@ -13,15 +13,17 @@
 
 import { anvil, sepolia, scrollSepolia, type Chain as ViemChain } from 'viem/chains';
 import type { Chain } from '$lib/types/bridge.js';
+import { CONTRACT_ADDRESSES } from '$lib/contracts/addresses';
 
-// For test mode, import directly from deployed JSON files
-import LocalEvmDeployments from '../../../../backend/ignition/deployments/chain-31337/deployed_addresses.json';
-import LocalAztecDeployments from '../../../../backend/scripts/deploy/aztec/aztecDeployments/31337/deployed_addresses.json';
+// For test mode, import directly from deployed JSON files.
+// Backend layout: deploy/ignition/deployments/<chain> and deploy/aztec/aztecDeployments/<chainId>.
+import LocalEvmDeployments from '../../../../backend/deploy/ignition/deployments/chain-31337/deployed_addresses.json';
+import LocalAztecDeployments from '../../../../backend/deploy/aztec/aztecDeployments/31337/deployed_addresses.json';
 
 // For testnet mode, import from testnet deployment files
-import SepoliaDeployments from '../../../../backend/ignition/deployments/chain-11155111/deployed_addresses.json';
-import ScrollSepoliaDeployments from '../../../../backend/ignition/deployments/chain-534351/deployed_addresses.json';
-import TestnetAztecDeployments from '../../../../backend/scripts/deploy/aztec/aztecDeployments/11155111/deployed_addresses.json';
+import SepoliaDeployments from '../../../../backend/deploy/ignition/deployments/chain-11155111/deployed_addresses.json';
+import ScrollSepoliaDeployments from '../../../../backend/deploy/ignition/deployments/chain-534351/deployed_addresses.json';
+import TestnetAztecDeployments from '../../../../backend/deploy/aztec/aztecDeployments/11155111/deployed_addresses.json';
 
 // ============================================================================
 // Environment Detection
@@ -79,7 +81,7 @@ export interface AztecChainDefinition {
 	type: 'Aztec';
 	role: ChainRole;
 	nodeUrl: string;
-	network: 'sandbox' | 'devnet';
+	network: 'sandbox' | 'devnet' | 'testnet';
 	contracts: AztecChainContracts;
 	enabled: boolean;
 }
@@ -104,7 +106,11 @@ const ETHEREUM_CHAIN: EVMChainDefinition = isTestMode
 		rpcUrl: 'http://localhost:8545',
 		contracts: {
 			warpToad: LocalEvmDeployments['L1WarpToadModule#L1WarpToad'],
-			nativeToken: LocalEvmDeployments['TestToken#USDcoin'],
+			// The L1 ignition deploy doesn't include the test USDcoin (it takes the
+			// native token via NATIVE_TOKEN_ADDRESS env var), so the value lives in
+			// the pull-addresses output `frontend/src/lib/contracts/addresses.ts`.
+			// VITE_LOCAL_USDC_ADDRESS overrides it if set.
+			nativeToken: import.meta.env.VITE_LOCAL_USDC_ADDRESS ?? CONTRACT_ADDRESSES['31337']?.USDcoin ?? '',
 			bridgeAdapter: LocalEvmDeployments['L1InfraModule#L1AztecBridgeAdapter'],
 			gigaBridge: LocalEvmDeployments['L1InfraModule#GigaBridge'],
 		},
@@ -156,7 +162,9 @@ const AZTEC_CHAIN: AztecChainDefinition = isTestMode
 		name: 'Sandbox',
 		type: 'Aztec',
 		role: 'Privacy',
-		nodeUrl: import.meta.env.VITE_AZTEC_NODE_URL || 'http://localhost:8080',
+		// In dev mode, never read VITE_AZTEC_NODE_URL (reserved for testnet).
+		// Use VITE_LOCAL_AZTEC_NODE_URL or fall back to the canonical sandbox port.
+		nodeUrl: import.meta.env.VITE_LOCAL_AZTEC_NODE_URL || 'http://localhost:8080',
 		network: 'sandbox',
 		contracts: {
 			warpToad: {
@@ -176,11 +184,11 @@ const AZTEC_CHAIN: AztecChainDefinition = isTestMode
 	}
 	: {
 		id: 'Aztec',
-		name: 'Devnet',
+		name: 'Testnet',
 		type: 'Aztec',
 		role: 'Privacy',
-		nodeUrl: import.meta.env.VITE_AZTEC_NODE_URL || 'https://next.devnet.aztec-labs.com',
-		network: 'devnet',
+		nodeUrl: import.meta.env.VITE_AZTEC_NODE_URL || 'https://rpc.testnet.aztec-labs.com',
+		network: 'testnet',
 		contracts: {
 			warpToad: {
 				address: TestnetAztecDeployments.AztecWarpToad.address,
@@ -335,11 +343,12 @@ export function getWarpToadAddress(chain: Chain): string | undefined {
 }
 
 /**
- * Get native token address for an EVM chain
+ * Get native token address for an EVM chain (sync, from static config).
+ * Both local-dev and testnet modes are populated via `pull:addresses`.
  */
 export function getNativeTokenAddress(chain: Chain): string | undefined {
 	const def = getEVMChain(chain);
-	return def?.contracts.nativeToken;
+	return def?.contracts.nativeToken || undefined;
 }
 
 /**

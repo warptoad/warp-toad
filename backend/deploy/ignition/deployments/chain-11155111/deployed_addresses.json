@@ -1,0 +1,9 @@
+{
+  "TestToken#USDcoin": "0x7f6023b290dc9dd1c57563a90b2f1ee61efb1cbb",
+  "L1WarpToadModule#L1WarpToad": "0xdcb27f60e93e58c78bbf8fd15c9047b6e93dfc2f",
+  "L1WarpToadModule#WithdrawVerifier": "0x4bf20f53e80cd09a68180f1cc2d57921ee979327",
+  "L1InfraModule#GigaBridge": "0x2c3cd8bca9b9cc324548a30f8f0dac3c0f7f321c",
+  "L1InfraModule#L1WarpToad": "0xdcb27f60e93e58c78bbf8fd15c9047b6e93dfc2f",
+  "L1InfraModule#L1AztecBridgeAdapter": "0xd47b31fc658a9ad871fd63a2057e008bdb78a390",
+  "L1InfraModule#L1ScrollBridgeAdapter": "0xf461acc25ba5ab22ddaf322e59effba9582fcde1"
+}

@@ -46,10 +46,11 @@
 	} from "$lib/utils/scroll-interactions.js";
 	import { getWalletInstance } from "$lib/utils/aztec-wallet.js";
 	import { getEVMChain, isChainEnabled } from "$lib/config/chains.js";
-	import { 
-		triggerBridge, 
-		getChainIdForBridgeKeeper, 
+	import {
+		triggerBridge,
+		getChainIdForBridgeKeeper,
 		getExpectedDuration,
+		isBridgeKeeperEnabled,
 		savePendingBridgeSync 
 	} from "$lib/utils/bridge-keeper.js";
 
@@ -103,7 +104,7 @@
 		if (targetChain === "Aztec") {
 			const aztecWallet = getWalletInstance();
 			if (!aztecWallet) {
-				throw new Error("Aztec wallet not connected. Please connect Azguard wallet first.");
+				throw new Error("Aztec wallet not connected. Please connect the Aztec wallet first.");
 			}
 			// Get the correct Aztec chain ID from the contract
 			// This is computed as poseidon2([salt, aztec_version])
@@ -273,6 +274,15 @@ You can close this page. Your note has been downloaded.`;
 	 * This is called after note generation to automatically sync roots
 	 */
 	async function triggerRootSync() {
+		// In sandbox/local-dev mode the BridgeKeeper service isn't reachable
+		// (and the testnet one at bridge.warptoad.xyz is irrelevant). Skip the
+		// HTTP call entirely; the user runs `pnpm l:sync` / `pnpm l:sync:from-aztec`
+		// manually after burns.
+		if (!isBridgeKeeperEnabled) {
+			console.log("[BridgeKeeper] Skipped (sandbox/local dev mode). Run `pnpm l:sync` manually.");
+			return;
+		}
+
 		generationStep = "triggering-sync";
 		generationMessage = "Initiating root synchronization...";
 
@@ -311,7 +321,7 @@ You can close this page. Your note has been downloaded.`;
 	async function bridgeFromAztecUI(sourceChainId: bigint, destinationChainId: bigint) {
 		const aztecWallet = getWalletInstance();
 		if (!aztecWallet) {
-			throw new Error("Aztec wallet not connected. Please connect Azguard wallet first.");
+			throw new Error("Aztec wallet not connected. Please connect the Aztec wallet first.");
 		}
 		
 		// Get decimals from Aztec contract
@@ -571,7 +581,7 @@ You can close this page. Your note has been downloaded.`;
 			</div>
 			<div class="text-xs">
 				<span class="font-medium text-[var(--foreground)]">Wallet Not Connected</span>
-				<span class="text-[var(--muted-foreground)]"> — Connect your {sourceChain} wallet</span>
+				<span class="text-[var(--muted-foreground)]"> -Connect your {sourceChain} wallet</span>
 			</div>
 		</div>
 	{:else if needsNetworkSwitch}
@@ -583,7 +593,7 @@ You can close this page. Your note has been downloaded.`;
 			</div>
 			<div class="text-xs">
 				<span class="font-medium text-[var(--foreground)]">Wrong Network</span>
-				<span class="text-[var(--muted-foreground)]"> — Switch to {sourceChain}</span>
+				<span class="text-[var(--muted-foreground)]"> -Switch to {sourceChain}</span>
 			</div>
 		</div>
 	{/if}
@@ -650,20 +660,15 @@ You can close this page. Your note has been downloaded.`;
 	<!-- Submit Button -->
 	<button
 		class="w-full py-3 rounded-xl font-semibold text-sm transition-all duration-300 relative overflow-hidden group
-			{canSubmit
+			{canSubmit || needsNetworkSwitch
 				? 'btn-warp cursor-pointer'
 				: 'bg-[var(--swamp-surface)] text-[var(--muted-foreground)] cursor-not-allowed border border-[rgba(130,226,102,0.1)]'
 			}"
-		disabled={!canSubmit}
-		onclick={confirmBridge}
+		disabled={(!canSubmit && !needsNetworkSwitch) || isGenerating}
+		onclick={needsNetworkSwitch ? switchNetwork : confirmBridge}
 	>
 		<span class="relative z-10 flex items-center justify-center gap-1.5">
-			{#if generationStep === "idle"}
-				<svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-					<path d="M4 12h16M4 12l4-4M4 12l4 4M20 12l-4-4M20 12l-4 4" />
-				</svg>
-				Initiate Bridge
-			{:else if generationStep === "preparing"}
+			{#if generationStep === "preparing"}
 				<Loader2 class="size-4 animate-spin" />
 				Preparing...
 			{:else if generationStep === "approving"}
@@ -681,7 +686,12 @@ You can close this page. Your note has been downloaded.`;
 			{:else if generationStep === "complete" || generationStep === "done"}
 				<CheckCircle2 class="size-4" />
 				Complete!
+			{:else if needsNetworkSwitch}
+				Switch to {sourceChain}
 			{:else}
+				<svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+					<path d="M4 12h16M4 12l4-4M4 12l4 4M20 12l-4-4M20 12l-4 4" />
+				</svg>
 				Initiate Bridge
 			{/if}
 		</span>

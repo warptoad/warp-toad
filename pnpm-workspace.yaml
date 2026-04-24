@@ -1,0 +1,6 @@
+packages:
+  - frontend
+  - backend
+  - bridge-sync
+  - relay-service
+  - faucet-service

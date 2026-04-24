@@ -28,7 +28,10 @@
       "$lib/*": [
         "./src/lib/*"
       ],
-      "@backend/aztec/*": [
+      "@backend": [
+        "../backend"
+      ],
+      "@backend/*": [
         "../backend/*"
       ]
     }
