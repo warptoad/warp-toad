@@ -361,6 +361,43 @@ async function getLocalRootEvents(
 }
 
 /**
+ * Find the most recent ReceivedNewLocalRoot event for one provider index at or
+ * before `upToBlock`. GigaBridge.updateGigaRoot only emits the event for the
+ * providers passed into that call; other providers' local roots stay in the
+ * tree from earlier updates. To reconstruct the leaves of a historical
+ * gigaRoot we must walk the log backwards per index, not just look at events
+ * emitted in the construction block.
+ */
+export async function getLatestLocalRootEventForIndex(
+	publicClient: PublicClient,
+	gigaBridgeAddress: string,
+	chainId: number,
+	index: number,
+	upToBlock: bigint
+): Promise<{ localRoot: bigint; index: number; blockNumber: number; eventBlockNumber: bigint } | null> {
+	const fromBlock = getDeploymentBlock(chainId);
+	const logs = await queryEventInChunks({
+		publicClient,
+		contract: { address: gigaBridgeAddress as `0x${string}`, abi: GigaBridgeAbi },
+		eventName: 'ReceivedNewLocalRoot',
+		eventFilterArgs: { localRootIndex: BigInt(index) } as any,
+		firstBlock: fromBlock,
+		lastBlock: upToBlock,
+		reverseOrder: true,
+		maxEvents: 1,
+	});
+
+	if (logs.length === 0) return null;
+	const log = logs[logs.length - 1] as any;
+	return {
+		localRoot: log.args.newLocalRoot as bigint,
+		index: Number(log.args.localRootIndex),
+		blockNumber: Number(log.args.localRootBlockNumber),
+		eventBlockNumber: log.blockNumber,
+	};
+}
+
+/**
  * Query ConstructedNewGigaRoot events from GigaBridge
  * @param filterGigaRoot - If provided, only returns events for this specific gigaRoot value
  */
@@ -788,108 +825,56 @@ async function getGigaMerkleData(
 async function getLocalRootData(
 	publicClient: PublicClient,
 	gigaBridgeAddress: string,
-	warpToadL1Address: string,
+	localRootProviderAddress: string,
 	chainId: number,
 	gigaRoot: bigint
 ): Promise<LocalRootData> {
-	// Get local root index for L1WarpToad
 	const localRootIndexRaw = await publicClient.readContract({
 		address: gigaBridgeAddress as `0x${string}`,
 		abi: GigaBridgeAbi,
 		functionName: 'getLocalRootProvidersIndex',
-		args: [warpToadL1Address as `0x${string}`], //@TODO warpToadL1Address change to be more ambigious for all potential evm chains.
+		args: [localRootProviderAddress as `0x${string}`],
 	});
 	const localRootIndex = Number(localRootIndexRaw);
-	console.log('L1WarpToad local root index:', localRootIndex);
+	console.log(`Local root provider ${localRootProviderAddress} index: ${localRootIndex}`);
 
-	// Get GigaRoot event for THIS SPECIFIC gigaRoot value
-	// This ensures we find the exact transaction that created the gigaRoot stored on Aztec
 	const gigaRootEvents = await getGigaRootEvents(publicClient, gigaBridgeAddress, chainId, gigaRoot);
-
 	if (gigaRootEvents.length === 0) {
-		console.error(`No ConstructedNewGigaRoot event found for gigaRoot: ${gigaRoot}`);
 		throw new Error(
 			`GigaRoot ${gigaRoot} not found in L1 events. ` +
 			'The bridge state may be inconsistent, or the gigaRoot was constructed on a different chain.'
 		);
 	}
 
-	// Get the event for this gigaRoot (should be the most recent one if there are duplicates)
 	const gigaRootEvent = gigaRootEvents[gigaRootEvents.length - 1];
 	const gigaRootBlockNumber = Number(gigaRootEvent.blockNumber);
 	console.log(`Found ConstructedNewGigaRoot event at L1 block ${gigaRootBlockNumber}, tx: ${gigaRootEvent.transactionHash}`);
 
-	// Get transaction receipt to find local root events in the same tx
-	const receipt = await publicClient.getTransactionReceipt({
-		hash: gigaRootEvent.transactionHash,
-	});
+	// Walk events backward from the gigaRoot construction block. The provider's
+	// local root may have been last updated many blocks earlier - if we only
+	// look at events in the construction block we miss it for any provider
+	// that wasn't part of that updateGigaRoot call.
+	const matchingEvent = await getLatestLocalRootEventForIndex(
+		publicClient,
+		gigaBridgeAddress,
+		chainId,
+		localRootIndex,
+		gigaRootEvent.blockNumber
+	);
 
-	// Parse ReceivedNewLocalRoot events from the same transaction
-	// Event: ReceivedNewLocalRoot(uint256 indexed newLocalRoot, uint40 indexed localRootIndex, uint256 localRootBlockNumber)
-	// - topics[0]: event signature hash
-	// - topics[1]: newLocalRoot (indexed, padded to 32 bytes)
-	// - topics[2]: localRootIndex (indexed, uint40 padded to 32 bytes)
-	// - data: localRootBlockNumber (not indexed)
-	let localRoot: bigint | null = null;
-	let localRootL2BlockNumber = 0;
-
-	// Calculate event signature: keccak256("ReceivedNewLocalRoot(uint256,uint40,uint256)")
-	const eventSignature = keccak256(toHex('ReceivedNewLocalRoot(uint256,uint40,uint256)'));
-
-	for (const log of receipt.logs) {
-		try {
-			// Check if this is a ReceivedNewLocalRoot event by matching signature
-			if (log.topics[0] === eventSignature && log.topics.length >= 3 && log.topics[1] && log.topics[2]) {
-				// Indexed parameters are in topics (padded to 32 bytes)
-				const decodedLocalRoot = BigInt(log.topics[1]);
-				const decodedIndex = Number(BigInt(log.topics[2]));
-				// Non-indexed parameter is in data
-				const decodedBlockNumber = log.data ? BigInt(log.data) : 0n;
-
-				console.log(`Found ReceivedNewLocalRoot: index=${decodedIndex}, localRoot=${decodedLocalRoot}, blockNumber=${decodedBlockNumber}`);
-
-				if (decodedIndex === localRootIndex) {
-					localRoot = decodedLocalRoot;
-					localRootL2BlockNumber = Number(decodedBlockNumber);
-					console.log(`Matched local root for L1WarpToad (index ${localRootIndex}): ${localRoot}`);
-					break;
-				}
-			}
-		} catch {
-			continue;
-		}
-	}
-
-	// If we couldn't find it in the transaction, query events directly as fallback
-	if (!localRoot) {
-		console.log('Local root not found in transaction logs, querying events directly...');
-		const localRootEvents = await getLocalRootEvents(
-			publicClient,
-			gigaBridgeAddress,
-			chainId,
-			BigInt(gigaRootBlockNumber)
-		);
-
-		const matchingEvent = localRootEvents.find((e) => e.index === localRootIndex);
-		if (matchingEvent) {
-			localRoot = matchingEvent.localRoot;
-			localRootL2BlockNumber = matchingEvent.blockNumber;
-			console.log(`Found local root from events: ${localRoot} at block ${localRootL2BlockNumber}`);
-		}
-	}
-
-	if (!localRoot) {
-		console.error(`Local root for L1WarpToad (index ${localRootIndex}) not found in gigaRoot construction tx`);
+	if (!matchingEvent) {
 		throw new Error(
-			`Local root for L1WarpToad (index ${localRootIndex}) not found in giga root construction. ` +
-			'The L1 local root may not have been included in this giga root.'
+			`No ReceivedNewLocalRoot event found for index ${localRootIndex} (provider ${localRootProviderAddress}) ` +
+			`at or before block ${gigaRootBlockNumber}. The provider may never have been updated.`
 		);
 	}
+
+	console.log(`Matched local root for index ${localRootIndex}: ${matchingEvent.localRoot} (last updated at L1 block ${matchingEvent.eventBlockNumber})`);
 
 	return {
-		localRoot,
+		localRoot: matchingEvent.localRoot,
 		localRootIndex,
-		localRootBlockNumber: localRootL2BlockNumber,
+		localRootBlockNumber: matchingEvent.blockNumber,
 		gigaRootBlockNumber,
 	};
 }
