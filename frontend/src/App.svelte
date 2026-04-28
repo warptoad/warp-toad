@@ -358,7 +358,7 @@
 					</TabsList>
 				</div>
 
-				<div class="p-4 md:p-6 flex-1 overflow-y-auto md:flex-none md:h-[640px] md:overflow-hidden md:flex md:flex-col">
+				<div class="p-4 md:p-6 flex-1 overflow-y-auto md:flex-none md:h-[640px] md:overflow-hidden md:flex md:flex-col md:transition-[height] md:duration-300 md:ease-out md:has-[.proof-row-details]:h-[760px]">
 					<TabsContent value="transfer" class="mt-0 focus-visible:outline-none focus-visible:ring-0 md:flex-1 md:min-h-0">
 						<TransferForm />
 					</TabsContent>
