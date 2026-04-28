@@ -367,6 +367,12 @@ async function getLocalRootEvents(
  * tree from earlier updates. To reconstruct the leaves of a historical
  * gigaRoot we must walk the log backwards per index, not just look at events
  * emitted in the construction block.
+ *
+ * Uses postQueryFilter rather than RPC-side eventFilterArgs because viem's
+ * named-arg filter on a non-first indexed arg (here: localRootIndex when
+ * newLocalRoot is also indexed and unfiltered) silently returns []. Filtering
+ * client-side on the unfiltered scan output sidesteps the encoding bug and is
+ * still cheap because reverseOrder + maxEvents short-circuits chunking.
  */
 export async function getLatestLocalRootEventForIndex(
 	publicClient: PublicClient,
@@ -376,15 +382,17 @@ export async function getLatestLocalRootEventForIndex(
 	upToBlock: bigint
 ): Promise<{ localRoot: bigint; index: number; blockNumber: number; eventBlockNumber: bigint } | null> {
 	const fromBlock = getDeploymentBlock(chainId);
+	const targetIndex = BigInt(index);
 	const logs = await queryEventInChunks({
 		publicClient,
 		contract: { address: gigaBridgeAddress as `0x${string}`, abi: GigaBridgeAbi },
 		eventName: 'ReceivedNewLocalRoot',
-		eventFilterArgs: { localRootIndex: BigInt(index) } as any,
 		firstBlock: fromBlock,
 		lastBlock: upToBlock,
 		reverseOrder: true,
 		maxEvents: 1,
+		postQueryFilter: (events) =>
+			events.filter((e: any) => BigInt(e.args.localRootIndex) === targetIndex),
 	});
 
 	if (logs.length === 0) return null;
