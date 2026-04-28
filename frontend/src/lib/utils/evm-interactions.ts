@@ -8,6 +8,7 @@ import { poseidon2, poseidon3 } from 'poseidon-lite';
 import { getEVMChain } from '$lib/config/chains';
 import { queryEventInChunks } from './viem-chunks';
 import { getLatestLocalRootEventForIndex } from './aztec-interactions';
+import { tryGetGigaLeavesForRoot } from './bridge-keeper';
 import { rpcSettings } from '$lib/stores/rpc-settings.svelte';
 
 // Field size for BN254 curve (used by Aztec)
@@ -1435,7 +1436,7 @@ export async function getMerkleDataForScrollToL1(
 	console.log(`Found gigaRoot at block ${gigaRootBlock}`);
 
 	// Step 2: Read tree shape and the scroll adapter's index in parallel
-	const [scrollAdapterIndexRaw, amountOfLocalRootsRaw, maxTreeDepthRaw] = await Promise.all([
+	const [scrollAdapterIndexRaw, maxTreeDepthRaw] = await Promise.all([
 		publicClient.readContract({
 			address: addresses.GigaBridge as `0x${string}`,
 			abi: GigaBridgeAbi,
@@ -1445,37 +1446,57 @@ export async function getMerkleDataForScrollToL1(
 		publicClient.readContract({
 			address: addresses.GigaBridge as `0x${string}`,
 			abi: GigaBridgeAbi,
-			functionName: 'amountOfLocalRoots',
-		}),
-		publicClient.readContract({
-			address: addresses.GigaBridge as `0x${string}`,
-			abi: GigaBridgeAbi,
 			functionName: 'maxTreeDepth'
 		})
 	]);
 	const scrollAdapterIndex = Number(scrollAdapterIndexRaw);
-	const amountOfLocalRoots = Number(amountOfLocalRootsRaw);
 	const maxTreeDepth = Number(maxTreeDepthRaw);
 
 	console.log(`L1ScrollBridgeAdapter index in giga tree: ${scrollAdapterIndex}`);
-	console.log(`Reconstructing ${amountOfLocalRoots} giga tree leaves at or before block ${gigaRootBlock}...`);
 
-	// Step 3: Walk events backward per-index. updateGigaRoot only emits
-	// ReceivedNewLocalRoot for the providers passed in that call; other
-	// providers' local roots stay in the tree from earlier updates and
-	// silently flow into the new gigaRoot. So for each index we need its
-	// most-recent event at or before the construction block.
-	const indexEvents = await Promise.all(
-		Array.from({ length: amountOfLocalRoots }, (_, i) =>
-			getLatestLocalRootEventForIndex(
-				publicClient,
-				addresses.GigaBridge as string,
-				l1ChainId,
-				i,
-				gigaRootBlock
+	// Step 3: Get the leaves. Fast path - if the keeper's current state is on
+	// this same gigaRoot, take its snapshot in one HTTP call. Slow path - walk
+	// events backward per-index (used for historical roots or custom-RPC
+	// users). updateGigaRoot only emits ReceivedNewLocalRoot for the providers
+	// passed in that call; other providers' local roots stay in the tree from
+	// earlier updates and silently flow into the new gigaRoot, so we need
+	// each index's most-recent event at or before the construction block.
+	let amountOfLocalRoots: number;
+	const indexLeaves: Array<{ localRoot: bigint; blockNumber: number } | null> = [];
+
+	const keeperLeaves = await tryGetGigaLeavesForRoot(l1ChainId, gigaRoot);
+	if (keeperLeaves) {
+		amountOfLocalRoots = keeperLeaves.amountOfLocalRoots;
+		console.log(`Reconstructing ${amountOfLocalRoots} giga tree leaves via keeper`);
+		for (let i = 0; i < amountOfLocalRoots; i++) {
+			const leaf = keeperLeaves.leaves.get(i);
+			indexLeaves[i] = leaf
+				? { localRoot: leaf.localRoot, blockNumber: leaf.localRootBlockNumber }
+				: null;
+		}
+	} else {
+		amountOfLocalRoots = Number(await publicClient.readContract({
+			address: addresses.GigaBridge as `0x${string}`,
+			abi: GigaBridgeAbi,
+			functionName: 'amountOfLocalRoots',
+		}));
+		console.log(`Reconstructing ${amountOfLocalRoots} giga tree leaves at or before block ${gigaRootBlock} via RPC scan`);
+		const indexEvents = await Promise.all(
+			Array.from({ length: amountOfLocalRoots }, (_, i) =>
+				getLatestLocalRootEventForIndex(
+					publicClient,
+					addresses.GigaBridge as string,
+					l1ChainId,
+					i,
+					gigaRootBlock
+				)
 			)
-		)
-	);
+		);
+		for (let i = 0; i < amountOfLocalRoots; i++) {
+			const e = indexEvents[i];
+			indexLeaves[i] = e ? { localRoot: e.localRoot, blockNumber: e.blockNumber } : null;
+		}
+	}
 
 	const maxLeaves = 2 ** maxTreeDepth;
 	const leaves: bigint[] = new Array(maxLeaves).fill(0n);
@@ -1484,12 +1505,12 @@ export async function getMerkleDataForScrollToL1(
 	let scrollLocalRootBlockNumber = 0;
 
 	for (let i = 0; i < amountOfLocalRoots; i++) {
-		const event = indexEvents[i];
-		if (!event) continue;
-		leaves[i] = event.localRoot;
+		const leaf = indexLeaves[i];
+		if (!leaf) continue;
+		leaves[i] = leaf.localRoot;
 		if (i === scrollAdapterIndex) {
-			scrollLocalRoot = event.localRoot;
-			scrollLocalRootBlockNumber = event.blockNumber;
+			scrollLocalRoot = leaf.localRoot;
+			scrollLocalRootBlockNumber = leaf.blockNumber;
 		}
 	}
 

@@ -6,6 +6,7 @@
  */
 
 import type { Chain } from '$lib/types/bridge.js';
+import { rpcSettings } from '$lib/stores/rpc-settings.svelte';
 
 /**
  * Whether the BridgeKeeper service is reachable from this build.
@@ -138,6 +139,47 @@ export async function fetchGigaStateFromKeeper(chainId: string): Promise<GigaSta
 	const data = await res.json();
 	if (!data?.ok) throw new Error(data?.error ?? 'giga-state endpoint returned ok=false');
 	return data as GigaStateResponse;
+}
+
+export interface CachedGigaLeaves {
+	amountOfLocalRoots: number;
+	/** Indexed by leaf position. Missing entries default to 0n at the call site. */
+	leaves: Map<number, { localRoot: bigint; localRootBlockNumber: number }>;
+}
+
+/**
+ * Fast path for giga-tree leaf reconstruction: returns the keeper's snapshot
+ * iff its current gigaRoot equals the one we want to prove against. Returns
+ * null when the user opted into a custom RPC (we don't know their endpoint to
+ * relay for them), when the keeper is on a different gigaRoot (likely a
+ * historical lookup), or when the keeper request fails. Callers fall back to
+ * client-side event scanning in those cases.
+ */
+export async function tryGetGigaLeavesForRoot(
+	chainId: number,
+	expectedGigaRoot: bigint,
+): Promise<CachedGigaLeaves | null> {
+	if (rpcSettings.isUsingCustom(chainId)) return null;
+	try {
+		const state = await fetchGigaStateFromKeeper(String(chainId));
+		if (BigInt(state.gigaRoot) !== expectedGigaRoot) {
+			console.log(
+				`[keeper] giga-state gigaRoot mismatch (state=${state.gigaRoot.slice(0, 12)}... expected=${expectedGigaRoot.toString().slice(0, 12)}...); falling back to RPC scan`,
+			);
+			return null;
+		}
+		const leaves = new Map<number, { localRoot: bigint; localRootBlockNumber: number }>();
+		for (const leaf of state.leaves) {
+			leaves.set(leaf.index, {
+				localRoot: BigInt(leaf.localRoot),
+				localRootBlockNumber: leaf.localRootBlockNumber,
+			});
+		}
+		return { amountOfLocalRoots: state.amountOfLocalRoots, leaves };
+	} catch (e) {
+		console.warn('[keeper] giga-state fetch failed, falling back to RPC scan:', e);
+		return null;
+	}
 }
 
 /**

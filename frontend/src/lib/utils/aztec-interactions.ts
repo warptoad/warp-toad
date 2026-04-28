@@ -22,7 +22,7 @@ import { getContractAddresses, CONTRACT_ADDRESSES } from '$lib/contracts/address
 import { GigaBridgeAbi, L1WarpToadAbi, L2WarpToadAbi } from '$lib/contracts/abis';
 import { queryEventInChunks } from './viem-chunks';
 import { rpcSettings } from '$lib/stores/rpc-settings.svelte';
-import { fetchGigaStateFromKeeper } from './bridge-keeper';
+import { fetchGigaStateFromKeeper, tryGetGigaLeavesForRoot } from './bridge-keeper';
 import { poseidon1, poseidon2, poseidon3 } from 'poseidon-lite';
 import { MerkleTree, type Element } from 'fixed-merkle-tree';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
@@ -858,10 +858,28 @@ async function getLocalRootData(
 	const gigaRootBlockNumber = Number(gigaRootEvent.blockNumber);
 	console.log(`Found ConstructedNewGigaRoot event at L1 block ${gigaRootBlockNumber}, tx: ${gigaRootEvent.transactionHash}`);
 
-	// Walk events backward from the gigaRoot construction block. The provider's
-	// local root may have been last updated many blocks earlier - if we only
-	// look at events in the construction block we miss it for any provider
-	// that wasn't part of that updateGigaRoot call.
+	// Fast path: if the keeper's current state is on the same gigaRoot we're
+	// proving against, take its leaves directly and skip the per-index event
+	// scan. Saves an RPC round-trip per leaf - matters under the keeper's
+	// /rpc/:chain proxy rate limit.
+	const keeperLeaves = await tryGetGigaLeavesForRoot(chainId, gigaRoot);
+	if (keeperLeaves) {
+		const leaf = keeperLeaves.leaves.get(localRootIndex);
+		if (leaf) {
+			console.log(`Matched local root for index ${localRootIndex} via keeper: ${leaf.localRoot}`);
+			return {
+				localRoot: leaf.localRoot,
+				localRootIndex,
+				localRootBlockNumber: leaf.localRootBlockNumber,
+				gigaRootBlockNumber,
+			};
+		}
+	}
+
+	// Fallback: walk events backward from the construction block. The
+	// provider's local root may have been last updated many blocks earlier;
+	// looking only at the construction block misses providers that weren't
+	// part of that specific updateGigaRoot call.
 	const matchingEvent = await getLatestLocalRootEventForIndex(
 		publicClient,
 		gigaBridgeAddress,
@@ -877,7 +895,7 @@ async function getLocalRootData(
 		);
 	}
 
-	console.log(`Matched local root for index ${localRootIndex}: ${matchingEvent.localRoot} (last updated at L1 block ${matchingEvent.eventBlockNumber})`);
+	console.log(`Matched local root for index ${localRootIndex} via scan: ${matchingEvent.localRoot} (last updated at L1 block ${matchingEvent.eventBlockNumber})`);
 
 	return {
 		localRoot: matchingEvent.localRoot,
