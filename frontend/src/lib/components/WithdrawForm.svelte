@@ -1030,23 +1030,33 @@
 		const localRoot = await getL1LocalRoot(chainId);
 		console.log("L1 LocalRoot:", localRoot.toString());
 
-		// Step 3: Get Scroll merkle data (burn proof)
+		// Step 3: Get GigaBridge data first - we need the L2 block recorded with
+		// Scroll's local root so the burn proof can be anchored at the same
+		// state. If we instead built the burn tree at the live Scroll head, any
+		// burn that landed between the keeper's last push and now would advance
+		// the live local root past the giga-recorded one, the merkle path
+		// would hash to a different root, and the circuit would fail with
+		// "Cannot satisfy constraint" mid-proof-generation.
 		withdrawStep = "building-proofs";
-		withdrawMessage = "Getting Scroll burn proof...";
-
-		const { evmMerkleData: scrollEvmMerkleData, aztecWarptoadAddress, localRootBlockNumber } =
-			await getEvmMerkleDataForScroll(commitment);
-
-		console.log("Scroll EVM merkle data:", scrollEvmMerkleData);
-
-		// Step 4: Get GigaBridge data (Scroll local root in gigaRoot)
 		withdrawMessage = "Getting Scroll local root from GigaBridge...";
 
 		const { scrollLocalRoot, scrollLocalRootBlockNumber, gigaMerkleData } =
 			await getMerkleDataForScrollToL1(chainId, gigaRoot);
 
 		console.log("Scroll local root:", scrollLocalRoot.toString());
+		console.log("Scroll local root block number:", scrollLocalRootBlockNumber);
 		console.log("Giga merkle data:", gigaMerkleData);
+
+		// Step 4: Build the Scroll burn proof anchored at the giga-recorded
+		// block. The reconstructed tree's root must equal scrollLocalRoot
+		// (verified inside getEvmMerkleDataForScroll) for the circuit to be
+		// satisfiable.
+		withdrawMessage = "Getting Scroll burn proof...";
+
+		const { evmMerkleData: scrollEvmMerkleData, aztecWarptoadAddress } =
+			await getEvmMerkleDataForScroll(commitment, scrollLocalRootBlockNumber);
+
+		console.log("Scroll EVM merkle data:", scrollEvmMerkleData);
 
 		// Step 5: Prepare proof inputs
 		withdrawMessage = "Preparing proof inputs...";
