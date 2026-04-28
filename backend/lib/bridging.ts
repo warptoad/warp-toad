@@ -133,23 +133,25 @@ export async function getPayableGigaRootRecipients(chainId: bigint): Promise<Add
 export async function getL1ClaimDataScrollBridgeApi(
     l2BridgeInitiationContract: Address,
     txHash?: Hex,
-    pageSize = 10,
+    _pageSize = 10,
     apiBase: string = SCROLL_BRIDGE_API_BASE_SEPOLIA,
 ): Promise<any> {
-    let page = 1;
-    while (true) {
-        const url = `${apiBase}/l2/unclaimed/withdrawals?address=${l2BridgeInitiationContract}&page=${page}&page_size=${pageSize}`;
-        const apiRes = await fetch(url);
-        const apiResJson = (await apiRes.json()) as any;
-        const results = apiResJson?.data?.results;
-        if (results === null || results === undefined) return undefined;
-        const found = txHash
-            ? results.find((v: any) => v.hash === txHash)
-            : results[0];
-        if (found !== undefined) return found;
-        if (results.length < pageSize) return undefined;
-        page += 1;
+    // Use /txsbyhashes, not /l2/unclaimed/withdrawals: the latter only indexes
+    // token/ETH transfers, so pure messaging txs (value=0, message_type=2)
+    // like sentLocalRootToL1 never appear there and the poll spins forever.
+    if (!txHash) {
+        throw new Error('getL1ClaimDataScrollBridgeApi: txHash is required');
     }
+    const url = `${apiBase}/txsbyhashes`;
+    const apiRes = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ txs: [txHash] }),
+    });
+    const apiResJson = (await apiRes.json()) as any;
+    const results = apiResJson?.data?.results;
+    if (!results || results.length === 0) return undefined;
+    return results[0];
 }
 
 export async function getClaimDataScroll(
@@ -197,6 +199,20 @@ export async function claimL1WithdrawScroll(
     return { tx, hash };
 }
 
+/**
+ * Optional resume state for a previously-sent Scroll L2→L1 root message. If
+ * supplied, `bridgeEVMLocalRootToL1` skips the L2 send and picks up at the
+ * bridge-API poll. Used by bridge-sync to survive container restarts during
+ * the multi-hour Scroll finalization wait.
+ */
+export interface ScrollRootSendResume {
+    l2TxHashHex: Hex;
+}
+
+/** Invoked right after a fresh `sentLocalRootToL1` tx is mined on Scroll, so
+ * the caller can persist the tx hash before the long poll begins. */
+export type OnScrollRootSent = (state: ScrollRootSendResume) => void | Promise<void>;
+
 export async function bridgeEVMLocalRootToL1(
     l1PublicClient: PublicClient,
     l1WalletClient: WalletClient,
@@ -204,6 +220,8 @@ export async function bridgeEVMLocalRootToL1(
     l2WalletClient: WalletClient,
     L2Adapter: L2ScrollBridgeAdapter,
     confirmations = 3,
+    resumeFrom?: ScrollRootSendResume,
+    onSent?: OnScrollRootSent,
 ) {
     const l2ChainId = BigInt(await l2PublicClient.getChainId());
     if (l2ChainId !== SCROLL_CHAINID_SEPOLIA && l2ChainId !== SCROLL_CHAINID_MAINNET) {
@@ -211,14 +229,31 @@ export async function bridgeEVMLocalRootToL1(
     }
     const apiBase = l2ChainId === SCROLL_CHAINID_MAINNET ? SCROLL_BRIDGE_API_BASE_MAINNET : SCROLL_BRIDGE_API_BASE_SEPOLIA;
 
-    const l2Hash = await L2Adapter.write.sentLocalRootToL1([], {
-        account: l2WalletClient.account,
-        chain: l2WalletClient.chain,
-    });
-    const L2ToL1Tx = await l2PublicClient.waitForTransactionReceipt({ hash: l2Hash, confirmations });
-    console.log(`[scroll] local root sent to L1 at L2 tx ${L2ToL1Tx.transactionHash}; polling bridge API for claim proof...`);
+    let l2TxHash: Hex;
+    if (resumeFrom) {
+        l2TxHash = resumeFrom.l2TxHashHex;
+        console.log(`[scroll] resuming from previously-sent L2 tx ${l2TxHash}`);
+    } else {
+        const sentHash = await L2Adapter.write.sentLocalRootToL1([], {
+            account: l2WalletClient.account,
+            chain: l2WalletClient.chain,
+        });
+        const L2ToL1Tx = await l2PublicClient.waitForTransactionReceipt({ hash: sentHash, confirmations });
+        l2TxHash = L2ToL1Tx.transactionHash;
+        console.log(`[scroll] local root sent to L1 at L2 tx ${l2TxHash}; polling bridge API for claim proof...`);
+        if (onSent) {
+            // Persist BEFORE the multi-hour poll so a crash between here and
+            // claim-finalization is recoverable. Best-effort: a callback that
+            // throws is logged but doesn't block the leg.
+            try {
+                await onSent({ l2TxHashHex: l2TxHash });
+            } catch (e) {
+                console.warn('[scroll] onSent callback threw:', e);
+            }
+        }
+    }
 
-    const claimInfo = await getClaimDataScroll(L2Adapter.address as Address, L2ToL1Tx.transactionHash, 60_000, apiBase);
+    const claimInfo = await getClaimDataScroll(L2Adapter.address as Address, l2TxHash, 60_000, apiBase);
     console.log(`[scroll] claim proof ready; relaying on L1`);
     const { tx } = await claimL1WithdrawScroll(l1PublicClient, l1WalletClient, claimInfo, confirmations);
     return { sendRootToL1Tx: tx, sendRootToL1TxHash: tx.transactionHash };

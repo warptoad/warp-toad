@@ -61,6 +61,11 @@ import {
 import { getChainConfig } from './chainMapper.js';
 import type { SyncRequirements } from './syncRequirements.js';
 import { loadPending, savePending, clearPending } from './aztecPending.js';
+import {
+  loadPending as loadScrollPending,
+  savePending as saveScrollPending,
+  clearPending as clearScrollPending,
+} from './scrollPending.js';
 
 /**
  * Module-level Aztec wallet cache.
@@ -314,6 +319,30 @@ export async function runSyncCycle(
   let scrollLeg: FullSyncResult['scroll'] = null;
   if (requirements.needScrollL2ToL1) {
     console.log('[sync] step 2: pushing Scroll local root → L1');
+
+    // Resume-from-disk: if a previous cycle sent the L2 tx but crashed
+    // before the claim proof was ready, the saved hash lets us pick up at
+    // the API poll instead of restarting the 1-3h finalization clock.
+    let scrollResumeFrom: { l2TxHashHex: Hex } | undefined;
+    const scrollPending = loadScrollPending(l1ChainId);
+    if (scrollPending) {
+      try {
+        const receipt = await scrollState!.l2PublicClient.getTransactionReceipt({
+          hash: scrollPending.l2TxHashHex as Hex,
+        });
+        if (receipt && receipt.status === 'success') {
+          scrollResumeFrom = { l2TxHashHex: scrollPending.l2TxHashHex as Hex };
+          console.log(`[sync] resuming scroll leg from pending L2 tx ${scrollPending.l2TxHashHex}`);
+        } else {
+          console.log(`[sync] pending scroll L2 tx ${scrollPending.l2TxHashHex} not found or failed, dropping and starting fresh`);
+          clearScrollPending(l1ChainId);
+        }
+      } catch (e) {
+        console.warn('[sync] could not verify pending scroll L2 tx, starting fresh:', e);
+        clearScrollPending(l1ChainId);
+      }
+    }
+
     const r = await withTimeout(
       bridgeEVMLocalRootToL1(
         l1PublicClient as any,
@@ -322,10 +351,15 @@ export async function runSyncCycle(
         scrollState!.l2WalletClient,
         scrollState!.L2Adapter,
         conf,
+        scrollResumeFrom,
+        async (state) => {
+          saveScrollPending(l1ChainId, { ...state, createdAtMs: Date.now() });
+        },
       ),
       SCROLL_LEG_TIMEOUT_MS,
       'Scroll L2→L1',
     );
+    clearScrollPending(l1ChainId);
     scrollLeg = {
       sendRootToL1TxHash: r.sendRootToL1TxHash,
       receiveGigaRootTxHash: '',
