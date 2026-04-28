@@ -1983,9 +1983,9 @@
 	}
 </script>
 
-<div class="space-y-3">
+<div class="space-y-3 md:h-full md:flex md:flex-col md:gap-3 md:space-y-0">
 	<!-- File Upload Section -->
-	<div class="space-y-2">
+	<div class="space-y-2 md:flex-none">
 		<div class="flex items-center gap-1.5 mb-1">
 			<div class="w-0.5 h-3 bg-[var(--warp-purple)] rounded-full"></div>
 			<span class="text-[0.65rem] font-semibold text-[var(--warp-purple-muted)] uppercase tracking-widest">Upload Proof</span>
@@ -2024,15 +2024,15 @@
 	</div>
 
 	<!-- Divider -->
-	<div class="flex items-center gap-3 py-1">
+	<div class="flex items-center gap-3 py-1 md:flex-none">
 		<div class="h-px flex-1 bg-[rgba(144,97,249,0.15)]"></div>
 		<span class="text-[0.65rem] text-[var(--muted-foreground)]">or select from saved</span>
 		<div class="h-px flex-1 bg-[rgba(144,97,249,0.15)]"></div>
 	</div>
 
 	<!-- Proof Table -->
-	<div class="space-y-2">
-		<div class="flex items-center gap-1.5">
+	<div class="space-y-2 md:flex-1 md:min-h-0 md:flex md:flex-col md:gap-2 md:space-y-0">
+		<div class="flex items-center gap-1.5 md:flex-none">
 			<div class="w-0.5 h-3 bg-[var(--toad-green)] rounded-full"></div>
 			<span class="text-[0.65rem] font-semibold text-[var(--toad-green-muted)] uppercase tracking-widest">Saved Proofs</span>
 		</div>

@@ -21,6 +21,7 @@
 		Loader2,
 		CheckCircle2,
 	} from "@lucide/svelte";
+	import { badgeVariants } from "$lib/components/ui/badge/index.js";
 	import { walletStore } from "$lib/stores/wallets.svelte.js";
 	import { proofStore } from "$lib/stores/proofs.svelte.js";
 	import { balanceStore } from "$lib/stores/balances.svelte.js";
@@ -459,6 +460,20 @@ You can close this page. Your note has been downloaded.`;
 </script>
 
 <div class="space-y-3">
+	<!-- Info Banner -->
+	<div class="p-2.5 rounded-lg border border-border bg-background/40 backdrop-blur-sm">
+		<p class="text-[0.65rem] text-muted-foreground">
+			<span class="text-foreground font-medium">Private bridging</span> across chains. The recipient withdraws on the destination chain using the generated note.
+		</p>
+	</div>
+
+	<!-- Source / swap / target group: own flex-col so the swap button can
+	     overlap symmetrically. Putting these in space-y-3 gave space-y a
+	     higher-specificity margin-top on "You Receive" that any -my override
+	     on the swap div couldn't cancel, leaving the button drifted toward
+	     the receive card. flex-col has no inter-item margins, so -my-1.5 on
+	     the swap div produces 6px overlap on each side. -->
+	<div class="flex flex-col">
 	<!-- Source Section (You Send) -->
 	<div class="swamp-card-source">
 		<div class="swamp-card-inner">
@@ -511,7 +526,7 @@ You can close this page. Your note has been downloaded.`;
 				/>
 				<button
 					onclick={setMaxAmount}
-					class="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-[0.65rem] font-semibold text-[var(--toad-green)] bg-[rgba(130,226,102,0.08)] hover:bg-[rgba(130,226,102,0.15)] rounded transition-colors uppercase tracking-wider border border-[rgba(130,226,102,0.2)]"
+					class="{badgeVariants({ variant: 'default' })} absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer hover:bg-primary/90"
 				>
 					Max
 				</button>
@@ -569,6 +584,7 @@ You can close this page. Your note has been downloaded.`;
 				</div>
 			</div>
 		</div>
+	</div>
 	</div>
 
 	<!-- Validation Messages -->

@@ -150,13 +150,14 @@
 	}
 </script>
 
+<div class="md:h-full md:flex md:flex-col md:min-h-0">
 {#if proofStore.allProofs.length === 0}
 	<div class="text-center py-8 text-muted-foreground">
 		No proofs found. Bridge some funds first!
 	</div>
 {:else}
 	<!-- Batch Action Bar -->
-	<div class="flex items-center justify-between mb-3 px-1">
+	<div class="flex items-center justify-between mb-3 px-1 md:flex-none">
 		<div class="text-sm text-muted-foreground">
 			{#if selectedProofIds.size > 0}
 				<span class="font-medium text-[var(--toad-green)]">{selectedProofIds.size}</span> selected
@@ -188,9 +189,15 @@
 	</div>
 
 	<!-- Proof Table -->
-	<div class="rounded-sm border overflow-x-auto">
+	<!--
+		[&>div]:overflow-x-visible defeats the inner <Table> wrapper's
+		auto-overflow so sticky thead resolves to THIS scroll container,
+		not the inner one. Horizontal overflow still scrolls because the
+		outer div has overflow-x-auto.
+	-->
+	<div class="rounded-sm border overflow-x-auto md:flex-1 md:min-h-0 md:overflow-y-auto [&>div]:overflow-x-visible">
 		<Table>
-			<TableHeader>
+			<TableHeader class="sticky top-0 bg-card z-20">
 				<TableRow>
 					<TableHead class="w-[36px] proof-select-col">
 						<input
@@ -270,6 +277,7 @@
 		</Table>
 	</div>
 {/if}
+</div>
 
 <!-- Delete Confirmation Dialog -->
 <Dialog bind:open={deleteDialogOpen}>

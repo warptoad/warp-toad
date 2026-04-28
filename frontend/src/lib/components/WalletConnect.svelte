@@ -237,7 +237,7 @@
 </script>
 
 <Dialog bind:open>
-	<DialogContent class="sm:max-w-[580px] bg-[var(--swamp-card)] border border-[rgba(255,255,255,0.08)] shadow-2xl">
+	<DialogContent class="sm:max-w-2xl bg-[var(--swamp-card)] border border-[rgba(255,255,255,0.08)] shadow-2xl">
 		<DialogHeader>
 			<DialogTitle class="text-lg font-semibold text-[var(--foreground)]">
 				Wallets
@@ -246,73 +246,72 @@
 
 		<div class="grid grid-cols-1 md:grid-cols-2 gap-3 py-3">
 			<!-- EVM Wallet Section -->
-			<div class="rounded-lg border border-[rgba(130,226,102,0.15)] bg-[var(--swamp-deep)] p-4 space-y-3">
+			<div class="rounded-xl border border-border bg-card/60 backdrop-blur-md p-4 space-y-3">
 				<div class="flex items-center gap-2.5">
-					<div class="p-2 rounded-md bg-[rgba(130,226,102,0.1)]">
-						<Wallet class="size-4 text-[var(--toad-green)]" />
+					<div class="p-2 rounded-md bg-[color:var(--color-accent)]/10">
+						<Wallet class="size-4" style="color: var(--color-accent)" />
 					</div>
-					<div>
-						<h3 class="text-sm font-medium text-[var(--foreground)]">EVM</h3>
-						<p class="text-[0.65rem] text-[var(--muted-foreground)]">Ethereum & L2</p>
-					</div>
+					{#if walletStore.isEVMConnected}
+						<div class="flex-1 h-8 flex items-center gap-2 px-3 rounded-full text-xs font-mono bg-background/90 backdrop-blur-md border border-border">
+							<div class="w-1.5 h-1.5 rounded-full shrink-0" style="background: var(--color-accent)"></div>
+							<span class="shrink-0">EVM</span>
+							<span class="opacity-70 flex-1 text-center">{walletStore.formatAddress(walletStore.wallets.evm)}</span>
+						</div>
+					{:else}
+						<div>
+							<h3 class="text-sm font-medium text-foreground">EVM</h3>
+							<p class="text-[0.65rem] text-muted-foreground">Ethereum & L2</p>
+						</div>
+					{/if}
 				</div>
 
 					{#if walletStore.isEVMConnected}
+				{@const showMint = walletStore.chainName && walletStore.chainName !== 'Aztec' && walletStore.chainName !== 'Scroll'}
+				{@const showFaucet = faucetAvailable && isFaucetSupportedChain}
 				<div class="space-y-2">
-					<div class="font-mono text-xs text-[var(--toad-green)]">
-						{walletStore.formatAddress(walletStore.wallets.evm)}
-					</div>
-
-					{#if walletStore.chainName}
-						<div class="text-[0.65rem] text-[var(--muted-foreground)]">
-							on <span class="text-[var(--foreground)]">{walletStore.chainName}</span>
-						</div>
-					{/if}
-
-					{#if walletStore.chainName && walletStore.chainName !== 'Aztec' && walletStore.chainName !== 'Scroll'}
-						<button
-							onclick={async () => {
-								const currentChain = walletStore.chainName;
-								if (currentChain) {
-									await mintFreeTokens("USDC", currentChain, 100);
-									await balanceStore.refresh();
-								}
-							}}
-							class="cursor-pointer w-full py-1.5 px-3 rounded text-xs font-medium text-[var(--toad-green)] hover:bg-[rgba(130,226,102,0.1)] transition-colors flex items-center justify-center gap-1.5"
-						>
-							<Zap class="size-3" />
-							Mint Test USDC
-						</button>
-					{/if}
-
-					<!-- Faucet: claim 0.05 testnet ETH on the current chain -->
-					{#if faucetAvailable && isFaucetSupportedChain}
-						{#if currentChainClaimStatus?.claimed}
-							<div class="w-full py-1.5 px-3 rounded text-xs text-center text-[var(--muted-foreground)] border border-dashed border-[rgba(130,226,102,0.15)]">
-								Faucet already claimed
-								{#if currentChainClaimStatus.txHash}
-									<span class="font-mono opacity-70">({currentChainClaimStatus.txHash.slice(0, 8)}...)</span>
-								{/if}
-							</div>
-						{:else}
-							<button
-								onclick={handleClaimFaucet}
-								disabled={faucetClaiming || faucetLoading}
-								class="cursor-pointer w-full py-1.5 px-3 rounded text-xs font-medium text-[var(--toad-green)] hover:bg-[rgba(130,226,102,0.1)] transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
-							>
-								{#if faucetClaiming}
-									<Loader2 class="size-3 animate-spin" />
-									Sending...
+					{#if showMint || showFaucet}
+						<div class="flex gap-2">
+							{#if showMint}
+								<button
+									onclick={async () => {
+										const currentChain = walletStore.chainName;
+										if (currentChain) {
+											await mintFreeTokens("USDC", currentChain, 100);
+											await balanceStore.refresh();
+										}
+									}}
+									class="cursor-pointer flex-1 h-9 rounded-full text-xs font-medium bg-background/90 backdrop-blur-md border border-border hover:border-[color:var(--color-accent)] hover:text-[color:var(--color-accent)] transition-colors flex items-center justify-center"
+								>
+									Mint Test USDC
+								</button>
+							{/if}
+							{#if showFaucet}
+								{#if currentChainClaimStatus?.claimed}
+									<div class="flex-1 min-w-0 h-9 px-3 rounded-full text-xs flex items-center justify-center text-muted-foreground border border-dashed border-border truncate">
+										Claimed{#if currentChainClaimStatus.txHash}<span class="font-mono opacity-70 ml-1">({currentChainClaimStatus.txHash.slice(0, 8)}...)</span>{/if}
+									</div>
 								{:else}
-									<Droplet class="size-3" />
-									Claim 0.05 testnet ETH
+									<button
+										onclick={handleClaimFaucet}
+										disabled={faucetClaiming || faucetLoading}
+										class="cursor-pointer flex-1 h-9 rounded-full text-xs font-medium bg-background/90 backdrop-blur-md border border-border hover:border-[color:var(--color-accent)] hover:text-[color:var(--color-accent)] transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+									>
+										{#if faucetClaiming}
+											<Loader2 class="size-3 animate-spin" />
+											Sending...
+										{:else}
+											Claim 0.05 ETH
+										{/if}
+									</button>
 								{/if}
-							</button>
+							{/if}
+						</div>
+						{#if showFaucet && !currentChainClaimStatus?.claimed}
 							{#if faucetError}
 								<div class="text-[0.65rem] text-red-400 text-center">{faucetError}</div>
 							{/if}
 							{#if faucetSuccess}
-								<div class="text-[0.65rem] text-[var(--toad-green)] text-center">{faucetSuccess}</div>
+								<div class="text-[0.65rem] text-center" style="color: var(--color-accent)">{faucetSuccess}</div>
 							{/if}
 						{/if}
 					{/if}
@@ -320,19 +319,20 @@
 					<button
 						onclick={handleDisconnectEVM}
 						disabled={walletStore.isConnecting}
-						class="cursor-pointer w-full py-1.5 px-3 rounded text-xs text-[var(--muted-foreground)] hover:text-red-400 hover:bg-[rgba(239,68,68,0.05)] transition-colors disabled:opacity-50"
+						class="cursor-pointer w-full h-9 rounded-full text-xs font-medium bg-background/90 backdrop-blur-md border border-border text-muted-foreground hover:border-red-400/60 hover:text-red-400 transition-colors disabled:opacity-50 flex items-center justify-center"
 					>
 						Disconnect
 					</button>
 				</div>
 			{:else if !walletStore.isWalletInstalled}
-				<div class="text-xs text-center text-[var(--muted-foreground)] py-2">
+				<div class="text-xs text-center text-muted-foreground py-2">
 					<p>No wallet detected.</p>
 					<a
 						href="https://metamask.io/download/"
 						target="_blank"
 						rel="noopener noreferrer"
-						class="text-[var(--toad-green)] hover:underline"
+						class="hover:underline"
+						style="color: var(--color-accent)"
 					>
 						Install MetaMask
 					</a>
@@ -341,7 +341,7 @@
 				<button
 					onclick={handleConnectEVM}
 					disabled={walletStore.isConnecting}
-					class="cursor-pointer w-full py-2 rounded text-xs font-medium border border-[rgba(130,226,102,0.3)] text-[var(--toad-green)] hover:bg-[rgba(130,226,102,0.1)] transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+					class="cursor-pointer w-full h-9 rounded-full text-xs font-medium bg-background/90 backdrop-blur-md border border-[color:var(--color-accent)] text-[color:var(--color-accent)] hover:bg-[color:var(--color-accent)]/10 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
 				>
 					{#if walletStore.isConnecting}
 						<Loader2 class="size-3 animate-spin" />
@@ -354,31 +354,31 @@
 			</div>
 
 			<!-- Aztec Wallet Section -->
-			<div class="rounded-lg border border-[rgba(144,97,249,0.15)] bg-[var(--swamp-deep)] p-4 space-y-3">
+			<div class="rounded-xl border border-border bg-card/60 backdrop-blur-md p-4 space-y-3">
 				<div class="flex items-center gap-2.5">
-					<div class="p-2 rounded-md bg-[rgba(144,97,249,0.1)]">
-						<Shield class="size-4 text-[var(--warp-purple)]" />
+					<div class="p-2 rounded-md bg-[color:var(--color-accent)]/10">
+						<Shield class="size-4" style="color: var(--color-accent)" />
 					</div>
-					<div>
-						<h3 class="text-sm font-medium text-[var(--foreground)]">Aztec</h3>
-						<p class="text-[0.65rem] text-[var(--muted-foreground)]">Private</p>
-					</div>
+					{#if walletStore.isAztecConnected}
+						<div class="flex-1 h-8 flex items-center gap-2 px-3 rounded-full text-xs font-mono bg-background/90 backdrop-blur-md border border-border">
+							<div class="w-1.5 h-1.5 rounded-full shrink-0" style="background: var(--color-accent)"></div>
+							<span class="shrink-0">Aztec</span>
+							<span class="opacity-70 flex-1 text-center">{walletStore.formatAddress(walletStore.wallets.aztec)}</span>
+						</div>
+					{:else}
+						<div>
+							<h3 class="text-sm font-medium text-foreground">Aztec</h3>
+							<p class="text-[0.65rem] text-muted-foreground">Private</p>
+						</div>
+					{/if}
 				</div>
 
 				{#if walletStore.isAztecConnected}
 					<div class="space-y-2">
-						<div class="font-mono text-xs text-[var(--warp-purple)]">
-							{walletStore.formatAddress(walletStore.wallets.aztec)}
-						</div>
-
-						<div class="text-[0.6rem] text-[var(--muted-foreground)]">
-							{walletStore.aztecAccountMode === 'sandbox-test' ? 'Sandbox test account' : 'Custom account'}
-						</div>
-
 						<button
 							onclick={handleDisconnectAztec}
 							disabled={walletStore.isConnectingAztec}
-							class="cursor-pointer w-full py-1.5 px-3 rounded text-xs text-[var(--muted-foreground)] hover:text-red-400 hover:bg-[rgba(239,68,68,0.05)] transition-colors disabled:opacity-50"
+							class="cursor-pointer w-full h-9 rounded-full text-xs font-medium bg-background/90 backdrop-blur-md border border-border text-muted-foreground hover:border-red-400/60 hover:text-red-400 transition-colors disabled:opacity-50 flex items-center justify-center"
 						>
 							Disconnect
 						</button>
@@ -387,16 +387,16 @@
 					<div class="space-y-2">
 						<!-- Account mode toggle: only meaningful in dev mode (sandbox-test only works against sandbox) -->
 						{#if isTestMode}
-							<div class="flex gap-1 text-[0.6rem]">
+							<div class="flex gap-2 text-xs">
 								<button
 									onclick={() => handleSelectAccountMode('sandbox-test')}
-									class="cursor-pointer flex-1 py-1 px-2 rounded transition-colors {walletStore.aztecAccountMode === 'sandbox-test' ? 'bg-[rgba(144,97,249,0.2)] text-[var(--warp-purple)]' : 'text-[var(--muted-foreground)] hover:bg-[rgba(255,255,255,0.03)]'}"
+									class="cursor-pointer flex-1 h-9 rounded-full font-medium bg-background/90 backdrop-blur-md border transition-colors flex items-center justify-center {walletStore.aztecAccountMode === 'sandbox-test' ? 'border-[color:var(--color-accent)] text-[color:var(--color-accent)]' : 'border-border text-muted-foreground hover:border-[color:var(--color-accent)] hover:text-[color:var(--color-accent)]'}"
 								>
 									Sandbox test
 								</button>
 								<button
 									onclick={() => handleSelectAccountMode('custom')}
-									class="cursor-pointer flex-1 py-1 px-2 rounded transition-colors {walletStore.aztecAccountMode === 'custom' ? 'bg-[rgba(144,97,249,0.2)] text-[var(--warp-purple)]' : 'text-[var(--muted-foreground)] hover:bg-[rgba(255,255,255,0.03)]'}"
+									class="cursor-pointer flex-1 h-9 rounded-full font-medium bg-background/90 backdrop-blur-md border transition-colors flex items-center justify-center {walletStore.aztecAccountMode === 'custom' ? 'border-[color:var(--color-accent)] text-[color:var(--color-accent)]' : 'border-border text-muted-foreground hover:border-[color:var(--color-accent)] hover:text-[color:var(--color-accent)]'}"
 								>
 									My key
 								</button>
@@ -405,7 +405,7 @@
 						<button
 							onclick={handleConnectAztec}
 							disabled={walletStore.isConnectingAztec}
-							class="cursor-pointer w-full py-2 rounded text-xs font-medium border border-[rgba(144,97,249,0.3)] text-[var(--warp-purple)] hover:bg-[rgba(144,97,249,0.1)] transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+							class="cursor-pointer w-full h-9 rounded-full text-xs font-medium bg-background/90 backdrop-blur-md border border-[color:var(--color-accent)] text-[color:var(--color-accent)] hover:bg-[color:var(--color-accent)]/10 transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
 						>
 							{#if walletStore.isConnectingAztec}
 								<Loader2 class="size-3 animate-spin" />
@@ -415,7 +415,7 @@
 							{/if}
 						</button>
 						{#if walletStore.isConnectingAztec && walletStore.aztecConnectStage === 'account-deploy'}
-							<p class="text-[0.65rem] text-[var(--muted-foreground)] text-center leading-snug mt-1">
+							<p class="text-[0.65rem] text-muted-foreground text-center leading-snug mt-1">
 								Generating client-side ZK proof to deploy your account. This only
 								happens once per key and can take up to a minute.
 							</p>
@@ -424,7 +424,7 @@
 							<button
 								onclick={handleResetCustomAccount}
 								disabled={walletStore.isConnectingAztec}
-								class="cursor-pointer w-full py-1 px-2 rounded text-[0.6rem] text-[var(--muted-foreground)] hover:text-red-400 hover:bg-[rgba(239,68,68,0.05)] transition-colors disabled:opacity-50"
+								class="cursor-pointer w-full h-9 rounded-full text-[0.65rem] font-medium bg-background/90 backdrop-blur-md border border-border text-muted-foreground hover:border-red-400/60 hover:text-red-400 transition-colors disabled:opacity-50 flex items-center justify-center"
 							>
 								Reset custom key
 							</button>
@@ -472,14 +472,14 @@
 					<p class="text-xs text-red-400 mb-2">Unsupported network. Switch to continue.</p>
 				{/if}
 
-				<div class="flex gap-2">
+				<div class="flex flex-wrap gap-2">
 					{#each supportedNetworks as network}
 						<button
 							onclick={() => handleSwitchNetwork(network)}
 							disabled={walletStore.isConnecting || walletStore.chainName === network}
-							class="cursor-pointer flex-1 py-1.5 px-3 rounded text-xs transition-all disabled:opacity-50 {walletStore.chainName === network
-								? 'bg-[rgba(130,226,102,0.15)] text-[var(--toad-green)]'
-								: 'text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[rgba(255,255,255,0.03)]'}"
+							class="cursor-pointer flex-1 h-9 rounded-full text-xs font-medium bg-background/90 backdrop-blur-md border transition-colors disabled:opacity-50 disabled:cursor-default flex items-center justify-center {walletStore.chainName === network
+								? 'border-[color:var(--color-accent)] text-[color:var(--color-accent)]'
+								: 'border-border text-muted-foreground hover:border-[color:var(--color-accent)] hover:text-[color:var(--color-accent)]'}"
 						>
 							{network}
 						</button>
@@ -509,13 +509,13 @@
 							type="url"
 							placeholder="https://..."
 							bind:value={rpcDrafts[chain.chainId]}
-							class="flex-1 py-1.5 px-2 rounded text-xs bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.05)] text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:border-[var(--toad-green)]"
+							class="flex-1 h-9 rounded-full px-3 text-xs bg-background/90 backdrop-blur-md border border-border text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-[color:var(--color-accent)]"
 						/>
 						<button
 							type="button"
 							onclick={() => handleRpcSave(chain.chainId)}
 							disabled={probe.status === "probing"}
-							class="cursor-pointer py-1.5 px-3 rounded text-xs transition-all disabled:opacity-50 bg-[rgba(130,226,102,0.12)] text-[var(--toad-green)] hover:bg-[rgba(130,226,102,0.2)]"
+							class="cursor-pointer h-9 px-4 rounded-full text-xs font-medium bg-background/90 backdrop-blur-md border border-[color:var(--color-accent)] text-[color:var(--color-accent)] hover:bg-[color:var(--color-accent)]/10 transition-colors disabled:opacity-50 flex items-center justify-center"
 						>
 							{probe.status === "probing" ? "..." : "Save"}
 						</button>
@@ -523,7 +523,7 @@
 							<button
 								type="button"
 								onclick={() => handleRpcReset(chain.chainId)}
-								class="cursor-pointer py-1.5 px-3 rounded text-xs transition-all text-[var(--muted-foreground)] hover:text-[var(--foreground)] hover:bg-[rgba(255,255,255,0.03)]"
+								class="cursor-pointer h-9 px-4 rounded-full text-xs font-medium bg-background/90 backdrop-blur-md border border-border text-muted-foreground hover:border-[color:var(--color-accent)] hover:text-[color:var(--color-accent)] transition-colors flex items-center justify-center"
 							>
 								Reset
 							</button>
