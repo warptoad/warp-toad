@@ -77,6 +77,14 @@ export interface CommitmentPreImage {
 	destination_chain_id: bigint;
 	secret: bigint;
 	nullifier_preimg: bigint;
+	/**
+	 * Aztec-source notes only: the note hash nonce captured from PXE at burn
+	 * time. Lets us re-derive the unique note hash on a fresh wallet / different
+	 * machine without needing PXE to have decrypted the note. Optional for
+	 * backwards-compat: notes issued before this field was added fall back to
+	 * the PXE lookup path in `getAztecMerkleData`.
+	 */
+	noteNonce?: bigint;
 }
 
 export interface Proof {

@@ -225,7 +225,7 @@ export function decodeNote(note: string): CommitmentPreImage & {
 	const base64 = note.replace('warptoad-note-', '');
 	const jsonStr = atob(base64);
 	const noteData = JSON.parse(jsonStr);
-	
+
 	return {
 		amount: BigInt(noteData.amount),
 		destination_chain_id: BigInt(noteData.destinationChainId),
@@ -234,6 +234,10 @@ export function decodeNote(note: string): CommitmentPreImage & {
 		sourceChainId: BigInt(noteData.sourceChainId),
 		preCommitment: BigInt(noteData.preCommitment),
 		commitment: BigInt(noteData.commitment),
+		// Aztec-source notes carry a `noteNonce` so withdraw works without PXE
+		// state. Older notes (pre-feature) omit it; the withdraw path falls
+		// back to PXE lookup in that case.
+		noteNonce: noteData.noteNonce !== undefined ? BigInt(noteData.noteNonce) : undefined,
 	};
 }
 

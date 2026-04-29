@@ -111,6 +111,15 @@ export interface AztecBurnResult {
 	commitment: bigint;
 	burnTxHash: string;
 	blockNumber: number;
+	/**
+	 * Note hash nonce captured from PXE right after the burn tx confirms.
+	 * Persisting this in the note file makes the withdraw flow portable across
+	 * wallet resets and different machines (no PXE state required to recover
+	 * the note hash). `null` only if PXE didn't surface the note in time -
+	 * the withdraw will then fall back to the PXE lookup path on a wallet that
+	 * still has the note synced.
+	 */
+	noteNonce: bigint | null;
 }
 
 // Aztec tree depth for note hash tree
@@ -1661,6 +1670,45 @@ export async function burnOnAztec(
 	const blockNumber = await aztecNode.getBlockNumber();
 	console.log('Burn included at Aztec block:', blockNumber);
 
+	// Capture the note hash nonce from PXE so it can be persisted in the note
+	// file. Same `get_notes_with_nonces` pattern as `getAztecMerkleData` uses
+	// at withdraw time, but called eagerly while the user's PXE still has the
+	// just-emitted note. Soft-fail (warn + return null) if PXE hasn't surfaced
+	// the note yet - the burn already succeeded on chain, and the legacy
+	// PXE-based withdraw path still works for users who don't change machines.
+	let noteNonce: bigint | null = null;
+	try {
+		const contractNotesSim = await contract.methods
+			.get_notes_with_nonces(contract.artifact.storageLayout.commitments.slot)
+			.simulate({ from }) as any;
+		const contractNotes = contractNotesSim.result ?? contractNotesSim;
+		for (const entry of contractNotes.storage) {
+			const noteCommitment = hashCommitment(
+				hashPreCommitment(
+					BigInt(entry.note.nullifier_preimage.toString()),
+					BigInt(entry.note.secret.toString()),
+					BigInt(entry.note.chain_id.toString()),
+				),
+				BigInt(entry.note.amount.toString()),
+			);
+			if (noteCommitment === commitment) {
+				noteNonce = BigInt(entry.note_nonce.toString());
+				break;
+			}
+		}
+		if (noteNonce === null) {
+			console.warn(
+				'[burnOnAztec] PXE has no note matching the burn commitment yet; ' +
+				'note will be issued without noteNonce. Withdraw on this device will ' +
+				'still work via PXE lookup; cross-device portability is unavailable.',
+			);
+		} else {
+			console.log('[burnOnAztec] Captured noteNonce:', noteNonce.toString().slice(0, 20) + '...');
+		}
+	} catch (e) {
+		console.warn('[burnOnAztec] Failed to capture noteNonce from PXE:', e);
+	}
+
 	return {
 		secret,
 		nullifierPreimage,
@@ -1668,6 +1716,7 @@ export async function burnOnAztec(
 		commitment,
 		burnTxHash: tx.receipt.txHash.toString(),
 		blockNumber,
+		noteNonce,
 	};
 }
 
@@ -1681,7 +1730,7 @@ export function encodeAztecNote(
 	destinationChainId: bigint,
 	amount: bigint
 ): string {
-	const noteData = {
+	const noteData: Record<string, string | number> = {
 		version: '1.0',
 		protocol: 'warptoad',
 		sourceChainId: sourceChainId.toString(),
@@ -1695,6 +1744,12 @@ export function encodeAztecNote(
 		aztecBlockNumber: burnResult.blockNumber,
 		burnTxHash: burnResult.burnTxHash,
 	};
+	// Only emit `noteNonce` when we successfully captured it. Decoders treat
+	// the field as optional, so omitting it on the rare PXE-sync race is
+	// preferable to writing `null` (which round-trips as the string "null").
+	if (burnResult.noteNonce !== null) {
+		noteData.noteNonce = burnResult.noteNonce.toString();
+	}
 
 	const jsonStr = JSON.stringify(noteData);
 	const base64 = btoa(jsonStr);
@@ -1741,71 +1796,89 @@ async function hashUniqueNoteHash(nonce: bigint, siloedNoteHash: bigint): Promis
 
 /**
  * Get Aztec merkle data for a commitment
- * 
- * This is needed for Aztec -> L1 withdrawals. The function:
- * 1. Queries the contract to find the note with matching commitment
- * 2. Gets the note's nonce from metadata
- * 3. Computes the siloed and unique note hash (as Aztec does)
- * 4. Gets the merkle proof from the note hash tree
- * 
+ *
+ * Needed for Aztec -> L1 / Aztec -> Scroll withdrawals. The function:
+ * 1. Determines the note nonce. Two paths:
+ *    - **knownNonce path** (preferred): caller passes the nonce captured at
+ *      burn time and persisted in note.txt. PXE state is irrelevant, so the
+ *      withdraw works on a fresh wallet / different machine.
+ *    - **PXE-lookup path** (legacy fallback): no nonce was passed, so we
+ *      query the contract via PXE for notes matching the commitment.
+ * 2. Computes the siloed and unique note hash (as Aztec does internally).
+ * 3. Asks the Aztec node for the membership witness, trying each candidate
+ *    nonce until one is found in the tree at `blockNumber`.
+ *
  * @param wallet - Connected Aztec wallet
  * @param commitment - The commitment hash (plain note hash before siloing)
- * @param blockNumber - Aztec block number when the commitment was created
+ * @param blockNumber - Aztec block number to anchor the witness at
+ * @param knownNonce - Optional. The note hash nonce captured at burn time.
+ *   When provided, PXE is skipped entirely and only this nonce is tried.
  * @returns Merkle data for the withdraw circuit
  */
 export async function getAztecMerkleData(
 	wallet: Wallet,
 	commitment: bigint,
-	blockNumber: number
+	blockNumber: number,
+	knownNonce?: bigint,
 ): Promise<AztecMerkleData> {
 	console.log('Getting Aztec merkle data for commitment:', commitment.toString().slice(0, 20) + '...');
 	console.log('Block number:', blockNumber);
 
-	const contract = await getWarpToadContract(wallet);
-	const accounts = await wallet.getAccounts();
-	const from = accounts[0].item;
+	let matchingNonces: bigint[];
 
-	// Step 1: Get notes from the contract to find the note nonce
-	// The contract has a utility function that returns notes from the commitments storage
-	console.log('Fetching notes from contract...');
-	// Use get_notes_with_nonces (read-only) instead of get_notes_util (which nullifies!).
-	// Returns BoundedVec<{ note: WarpToadNote, note_nonce: Field }, 16>.
-	const contractNotesSim = await contract.methods
-		.get_notes_with_nonces(contract.artifact.storageLayout.commitments.slot)
-		.simulate({ from }) as any;
-	const contractNotes = contractNotesSim.result ?? contractNotesSim;
+	if (knownNonce !== undefined) {
+		// Fast path: nonce was persisted in the note. Skip PXE entirely.
+		console.log('Using note-supplied noteNonce, skipping PXE lookup:', knownNonce.toString().slice(0, 20) + '...');
+		matchingNonces = [knownNonce];
+	} else {
+		// Legacy path: query PXE for the user's notes and find one matching the commitment.
+		const contract = await getWarpToadContract(wallet);
+		const accounts = await wallet.getAccounts();
+		const from = accounts[0].item;
 
-	console.log('Retrieved', contractNotes.storage.length, 'notes');
+		console.log('Fetching notes from contract (PXE lookup; legacy notes without noteNonce)...');
+		// Use get_notes_with_nonces (read-only) instead of get_notes_util (which nullifies!).
+		// Returns BoundedVec<{ note: WarpToadNote, note_nonce: Field }, 16>.
+		const contractNotesSim = await contract.methods
+			.get_notes_with_nonces(contract.artifact.storageLayout.commitments.slot)
+			.simulate({ from }) as any;
+		const contractNotes = contractNotesSim.result ?? contractNotesSim;
 
-	// Step 2: Collect ALL notes matching the commitment. The same
-	// (nullifier_preimage, secret, chain_id, amount) tuple can exist multiple times
-	// (e.g. stale + fresh burn entries), so we gather them all and try each one's
-	// unique note hash against the merkle tree, preferring the most recent first.
-	const matchingNonces: bigint[] = [];
-	for (const entry of contractNotes.storage) {
-		const noteCommitment = hashCommitment(
-			hashPreCommitment(
-				BigInt(entry.note.nullifier_preimage.toString()),
-				BigInt(entry.note.secret.toString()),
-				BigInt(entry.note.chain_id.toString())
-			),
-			BigInt(entry.note.amount.toString())
-		);
-		if (noteCommitment === commitment) {
-			matchingNonces.push(BigInt(entry.note_nonce.toString()));
+		console.log('Retrieved', contractNotes.storage.length, 'notes');
+
+		// Collect ALL notes matching the commitment. The same
+		// (nullifier_preimage, secret, chain_id, amount) tuple can exist multiple times
+		// (e.g. stale + fresh burn entries), so we gather them all and try each one's
+		// unique note hash against the merkle tree, preferring the most recent first.
+		matchingNonces = [];
+		for (const entry of contractNotes.storage) {
+			const noteCommitment = hashCommitment(
+				hashPreCommitment(
+					BigInt(entry.note.nullifier_preimage.toString()),
+					BigInt(entry.note.secret.toString()),
+					BigInt(entry.note.chain_id.toString()),
+				),
+				BigInt(entry.note.amount.toString()),
+			);
+			if (noteCommitment === commitment) {
+				matchingNonces.push(BigInt(entry.note_nonce.toString()));
+			}
+		}
+		console.log(`Found ${matchingNonces.length} note(s) matching commitment`);
+		// Try most recent first (storage order tends to be append-only, so reverse).
+		matchingNonces.reverse();
+
+		if (matchingNonces.length === 0) {
+			throw new Error(
+				`Could not find note with commitment ${commitment.toString().slice(0, 20)}... ` +
+				'The note may not be synced to this wallet yet, or the commitment data is incorrect. ' +
+				'If this note was issued on a different device or before noteNonce capture was added, ' +
+				're-bridge to get a portable note, or connect the original wallet that performed the burn.',
+			);
 		}
 	}
-	console.log(`Found ${matchingNonces.length} note(s) matching commitment`);
-	// Try most recent first (storage order tends to be append-only, so reverse).
-	matchingNonces.reverse();
-	const noteNonce: bigint | null = matchingNonces[0] ?? null;
 
-	if (noteNonce === null) {
-		throw new Error(
-			`Could not find note with commitment ${commitment.toString().slice(0, 20)}... ` +
-			'The note may not be synced to this wallet yet, or the commitment data is incorrect.'
-		);
-	}
+	const noteNonce: bigint = matchingNonces[0];
 
 	// Step 3: Compute the siloed and unique note hash
 	const warpToadAddressStr = AZTEC_CONTRACTS.AztecWarpToad.address;

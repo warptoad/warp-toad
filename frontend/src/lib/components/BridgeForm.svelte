@@ -348,12 +348,17 @@ You can close this page. Your note has been downloaded.`;
 			amountBigInt
 		);
 		
-		// Create commitment pre-image for storage
+		// Create commitment pre-image for storage. Includes the noteNonce
+		// captured from PXE so the withdraw flow can recover it without PXE
+		// state (different machine, wallet reset, etc.). null when PXE didn't
+		// surface the note in time - withdraw on this device still works via
+		// the legacy PXE-lookup path in `getAztecMerkleData`.
 		const commitmentPreImg = {
 			amount: amountBigInt,
 			destination_chain_id: destinationChainId,
 			secret: burnResult.secret,
 			nullifier_preimg: burnResult.nullifierPreimage,
+			...(burnResult.noteNonce !== null ? { noteNonce: burnResult.noteNonce } : {}),
 		};
 		
 		// Add proof and download

@@ -275,7 +275,10 @@
 					10 ** decimals
 				).toString();
 
-				// Create a new proof from the decoded note
+				// Create a new proof from the decoded note. `noteNonce` is
+				// optional - present on Aztec-source notes issued after the
+				// portable-note feature, absent on legacy notes (which fall
+				// back to PXE lookup at withdraw time).
 				proof = proofStore.addProof(
 					formattedAmount,
 					"USDC", // Default token - could be improved to detect from note
@@ -287,6 +290,7 @@
 						destination_chain_id: noteData.destination_chain_id,
 						secret: noteData.secret,
 						nullifier_preimg: noteData.nullifier_preimg,
+						...(noteData.noteNonce !== undefined ? { noteNonce: noteData.noteNonce } : {}),
 					},
 					noteData.preCommitment.toString(),
 					noteData.commitment.toString(),
@@ -761,6 +765,7 @@
 			aztecWallet,
 			commitment,
 			aztecLocalRootBlockNumber,
+			selectedProof.commitmentData.noteNonce,
 		);
 
 		console.log("Aztec merkle data:", aztecMerkleData);
@@ -1748,6 +1753,7 @@
 				aztecWallet,
 				commitment,
 				aztecLocalRootBlockNumber,
+				selectedProof.commitmentData?.noteNonce,
 			);
 			console.log("Aztec merkle data:", aztecMerkleData);
 		} catch (error) {
