@@ -22,7 +22,7 @@ import { getContractAddresses, CONTRACT_ADDRESSES } from '$lib/contracts/address
 import { GigaBridgeAbi, L1WarpToadAbi, L2WarpToadAbi } from '$lib/contracts/abis';
 import { queryEventInChunks } from './viem-chunks';
 import { rpcSettings } from '$lib/stores/rpc-settings.svelte';
-import { fetchGigaStateFromKeeper, tryGetGigaLeavesForRoot } from './bridge-keeper';
+import { fetchGigaStateFromKeeper, tryGetGigaLeavesForRoot, BridgeSyncStaleError } from './bridge-keeper';
 import { poseidon1, poseidon2, poseidon3 } from 'poseidon-lite';
 import { MerkleTree, type Element } from 'fixed-merkle-tree';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
@@ -597,15 +597,18 @@ async function findGigaRootWithCommitment(
 		}
 	}
 
-	// No gigaRoot found containing the commitment
-	throw new Error(
-		`Could not find a gigaRoot containing your commitment. This usually means:\n` +
-		`1. The L2→L1 message has not been relayed yet (Scroll takes 30min-3hrs)\n` +
-		`2. The relayer has not updated the gigaRoot after your L2→L1 message arrived\n` +
-		`3. The gigaRoot has not been sent to Aztec yet\n\n` +
-		`Please wait 1-3 hours after your burn transaction and try again.\n` +
+	// No gigaRoot found containing the commitment. Surface as a typed error so
+	// the WithdrawForm catch block can fire `triggerBridge(sourceChainId, 'aztec')`
+	// and tell the user to come back later, rather than dropping a generic
+	// "wait 1-3 hours" message with no recovery action.
+	throw new BridgeSyncStaleError(
+		`Could not find a gigaRoot containing your commitment. The bridge keeper ` +
+		`hasn't yet pushed your source chain's local root to L1, or hasn't dispatched ` +
+		`the resulting gigaRoot to Aztec.\n` +
 		`Commitment: ${commitment.toString()}\n` +
-		`Source Chain: ${sourceChainId}`
+		`Source Chain: ${sourceChainId}`,
+		String(sourceChainId),
+		'aztec',
 	);
 }
 

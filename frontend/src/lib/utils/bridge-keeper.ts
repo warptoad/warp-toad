@@ -27,6 +27,27 @@ const BRIDGE_KEEPER_URL =
 	import.meta.env.VITE_BRIDGE_KEEPER_URL ||
 	(isTestMode ? 'http://localhost:6969' : 'https://bridge.warptoad.xyz');
 
+/**
+ * Thrown when a withdraw flow detects that the bridge keeper hasn't yet
+ * pushed the source chain's local root to L1 (or hasn't dispatched the
+ * resulting gigaRoot to the destination chain). The central WithdrawForm
+ * catch block fires `triggerBridge(fromChainId, toChainId)` and surfaces
+ * a "wait 30min-3hrs and retry" message.
+ *
+ * `fromChainId` / `toChainId` use the BridgeKeeper convention: numeric
+ * EVM chain IDs as strings ('11155111', '534351') and 'aztec' for Aztec.
+ */
+export class BridgeSyncStaleError extends Error {
+	constructor(
+		message: string,
+		public readonly fromChainId: string,
+		public readonly toChainId: string,
+	) {
+		super(message);
+		this.name = 'BridgeSyncStaleError';
+	}
+}
+
 export interface BridgeKeeperResponse {
 	ok: boolean;
 	operationId: string;

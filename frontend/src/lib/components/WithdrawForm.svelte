@@ -68,6 +68,11 @@
 		type RelayerInfo,
 		type RelayStatus,
 	} from "$lib/utils/relay-client.js";
+	import {
+		BridgeSyncStaleError,
+		triggerBridge,
+		isBridgeKeeperEnabled,
+	} from "$lib/utils/bridge-keeper.js";
 
 	import { onMount } from "svelte";
 	import { toHex } from "viem";
@@ -513,7 +518,34 @@
 			console.error("Withdraw error:", error);
 
 			let errorMessage = "Withdraw failed";
-			if (error instanceof Error) {
+
+			if (error instanceof BridgeSyncStaleError) {
+				// The withdraw can't proceed because the keeper hasn't pushed the
+				// source chain's local root to L1 yet (or hasn't dispatched the
+				// gigaRoot to the destination). Fire-and-forget a sync request so
+				// the keeper queues the work, then surface a clear retry message.
+				let triggerNote = "";
+				if (isBridgeKeeperEnabled) {
+					try {
+						const response = await triggerBridge(error.fromChainId, error.toChainId, 3);
+						console.log("[WithdrawForm] BridgeSync trigger queued:", response.operationId);
+						triggerNote =
+							"\n\nWe've asked the bridge keeper to sync your commitment. " +
+							"Scroll → L1 takes 30 minutes to 3 hours due to Scroll outbox finalization. " +
+							"Please come back later and click Withdraw again.";
+					} catch (triggerErr) {
+						console.warn("[WithdrawForm] BridgeSync trigger failed:", triggerErr);
+						triggerNote =
+							"\n\nWe tried to ask the bridge keeper to sync but the request failed: " +
+							(triggerErr instanceof Error ? triggerErr.message : String(triggerErr)) +
+							"\nPlease try again in a few minutes.";
+					}
+				} else {
+					triggerNote =
+						"\n\nBridge keeper is disabled in this build. Run `pnpm l:sync` manually, then retry.";
+				}
+				errorMessage = error.message + triggerNote;
+			} else if (error instanceof Error) {
 				errorMessage = error.message;
 
 				// Add hints for common errors

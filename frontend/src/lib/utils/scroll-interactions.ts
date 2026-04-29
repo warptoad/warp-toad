@@ -24,6 +24,7 @@ import {
 	createCommitmentPreImage,
 	encodeNote,
 } from './evm-interactions.js';
+import { BridgeSyncStaleError } from './bridge-keeper.js';
 
 // ============================================================================
 // Chain Configuration Helpers
@@ -660,13 +661,22 @@ export async function getEvmMerkleDataForScroll(
 	// Find our commitment's index
 	const leafIndex = sortedEvents.findIndex(e => e.commitment === commitment);
 	if (leafIndex === -1) {
+		if (targetLocalRootBlockNumber !== undefined) {
+			// Stale L1 anchor of Scroll's local root - the keeper hasn't pushed
+			// Scroll → L1 since the user's burn. Throw the typed error so the
+			// WithdrawForm catch block can fire `triggerBridge('534351', ...)` and
+			// surface a "wait 30min-3hrs" message instead of a generic failure.
+			throw new BridgeSyncStaleError(
+				`Your commitment is not yet included in the Scroll local root that's bridged to L1. ` +
+				`The bridge keeper has only synced Scroll up to block ${targetLocalRootBlockNumber}; ` +
+				`your deposit landed after that.`,
+				'534351',
+				'11155111',
+			);
+		}
 		throw new Error(
-			targetLocalRootBlockNumber !== undefined
-				? `Your commitment is not yet included in the Scroll local root that's bridged to L1. ` +
-				  `The bridge keeper has only synced Scroll up to block ${targetLocalRootBlockNumber}; ` +
-				  `your deposit landed after that. Wait for the next keeper push, then try again.`
-				: `Commitment not found in Scroll burn events. ` +
-				  `Make sure the burn transaction was confirmed on Scroll.`
+			`Commitment not found in Scroll burn events. ` +
+			`Make sure the burn transaction was confirmed on Scroll.`,
 		);
 	}
 
