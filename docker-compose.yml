@@ -57,6 +57,10 @@ services:
         VITE_BRIDGE_KEEPER_URL: ${VITE_BRIDGE_KEEPER_URL:-http://localhost:6969}
         VITE_RELAY_SERVICE_URL: ${VITE_RELAY_SERVICE_URL:-http://localhost:7777}
         VITE_FAUCET_SERVICE_URL: ${VITE_FAUCET_SERVICE_URL:-http://localhost:8888}
+        # Optional umami analytics. Both must be set or the script is not
+        # injected (unset = no-op, no 404 noise).
+        VITE_UMAMI_SCRIPT_URL: ${VITE_UMAMI_SCRIPT_URL:-}
+        VITE_UMAMI_WEBSITE_ID: ${VITE_UMAMI_WEBSITE_ID:-}
     image: warptoad/frontend:latest
     container_name: warptoad-frontend
     ports:
