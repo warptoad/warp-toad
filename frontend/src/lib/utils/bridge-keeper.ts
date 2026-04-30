@@ -63,7 +63,13 @@ export interface BridgeStatusResponse {
 	operationId: string;
 	fromChainId: string;
 	toChainId: string;
-	status: 'pending' | 'running' | 'completed' | 'failed' | 'timeout';
+	/**
+	 * Operation lifecycle.
+	 * - 'noop': returned by the unified scheduler when a tick runs but on-chain
+	 *   state was already fresh (no L1 tx, no leg work). Treat as completed
+	 *   for UX: the user's commitment is already on the destination chain.
+	 */
+	status: 'pending' | 'running' | 'completed' | 'failed' | 'timeout' | 'noop';
 	startTime: number;
 	endTime?: number;
 	txHashes?: Record<string, string>;
@@ -245,20 +251,67 @@ export async function triggerBridge(
 
 /**
  * Check the status of a bridge operation
- * 
+ *
  * @param operationId - The operation ID returned from triggerBridge
  * @returns Current status of the operation
  */
 export async function checkBridgeStatus(operationId: string): Promise<BridgeStatusResponse> {
 	const url = `${BRIDGE_KEEPER_URL}/status/${operationId}`;
-	
+
 	const response = await fetch(url);
-	
+
 	if (!response.ok) {
 		throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 	}
-	
+
 	return await response.json();
+}
+
+/**
+ * Poll-friendly wrapper around checkBridgeStatus. Returns null instead of
+ * throwing on transient network errors so the caller's poll loop doesn't
+ * have to wrap every call in try/catch. Distinguishes 404 (operation expired
+ * server-side, drop the local bridgeSync record) from other errors via the
+ * `expired` flag.
+ *
+ * Used by the WithdrawForm in-progress panel: every 30s poll returns one of
+ * these and the panel updates without crashing on a flaky network.
+ */
+export interface PollOperationResult {
+	response: BridgeStatusResponse | null;
+	expired: boolean;
+	error: string | null;
+}
+
+export async function pollOperation(
+	operationId: string,
+	signal?: AbortSignal,
+): Promise<PollOperationResult> {
+	const url = `${BRIDGE_KEEPER_URL}/status/${operationId}`;
+	try {
+		const response = await fetch(url, { signal });
+		if (response.status === 404) {
+			return { response: null, expired: true, error: null };
+		}
+		if (!response.ok) {
+			return {
+				response: null,
+				expired: false,
+				error: `HTTP ${response.status}: ${response.statusText}`,
+			};
+		}
+		const data = (await response.json()) as BridgeStatusResponse;
+		return { response: data, expired: false, error: null };
+	} catch (err) {
+		if (err instanceof Error && err.name === 'AbortError') {
+			return { response: null, expired: false, error: null };
+		}
+		return {
+			response: null,
+			expired: false,
+			error: err instanceof Error ? err.message : String(err),
+		};
+	}
 }
 
 /**
