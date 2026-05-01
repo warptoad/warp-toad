@@ -471,25 +471,35 @@ async function getGigaRootEventsInRange(
 }
 
 /**
- * Check if a commitment exists in burn events up to a specific block
- * Used to verify if a local root contains our commitment
+ * Look up the user's burn event for a single commitment, returning the leaf
+ * index and block. Filters on the indexed `commitment` arg so the upstream
+ * RPC only returns one log; reverse + maxEvents=1 short-circuits the chunk
+ * scan as soon as we hit it.
  */
-async function checkCommitmentInLocalRoot(
+async function findBurnEventForCommitment(
 	publicClient: PublicClient,
 	warpToadAddress: string,
-	commitment: bigint,
 	chainId: number,
-	localRootBlockNumber: number
-): Promise<boolean> {
-	const burnEvents = await getBurnEvents(
+	commitment: bigint
+): Promise<{ leafIndex: number; blockNumber: bigint } | null> {
+	const fromBlock = getDeploymentBlock(chainId);
+	const addresses = getContractAddresses(chainId);
+	const abi = addresses.L2WarpToad ? L2WarpToadAbi : L1WarpToadAbi;
+	const logs = await queryEventInChunks({
 		publicClient,
-		warpToadAddress,
-		chainId,
-		BigInt(localRootBlockNumber)
-	);
-
-	// Check if our commitment is in these events
-	return burnEvents.some(event => event.commitment === commitment);
+		contract: { address: warpToadAddress as `0x${string}`, abi },
+		eventName: 'Burn',
+		eventFilterArgs: { commitment },
+		firstBlock: fromBlock,
+		reverseOrder: true,
+		maxEvents: 1,
+	});
+	if (logs.length === 0) return null;
+	const log = logs[0] as any;
+	return {
+		leafIndex: Number(log.args.index),
+		blockNumber: log.blockNumber as bigint,
+	};
 }
 
 /**
@@ -540,10 +550,29 @@ async function findGigaRootWithCommitment(
 	console.log(`[findGigaRootWithCommitment] Searching for commitment ${commitment.toString()} from chain ${sourceChainId}`);
 	console.log(`[findGigaRootWithCommitment] Using local root provider: ${localRootProviderAddress}`);
 
+	// One indexed-arg lookup (vs. a full burn-event scan per gigaRoot in the
+	// loop below) gets us the leaf index and burn block for this commitment.
+	// All "is the commitment in this local root?" checks then reduce to a
+	// single `lastLeafIndex(at block)` read against the L2 WarpToad.
+	const sourceWarpToadAbi = sourceChainId === 534351 ? L2WarpToadAbi : L1WarpToadAbi;
+	const userBurn = await findBurnEventForCommitment(
+		sourceClient,
+		sourceWarpToadAddress,
+		sourceChainId,
+		commitment,
+	);
+	if (!userBurn) {
+		throw new Error(
+			`Commitment ${commitment} not found in burn events on chain ${sourceChainId}. ` +
+			`The burn transaction may not have confirmed yet.`,
+		);
+	}
+	console.log(`[findGigaRootWithCommitment] User leaf index: ${userBurn.leafIndex} (burned at block ${userBurn.blockNumber})`);
+
 	// Get recent gigaRoots (last 2000 blocks ~ 6.5 hours on Sepolia)
 	const currentBlock = await gigaBridgeClient.getBlockNumber();
 	const searchFromBlock = currentBlock - 2000n;
-	
+
 	console.log(`[findGigaRootWithCommitment] Searching gigaRoots from block ${searchFromBlock} to ${currentBlock}`);
 
 	const gigaRootEvents = await getGigaRootEventsInRange(
@@ -562,6 +591,13 @@ async function findGigaRootWithCommitment(
 		);
 	}
 
+	// Memoize lastLeafIndex(at block) across the loop. In practice the keeper
+	// publishes new gigaRoots faster than Scroll's local root advances on L1,
+	// so several consecutive gigaRoots usually share the same
+	// localRootBlockNumber for our provider. Without this cache, each one
+	// pays a fresh historical read.
+	const leafCountAtBlockCache = new Map<number, number>();
+
 	// Search gigaRoots from newest to oldest
 	for (const gigaRootEvent of gigaRootEvents.reverse()) {
 		console.log(`[findGigaRootWithCommitment] Checking gigaRoot: ${gigaRootEvent.gigaRoot.toString()}`);
@@ -578,17 +614,27 @@ async function findGigaRootWithCommitment(
 
 			console.log(`[findGigaRootWithCommitment] Found local root: ${localRootData.localRoot.toString()} at index ${localRootData.localRootIndex}`);
 
-			// Check if this local root contains our commitment
-			const hasCommitment = await checkCommitmentInLocalRoot(
-				sourceClient,
-				sourceWarpToadAddress,
-				commitment,
-				sourceChainId,
-				localRootData.localRootBlockNumber
-			);
+			// "Is the commitment in this local root?" is equivalent to
+			// "did the L2 WarpToad have at least userLeafIndex+1 leaves at
+			// the block recorded with the local root?". `getEvmMerkleDataForScroll`
+			// already trusts this relationship (it reads `lastLeafIndex` at the
+			// recorded block, scans that many burns, and verifies the
+			// reconstructed root equals `cachedLocalRoot` at the same block).
+			let leafCount = leafCountAtBlockCache.get(localRootData.localRootBlockNumber);
+			if (leafCount === undefined) {
+				const lastLeafIndexBig = (await sourceClient.readContract({
+					address: sourceWarpToadAddress as `0x${string}`,
+					abi: sourceWarpToadAbi,
+					functionName: 'lastLeafIndex',
+					blockNumber: BigInt(localRootData.localRootBlockNumber),
+				})) as bigint;
+				leafCount = Number(lastLeafIndexBig);
+				leafCountAtBlockCache.set(localRootData.localRootBlockNumber, leafCount);
+			}
+			const hasCommitment = userBurn.leafIndex < leafCount;
 
 			if (hasCommitment) {
-				console.log(`[findGigaRootWithCommitment] ✓ Found gigaRoot containing commitment!`);
+				console.log(`[findGigaRootWithCommitment] ✓ Found gigaRoot containing commitment! (leafCount=${leafCount} at block ${localRootData.localRootBlockNumber})`);
 				return {
 					gigaRoot: gigaRootEvent.gigaRoot,
 					localRoot: localRootData.localRoot,
@@ -598,7 +644,7 @@ async function findGigaRootWithCommitment(
 				};
 			}
 
-			console.log(`[findGigaRootWithCommitment] Commitment not in this local root, trying next gigaRoot...`);
+			console.log(`[findGigaRootWithCommitment] Commitment not in this local root (leafCount=${leafCount} ≤ userLeafIndex=${userBurn.leafIndex}), trying next gigaRoot...`);
 		} catch (error) {
 			console.log(`[findGigaRootWithCommitment] Error checking gigaRoot: ${error}`);
 			// Continue to next gigaRoot
