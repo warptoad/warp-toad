@@ -6,6 +6,7 @@
  */
 
 import type { Chain } from '$lib/types/bridge.js';
+import { rpcSettings } from '$lib/stores/rpc-settings.svelte';
 
 /**
  * Whether the BridgeKeeper service is reachable from this build.
@@ -26,6 +27,27 @@ const BRIDGE_KEEPER_URL =
 	import.meta.env.VITE_BRIDGE_KEEPER_URL ||
 	(isTestMode ? 'http://localhost:6969' : 'https://bridge.warptoad.xyz');
 
+/**
+ * Thrown when a withdraw flow detects that the bridge keeper hasn't yet
+ * pushed the source chain's local root to L1 (or hasn't dispatched the
+ * resulting gigaRoot to the destination chain). The central WithdrawForm
+ * catch block fires `triggerBridge(fromChainId, toChainId)` and surfaces
+ * a "wait 30min-3hrs and retry" message.
+ *
+ * `fromChainId` / `toChainId` use the BridgeKeeper convention: numeric
+ * EVM chain IDs as strings ('11155111', '534351') and 'aztec' for Aztec.
+ */
+export class BridgeSyncStaleError extends Error {
+	constructor(
+		message: string,
+		public readonly fromChainId: string,
+		public readonly toChainId: string,
+	) {
+		super(message);
+		this.name = 'BridgeSyncStaleError';
+	}
+}
+
 export interface BridgeKeeperResponse {
 	ok: boolean;
 	operationId: string;
@@ -41,7 +63,13 @@ export interface BridgeStatusResponse {
 	operationId: string;
 	fromChainId: string;
 	toChainId: string;
-	status: 'pending' | 'running' | 'completed' | 'failed' | 'timeout';
+	/**
+	 * Operation lifecycle.
+	 * - 'noop': returned by the unified scheduler when a tick runs but on-chain
+	 *   state was already fresh (no L1 tx, no leg work). Treat as completed
+	 *   for UX: the user's commitment is already on the destination chain.
+	 */
+	status: 'pending' | 'running' | 'completed' | 'failed' | 'timeout' | 'noop';
 	startTime: number;
 	endTime?: number;
 	txHashes?: Record<string, string>;
@@ -140,6 +168,47 @@ export async function fetchGigaStateFromKeeper(chainId: string): Promise<GigaSta
 	return data as GigaStateResponse;
 }
 
+export interface CachedGigaLeaves {
+	amountOfLocalRoots: number;
+	/** Indexed by leaf position. Missing entries default to 0n at the call site. */
+	leaves: Map<number, { localRoot: bigint; localRootBlockNumber: number }>;
+}
+
+/**
+ * Fast path for giga-tree leaf reconstruction: returns the keeper's snapshot
+ * iff its current gigaRoot equals the one we want to prove against. Returns
+ * null when the user opted into a custom RPC (we don't know their endpoint to
+ * relay for them), when the keeper is on a different gigaRoot (likely a
+ * historical lookup), or when the keeper request fails. Callers fall back to
+ * client-side event scanning in those cases.
+ */
+export async function tryGetGigaLeavesForRoot(
+	chainId: number,
+	expectedGigaRoot: bigint,
+): Promise<CachedGigaLeaves | null> {
+	if (rpcSettings.isUsingCustom(chainId)) return null;
+	try {
+		const state = await fetchGigaStateFromKeeper(String(chainId));
+		if (BigInt(state.gigaRoot) !== expectedGigaRoot) {
+			console.log(
+				`[keeper] giga-state gigaRoot mismatch (state=${state.gigaRoot.slice(0, 12)}... expected=${expectedGigaRoot.toString().slice(0, 12)}...); falling back to RPC scan`,
+			);
+			return null;
+		}
+		const leaves = new Map<number, { localRoot: bigint; localRootBlockNumber: number }>();
+		for (const leaf of state.leaves) {
+			leaves.set(leaf.index, {
+				localRoot: BigInt(leaf.localRoot),
+				localRootBlockNumber: leaf.localRootBlockNumber,
+			});
+		}
+		return { amountOfLocalRoots: state.amountOfLocalRoots, leaves };
+	} catch (e) {
+		console.warn('[keeper] giga-state fetch failed, falling back to RPC scan:', e);
+		return null;
+	}
+}
+
 /**
  * Trigger a bridge operation on BridgeKeeper
  * 
@@ -182,20 +251,67 @@ export async function triggerBridge(
 
 /**
  * Check the status of a bridge operation
- * 
+ *
  * @param operationId - The operation ID returned from triggerBridge
  * @returns Current status of the operation
  */
 export async function checkBridgeStatus(operationId: string): Promise<BridgeStatusResponse> {
 	const url = `${BRIDGE_KEEPER_URL}/status/${operationId}`;
-	
+
 	const response = await fetch(url);
-	
+
 	if (!response.ok) {
 		throw new Error(`HTTP ${response.status}: ${response.statusText}`);
 	}
-	
+
 	return await response.json();
+}
+
+/**
+ * Poll-friendly wrapper around checkBridgeStatus. Returns null instead of
+ * throwing on transient network errors so the caller's poll loop doesn't
+ * have to wrap every call in try/catch. Distinguishes 404 (operation expired
+ * server-side, drop the local bridgeSync record) from other errors via the
+ * `expired` flag.
+ *
+ * Used by the WithdrawForm in-progress panel: every 30s poll returns one of
+ * these and the panel updates without crashing on a flaky network.
+ */
+export interface PollOperationResult {
+	response: BridgeStatusResponse | null;
+	expired: boolean;
+	error: string | null;
+}
+
+export async function pollOperation(
+	operationId: string,
+	signal?: AbortSignal,
+): Promise<PollOperationResult> {
+	const url = `${BRIDGE_KEEPER_URL}/status/${operationId}`;
+	try {
+		const response = await fetch(url, { signal });
+		if (response.status === 404) {
+			return { response: null, expired: true, error: null };
+		}
+		if (!response.ok) {
+			return {
+				response: null,
+				expired: false,
+				error: `HTTP ${response.status}: ${response.statusText}`,
+			};
+		}
+		const data = (await response.json()) as BridgeStatusResponse;
+		return { response: data, expired: false, error: null };
+	} catch (err) {
+		if (err instanceof Error && err.name === 'AbortError') {
+			return { response: null, expired: false, error: null };
+		}
+		return {
+			response: null,
+			expired: false,
+			error: err instanceof Error ? err.message : String(err),
+		};
+	}
 }
 
 /**

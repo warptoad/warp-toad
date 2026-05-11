@@ -22,7 +22,7 @@ import { getContractAddresses, CONTRACT_ADDRESSES } from '$lib/contracts/address
 import { GigaBridgeAbi, L1WarpToadAbi, L2WarpToadAbi } from '$lib/contracts/abis';
 import { queryEventInChunks } from './viem-chunks';
 import { rpcSettings } from '$lib/stores/rpc-settings.svelte';
-import { fetchGigaStateFromKeeper } from './bridge-keeper';
+import { fetchGigaStateFromKeeper, tryGetGigaLeavesForRoot, BridgeSyncStaleError } from './bridge-keeper';
 import { poseidon1, poseidon2, poseidon3 } from 'poseidon-lite';
 import { MerkleTree, type Element } from 'fixed-merkle-tree';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
@@ -111,6 +111,15 @@ export interface AztecBurnResult {
 	commitment: bigint;
 	burnTxHash: string;
 	blockNumber: number;
+	/**
+	 * Note hash nonce captured from PXE right after the burn tx confirms.
+	 * Persisting this in the note file makes the withdraw flow portable across
+	 * wallet resets and different machines (no PXE state required to recover
+	 * the note hash). `null` only if PXE didn't surface the note in time -
+	 * the withdraw will then fall back to the PXE lookup path on a wallet that
+	 * still has the note synced.
+	 */
+	noteNonce: bigint | null;
 }
 
 // Aztec tree depth for note hash tree
@@ -361,6 +370,51 @@ async function getLocalRootEvents(
 }
 
 /**
+ * Find the most recent ReceivedNewLocalRoot event for one provider index at or
+ * before `upToBlock`. GigaBridge.updateGigaRoot only emits the event for the
+ * providers passed into that call; other providers' local roots stay in the
+ * tree from earlier updates. To reconstruct the leaves of a historical
+ * gigaRoot we must walk the log backwards per index, not just look at events
+ * emitted in the construction block.
+ *
+ * Uses postQueryFilter rather than RPC-side eventFilterArgs because viem's
+ * named-arg filter on a non-first indexed arg (here: localRootIndex when
+ * newLocalRoot is also indexed and unfiltered) silently returns []. Filtering
+ * client-side on the unfiltered scan output sidesteps the encoding bug and is
+ * still cheap because reverseOrder + maxEvents short-circuits chunking.
+ */
+export async function getLatestLocalRootEventForIndex(
+	publicClient: PublicClient,
+	gigaBridgeAddress: string,
+	chainId: number,
+	index: number,
+	upToBlock: bigint
+): Promise<{ localRoot: bigint; index: number; blockNumber: number; eventBlockNumber: bigint } | null> {
+	const fromBlock = getDeploymentBlock(chainId);
+	const targetIndex = BigInt(index);
+	const logs = await queryEventInChunks({
+		publicClient,
+		contract: { address: gigaBridgeAddress as `0x${string}`, abi: GigaBridgeAbi },
+		eventName: 'ReceivedNewLocalRoot',
+		firstBlock: fromBlock,
+		lastBlock: upToBlock,
+		reverseOrder: true,
+		maxEvents: 1,
+		postQueryFilter: (events) =>
+			events.filter((e: any) => BigInt(e.args.localRootIndex) === targetIndex),
+	});
+
+	if (logs.length === 0) return null;
+	const log = logs[logs.length - 1] as any;
+	return {
+		localRoot: log.args.newLocalRoot as bigint,
+		index: Number(log.args.localRootIndex),
+		blockNumber: Number(log.args.localRootBlockNumber),
+		eventBlockNumber: log.blockNumber,
+	};
+}
+
+/**
  * Query ConstructedNewGigaRoot events from GigaBridge
  * @param filterGigaRoot - If provided, only returns events for this specific gigaRoot value
  */
@@ -417,25 +471,35 @@ async function getGigaRootEventsInRange(
 }
 
 /**
- * Check if a commitment exists in burn events up to a specific block
- * Used to verify if a local root contains our commitment
+ * Look up the user's burn event for a single commitment, returning the leaf
+ * index and block. Filters on the indexed `commitment` arg so the upstream
+ * RPC only returns one log; reverse + maxEvents=1 short-circuits the chunk
+ * scan as soon as we hit it.
  */
-async function checkCommitmentInLocalRoot(
+async function findBurnEventForCommitment(
 	publicClient: PublicClient,
 	warpToadAddress: string,
-	commitment: bigint,
 	chainId: number,
-	localRootBlockNumber: number
-): Promise<boolean> {
-	const burnEvents = await getBurnEvents(
+	commitment: bigint
+): Promise<{ leafIndex: number; blockNumber: bigint } | null> {
+	const fromBlock = getDeploymentBlock(chainId);
+	const addresses = getContractAddresses(chainId);
+	const abi = addresses.L2WarpToad ? L2WarpToadAbi : L1WarpToadAbi;
+	const logs = await queryEventInChunks({
 		publicClient,
-		warpToadAddress,
-		chainId,
-		BigInt(localRootBlockNumber)
-	);
-
-	// Check if our commitment is in these events
-	return burnEvents.some(event => event.commitment === commitment);
+		contract: { address: warpToadAddress as `0x${string}`, abi },
+		eventName: 'Burn',
+		eventFilterArgs: { commitment },
+		firstBlock: fromBlock,
+		reverseOrder: true,
+		maxEvents: 1,
+	});
+	if (logs.length === 0) return null;
+	const log = logs[0] as any;
+	return {
+		leafIndex: Number(log.args.index),
+		blockNumber: log.blockNumber as bigint,
+	};
 }
 
 /**
@@ -486,10 +550,29 @@ async function findGigaRootWithCommitment(
 	console.log(`[findGigaRootWithCommitment] Searching for commitment ${commitment.toString()} from chain ${sourceChainId}`);
 	console.log(`[findGigaRootWithCommitment] Using local root provider: ${localRootProviderAddress}`);
 
+	// One indexed-arg lookup (vs. a full burn-event scan per gigaRoot in the
+	// loop below) gets us the leaf index and burn block for this commitment.
+	// All "is the commitment in this local root?" checks then reduce to a
+	// single `lastLeafIndex(at block)` read against the L2 WarpToad.
+	const sourceWarpToadAbi = sourceChainId === 534351 ? L2WarpToadAbi : L1WarpToadAbi;
+	const userBurn = await findBurnEventForCommitment(
+		sourceClient,
+		sourceWarpToadAddress,
+		sourceChainId,
+		commitment,
+	);
+	if (!userBurn) {
+		throw new Error(
+			`Commitment ${commitment} not found in burn events on chain ${sourceChainId}. ` +
+			`The burn transaction may not have confirmed yet.`,
+		);
+	}
+	console.log(`[findGigaRootWithCommitment] User leaf index: ${userBurn.leafIndex} (burned at block ${userBurn.blockNumber})`);
+
 	// Get recent gigaRoots (last 2000 blocks ~ 6.5 hours on Sepolia)
 	const currentBlock = await gigaBridgeClient.getBlockNumber();
 	const searchFromBlock = currentBlock - 2000n;
-	
+
 	console.log(`[findGigaRootWithCommitment] Searching gigaRoots from block ${searchFromBlock} to ${currentBlock}`);
 
 	const gigaRootEvents = await getGigaRootEventsInRange(
@@ -508,6 +591,13 @@ async function findGigaRootWithCommitment(
 		);
 	}
 
+	// Memoize lastLeafIndex(at block) across the loop. In practice the keeper
+	// publishes new gigaRoots faster than Scroll's local root advances on L1,
+	// so several consecutive gigaRoots usually share the same
+	// localRootBlockNumber for our provider. Without this cache, each one
+	// pays a fresh historical read.
+	const leafCountAtBlockCache = new Map<number, number>();
+
 	// Search gigaRoots from newest to oldest
 	for (const gigaRootEvent of gigaRootEvents.reverse()) {
 		console.log(`[findGigaRootWithCommitment] Checking gigaRoot: ${gigaRootEvent.gigaRoot.toString()}`);
@@ -524,17 +614,27 @@ async function findGigaRootWithCommitment(
 
 			console.log(`[findGigaRootWithCommitment] Found local root: ${localRootData.localRoot.toString()} at index ${localRootData.localRootIndex}`);
 
-			// Check if this local root contains our commitment
-			const hasCommitment = await checkCommitmentInLocalRoot(
-				sourceClient,
-				sourceWarpToadAddress,
-				commitment,
-				sourceChainId,
-				localRootData.localRootBlockNumber
-			);
+			// "Is the commitment in this local root?" is equivalent to
+			// "did the L2 WarpToad have at least userLeafIndex+1 leaves at
+			// the block recorded with the local root?". `getEvmMerkleDataForScroll`
+			// already trusts this relationship (it reads `lastLeafIndex` at the
+			// recorded block, scans that many burns, and verifies the
+			// reconstructed root equals `cachedLocalRoot` at the same block).
+			let leafCount = leafCountAtBlockCache.get(localRootData.localRootBlockNumber);
+			if (leafCount === undefined) {
+				const lastLeafIndexBig = (await sourceClient.readContract({
+					address: sourceWarpToadAddress as `0x${string}`,
+					abi: sourceWarpToadAbi,
+					functionName: 'lastLeafIndex',
+					blockNumber: BigInt(localRootData.localRootBlockNumber),
+				})) as bigint;
+				leafCount = Number(lastLeafIndexBig);
+				leafCountAtBlockCache.set(localRootData.localRootBlockNumber, leafCount);
+			}
+			const hasCommitment = userBurn.leafIndex < leafCount;
 
 			if (hasCommitment) {
-				console.log(`[findGigaRootWithCommitment] ✓ Found gigaRoot containing commitment!`);
+				console.log(`[findGigaRootWithCommitment] ✓ Found gigaRoot containing commitment! (leafCount=${leafCount} at block ${localRootData.localRootBlockNumber})`);
 				return {
 					gigaRoot: gigaRootEvent.gigaRoot,
 					localRoot: localRootData.localRoot,
@@ -544,7 +644,7 @@ async function findGigaRootWithCommitment(
 				};
 			}
 
-			console.log(`[findGigaRootWithCommitment] Commitment not in this local root, trying next gigaRoot...`);
+			console.log(`[findGigaRootWithCommitment] Commitment not in this local root (leafCount=${leafCount} ≤ userLeafIndex=${userBurn.leafIndex}), trying next gigaRoot...`);
 		} catch (error) {
 			console.log(`[findGigaRootWithCommitment] Error checking gigaRoot: ${error}`);
 			// Continue to next gigaRoot
@@ -552,15 +652,18 @@ async function findGigaRootWithCommitment(
 		}
 	}
 
-	// No gigaRoot found containing the commitment
-	throw new Error(
-		`Could not find a gigaRoot containing your commitment. This usually means:\n` +
-		`1. The L2→L1 message has not been relayed yet (Scroll takes 30min-3hrs)\n` +
-		`2. The relayer has not updated the gigaRoot after your L2→L1 message arrived\n` +
-		`3. The gigaRoot has not been sent to Aztec yet\n\n` +
-		`Please wait 1-3 hours after your burn transaction and try again.\n` +
+	// No gigaRoot found containing the commitment. Surface as a typed error so
+	// the WithdrawForm catch block can fire `triggerBridge(sourceChainId, 'aztec')`
+	// and tell the user to come back later, rather than dropping a generic
+	// "wait 1-3 hours" message with no recovery action.
+	throw new BridgeSyncStaleError(
+		`Could not find a gigaRoot containing your commitment. The bridge keeper ` +
+		`hasn't yet pushed your source chain's local root to L1, or hasn't dispatched ` +
+		`the resulting gigaRoot to Aztec.\n` +
 		`Commitment: ${commitment.toString()}\n` +
-		`Source Chain: ${sourceChainId}`
+		`Source Chain: ${sourceChainId}`,
+		String(sourceChainId),
+		'aztec',
 	);
 }
 
@@ -788,108 +891,74 @@ async function getGigaMerkleData(
 async function getLocalRootData(
 	publicClient: PublicClient,
 	gigaBridgeAddress: string,
-	warpToadL1Address: string,
+	localRootProviderAddress: string,
 	chainId: number,
 	gigaRoot: bigint
 ): Promise<LocalRootData> {
-	// Get local root index for L1WarpToad
 	const localRootIndexRaw = await publicClient.readContract({
 		address: gigaBridgeAddress as `0x${string}`,
 		abi: GigaBridgeAbi,
 		functionName: 'getLocalRootProvidersIndex',
-		args: [warpToadL1Address as `0x${string}`], //@TODO warpToadL1Address change to be more ambigious for all potential evm chains.
+		args: [localRootProviderAddress as `0x${string}`],
 	});
 	const localRootIndex = Number(localRootIndexRaw);
-	console.log('L1WarpToad local root index:', localRootIndex);
+	console.log(`Local root provider ${localRootProviderAddress} index: ${localRootIndex}`);
 
-	// Get GigaRoot event for THIS SPECIFIC gigaRoot value
-	// This ensures we find the exact transaction that created the gigaRoot stored on Aztec
 	const gigaRootEvents = await getGigaRootEvents(publicClient, gigaBridgeAddress, chainId, gigaRoot);
-
 	if (gigaRootEvents.length === 0) {
-		console.error(`No ConstructedNewGigaRoot event found for gigaRoot: ${gigaRoot}`);
 		throw new Error(
 			`GigaRoot ${gigaRoot} not found in L1 events. ` +
 			'The bridge state may be inconsistent, or the gigaRoot was constructed on a different chain.'
 		);
 	}
 
-	// Get the event for this gigaRoot (should be the most recent one if there are duplicates)
 	const gigaRootEvent = gigaRootEvents[gigaRootEvents.length - 1];
 	const gigaRootBlockNumber = Number(gigaRootEvent.blockNumber);
 	console.log(`Found ConstructedNewGigaRoot event at L1 block ${gigaRootBlockNumber}, tx: ${gigaRootEvent.transactionHash}`);
 
-	// Get transaction receipt to find local root events in the same tx
-	const receipt = await publicClient.getTransactionReceipt({
-		hash: gigaRootEvent.transactionHash,
-	});
-
-	// Parse ReceivedNewLocalRoot events from the same transaction
-	// Event: ReceivedNewLocalRoot(uint256 indexed newLocalRoot, uint40 indexed localRootIndex, uint256 localRootBlockNumber)
-	// - topics[0]: event signature hash
-	// - topics[1]: newLocalRoot (indexed, padded to 32 bytes)
-	// - topics[2]: localRootIndex (indexed, uint40 padded to 32 bytes)
-	// - data: localRootBlockNumber (not indexed)
-	let localRoot: bigint | null = null;
-	let localRootL2BlockNumber = 0;
-
-	// Calculate event signature: keccak256("ReceivedNewLocalRoot(uint256,uint40,uint256)")
-	const eventSignature = keccak256(toHex('ReceivedNewLocalRoot(uint256,uint40,uint256)'));
-
-	for (const log of receipt.logs) {
-		try {
-			// Check if this is a ReceivedNewLocalRoot event by matching signature
-			if (log.topics[0] === eventSignature && log.topics.length >= 3 && log.topics[1] && log.topics[2]) {
-				// Indexed parameters are in topics (padded to 32 bytes)
-				const decodedLocalRoot = BigInt(log.topics[1]);
-				const decodedIndex = Number(BigInt(log.topics[2]));
-				// Non-indexed parameter is in data
-				const decodedBlockNumber = log.data ? BigInt(log.data) : 0n;
-
-				console.log(`Found ReceivedNewLocalRoot: index=${decodedIndex}, localRoot=${decodedLocalRoot}, blockNumber=${decodedBlockNumber}`);
-
-				if (decodedIndex === localRootIndex) {
-					localRoot = decodedLocalRoot;
-					localRootL2BlockNumber = Number(decodedBlockNumber);
-					console.log(`Matched local root for L1WarpToad (index ${localRootIndex}): ${localRoot}`);
-					break;
-				}
-			}
-		} catch {
-			continue;
+	// Fast path: if the keeper's current state is on the same gigaRoot we're
+	// proving against, take its leaves directly and skip the per-index event
+	// scan. Saves an RPC round-trip per leaf - matters under the keeper's
+	// /rpc/:chain proxy rate limit.
+	const keeperLeaves = await tryGetGigaLeavesForRoot(chainId, gigaRoot);
+	if (keeperLeaves) {
+		const leaf = keeperLeaves.leaves.get(localRootIndex);
+		if (leaf) {
+			console.log(`Matched local root for index ${localRootIndex} via keeper: ${leaf.localRoot}`);
+			return {
+				localRoot: leaf.localRoot,
+				localRootIndex,
+				localRootBlockNumber: leaf.localRootBlockNumber,
+				gigaRootBlockNumber,
+			};
 		}
 	}
 
-	// If we couldn't find it in the transaction, query events directly as fallback
-	if (!localRoot) {
-		console.log('Local root not found in transaction logs, querying events directly...');
-		const localRootEvents = await getLocalRootEvents(
-			publicClient,
-			gigaBridgeAddress,
-			chainId,
-			BigInt(gigaRootBlockNumber)
-		);
+	// Fallback: walk events backward from the construction block. The
+	// provider's local root may have been last updated many blocks earlier;
+	// looking only at the construction block misses providers that weren't
+	// part of that specific updateGigaRoot call.
+	const matchingEvent = await getLatestLocalRootEventForIndex(
+		publicClient,
+		gigaBridgeAddress,
+		chainId,
+		localRootIndex,
+		gigaRootEvent.blockNumber
+	);
 
-		const matchingEvent = localRootEvents.find((e) => e.index === localRootIndex);
-		if (matchingEvent) {
-			localRoot = matchingEvent.localRoot;
-			localRootL2BlockNumber = matchingEvent.blockNumber;
-			console.log(`Found local root from events: ${localRoot} at block ${localRootL2BlockNumber}`);
-		}
-	}
-
-	if (!localRoot) {
-		console.error(`Local root for L1WarpToad (index ${localRootIndex}) not found in gigaRoot construction tx`);
+	if (!matchingEvent) {
 		throw new Error(
-			`Local root for L1WarpToad (index ${localRootIndex}) not found in giga root construction. ` +
-			'The L1 local root may not have been included in this giga root.'
+			`No ReceivedNewLocalRoot event found for index ${localRootIndex} (provider ${localRootProviderAddress}) ` +
+			`at or before block ${gigaRootBlockNumber}. The provider may never have been updated.`
 		);
 	}
+
+	console.log(`Matched local root for index ${localRootIndex} via scan: ${matchingEvent.localRoot} (last updated at L1 block ${matchingEvent.eventBlockNumber})`);
 
 	return {
-		localRoot,
+		localRoot: matchingEvent.localRoot,
 		localRootIndex,
-		localRootBlockNumber: localRootL2BlockNumber,
+		localRootBlockNumber: matchingEvent.blockNumber,
 		gigaRootBlockNumber,
 	};
 }
@@ -1647,6 +1716,45 @@ export async function burnOnAztec(
 	const blockNumber = await aztecNode.getBlockNumber();
 	console.log('Burn included at Aztec block:', blockNumber);
 
+	// Capture the note hash nonce from PXE so it can be persisted in the note
+	// file. Same `get_notes_with_nonces` pattern as `getAztecMerkleData` uses
+	// at withdraw time, but called eagerly while the user's PXE still has the
+	// just-emitted note. Soft-fail (warn + return null) if PXE hasn't surfaced
+	// the note yet - the burn already succeeded on chain, and the legacy
+	// PXE-based withdraw path still works for users who don't change machines.
+	let noteNonce: bigint | null = null;
+	try {
+		const contractNotesSim = await contract.methods
+			.get_notes_with_nonces(contract.artifact.storageLayout.commitments.slot)
+			.simulate({ from }) as any;
+		const contractNotes = contractNotesSim.result ?? contractNotesSim;
+		for (const entry of contractNotes.storage) {
+			const noteCommitment = hashCommitment(
+				hashPreCommitment(
+					BigInt(entry.note.nullifier_preimage.toString()),
+					BigInt(entry.note.secret.toString()),
+					BigInt(entry.note.chain_id.toString()),
+				),
+				BigInt(entry.note.amount.toString()),
+			);
+			if (noteCommitment === commitment) {
+				noteNonce = BigInt(entry.note_nonce.toString());
+				break;
+			}
+		}
+		if (noteNonce === null) {
+			console.warn(
+				'[burnOnAztec] PXE has no note matching the burn commitment yet; ' +
+				'note will be issued without noteNonce. Withdraw on this device will ' +
+				'still work via PXE lookup; cross-device portability is unavailable.',
+			);
+		} else {
+			console.log('[burnOnAztec] Captured noteNonce:', noteNonce.toString().slice(0, 20) + '...');
+		}
+	} catch (e) {
+		console.warn('[burnOnAztec] Failed to capture noteNonce from PXE:', e);
+	}
+
 	return {
 		secret,
 		nullifierPreimage,
@@ -1654,6 +1762,7 @@ export async function burnOnAztec(
 		commitment,
 		burnTxHash: tx.receipt.txHash.toString(),
 		blockNumber,
+		noteNonce,
 	};
 }
 
@@ -1667,7 +1776,7 @@ export function encodeAztecNote(
 	destinationChainId: bigint,
 	amount: bigint
 ): string {
-	const noteData = {
+	const noteData: Record<string, string | number> = {
 		version: '1.0',
 		protocol: 'warptoad',
 		sourceChainId: sourceChainId.toString(),
@@ -1681,6 +1790,12 @@ export function encodeAztecNote(
 		aztecBlockNumber: burnResult.blockNumber,
 		burnTxHash: burnResult.burnTxHash,
 	};
+	// Only emit `noteNonce` when we successfully captured it. Decoders treat
+	// the field as optional, so omitting it on the rare PXE-sync race is
+	// preferable to writing `null` (which round-trips as the string "null").
+	if (burnResult.noteNonce !== null) {
+		noteData.noteNonce = burnResult.noteNonce.toString();
+	}
 
 	const jsonStr = JSON.stringify(noteData);
 	const base64 = btoa(jsonStr);
@@ -1727,71 +1842,89 @@ async function hashUniqueNoteHash(nonce: bigint, siloedNoteHash: bigint): Promis
 
 /**
  * Get Aztec merkle data for a commitment
- * 
- * This is needed for Aztec -> L1 withdrawals. The function:
- * 1. Queries the contract to find the note with matching commitment
- * 2. Gets the note's nonce from metadata
- * 3. Computes the siloed and unique note hash (as Aztec does)
- * 4. Gets the merkle proof from the note hash tree
- * 
+ *
+ * Needed for Aztec -> L1 / Aztec -> Scroll withdrawals. The function:
+ * 1. Determines the note nonce. Two paths:
+ *    - **knownNonce path** (preferred): caller passes the nonce captured at
+ *      burn time and persisted in note.txt. PXE state is irrelevant, so the
+ *      withdraw works on a fresh wallet / different machine.
+ *    - **PXE-lookup path** (legacy fallback): no nonce was passed, so we
+ *      query the contract via PXE for notes matching the commitment.
+ * 2. Computes the siloed and unique note hash (as Aztec does internally).
+ * 3. Asks the Aztec node for the membership witness, trying each candidate
+ *    nonce until one is found in the tree at `blockNumber`.
+ *
  * @param wallet - Connected Aztec wallet
  * @param commitment - The commitment hash (plain note hash before siloing)
- * @param blockNumber - Aztec block number when the commitment was created
+ * @param blockNumber - Aztec block number to anchor the witness at
+ * @param knownNonce - Optional. The note hash nonce captured at burn time.
+ *   When provided, PXE is skipped entirely and only this nonce is tried.
  * @returns Merkle data for the withdraw circuit
  */
 export async function getAztecMerkleData(
 	wallet: Wallet,
 	commitment: bigint,
-	blockNumber: number
+	blockNumber: number,
+	knownNonce?: bigint,
 ): Promise<AztecMerkleData> {
 	console.log('Getting Aztec merkle data for commitment:', commitment.toString().slice(0, 20) + '...');
 	console.log('Block number:', blockNumber);
 
-	const contract = await getWarpToadContract(wallet);
-	const accounts = await wallet.getAccounts();
-	const from = accounts[0].item;
+	let matchingNonces: bigint[];
 
-	// Step 1: Get notes from the contract to find the note nonce
-	// The contract has a utility function that returns notes from the commitments storage
-	console.log('Fetching notes from contract...');
-	// Use get_notes_with_nonces (read-only) instead of get_notes_util (which nullifies!).
-	// Returns BoundedVec<{ note: WarpToadNote, note_nonce: Field }, 16>.
-	const contractNotesSim = await contract.methods
-		.get_notes_with_nonces(contract.artifact.storageLayout.commitments.slot)
-		.simulate({ from }) as any;
-	const contractNotes = contractNotesSim.result ?? contractNotesSim;
+	if (knownNonce !== undefined) {
+		// Fast path: nonce was persisted in the note. Skip PXE entirely.
+		console.log('Using note-supplied noteNonce, skipping PXE lookup:', knownNonce.toString().slice(0, 20) + '...');
+		matchingNonces = [knownNonce];
+	} else {
+		// Legacy path: query PXE for the user's notes and find one matching the commitment.
+		const contract = await getWarpToadContract(wallet);
+		const accounts = await wallet.getAccounts();
+		const from = accounts[0].item;
 
-	console.log('Retrieved', contractNotes.storage.length, 'notes');
+		console.log('Fetching notes from contract (PXE lookup; legacy notes without noteNonce)...');
+		// Use get_notes_with_nonces (read-only) instead of get_notes_util (which nullifies!).
+		// Returns BoundedVec<{ note: WarpToadNote, note_nonce: Field }, 16>.
+		const contractNotesSim = await contract.methods
+			.get_notes_with_nonces(contract.artifact.storageLayout.commitments.slot)
+			.simulate({ from }) as any;
+		const contractNotes = contractNotesSim.result ?? contractNotesSim;
 
-	// Step 2: Collect ALL notes matching the commitment. The same
-	// (nullifier_preimage, secret, chain_id, amount) tuple can exist multiple times
-	// (e.g. stale + fresh burn entries), so we gather them all and try each one's
-	// unique note hash against the merkle tree, preferring the most recent first.
-	const matchingNonces: bigint[] = [];
-	for (const entry of contractNotes.storage) {
-		const noteCommitment = hashCommitment(
-			hashPreCommitment(
-				BigInt(entry.note.nullifier_preimage.toString()),
-				BigInt(entry.note.secret.toString()),
-				BigInt(entry.note.chain_id.toString())
-			),
-			BigInt(entry.note.amount.toString())
-		);
-		if (noteCommitment === commitment) {
-			matchingNonces.push(BigInt(entry.note_nonce.toString()));
+		console.log('Retrieved', contractNotes.storage.length, 'notes');
+
+		// Collect ALL notes matching the commitment. The same
+		// (nullifier_preimage, secret, chain_id, amount) tuple can exist multiple times
+		// (e.g. stale + fresh burn entries), so we gather them all and try each one's
+		// unique note hash against the merkle tree, preferring the most recent first.
+		matchingNonces = [];
+		for (const entry of contractNotes.storage) {
+			const noteCommitment = hashCommitment(
+				hashPreCommitment(
+					BigInt(entry.note.nullifier_preimage.toString()),
+					BigInt(entry.note.secret.toString()),
+					BigInt(entry.note.chain_id.toString()),
+				),
+				BigInt(entry.note.amount.toString()),
+			);
+			if (noteCommitment === commitment) {
+				matchingNonces.push(BigInt(entry.note_nonce.toString()));
+			}
+		}
+		console.log(`Found ${matchingNonces.length} note(s) matching commitment`);
+		// Try most recent first (storage order tends to be append-only, so reverse).
+		matchingNonces.reverse();
+
+		if (matchingNonces.length === 0) {
+			throw new Error(
+				`Could not find note with commitment ${commitment.toString().slice(0, 20)}... ` +
+				'The note may not be synced to this wallet yet, or the commitment data is incorrect. ' +
+				'If this note was issued on a different device or before noteNonce capture was added, ' +
+				're-bridge to get a portable note, or connect the original wallet that performed the burn.',
+			);
 		}
 	}
-	console.log(`Found ${matchingNonces.length} note(s) matching commitment`);
-	// Try most recent first (storage order tends to be append-only, so reverse).
-	matchingNonces.reverse();
-	const noteNonce: bigint | null = matchingNonces[0] ?? null;
 
-	if (noteNonce === null) {
-		throw new Error(
-			`Could not find note with commitment ${commitment.toString().slice(0, 20)}... ` +
-			'The note may not be synced to this wallet yet, or the commitment data is incorrect.'
-		);
-	}
+	const noteNonce: bigint = matchingNonces[0];
 
 	// Step 3: Compute the siloed and unique note hash
 	const warpToadAddressStr = AZTEC_CONTRACTS.AztecWarpToad.address;

@@ -21,6 +21,7 @@
 		Loader2,
 		CheckCircle2,
 	} from "@lucide/svelte";
+	import { badgeVariants } from "$lib/components/ui/badge/index.js";
 	import { walletStore } from "$lib/stores/wallets.svelte.js";
 	import { proofStore } from "$lib/stores/proofs.svelte.js";
 	import { balanceStore } from "$lib/stores/balances.svelte.js";
@@ -51,8 +52,9 @@
 		getChainIdForBridgeKeeper,
 		getExpectedDuration,
 		isBridgeKeeperEnabled,
-		savePendingBridgeSync 
+		savePendingBridgeSync
 	} from "$lib/utils/bridge-keeper.js";
+	import type { Proof } from "$lib/types/bridge.js";
 
 	let sourceChain = $state<Chain>("Ethereum");
 	let targetChain = $state<Chain>("Aztec");
@@ -216,26 +218,30 @@
 			console.log("Source chain ID:", sourceChainId.toString());
 			console.log("Destination chain ID:", destinationChainId.toString());
 
-			// Branch based on source chain type
+			// Branch based on source chain type. Each branch creates a Proof
+			// record and returns it so triggerRootSync can attach the keeper
+			// operationId to the same proof (per-commitment persistence
+			// replaces the global savePendingBridgeSync localStorage slot).
+			let createdProof: Proof | null = null;
 			if (sourceChain === "Aztec") {
 				// ==========================================
 				// AZTEC -> EVM FLOW
 				// ==========================================
-				await bridgeFromAztecUI(sourceChainId, destinationChainId);
+				createdProof = await bridgeFromAztecUI(sourceChainId, destinationChainId);
 			} else if (sourceChain === "Scroll") {
 				// ==========================================
 				// SCROLL -> AZTEC/L1 FLOW
 				// ==========================================
-				await bridgeFromScrollUI(destinationChainId);
+				createdProof = await bridgeFromScrollUI(destinationChainId);
 			} else {
 				// ==========================================
 				// ETHEREUM L1 -> AZTEC/SCROLL FLOW
 				// ==========================================
-				await bridgeFromEvm(destinationChainId);
+				createdProof = await bridgeFromEvm(destinationChainId);
 			}
 
 			// Step: Trigger root synchronization
-			await triggerRootSync();
+			await triggerRootSync(createdProof);
 
 			// Step: Complete
 			generationStep = "complete";
@@ -270,14 +276,17 @@ You can close this page. Your note has been downloaded.`;
 	}
 
 	/**
-	 * Trigger root synchronization via BridgeKeeper API
-	 * This is called after note generation to automatically sync roots
+	 * Trigger root synchronization via the bridge keeper.
+	 * Called after note generation. The opId returned by the keeper is
+	 * attached to the just-created proof so the WithdrawForm can poll
+	 * /status/:opId and show real progress instead of surfacing
+	 * BridgeSyncStaleError on every retry.
 	 */
-	async function triggerRootSync() {
-		// In sandbox/local-dev mode the BridgeKeeper service isn't reachable
-		// (and the testnet one at bridge.warptoad.xyz is irrelevant). Skip the
-		// HTTP call entirely; the user runs `pnpm l:sync` / `pnpm l:sync:from-aztec`
-		// manually after burns.
+	async function triggerRootSync(proof: Proof | null) {
+		// In sandbox/local-dev mode the bridge keeper isn't reachable
+		// (and the testnet one at bridge.warptoad.xyz is irrelevant). Skip
+		// the HTTP call entirely; the user runs `pnpm l:sync` /
+		// `pnpm l:sync:from-aztec` manually after burns.
 		if (!isBridgeKeeperEnabled) {
 			console.log("[BridgeKeeper] Skipped (sandbox/local dev mode). Run `pnpm l:sync` manually.");
 			return;
@@ -289,12 +298,29 @@ You can close this page. Your note has been downloaded.`;
 		try {
 			const fromChainId = getChainIdForBridgeKeeper(sourceChain);
 			const toChainId = getChainIdForBridgeKeeper(targetChain);
-			
+
 			console.log(`[BridgeKeeper] Triggering sync: ${sourceChain} (${fromChainId}) -> ${targetChain} (${toChainId})`);
-			
+
 			const response = await triggerBridge(fromChainId, toChainId, 3);
-			
-			// Store operation ID for later checking
+
+			// Per-proof persistence replaces the legacy single-slot
+			// savePendingBridgeSync (which clobbered any prior op). Each
+			// proof now carries its own operationId so WithdrawForm can poll
+			// the right one even after page reloads / multi-burn sessions.
+			if (proof) {
+				proofStore.attachBridgeSync(proof.id, {
+					operationId: response.operationId,
+					fromChainId,
+					toChainId,
+					startedAtMs: Date.now(),
+					expectedDuration: response.expectedDuration,
+					lastStatus: 'pending',
+				});
+			}
+
+			// Keep the legacy global slot writing too during the rollout, in
+			// case any code path still reads it. Safe to remove once all
+			// readers are gone.
 			savePendingBridgeSync({
 				operationId: response.operationId,
 				fromChain: sourceChain,
@@ -302,15 +328,15 @@ You can close this page. Your note has been downloaded.`;
 				expectedDuration: response.expectedDuration,
 				timestamp: Date.now()
 			});
-			
-			console.log('✅ Root synchronization triggered!');
+
+			console.log('Root synchronization triggered.');
 			console.log(`   Operation ID: ${response.operationId}`);
 			console.log(`   Expected duration: ${response.expectedDuration}`);
 		} catch (error) {
-			// Don't fail the whole bridge if BridgeKeeper is unreachable
-			// The note is already generated and valid
-			console.warn(' Failed to trigger automatic root synchronization:', error);
-			console.log('Note: You can manually trigger sync later via BridgeKeeper API');
+			// Don't fail the whole bridge if the keeper is unreachable.
+			// The note is already generated and valid.
+			console.warn('Failed to trigger automatic root synchronization:', error);
+			console.log('You can manually trigger sync later via the bridge keeper API.');
 		}
 	}
 	
@@ -318,7 +344,7 @@ You can close this page. Your note has been downloaded.`;
 	 * Bridge from Aztec to EVM (L1 or Scroll)
 	 * Burns tokens on Aztec and creates a note for EVM withdrawal
 	 */
-	async function bridgeFromAztecUI(sourceChainId: bigint, destinationChainId: bigint) {
+	async function bridgeFromAztecUI(sourceChainId: bigint, destinationChainId: bigint): Promise<Proof> {
 		const aztecWallet = getWalletInstance();
 		if (!aztecWallet) {
 			throw new Error("Aztec wallet not connected. Please connect the Aztec wallet first.");
@@ -347,12 +373,17 @@ You can close this page. Your note has been downloaded.`;
 			amountBigInt
 		);
 		
-		// Create commitment pre-image for storage
+		// Create commitment pre-image for storage. Includes the noteNonce
+		// captured from PXE so the withdraw flow can recover it without PXE
+		// state (different machine, wallet reset, etc.). null when PXE didn't
+		// surface the note in time - withdraw on this device still works via
+		// the legacy PXE-lookup path in `getAztecMerkleData`.
 		const commitmentPreImg = {
 			amount: amountBigInt,
 			destination_chain_id: destinationChainId,
 			secret: burnResult.secret,
 			nullifier_preimg: burnResult.nullifierPreimage,
+			...(burnResult.noteNonce !== null ? { noteNonce: burnResult.noteNonce } : {}),
 		};
 		
 		// Add proof and download
@@ -368,13 +399,14 @@ You can close this page. Your note has been downloaded.`;
 			burnResult.burnTxHash
 		);
 		proofStore.downloadProof(proof);
+		return proof;
 	}
-	
+
 	/**
 	 * Bridge from Scroll L2 to Aztec/L1
 	 * Burns tokens on Scroll and creates a note for withdrawal
 	 */
-	async function bridgeFromScrollUI(destinationChainId: bigint) {
+	async function bridgeFromScrollUI(destinationChainId: bigint): Promise<Proof> {
 		// On Scroll, users already have wrapped tokens (from L2WarpToad)
 		// No need to approve/wrap - just burn directly
 		
@@ -396,12 +428,13 @@ You can close this page. Your note has been downloaded.`;
 			bridgeResult.burnTxHash
 		);
 		proofStore.downloadProof(proof);
+		return proof;
 	}
 
 	/**
 	 * Bridge from EVM (Ethereum L1) to Aztec/Scroll
 	 */
-	async function bridgeFromEvm(destinationChainId: bigint) {
+	async function bridgeFromEvm(destinationChainId: bigint): Promise<Proof> {
 		// Step 2: Approving tokens
 		generationStep = "approving";
 		generationMessage = "Approving tokens...";
@@ -435,6 +468,7 @@ You can close this page. Your note has been downloaded.`;
 			bridgeResult.burnTxHash
 		);
 		proofStore.downloadProof(proof);
+		return proof;
 	}
 
 	function handleSourceTokenSelect(token: Token) {
@@ -459,6 +493,20 @@ You can close this page. Your note has been downloaded.`;
 </script>
 
 <div class="space-y-3">
+	<!-- Info Banner -->
+	<div class="p-2.5 rounded-lg border border-border bg-background/40 backdrop-blur-sm">
+		<p class="text-[0.65rem] text-muted-foreground">
+			<span class="text-foreground font-medium">Private bridging</span> across chains. The recipient withdraws on the destination chain using the generated note.
+		</p>
+	</div>
+
+	<!-- Source / swap / target group: own flex-col so the swap button can
+	     overlap symmetrically. Putting these in space-y-3 gave space-y a
+	     higher-specificity margin-top on "You Receive" that any -my override
+	     on the swap div couldn't cancel, leaving the button drifted toward
+	     the receive card. flex-col has no inter-item margins, so -my-1.5 on
+	     the swap div produces 6px overlap on each side. -->
+	<div class="flex flex-col">
 	<!-- Source Section (You Send) -->
 	<div class="swamp-card-source">
 		<div class="swamp-card-inner">
@@ -511,7 +559,7 @@ You can close this page. Your note has been downloaded.`;
 				/>
 				<button
 					onclick={setMaxAmount}
-					class="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-[0.65rem] font-semibold text-[var(--toad-green)] bg-[rgba(130,226,102,0.08)] hover:bg-[rgba(130,226,102,0.15)] rounded transition-colors uppercase tracking-wider border border-[rgba(130,226,102,0.2)]"
+					class="{badgeVariants({ variant: 'default' })} absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer hover:bg-primary/90"
 				>
 					Max
 				</button>
@@ -569,6 +617,7 @@ You can close this page. Your note has been downloaded.`;
 				</div>
 			</div>
 		</div>
+	</div>
 	</div>
 
 	<!-- Validation Messages -->

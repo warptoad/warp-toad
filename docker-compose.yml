@@ -57,6 +57,10 @@ services:
         VITE_BRIDGE_KEEPER_URL: ${VITE_BRIDGE_KEEPER_URL:-http://localhost:6969}
         VITE_RELAY_SERVICE_URL: ${VITE_RELAY_SERVICE_URL:-http://localhost:7777}
         VITE_FAUCET_SERVICE_URL: ${VITE_FAUCET_SERVICE_URL:-http://localhost:8888}
+        # Optional umami analytics. Both must be set or the script is not
+        # injected (unset = no-op, no 404 noise).
+        VITE_UMAMI_SCRIPT_URL: ${VITE_UMAMI_SCRIPT_URL:-}
+        VITE_UMAMI_WEBSITE_ID: ${VITE_UMAMI_WEBSITE_ID:-}
     image: warptoad/frontend:latest
     container_name: warptoad-frontend
     ports:
@@ -96,6 +100,11 @@ services:
       AZTEC_HEARTBEAT_CHECK_INTERVAL_MS: ${AZTEC_HEARTBEAT_CHECK_INTERVAL_MS:-300000}
       AZTEC_HEARTBEAT_THRESHOLD_BLOCKS: ${AZTEC_HEARTBEAT_THRESHOLD_BLOCKS:-80}
       AZTEC_HEARTBEAT_RETENTION_BLOCKS: ${AZTEC_HEARTBEAT_RETENTION_BLOCKS:-100}
+      # Unified scheduler (subsumes per-route triggering + aztecHeartbeat).
+      # Default false during the rollout; set to true to flip the cutover.
+      # Watch /health.scheduler before flipping back.
+      BRIDGE_SYNC_USE_UNIFIED_SCHEDULER: ${BRIDGE_SYNC_USE_UNIFIED_SCHEDULER:-false}
+      BRIDGE_SYNC_COALESCE_WINDOW_MS: ${BRIDGE_SYNC_COALESCE_WINDOW_MS:-90000}
     volumes:
       - bridge-sync-logs:/app/bridge-sync/logs
       - bridge-sync-db:/app/bridge-sync/db

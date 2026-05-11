@@ -7,6 +7,8 @@ import { getContractAddresses, CONTRACT_ADDRESSES } from '$lib/contracts/address
 import { poseidon2, poseidon3 } from 'poseidon-lite';
 import { getEVMChain } from '$lib/config/chains';
 import { queryEventInChunks } from './viem-chunks';
+import { getLatestLocalRootEventForIndex } from './aztec-interactions';
+import { tryGetGigaLeavesForRoot } from './bridge-keeper';
 import { rpcSettings } from '$lib/stores/rpc-settings.svelte';
 
 // Field size for BN254 curve (used by Aztec)
@@ -223,7 +225,7 @@ export function decodeNote(note: string): CommitmentPreImage & {
 	const base64 = note.replace('warptoad-note-', '');
 	const jsonStr = atob(base64);
 	const noteData = JSON.parse(jsonStr);
-	
+
 	return {
 		amount: BigInt(noteData.amount),
 		destination_chain_id: BigInt(noteData.destinationChainId),
@@ -232,6 +234,10 @@ export function decodeNote(note: string): CommitmentPreImage & {
 		sourceChainId: BigInt(noteData.sourceChainId),
 		preCommitment: BigInt(noteData.preCommitment),
 		commitment: BigInt(noteData.commitment),
+		// Aztec-source notes carry a `noteNonce` so withdraw works without PXE
+		// state. Older notes (pre-feature) omit it; the withdraw path falls
+		// back to PXE lookup in that case.
+		noteNonce: noteData.noteNonce !== undefined ? BigInt(noteData.noteNonce) : undefined,
 	};
 }
 
@@ -1433,68 +1439,89 @@ export async function getMerkleDataForScrollToL1(
 	const gigaRootBlock = gigaRootEvents[0].blockNumber;
 	console.log(`Found gigaRoot at block ${gigaRootBlock}`);
 
-	// Step 2: Get L1ScrollBridgeAdapter's index in the giga tree
-	const scrollAdapterIndex = await publicClient.readContract({
-		address: addresses.GigaBridge as `0x${string}`,
-		abi: GigaBridgeAbi,
-		functionName: 'getLocalRootProvidersIndex',
-		args: [addresses.L1ScrollBridgeAdapter as `0x${string}`]
-	});
-	
+	// Step 2: Read tree shape and the scroll adapter's index in parallel
+	const [scrollAdapterIndexRaw, maxTreeDepthRaw] = await Promise.all([
+		publicClient.readContract({
+			address: addresses.GigaBridge as `0x${string}`,
+			abi: GigaBridgeAbi,
+			functionName: 'getLocalRootProvidersIndex',
+			args: [addresses.L1ScrollBridgeAdapter as `0x${string}`]
+		}),
+		publicClient.readContract({
+			address: addresses.GigaBridge as `0x${string}`,
+			abi: GigaBridgeAbi,
+			functionName: 'maxTreeDepth'
+		})
+	]);
+	const scrollAdapterIndex = Number(scrollAdapterIndexRaw);
+	const maxTreeDepth = Number(maxTreeDepthRaw);
+
 	console.log(`L1ScrollBridgeAdapter index in giga tree: ${scrollAdapterIndex}`);
-	
-	// Step 3: Get all local roots at that block (to build giga tree)
-	console.log(`Querying ReceivedNewLocalRoot events at block ${gigaRootBlock}...`);
-	
-	const localRootEvents = await publicClient.getLogs({
-		address: addresses.GigaBridge as `0x${string}`,
-		event: {
-			type: 'event',
-			name: 'ReceivedNewLocalRoot',
-			inputs: [
-				{ type: 'uint256', name: 'newLocalRoot', indexed: true },
-				{ type: 'uint40', name: 'localRootIndex', indexed: true },
-				{ type: 'uint256', name: 'localRootBlockNumber', indexed: false }
-			]
-		},
-		fromBlock: gigaRootBlock,
-		toBlock: gigaRootBlock
-	});
-	
-	console.log(`Found ${localRootEvents.length} local root events at block ${gigaRootBlock}`);
-	
-	// Step 4: Build the giga tree leaves array
-	const maxTreeDepth = await publicClient.readContract({
-		address: addresses.GigaBridge as `0x${string}`,
-		abi: GigaBridgeAbi,
-		functionName: 'maxTreeDepth'
-	});
-	
-	const maxLeaves = 2 ** Number(maxTreeDepth);
-	const leaves: bigint[] = new Array(maxLeaves).fill(0n);
-	
-	let scrollLocalRoot: bigint | null = null;
-	let scrollLocalRootBlockNumber = 0;
-	
-	// Fill in the leaves from events
-	for (const event of localRootEvents) {
-		const localRoot = event.args.newLocalRoot as bigint;
-		const leafIndex = Number(event.args.localRootIndex as bigint | undefined);
-		const blockNumber = Number(event.args.localRootBlockNumber as bigint | undefined);
-		
-		leaves[leafIndex] = localRoot;
-		
-		// Check if this is Scroll's local root
-		if (leafIndex === Number(scrollAdapterIndex)) {
-			scrollLocalRoot = localRoot;
-			scrollLocalRootBlockNumber = blockNumber;
+
+	// Step 3: Get the leaves. Fast path - if the keeper's current state is on
+	// this same gigaRoot, take its snapshot in one HTTP call. Slow path - walk
+	// events backward per-index (used for historical roots or custom-RPC
+	// users). updateGigaRoot only emits ReceivedNewLocalRoot for the providers
+	// passed in that call; other providers' local roots stay in the tree from
+	// earlier updates and silently flow into the new gigaRoot, so we need
+	// each index's most-recent event at or before the construction block.
+	let amountOfLocalRoots: number;
+	const indexLeaves: Array<{ localRoot: bigint; blockNumber: number } | null> = [];
+
+	const keeperLeaves = await tryGetGigaLeavesForRoot(l1ChainId, gigaRoot);
+	if (keeperLeaves) {
+		amountOfLocalRoots = keeperLeaves.amountOfLocalRoots;
+		console.log(`Reconstructing ${amountOfLocalRoots} giga tree leaves via keeper`);
+		for (let i = 0; i < amountOfLocalRoots; i++) {
+			const leaf = keeperLeaves.leaves.get(i);
+			indexLeaves[i] = leaf
+				? { localRoot: leaf.localRoot, blockNumber: leaf.localRootBlockNumber }
+				: null;
+		}
+	} else {
+		amountOfLocalRoots = Number(await publicClient.readContract({
+			address: addresses.GigaBridge as `0x${string}`,
+			abi: GigaBridgeAbi,
+			functionName: 'amountOfLocalRoots',
+		}));
+		console.log(`Reconstructing ${amountOfLocalRoots} giga tree leaves at or before block ${gigaRootBlock} via RPC scan`);
+		const indexEvents = await Promise.all(
+			Array.from({ length: amountOfLocalRoots }, (_, i) =>
+				getLatestLocalRootEventForIndex(
+					publicClient,
+					addresses.GigaBridge as string,
+					l1ChainId,
+					i,
+					gigaRootBlock
+				)
+			)
+		);
+		for (let i = 0; i < amountOfLocalRoots; i++) {
+			const e = indexEvents[i];
+			indexLeaves[i] = e ? { localRoot: e.localRoot, blockNumber: e.blockNumber } : null;
 		}
 	}
-	
+
+	const maxLeaves = 2 ** maxTreeDepth;
+	const leaves: bigint[] = new Array(maxLeaves).fill(0n);
+
+	let scrollLocalRoot: bigint | null = null;
+	let scrollLocalRootBlockNumber = 0;
+
+	for (let i = 0; i < amountOfLocalRoots; i++) {
+		const leaf = indexLeaves[i];
+		if (!leaf) continue;
+		leaves[i] = leaf.localRoot;
+		if (i === scrollAdapterIndex) {
+			scrollLocalRoot = leaf.localRoot;
+			scrollLocalRootBlockNumber = leaf.blockNumber;
+		}
+	}
+
 	if (scrollLocalRoot === null) {
 		throw new Error(
 			`Scroll local root not found in giga tree at block ${gigaRootBlock}. ` +
-			`This should not happen - the gigaRoot should contain Scroll's local root.`
+			`L1ScrollBridgeAdapter (index ${scrollAdapterIndex}) has never emitted a ReceivedNewLocalRoot at or before that block.`
 		);
 	}
 	

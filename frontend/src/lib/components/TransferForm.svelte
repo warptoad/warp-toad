@@ -3,6 +3,7 @@
 		Loader2,
 		CheckCircle2,
 	} from "@lucide/svelte";
+	import { badgeVariants } from "$lib/components/ui/badge/index.js";
 	import { walletStore } from "$lib/stores/wallets.svelte.js";
 	import { proofStore } from "$lib/stores/proofs.svelte.js";
 	import { balanceStore } from "$lib/stores/balances.svelte.js";
@@ -217,9 +218,9 @@
 
 <div class="space-y-3">
 	<!-- Info Banner -->
-	<div class="p-2.5 rounded-lg bg-[rgba(130,226,102,0.05)] border border-[rgba(130,226,102,0.15)]">
-		<p class="text-[0.65rem] text-[var(--muted-foreground)]">
-			<span class="text-[var(--toad-green)] font-medium">Private transfers</span> on the same chain. The recipient withdraws using the generated note.
+	<div class="p-2.5 rounded-lg border border-border bg-background/40 backdrop-blur-sm">
+		<p class="text-[0.65rem] text-muted-foreground">
+			<span class="text-foreground font-medium">Private transfers</span> on the same chain. The recipient withdraws using the generated note.
 		</p>
 	</div>
 
@@ -275,7 +276,7 @@
 				/>
 				<button
 					onclick={setMaxAmount}
-					class="absolute right-2 top-1/2 -translate-y-1/2 px-2 py-1 text-[0.65rem] font-semibold text-[var(--toad-green)] bg-[rgba(130,226,102,0.08)] hover:bg-[rgba(130,226,102,0.15)] rounded transition-colors uppercase tracking-wider border border-[rgba(130,226,102,0.2)] cursor-pointer"
+					class="{badgeVariants({ variant: 'default' })} absolute right-2 top-1/2 -translate-y-1/2 cursor-pointer hover:bg-primary/90"
 				>
 					Max
 				</button>

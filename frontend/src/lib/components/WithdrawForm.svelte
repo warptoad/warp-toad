@@ -68,6 +68,12 @@
 		type RelayerInfo,
 		type RelayStatus,
 	} from "$lib/utils/relay-client.js";
+	import {
+		BridgeSyncStaleError,
+		triggerBridge,
+		isBridgeKeeperEnabled,
+		pollOperation,
+	} from "$lib/utils/bridge-keeper.js";
 
 	import { onMount } from "svelte";
 	import { toHex } from "viem";
@@ -270,7 +276,10 @@
 					10 ** decimals
 				).toString();
 
-				// Create a new proof from the decoded note
+				// Create a new proof from the decoded note. `noteNonce` is
+				// optional - present on Aztec-source notes issued after the
+				// portable-note feature, absent on legacy notes (which fall
+				// back to PXE lookup at withdraw time).
 				proof = proofStore.addProof(
 					formattedAmount,
 					"USDC", // Default token - could be improved to detect from note
@@ -282,6 +291,7 @@
 						destination_chain_id: noteData.destination_chain_id,
 						secret: noteData.secret,
 						nullifier_preimg: noteData.nullifier_preimg,
+						...(noteData.noteNonce !== undefined ? { noteNonce: noteData.noteNonce } : {}),
 					},
 					noteData.preCommitment.toString(),
 					noteData.commitment.toString(),
@@ -339,6 +349,100 @@
 		if (!proof?.used) {
 			successMessage = null;
 		}
+	}
+
+	/**
+	 * Bridge-sync poll loop. When a Proof has a `bridgeSync` record (set at burn
+	 * time by BridgeForm, or in the BridgeSyncStaleError catch below on a first
+	 * failed withdraw attempt), this effect polls /status/:opId every 30s and
+	 * updates the proof's lastStatus. The progress panel below the upload area
+	 * renders from those fields, so a user who closes the tab and returns hours
+	 * later sees real progress instead of a fresh stale-root error.
+	 *
+	 * Effect dependencies: only `selectedProof?.id` and
+	 * `selectedProof?.bridgeSync?.operationId`. Status updates use Object.assign
+	 * (in-place) in updateBridgeSyncStatus so the bridgeSync reference stays
+	 * stable and the effect does not re-run on every poll.
+	 */
+	$effect(() => {
+		const proofId = selectedProof?.id;
+		const opId = selectedProof?.bridgeSync?.operationId;
+		if (!proofId || !opId) return;
+
+		const controller = new AbortController();
+		const POLL_INTERVAL_MS = 30_000;
+		const TERMINAL: ReadonlySet<string> = new Set([
+			'completed', 'noop', 'failed', 'timeout',
+		]);
+
+		(async () => {
+			while (!controller.signal.aborted) {
+				// Re-check from the store each iteration; the user may have
+				// withdrawn or deleted the proof since we started.
+				const proof = proofStore.proofs.find(p => p.id === proofId);
+				if (!proof || !proof.bridgeSync || proof.used) return;
+				const currentStatus = proof.bridgeSync.lastStatus;
+				if (currentStatus && TERMINAL.has(currentStatus)) return;
+
+				const { response, expired, error } = await pollOperation(opId, controller.signal);
+				if (controller.signal.aborted) return;
+
+				if (expired) {
+					console.log(`[WithdrawForm] bridge-sync op ${opId} expired server-side; clearing local record`);
+					proofStore.clearBridgeSync(proofId);
+					return;
+				}
+				if (response) {
+					proofStore.updateBridgeSyncStatus(proofId, {
+						lastStatus: response.status,
+						lastPolledAtMs: Date.now(),
+						txHashes: response.txHashes,
+						lastError: response.error,
+					});
+					if (TERMINAL.has(response.status)) return;
+				} else if (error) {
+					// Transient network error: record but keep polling.
+					proofStore.updateBridgeSyncStatus(proofId, {
+						lastPolledAtMs: Date.now(),
+						lastError: error,
+					});
+				}
+
+				await new Promise<void>((resolve) => {
+					const t = setTimeout(resolve, POLL_INTERVAL_MS);
+					controller.signal.addEventListener('abort', () => {
+						clearTimeout(t);
+						resolve();
+					}, { once: true });
+				});
+			}
+		})().catch((e) => console.error('[WithdrawForm] poll loop error:', e));
+
+		return () => controller.abort();
+	});
+
+	/**
+	 * Parse a duration string (e.g. "2-4 hours (multi-hop via L1)") into an
+	 * upper-bound ms estimate, used to compute a soft ETA in the progress
+	 * panel. Returns null if no number can be extracted.
+	 */
+	function parseDurationUpperBoundMs(duration: string): number | null {
+		const m = duration.match(/(\d+)(?:\s*-\s*(\d+))?\s*(minute|hour)/i);
+		if (!m) return null;
+		const upper = Number(m[2] ?? m[1]);
+		const unit = m[3].toLowerCase();
+		const multiplier = unit.startsWith('hour') ? 3_600_000 : 60_000;
+		return upper * multiplier;
+	}
+
+	function formatRelativeTime(ms: number): string {
+		const minutes = Math.floor(ms / 60_000);
+		if (minutes < 1) return 'just now';
+		if (minutes < 60) return `${minutes}m ago`;
+		const hours = Math.floor(minutes / 60);
+		const remMin = minutes % 60;
+		if (remMin === 0) return `${hours}h ago`;
+		return `${hours}h ${remMin}m ago`;
 	}
 
 	// Check relay service availability on mount
@@ -513,7 +617,47 @@
 			console.error("Withdraw error:", error);
 
 			let errorMessage = "Withdraw failed";
-			if (error instanceof Error) {
+
+			if (error instanceof BridgeSyncStaleError) {
+				// The withdraw can't proceed because the keeper hasn't pushed the
+				// source chain's local root to L1 yet (or hasn't dispatched the
+				// gigaRoot to the destination). Fire-and-forget a sync request so
+				// the keeper queues the work, then surface a clear retry message.
+				// Also attach the resulting opId to the proof so the progress
+				// panel + poll loop pick up where this catch left off; a returning
+				// user sees real progress instead of repeating this catch.
+				let triggerNote = "";
+				if (isBridgeKeeperEnabled) {
+					try {
+						const response = await triggerBridge(error.fromChainId, error.toChainId, 3);
+						console.log("[WithdrawForm] BridgeSync trigger queued:", response.operationId);
+						if (selectedProof) {
+							proofStore.attachBridgeSync(selectedProof.id, {
+								operationId: response.operationId,
+								fromChainId: error.fromChainId,
+								toChainId: error.toChainId,
+								startedAtMs: Date.now(),
+								expectedDuration: response.expectedDuration,
+								lastStatus: 'pending',
+							});
+						}
+						triggerNote =
+							"\n\nWe've asked the bridge keeper to sync your commitment. " +
+							"Scroll to L1 takes 30 minutes to 3 hours due to Scroll outbox finalization. " +
+							"You can leave this page; the progress panel above will update automatically.";
+					} catch (triggerErr) {
+						console.warn("[WithdrawForm] BridgeSync trigger failed:", triggerErr);
+						triggerNote =
+							"\n\nWe tried to ask the bridge keeper to sync but the request failed: " +
+							(triggerErr instanceof Error ? triggerErr.message : String(triggerErr)) +
+							"\nPlease try again in a few minutes.";
+					}
+				} else {
+					triggerNote =
+						"\n\nBridge keeper is disabled in this build. Run `pnpm l:sync` manually, then retry.";
+				}
+				errorMessage = error.message + triggerNote;
+			} else if (error instanceof Error) {
 				errorMessage = error.message;
 
 				// Add hints for common errors
@@ -729,6 +873,7 @@
 			aztecWallet,
 			commitment,
 			aztecLocalRootBlockNumber,
+			selectedProof.commitmentData.noteNonce,
 		);
 
 		console.log("Aztec merkle data:", aztecMerkleData);
@@ -1030,23 +1175,33 @@
 		const localRoot = await getL1LocalRoot(chainId);
 		console.log("L1 LocalRoot:", localRoot.toString());
 
-		// Step 3: Get Scroll merkle data (burn proof)
+		// Step 3: Get GigaBridge data first - we need the L2 block recorded with
+		// Scroll's local root so the burn proof can be anchored at the same
+		// state. If we instead built the burn tree at the live Scroll head, any
+		// burn that landed between the keeper's last push and now would advance
+		// the live local root past the giga-recorded one, the merkle path
+		// would hash to a different root, and the circuit would fail with
+		// "Cannot satisfy constraint" mid-proof-generation.
 		withdrawStep = "building-proofs";
-		withdrawMessage = "Getting Scroll burn proof...";
-
-		const { evmMerkleData: scrollEvmMerkleData, aztecWarptoadAddress, localRootBlockNumber } =
-			await getEvmMerkleDataForScroll(commitment);
-
-		console.log("Scroll EVM merkle data:", scrollEvmMerkleData);
-
-		// Step 4: Get GigaBridge data (Scroll local root in gigaRoot)
 		withdrawMessage = "Getting Scroll local root from GigaBridge...";
 
 		const { scrollLocalRoot, scrollLocalRootBlockNumber, gigaMerkleData } =
 			await getMerkleDataForScrollToL1(chainId, gigaRoot);
 
 		console.log("Scroll local root:", scrollLocalRoot.toString());
+		console.log("Scroll local root block number:", scrollLocalRootBlockNumber);
 		console.log("Giga merkle data:", gigaMerkleData);
+
+		// Step 4: Build the Scroll burn proof anchored at the giga-recorded
+		// block. The reconstructed tree's root must equal scrollLocalRoot
+		// (verified inside getEvmMerkleDataForScroll) for the circuit to be
+		// satisfiable.
+		withdrawMessage = "Getting Scroll burn proof...";
+
+		const { evmMerkleData: scrollEvmMerkleData, aztecWarptoadAddress } =
+			await getEvmMerkleDataForScroll(commitment, scrollLocalRootBlockNumber);
+
+		console.log("Scroll EVM merkle data:", scrollEvmMerkleData);
 
 		// Step 5: Prepare proof inputs
 		withdrawMessage = "Preparing proof inputs...";
@@ -1706,6 +1861,7 @@
 				aztecWallet,
 				commitment,
 				aztecLocalRootBlockNumber,
+				selectedProof.commitmentData?.noteNonce,
 			);
 			console.log("Aztec merkle data:", aztecMerkleData);
 		} catch (error) {
@@ -1983,9 +2139,9 @@
 	}
 </script>
 
-<div class="space-y-3">
+<div class="space-y-3 md:h-full md:flex md:flex-col md:gap-3 md:space-y-0">
 	<!-- File Upload Section -->
-	<div class="space-y-2">
+	<div class="space-y-2 md:flex-none">
 		<div class="flex items-center gap-1.5 mb-1">
 			<div class="w-0.5 h-3 bg-[var(--warp-purple)] rounded-full"></div>
 			<span class="text-[0.65rem] font-semibold text-[var(--warp-purple-muted)] uppercase tracking-widest">Upload Proof</span>
@@ -2021,18 +2177,69 @@
 				<p class="text-xs text-[var(--foreground)] whitespace-pre-wrap">{uploadError}</p>
 			</div>
 		{/if}
+
+		<!-- Bridge-sync in-progress panel. Renders whenever the selected proof
+		     has an outstanding bridgeSync record that has not reached a terminal
+		     state. The poll loop in $effect keeps the fields fresh; on
+		     completed/noop the panel hides itself. Replaces the per-attempt
+		     "wait 30min-3hrs" error message UX with a continuous progress view. -->
+		{#if selectedProof?.bridgeSync && !selectedProof.used && (() => {
+			const status = selectedProof.bridgeSync.lastStatus;
+			return status !== 'completed' && status !== 'noop';
+		})()}
+			{@const sync = selectedProof.bridgeSync}
+			{@const elapsedMs = Date.now() - sync.startedAtMs}
+			{@const upperBoundMs = parseDurationUpperBoundMs(sync.expectedDuration)}
+			{@const etaMs = upperBoundMs ? Math.max(0, sync.startedAtMs + upperBoundMs - Date.now()) : null}
+			<div class="flex flex-col gap-2 p-3 rounded-lg bg-[rgba(144,97,249,0.08)] border border-[rgba(144,97,249,0.25)]">
+				<div class="flex items-center gap-2">
+					<div class="size-7 rounded-full bg-[rgba(144,97,249,0.2)] flex items-center justify-center flex-shrink-0">
+						<Loader2 class="size-3.5 text-[var(--warp-purple)] animate-spin" />
+					</div>
+					<div class="flex-1 min-w-0">
+						<div class="text-xs font-medium text-[var(--foreground)]">
+							Bridge sync in progress
+						</div>
+						<div class="text-[0.65rem] text-[var(--muted-foreground)]">
+							{sync.fromChainId} to {sync.toChainId} - started {formatRelativeTime(elapsedMs)}
+						</div>
+					</div>
+				</div>
+				<div class="flex items-center justify-between text-[0.65rem] text-[var(--muted-foreground)]">
+					<span>Expected: {sync.expectedDuration}</span>
+					{#if etaMs !== null}
+						<span class="font-mono">
+							{#if etaMs > 0}
+								~{Math.ceil(etaMs / 60_000)}m remaining
+							{:else}
+								Should be ready - try withdrawing
+							{/if}
+						</span>
+					{/if}
+				</div>
+				{#if sync.lastStatus === 'failed' || sync.lastStatus === 'timeout'}
+					<div class="text-[0.65rem] text-[var(--destructive)] whitespace-pre-wrap">
+						Sync {sync.lastStatus}{sync.lastError ? ': ' + sync.lastError : ''}. Click Withdraw to retry; a new sync will be queued.
+					</div>
+				{:else if sync.lastError}
+					<div class="text-[0.65rem] text-[var(--muted-foreground)]">
+						Polling note: {sync.lastError}
+					</div>
+				{/if}
+			</div>
+		{/if}
 	</div>
 
 	<!-- Divider -->
-	<div class="flex items-center gap-3 py-1">
+	<div class="flex items-center gap-3 py-1 md:flex-none">
 		<div class="h-px flex-1 bg-[rgba(144,97,249,0.15)]"></div>
 		<span class="text-[0.65rem] text-[var(--muted-foreground)]">or select from saved</span>
 		<div class="h-px flex-1 bg-[rgba(144,97,249,0.15)]"></div>
 	</div>
 
 	<!-- Proof Table -->
-	<div class="space-y-2">
-		<div class="flex items-center gap-1.5">
+	<div class="space-y-2 md:flex-1 md:min-h-0 md:flex md:flex-col md:gap-2 md:space-y-0">
+		<div class="flex items-center gap-1.5 md:flex-none">
 			<div class="w-0.5 h-3 bg-[var(--toad-green)] rounded-full"></div>
 			<span class="text-[0.65rem] font-semibold text-[var(--toad-green-muted)] uppercase tracking-widest">Saved Proofs</span>
 		</div>

@@ -15,6 +15,13 @@ import type { FullSyncResult } from './bridge/executor.js';
 import type { BridgeRequest, BridgeOperation } from './types/index.js';
 import { fetchGigaState } from './bridge/gigaState.js';
 import { startAztecHeartbeat, getHeartbeatState } from './bridge/aztecHeartbeat.js';
+import { computeStaleLegs, buildStaleLegInputs } from './bridge/staleLegs.js';
+import { loadAll, saveOperation } from './bridge/operationsStore.js';
+import {
+  startScheduler,
+  enqueueOperation,
+  getSchedulerState,
+} from './bridge/unifiedScheduler.js';
 
 dotenv.config();
 
@@ -33,14 +40,26 @@ const AZTEC_HEARTBEAT_CHECK_INTERVAL_MS = parseInt(process.env.AZTEC_HEARTBEAT_C
 const AZTEC_HEARTBEAT_THRESHOLD_BLOCKS = parseInt(process.env.AZTEC_HEARTBEAT_THRESHOLD_BLOCKS || '80');
 const AZTEC_HEARTBEAT_RETENTION_BLOCKS = parseInt(process.env.AZTEC_HEARTBEAT_RETENTION_BLOCKS || '100');
 
+// Unified scheduler feature flag. When true, POST /bridge/:from/:to and the
+// idle-cadence convergence loop go through unifiedScheduler (which subsumes
+// the heartbeat). When false, the legacy syncOrchestrator + aztecHeartbeat
+// path stays in charge. Last fully-revertible step of the rollout; once
+// flipped to true in production, watch /health.scheduler before flipping
+// back.
+const BRIDGE_SYNC_USE_UNIFIED_SCHEDULER = (process.env.BRIDGE_SYNC_USE_UNIFIED_SCHEDULER ?? 'false').toLowerCase() === 'true';
+const BRIDGE_SYNC_COALESCE_WINDOW_MS = parseInt(process.env.BRIDGE_SYNC_COALESCE_WINDOW_MS || '90000');
+
 if (!EVM_PRIVATE_KEY) {
   console.error('ERROR: EVM_PRIVATE_KEY environment variable is required');
   process.exit(1);
 }
 
-// In-memory operation state. Each HTTP request gets its own operationId, but
-// many operationIds end up attached to the same orchestrator cycle.
-const operations = new Map<string, BridgeOperation>();
+// Operation state, persisted across restarts so the 2-3h Scroll-finalization
+// wait survives a container rebuild. Each HTTP request gets its own
+// operationId, but many operationIds end up attached to the same scheduler
+// tick. The map is the source of truth in memory; saveOperation writes a
+// debounced snapshot to disk on every mutation.
+const operations = loadAll();
 
 app.use(cors({
   origin: (origin, callback) => {
@@ -171,13 +190,35 @@ app.get('/giga-state/:chainId', async (req, res) => {
   }
 });
 
+/**
+ * Read-only debug endpoint: returns the live "what would the unified scheduler
+ * decide to run right now?" report. No side effects, no L1 tx, no aztec push.
+ *
+ * Surfaces the same flags + observability detail the scheduler will use once
+ * it's wired in step 4 of the rollout. Useful during the additive deployment
+ * to verify the staleness algorithm against reality before trusting it as the
+ * trigger source.
+ */
+app.get('/debug/stale-legs', async (_req, res) => {
+  try {
+    const report = await computeStaleLegs(buildStaleLegInputs());
+    res.json({ ok: true, ...report });
+  } catch (err: any) {
+    console.error('[debug/stale-legs] unexpected error:', err);
+    res.status(500).json({ ok: false, error: err?.message ?? 'computeStaleLegs threw' });
+  }
+});
+
 app.get('/health', (req, res) => {
   res.json({
     ok: true,
     uptime: process.uptime(),
     timestamp: new Date().toISOString(),
+    mode: BRIDGE_SYNC_USE_UNIFIED_SCHEDULER ? 'scheduler' : 'orchestrator',
     orchestrator: getOrchestratorState(),
     heartbeat: getHeartbeatState(),
+    scheduler: getSchedulerState(),
+    operations: { tracked: operations.size },
   });
 });
 
@@ -237,21 +278,30 @@ app.post('/bridge/:fromChainId/:toChainId', async (req, res) => {
     confirmations,
   };
   operations.set(operationId, operation);
+  saveOperation(operation);
 
-  // Derive the minimal work this route needs, then hand off to the
-  // orchestrator. If a cycle is already running, our requirements get OR'd
-  // into its batch; otherwise we kick off a fresh one.
-  const requirements = routeToRequirements(fromChainId, toChainId);
-  requestSync(EVM_PRIVATE_KEY, confirmations, requirements)
+  // Branch on the feature flag. The scheduler path computes staleness
+  // on-chain and runs only stale legs (subsuming routeToRequirements +
+  // aztecHeartbeat). The legacy path stays available for one-flag rollback.
+  const syncPromise = BRIDGE_SYNC_USE_UNIFIED_SCHEDULER
+    ? enqueueOperation(operationId, { from: fromChainId, to: toChainId })
+    : (() => {
+        const requirements = routeToRequirements(fromChainId, toChainId);
+        return requestSync(EVM_PRIVATE_KEY, confirmations, requirements);
+      })();
+
+  syncPromise
     .then((result) => {
       operation.status = 'completed';
       operation.endTime = Date.now();
       operation.txHashes = resultToTxHashes(result);
+      saveOperation(operation);
     })
     .catch((error) => {
       operation.status = 'failed';
       operation.endTime = Date.now();
       operation.error = String(error);
+      saveOperation(operation);
       console.error(`Bridge operation ${operationId} failed:`, error);
     });
 
@@ -282,17 +332,29 @@ app.listen(PORT, () => {
   getSupportedRoutes().forEach(route => {
     console.log(`  ${route.from} -> ${route.to}`);
   });
-  console.log(`\nAll routes funnel through the sync orchestrator (batched cross-chain root sync).`);
-
-  if (AZTEC_HEARTBEAT_ENABLED) {
-    startAztecHeartbeat({
+  if (BRIDGE_SYNC_USE_UNIFIED_SCHEDULER) {
+    console.log(`\nAll routes funnel through the unified scheduler (coalescing single-slot ticker, staleness-driven).`);
+    startScheduler({
       privateKey: EVM_PRIVATE_KEY,
       confirmations: DEFAULT_CONFIRMATIONS,
-      checkIntervalMs: AZTEC_HEARTBEAT_CHECK_INTERVAL_MS,
-      pushThresholdBlocks: AZTEC_HEARTBEAT_THRESHOLD_BLOCKS,
-      retentionBlocks: AZTEC_HEARTBEAT_RETENTION_BLOCKS,
+      idleIntervalMs: AZTEC_HEARTBEAT_CHECK_INTERVAL_MS,
+      coalesceWindowMs: BRIDGE_SYNC_COALESCE_WINDOW_MS,
     });
+    if (AZTEC_HEARTBEAT_ENABLED) {
+      console.log('[heartbeat] superseded by unified scheduler; legacy heartbeat NOT started');
+    }
   } else {
-    console.log('[heartbeat] disabled via AZTEC_HEARTBEAT_ENABLED=false');
+    console.log(`\nAll routes funnel through the sync orchestrator (batched cross-chain root sync).`);
+    if (AZTEC_HEARTBEAT_ENABLED) {
+      startAztecHeartbeat({
+        privateKey: EVM_PRIVATE_KEY,
+        confirmations: DEFAULT_CONFIRMATIONS,
+        checkIntervalMs: AZTEC_HEARTBEAT_CHECK_INTERVAL_MS,
+        pushThresholdBlocks: AZTEC_HEARTBEAT_THRESHOLD_BLOCKS,
+        retentionBlocks: AZTEC_HEARTBEAT_RETENTION_BLOCKS,
+      });
+    } else {
+      console.log('[heartbeat] disabled via AZTEC_HEARTBEAT_ENABLED=false');
+    }
   }
 });

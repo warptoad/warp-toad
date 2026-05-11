@@ -93,26 +93,40 @@ export function setAccountMode(mode: AztecAccountMode): void {
 }
 
 function loadOrCreateCustomSecrets(): { secret: Fr; salt: Fr; signingKey: GrumpkinScalar } {
-	let secretHex = localStorage.getItem(CUSTOM_SECRET_KEY);
-	let saltHex = localStorage.getItem(CUSTOM_SALT_KEY);
-	let signingHex = localStorage.getItem(CUSTOM_SIGNING_KEY);
+	const secretHex = localStorage.getItem(CUSTOM_SECRET_KEY);
+	const saltHex = localStorage.getItem(CUSTOM_SALT_KEY);
+	const signingHex = localStorage.getItem(CUSTOM_SIGNING_KEY);
 
-	if (!secretHex || !saltHex || !signingHex) {
+	const have = { secret: !!secretHex, salt: !!saltHex, signing: !!signingHex };
+	const allPresent = have.secret && have.salt && have.signing;
+	const allMissing = !have.secret && !have.salt && !have.signing;
+
+	// Refuse to silently regenerate when only some keys are missing - that would mint a
+	// brand new wallet and lose access to the old one. Surface as an error so the user
+	// can either restore from backup or explicitly reset.
+	if (!allPresent && !allMissing) {
+		throw new Error(
+			`Aztec custom wallet keys are partially present (secret=${have.secret}, ` +
+			`salt=${have.salt}, signing-key=${have.signing}). Refusing to regenerate to ` +
+			`avoid silently minting a new wallet. Use "Reset custom key" to wipe the ` +
+			`remaining keys and start fresh, or restore the missing keys from a backup.`,
+		);
+	}
+
+	if (allMissing) {
 		const secret = Fr.random();
 		const salt = Fr.random();
 		const signingKey = GrumpkinScalar.random();
-		secretHex = secret.toString();
-		saltHex = salt.toString();
-		signingHex = signingKey.toString();
-		localStorage.setItem(CUSTOM_SECRET_KEY, secretHex);
-		localStorage.setItem(CUSTOM_SALT_KEY, saltHex);
-		localStorage.setItem(CUSTOM_SIGNING_KEY, signingHex);
+		localStorage.setItem(CUSTOM_SECRET_KEY, secret.toString());
+		localStorage.setItem(CUSTOM_SALT_KEY, salt.toString());
+		localStorage.setItem(CUSTOM_SIGNING_KEY, signingKey.toString());
+		return { secret, salt, signingKey };
 	}
 
 	return {
-		secret: Fr.fromHexString(secretHex),
-		salt: Fr.fromHexString(saltHex),
-		signingKey: GrumpkinScalar.fromString(signingHex),
+		secret: Fr.fromHexString(secretHex!),
+		salt: Fr.fromHexString(saltHex!),
+		signingKey: GrumpkinScalar.fromString(signingHex!),
 	};
 }
 
@@ -224,7 +238,24 @@ export async function connectAztecBrowserWallet(
 	//    (the account contract pays its own fee via AccountEntrypointMetaPaymentMethod) and
 	//    simulation uses DefaultEntrypoint instead of looking the deployer up in walletDB.
 	if (mode === 'custom') {
-		const alreadyDeployed = localStorage.getItem(CUSTOM_DEPLOYED_KEY) === address;
+		// Drift guard: if these keys previously derived a different address, refuse to
+		// switch silently. Most likely cause is an Aztec library bump that changed the
+		// Schnorr account contract bytecode (and therefore the contract class id, which
+		// is part of the address). The old wallet would be unreachable from this build,
+		// so warn loudly instead of pretending it's a fresh account.
+		const previousDeployedAddress = localStorage.getItem(CUSTOM_DEPLOYED_KEY);
+		if (previousDeployedAddress && previousDeployedAddress !== address) {
+			throw new Error(
+				`Aztec wallet address drift detected. Stored keys now derive ${address}, ` +
+				`but a previously-deployed wallet at ${previousDeployedAddress} exists for ` +
+				`these keys. This usually means an Aztec library version was upgraded since ` +
+				`you last connected; the old wallet's funds would be unreachable from this ` +
+				`build. If you intend to abandon the old wallet, click "Reset custom key" to ` +
+				`start fresh.`,
+			);
+		}
+
+		const alreadyDeployed = previousDeployedAddress === address;
 
 		if (!alreadyDeployed) {
 			report('account-deploy');
@@ -293,8 +324,15 @@ export async function autoReconnect(
 	if (typeof window === 'undefined') return null;
 
 	const mode = getAccountMode();
-	if (mode === 'custom' && !localStorage.getItem(CUSTOM_SECRET_KEY)) {
-		return null;
+	if (mode === 'custom') {
+		// Bail cleanly unless all three keys are present. Auto-reconnect should stay
+		// silent; if keys are partial, the user-clicked Connect path will surface the
+		// strict-load error from `loadOrCreateCustomSecrets`.
+		const haveAllKeys =
+			!!localStorage.getItem(CUSTOM_SECRET_KEY) &&
+			!!localStorage.getItem(CUSTOM_SALT_KEY) &&
+			!!localStorage.getItem(CUSTOM_SIGNING_KEY);
+		if (!haveAllKeys) return null;
 	}
 
 	try {

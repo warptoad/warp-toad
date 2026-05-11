@@ -77,6 +77,41 @@ export interface CommitmentPreImage {
 	destination_chain_id: bigint;
 	secret: bigint;
 	nullifier_preimg: bigint;
+	/**
+	 * Aztec-source notes only: the note hash nonce captured from PXE at burn
+	 * time. Lets us re-derive the unique note hash on a fresh wallet / different
+	 * machine without needing PXE to have decrypted the note. Optional for
+	 * backwards-compat: notes issued before this field was added fall back to
+	 * the PXE lookup path in `getAztecMerkleData`.
+	 */
+	noteNonce?: bigint;
+}
+
+/**
+ * Per-proof bridge-sync tracking. The bridge keeper takes 2-3h to push a
+ * Scroll local root through L1 to Aztec; with this field we can resume the
+ * UX after the user closes the tab. The withdraw page polls /status/:opId
+ * and shows progress instead of surfacing BridgeSyncStaleError as a fresh
+ * problem on every visit.
+ *
+ * - operationId: returned by POST /bridge/:from/:to. The keeper persists
+ *   these now (operationsStore), so a 404 means the op truly expired (48h
+ *   on the server) and the field can be cleared.
+ * - fromChainId / toChainId: keeper-convention strings. EVM chains are the
+ *   numeric chain id ("11155111", "534351"), Aztec is the literal "aztec".
+ * - lastStatus: 'noop' is a successful no-work outcome (bridge state was
+ *   already fresh); treat it as completed for UX.
+ */
+export interface ProofBridgeSync {
+	operationId: string;
+	fromChainId: string;
+	toChainId: string;
+	startedAtMs: number;
+	expectedDuration: string;
+	lastStatus?: 'pending' | 'running' | 'completed' | 'failed' | 'timeout' | 'noop';
+	lastPolledAtMs?: number;
+	lastError?: string;
+	txHashes?: Record<string, string>;
 }
 
 export interface Proof {
@@ -93,6 +128,9 @@ export interface Proof {
 	preCommitment?: string;
 	commitment?: string;
 	burnTxHash?: string;
+	/** Bridge-sync tracking (post-burn). Null/undefined when no sync was
+	 * triggered yet, or when one completed and was cleared. */
+	bridgeSync?: ProofBridgeSync | null;
 }
 
 export interface ProofGenerationStatus {

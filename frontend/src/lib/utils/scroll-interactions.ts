@@ -24,6 +24,7 @@ import {
 	createCommitmentPreImage,
 	encodeNote,
 } from './evm-interactions.js';
+import { BridgeSyncStaleError } from './bridge-keeper.js';
 
 // ============================================================================
 // Chain Configuration Helpers
@@ -582,33 +583,46 @@ function computeSiblingAtLevel(commitments: bigint[], siblingIndex: number, leve
 }
 
 /**
- * Get EVM merkle data for a commitment on Scroll (for Scroll → L1 withdrawals)
- * This is similar to getEvmMerkleDataForL1 but queries L2WarpToad on Scroll
- * 
+ * Get EVM merkle data for a commitment on Scroll (for Scroll → L1 withdrawals
+ * and same-chain Scroll transfers)
+ *
  * @param commitment - The commitment to get merkle data for
+ * @param targetLocalRootBlockNumber - Optional Scroll block to anchor the tree
+ *   reconstruction at. When the caller is proving against a local root that
+ *   was bridged to L1's GigaBridge (Scroll → L1), this MUST be the L2 block
+ *   recorded in the `ReceivedNewLocalRoot` event for that root - otherwise any
+ *   burn that landed on Scroll between the keeper's last push and now will
+ *   advance the live local root past the giga-recorded one and the circuit
+ *   constraint `evm_merkle_data → origin_local_root` fails. Same-chain Scroll
+ *   withdraws prove against the live local root and pass `undefined` here.
  * @returns EVM merkle data with leaf index, hash path, aztec warptoad address, and block number
  */
 export async function getEvmMerkleDataForScroll(
-	commitment: bigint
+	commitment: bigint,
+	targetLocalRootBlockNumber?: number
 ): Promise<{
 	evmMerkleData: { leaf_index: bigint; hash_path: bigint[] };
 	aztecWarptoadAddress: bigint;
 	localRootBlockNumber: number;
 }> {
 	const scroll = getScrollConfig();
-	
+
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
 		transport: http(getRpcUrl(scroll.chainId)),
 	});
-	
+
 	// Get deployment block for Scroll from contract addresses
 	const { getContractAddresses } = await import('$lib/contracts/addresses');
 	const addresses = getContractAddresses(scroll.chainId);
 	const deploymentBlock = BigInt(addresses.deploymentBlock || 0);
-	const toBlock = await publicClient.getBlockNumber();
-	
+	const toBlock = targetLocalRootBlockNumber !== undefined
+		? BigInt(targetLocalRootBlockNumber)
+		: await publicClient.getBlockNumber();
+
 	// Read leaf count at toBlock so we can early-exit once the tree is whole.
+	// When toBlock is the giga-recorded block, this is the leaf count at the
+	// state that produced the local root we're proving against.
 	const lastLeafIndex = (await publicClient.readContract({
 		address: scroll.contracts.warpToad as `0x${string}`,
 		abi: L2WarpToadAbi,
@@ -632,7 +646,7 @@ export async function getEvmMerkleDataForScroll(
 		: [];
 
 	console.log(`Found ${burnEvents.length} Burn events on Scroll`);
-	
+
 	// Sort events by index
 	const sortedEvents = burnEvents
 		.map(e => ({
@@ -640,70 +654,92 @@ export async function getEvmMerkleDataForScroll(
 			index: Number(e.args.index as bigint | undefined),
 		}))
 		.sort((a, b) => a.index - b.index);
-	
+
 	// Extract commitments as leaves
 	const leaves = sortedEvents.map(e => e.commitment);
-	
+
 	// Find our commitment's index
 	const leafIndex = sortedEvents.findIndex(e => e.commitment === commitment);
 	if (leafIndex === -1) {
+		if (targetLocalRootBlockNumber !== undefined) {
+			// Stale L1 anchor of Scroll's local root - the keeper hasn't pushed
+			// Scroll → L1 since the user's burn. Throw the typed error so the
+			// WithdrawForm catch block can fire `triggerBridge('534351', ...)` and
+			// surface a "wait 30min-3hrs" message instead of a generic failure.
+			throw new BridgeSyncStaleError(
+				`Your commitment is not yet included in the Scroll local root that's bridged to L1. ` +
+				`The bridge keeper has only synced Scroll up to block ${targetLocalRootBlockNumber}; ` +
+				`your deposit landed after that.`,
+				'534351',
+				'11155111',
+			);
+		}
 		throw new Error(
 			`Commitment not found in Scroll burn events. ` +
-			`Make sure the burn transaction was confirmed on Scroll.`
+			`Make sure the burn transaction was confirmed on Scroll.`,
 		);
 	}
-	
+
 	console.log(`Commitment found at index ${leafIndex} on Scroll`);
-	
+
 	// Get aztecWarptoadAddress from contract
 	const aztecWarptoadAddress = await publicClient.readContract({
 		address: scroll.contracts.warpToad as `0x${string}`,
 		abi: L2WarpToadAbi,
 		functionName: 'aztecWarptoadAddress',
 	});
-	
+
 	// Get max tree depth
 	const maxTreeDepth = await publicClient.readContract({
 		address: scroll.contracts.warpToad as `0x${string}`,
 		abi: L2WarpToadAbi,
 		functionName: 'maxTreeDepth',
 	});
-	
+
 	console.log(`Scroll tree depth: ${maxTreeDepth}`);
-	
+
 	// Build merkle tree using poseidon2 hash function
 	const { MerkleTree } = await import('fixed-merkle-tree');
 	const { poseidon2 } = await import('poseidon-lite');
-	
+
 	const hashFunc = (left: any, right: any): string => {
 		const result = poseidon2([BigInt(left.toString()), BigInt(right.toString())]);
 		return result.toString();
 	};
-	
+
 	const tree = new MerkleTree(Number(maxTreeDepth), leaves.map(l => l.toString()), {
 		hashFunction: hashFunc,
 		zeroElement: '0',
 	});
-	
-	// Verify the tree root matches what's stored on-chain
+
+	// Verify the tree root matches what we're proving against. For same-chain
+	// withdraws we compare to the live local root; for cross-chain we compare
+	// to the local root historically valid at targetLocalRootBlockNumber.
 	const treeRoot = BigInt(tree.root.toString());
-	const localRoot = await getScrollLocalRoot();
-	
-	if (treeRoot !== localRoot) {
-		console.warn(
-			`Warning: Computed tree root ${treeRoot} ` +
-			`does not match Scroll localRoot ${localRoot}. ` +
-			`This may indicate missing events or state mismatch.`
+	const expectedRoot = targetLocalRootBlockNumber !== undefined
+		? (await publicClient.readContract({
+			address: scroll.contracts.warpToad as `0x${string}`,
+			abi: L2WarpToadAbi,
+			functionName: 'cachedLocalRoot',
+			blockNumber: toBlock,
+		})) as bigint
+		: await getScrollLocalRoot();
+
+	if (treeRoot !== expectedRoot) {
+		throw new Error(
+			`Reconstructed Scroll local root ${treeRoot} does not match the expected ` +
+			`local root ${expectedRoot} at block ${toBlock}. The proof would not satisfy ` +
+			`the circuit constraint - aborting before generating it.`
 		);
 	}
-	
+
 	// Get merkle proof
 	const proof = tree.proof(commitment.toString());
 	const hashPath = proof.pathElements.map(e => BigInt(e.toString()));
-	
+
 	// Get block number for the local root
 	const localRootBlockNumber = Number(toBlock);
-	
+
 	return {
 		evmMerkleData: {
 			leaf_index: BigInt(leafIndex),

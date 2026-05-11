@@ -14,7 +14,7 @@
 	import { proofStore } from "$lib/stores/proofs.svelte.js";
 	import type { Proof } from "$lib/types/bridge.js";
 
-	import type { Snippet } from "svelte";
+	import { tick, type Snippet } from "svelte";
 	import { slide } from "svelte/transition";
 	import { cubicOut } from "svelte/easing";
 
@@ -35,6 +35,61 @@
 	}
 
 	let { onselect, selectedId = null, disabled = false, details }: Props = $props();
+
+	let scrollContainer = $state<HTMLDivElement>();
+
+	// When a proof is opened, smooth-scroll the active row to the top of the
+	// table's scrollable view (just under the sticky thead) so the expanded
+	// details panel reveals beneath it inside the visible area. Falls back to
+	// the page scroll on viewports where the table itself isn't scrollable.
+	//
+	// Switching from one open proof to another keeps the previous details row
+	// in the DOM during its slide-out (220ms). Measuring before that collapse
+	// finishes leaves the new row landing above the sticky header once the
+	// layout settles, so we defer the scroll past the slide when an outgoing
+	// row is present. First-click case has no outgoing row and scrolls
+	// immediately so it still happens in parallel with the slide-in.
+	$effect(() => {
+		if (!selectedId || !details || !scrollContainer) return;
+		const container = scrollContainer;
+		let cancelled = false;
+
+		void tick().then(() => {
+			if (cancelled) return;
+			const row = container.querySelector<HTMLElement>('.proof-row-active');
+			if (!row) return;
+
+			const newDetails = row.nextElementSibling;
+			const allDetails = container.querySelectorAll<HTMLElement>('.proof-row-details');
+			const hasOutgoing = Array.from(allDetails).some((el) => el !== newDetails);
+
+			const performScroll = () => {
+				if (cancelled) return;
+				const tableScrolls = container.scrollHeight > container.clientHeight;
+				if (tableScrolls) {
+					const thead = container.querySelector<HTMLElement>('thead');
+					const headerHeight = thead?.offsetHeight ?? 0;
+					const offset = row.getBoundingClientRect().top - container.getBoundingClientRect().top;
+					container.scrollTo({
+						top: container.scrollTop + offset - headerHeight,
+						behavior: 'smooth',
+					});
+				} else {
+					row.scrollIntoView({ block: 'start', behavior: 'smooth' });
+				}
+			};
+
+			if (hasOutgoing) {
+				window.setTimeout(performScroll, 240);
+			} else {
+				performScroll();
+			}
+		});
+
+		return () => {
+			cancelled = true;
+		};
+	});
 
 	// Selection state management
 	let selectedProofIds = $state<Set<string>>(new Set());
@@ -150,13 +205,14 @@
 	}
 </script>
 
+<div class="md:h-full md:flex md:flex-col md:min-h-0">
 {#if proofStore.allProofs.length === 0}
 	<div class="text-center py-8 text-muted-foreground">
 		No proofs found. Bridge some funds first!
 	</div>
 {:else}
 	<!-- Batch Action Bar -->
-	<div class="flex items-center justify-between mb-3 px-1">
+	<div class="flex items-center justify-between mb-3 px-1 md:flex-none">
 		<div class="text-sm text-muted-foreground">
 			{#if selectedProofIds.size > 0}
 				<span class="font-medium text-[var(--toad-green)]">{selectedProofIds.size}</span> selected
@@ -188,9 +244,15 @@
 	</div>
 
 	<!-- Proof Table -->
-	<div class="rounded-sm border overflow-x-auto">
+	<!--
+		[&>div]:overflow-x-visible defeats the inner <Table> wrapper's
+		auto-overflow so sticky thead resolves to THIS scroll container,
+		not the inner one. Horizontal overflow still scrolls because the
+		outer div has overflow-x-auto.
+	-->
+	<div bind:this={scrollContainer} class="rounded-sm border overflow-x-auto md:flex-1 md:min-h-0 md:overflow-y-auto [&>div]:overflow-x-visible">
 		<Table>
-			<TableHeader>
+			<TableHeader class="sticky top-0 bg-card z-20">
 				<TableRow>
 					<TableHead class="w-[36px] proof-select-col">
 						<input
@@ -270,6 +332,7 @@
 		</Table>
 	</div>
 {/if}
+</div>
 
 <!-- Delete Confirmation Dialog -->
 <Dialog bind:open={deleteDialogOpen}>

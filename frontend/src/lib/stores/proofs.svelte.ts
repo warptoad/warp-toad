@@ -1,5 +1,5 @@
 import { USDcoinAbi } from '$lib/contracts/abis';
-import type { Proof, Token, Chain, MockTokenBalance, TokenContract, CommitmentPreImage } from '$lib/types/bridge.js';
+import type { Proof, Token, Chain, MockTokenBalance, TokenContract, CommitmentPreImage, ProofBridgeSync } from '$lib/types/bridge.js';
 import { createPublicClient, http } from 'viem';
 import { walletStore } from './wallets.svelte';
 import { decodeNote } from '$lib/utils/evm-interactions';
@@ -195,7 +195,8 @@ class ProofStore {
 		commitmentData?: CommitmentPreImage,
 		preCommitment?: string,
 		commitment?: string,
-		burnTxHash?: string
+		burnTxHash?: string,
+		bridgeSync?: ProofBridgeSync | null
 	): Proof {
 		const proof: Proof = {
 			id: generateProofId(),
@@ -209,7 +210,8 @@ class ProofStore {
 			commitmentData,
 			preCommitment,
 			commitment,
-			burnTxHash
+			burnTxHash,
+			bridgeSync: bridgeSync ?? null
 		};
 
 		this._proofs.push(proof);
@@ -227,6 +229,43 @@ class ProofStore {
 
 	findProofByNote(note: string): Proof | undefined {
 		return this._proofs.find(p => p.note === note);
+	}
+
+	/** Look up a proof by its commitment hash (decimal string). Used by the
+	 * WithdrawForm catch path to attach a fresh operationId to the proof
+	 * record on BridgeSyncStaleError, so a returning user sees progress. */
+	findProofByCommitment(commitment: string): Proof | undefined {
+		return this._proofs.find(p => p.commitment === commitment);
+	}
+
+	/** Attach a fresh bridge-sync record to a proof. Replaces any existing
+	 * record (e.g. when a stale-root catch fires another trigger). */
+	attachBridgeSync(proofId: string, sync: ProofBridgeSync) {
+		const proof = this._proofs.find(p => p.id === proofId);
+		if (!proof) return;
+		proof.bridgeSync = sync;
+		saveProofs(this._proofs);
+	}
+
+	/** Merge a partial status update into an existing bridge-sync record.
+	 * No-op if the proof has no bridgeSync field set (i.e. nothing to update).
+	 * Uses Object.assign so the bridgeSync reference stays stable; this matters
+	 * for the WithdrawForm's $effect, which would otherwise re-run (and
+	 * restart the poll loop) on every status update. */
+	updateBridgeSyncStatus(proofId: string, partial: Partial<ProofBridgeSync>) {
+		const proof = this._proofs.find(p => p.id === proofId);
+		if (!proof || !proof.bridgeSync) return;
+		Object.assign(proof.bridgeSync, partial);
+		saveProofs(this._proofs);
+	}
+
+	/** Drop the bridge-sync record (e.g. on successful withdraw, or after
+	 * a 404 from /status/:opId indicating the keeper expired the op). */
+	clearBridgeSync(proofId: string) {
+		const proof = this._proofs.find(p => p.id === proofId);
+		if (!proof) return;
+		proof.bridgeSync = null;
+		saveProofs(this._proofs);
 	}
 
 	deleteProof(proofId: string) {
