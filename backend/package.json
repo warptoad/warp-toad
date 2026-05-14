@@ -22,7 +22,9 @@
     "cp-deployments:cjs": "cp -r deploy/ignition/deployments/ dist/cjs/deploy/ignition/; cp -r deploy/aztec/aztecDeployments/ dist/cjs/deploy/aztec/;",
     "cp-deployments:browser": "cp -r deploy/ignition/deployments/ dist/browser/deploy/ignition/; cp -r deploy/aztec/aztecDeployments/ dist/browser/deploy/aztec/;",
     "cp-deployments": "pnpm cp-deployments:esm && pnpm cp-deployments:cjs && pnpm cp-deployments:browser",
-    "bridge:runner": "tsx ./scripts/services/bridger.ts"
+    "bridge:runner": "tsx ./scripts/services/bridger.ts",
+    "postinstall": "node -e \"const d='node_modules/aztec-scan-sdk';if(!require('fs').existsSync(d+'/dist'))require('child_process').execSync('npx tsc',{cwd:d,stdio:'inherit'})\"",
+    "verify:aztec-scan": "tsx ./scripts/verifyAztecScan.ts"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-ignition": "^3.0.7",
@@ -31,6 +33,7 @@
     "@nomicfoundation/hardhat-toolbox-viem": "^5.0.0",
     "@nomicfoundation/hardhat-verify": "^3.0.0",
     "@nomicfoundation/hardhat-viem": "^3.0.0",
+    "@types/argparse": "^2.0.17",
     "@types/node": "^24.0.10",
     "dotenv-cli": "^11.0.0",
     "hardhat": "^3.0.0",
@@ -55,6 +58,7 @@
     "@zk-kit/lazy-imt.sol": "^2.0.0-beta.12",
     "@zkpassport/poseidon2": "^0.6.1",
     "argparse": "^2.0.1",
+    "aztec-scan-sdk": "github:aztec-scan/aztec-scan-sdk",
     "fixed-merkle-tree": "^0.7.3",
     "poseidon-lite": "^0.3.0",
     "viem": "^2.41.2"

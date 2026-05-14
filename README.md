@@ -179,6 +179,12 @@ This runs four phases in order:
 When done, `pnpm --filter frontend pull:addresses` regenerates
 `frontend/src/lib/contracts/addresses.ts` with all the new addresses.
 
+To verify the Aztec contracts on AztecScan after deploy:
+
+```shell
+pnpm verify:aztec-scan
+```
+
 ## Sync (manual, sandbox only)
 
 After a burn on the local sandbox, the gigaRoot needs to be propagated. In
