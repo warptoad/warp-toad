@@ -32,21 +32,14 @@ import { loadContractArtifact, type NoirCompiledContract } from "@aztec/aztec.js
 import type { DeploymentArtifact } from "../lib/types.js";
 import { getAztecDeployedAddressesFolderPath } from "./utils.js";
 import { AZTEC_SCAN_CHAINS } from "lib/constants.js";
+import { AZTEC_SCAN_METADATA } from "./aztecScanMetadata.js";
 
-function metadataFor(contractName: string, chainId: bigint): DeployerMetadata {
-    return {
-        contractIdentifier: contractName,
-        details: `WarpToad ${contractName} deployment on L1 chain ${chainId}`,
-        creatorName: "warp-toad",
-        creatorContact: "",
-        appUrl: "https://warptoad.xyz",
-        repoUrl: "https://github.com/warptoad/warp-toad",
-        aztecScanNotes: {
-            name: contractName,
-            origin: "warp-toad",
-            comment: `Verified via scripts/verifyAztecScan.ts for L1 chain ${chainId}.`,
-        },
+function metadataFor(contractName: string): DeployerMetadata {
+    const meta = AZTEC_SCAN_METADATA[contractName] ?? {
+        details: "", creatorName: "", creatorContact: "", appUrl: "", repoUrl: "",
+        aztecScanNotes: { name: contractName, origin: "", comment: "" },
     };
+    return { contractIdentifier: contractName, ...meta };
 }
 
 async function verifyContract(
@@ -118,7 +111,7 @@ async function main() {
     for (const fileName of artifactFiles) {
         const contractName = fileName.replace("_deploymentArtifact.json", "");
         const deployment = JSON.parse(await fs.readFile(path.join(folderPath, fileName), "utf8")) as DeploymentArtifact;
-        const deploymentMetaData = metadataFor(contractName, l1ChainId);
+        const deploymentMetaData = metadataFor(contractName);
         console.log(`\n=== ${contractName} ===`);
         await verifyContract(client, deployment, deploymentMetaData);
     }
