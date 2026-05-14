@@ -1,5 +1,6 @@
-import { ProofInputs, EvmMerkleData, AztecMerkleData, gasCosts} from "./types";
+import { ProofInputs, EvmMerkleData, AztecMerkleData, gasCosts } from "./types";
 import { toHex } from "viem";
+import { AztecScanChainNames } from "./types.js";
 // @ts-ignore
 export const AZTEC_TREE_DEPTH = 42;
 export const EVM_TREE_DEPTH = 32;
@@ -79,3 +80,10 @@ export const SCROLL_CHAINID_MAINNET = 534352n
 export const SCROLL_CHAINID_SEPOLIA = 534351n
 
 export const SEPOLIA_CHAINID = 11155111n
+
+export const AZTEC_SCAN_CHAIN_NAMES = ["devnet", "testnet", "mainnet"] as const
+export const AZTEC_SCAN_CHAINS: Record<AztecScanChainNames, { l1ChainId: bigint }> = {
+    "devnet": { l1ChainId: 11155111n },
+    "testnet": { l1ChainId: 11155111n },
+    "mainnet": { l1ChainId: 1n }
+}

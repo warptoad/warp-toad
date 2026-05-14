@@ -106,12 +106,10 @@ const AZTEC_TESTNET_DIR = path.resolve(
   "../deploy/aztec/aztecDeployments/11155111",
 );
 
-interface AztecDeploymentMetadata {
-  address: string;
-  constructorArgs: string[];
-  salt: string;
-  deployer: string;
-}
+import type { AztecDeploymentMetadata, DeploymentArtifact } from "../lib/types.js";
+import type { NoirCompiledContract } from "@aztec/aztec.js/abi";
+import WarpToadCoreRawArtifact from "../aztec/WarpToadCore/target/WarpToadCore-WarpToadCore.json" with { type: "json" };
+import L2AztecBridgeAdapterRawArtifact from "../aztec/L2AztecBridgeAdapter/target/L2AztecBridgeAdapter-L2AztecBridgeAdapter.json" with { type: "json" };
 
 // =============================================================================
 // Address-file helpers (Ignition-format JSON)
@@ -191,7 +189,21 @@ async function phaseA_sepolia() {
 async function phaseB_aztec(sepoliaAddrs: Record<string, string>, nativeTokenL1: Address) {
   console.log("\n========== Phase B: Aztec testnet ==========");
   const existing = loadJsonOrEmpty(aztecAddressFile);
+  const warpToadArtifactFile = path.join(AZTEC_TESTNET_DIR, "AztecWarpToad_deploymentArtifact.json");
+  const adapterArtifactFile = path.join(AZTEC_TESTNET_DIR, "L2AztecBridgeAdapter_deploymentArtifact.json");
+
   if (existing.AztecWarpToad?.address && existing.L2AztecBridgeAdapter?.address) {
+    // Addresses already recorded — backfill artifact files if they were deleted.
+    if (!fs.existsSync(warpToadArtifactFile)) {
+      const m = existing.AztecWarpToad as AztecDeploymentMetadata;
+      writeJson(warpToadArtifactFile, { ...m, rawArtifact: WarpToadCoreRawArtifact as unknown as NoirCompiledContract });
+      console.log("  Backfilled AztecWarpToad_deploymentArtifact.json");
+    }
+    if (!fs.existsSync(adapterArtifactFile)) {
+      const m = existing.L2AztecBridgeAdapter as AztecDeploymentMetadata;
+      writeJson(adapterArtifactFile, { ...m, rawArtifact: L2AztecBridgeAdapterRawArtifact as unknown as NoirCompiledContract });
+      console.log("  Backfilled L2AztecBridgeAdapter_deploymentArtifact.json");
+    }
     console.log("Aztec contracts already deployed; skipping.");
     return existing as Record<string, AztecDeploymentMetadata>;
   }
@@ -216,7 +228,6 @@ async function phaseB_aztec(sepoliaAddrs: Record<string, string>, nativeTokenL1:
     false, // not sandbox
   );
   await initPXE(node, SEPOLIA_CHAIN_ID); // shared PXE for the chain
-
   const deployerAccounts = await deployerWallet.getAccounts();
   const deployer = deployerAccounts[0].item;
   console.log(`Aztec deployer: ${deployer.toString()}`);
@@ -267,23 +278,44 @@ async function phaseB_aztec(sepoliaAddrs: Record<string, string>, nativeTokenL1:
     .send({ from: deployer, fee: { paymentMethod: sponsoredPaymentMethod } });
   console.log("  ✓ WarpToadCore.initialize done");
 
+  const warpToadConstructorArgsStr = warpToadConstructorArgs.map((v) =>
+    typeof v === "bigint" ? v.toString() : String(v),
+  );
+  const adapterConstructorArgsStr = adapterConstructorArgs.map((v) => String(v));
+
   const aztecAddrs: Record<string, AztecDeploymentMetadata> = {
     AztecWarpToad: {
       address: warpToad.address.toString(),
-      constructorArgs: warpToadConstructorArgs.map((v) =>
-        typeof v === "bigint" ? v.toString() : String(v),
-      ),
+      constructorArgs: warpToadConstructorArgsStr,
       salt: warpToadInstance.salt.toString(),
       deployer: deployer.toString(),
     },
     L2AztecBridgeAdapter: {
       address: bridgeAdapter.address.toString(),
-      constructorArgs: adapterConstructorArgs.map((v) => String(v)),
+      constructorArgs: adapterConstructorArgsStr,
       salt: adapterInstance.salt.toString(),
       deployer: deployer.toString(),
     },
   };
   writeJson(aztecAddressFile, aztecAddrs);
+
+  const warpToadDeploymentArtifact: DeploymentArtifact = {
+    address: warpToad.address.toString(),
+    salt: warpToadInstance.salt.toString(),
+    deployer: deployer.toString(),
+    constructorArgs: warpToadConstructorArgsStr,
+    rawArtifact: WarpToadCoreRawArtifact as NoirCompiledContract,
+  };
+  writeJson(path.join(AZTEC_TESTNET_DIR, "AztecWarpToad_deploymentArtifact.json"), warpToadDeploymentArtifact);
+
+  const adapterDeploymentArtifact: DeploymentArtifact = {
+    address: bridgeAdapter.address.toString(),
+    salt: adapterInstance.salt.toString(),
+    deployer: deployer.toString(),
+    constructorArgs: adapterConstructorArgsStr,
+    rawArtifact: L2AztecBridgeAdapterRawArtifact as NoirCompiledContract,
+  };
+  writeJson(path.join(AZTEC_TESTNET_DIR, "L2AztecBridgeAdapter_deploymentArtifact.json"), adapterDeploymentArtifact);
   console.log("Aztec addresses written.");
   return { aztecAddrs, node };
 }
@@ -425,8 +457,10 @@ async function phaseD_wire(
   const l2ScrollAdapterAddr = scrollAddrs["L2ScrollModule#L2ScrollBridgeAdapter"] as Address;
 
   // ---- L1WarpToad.initialize(gigaBridge, self, aztecWarpToadAddress) ----
-  try {
-    console.log("Initializing L1WarpToad...");
+  console.log("Initializing L1WarpToad...");
+  if ((await (l1WarpToad.read.gigaRootProvider as any)([])) !== "0x0000000000000000000000000000000000000000") {
+    console.log("  L1WarpToad already initialized, skipping.");
+  } else {
     const aztecWarpToadAsUint = BigInt(aztecWarpToadAddrStr);
     const hash = await (l1WarpToad.write.initialize as any)([
       gigaBridgeAddr,
@@ -435,15 +469,13 @@ async function phaseD_wire(
     ]);
     await publicClient.waitForTransactionReceipt({ hash });
     console.log(`  ✓ ${hash}`);
-  } catch (e: any) {
-    if (String(e?.shortMessage || e?.message || "").includes("already")) {
-      console.log("  L1WarpToad already initialized, skipping.");
-    } else throw e;
   }
 
   // ---- L1AztecBridgeAdapter.initialize(registry, l2 adapter [bytes32], gigaBridge) ----
-  try {
-    console.log("Initializing L1AztecBridgeAdapter...");
+  console.log("Initializing L1AztecBridgeAdapter...");
+  if ((await (l1AztecAdapter.read.gigaBridge as any)([])) !== "0x0000000000000000000000000000000000000000") {
+    console.log("  L1AztecBridgeAdapter already initialized, skipping.");
+  } else {
     const aztecNodeInfo = await aztecNode.getNodeInfo();
     const registryAddr = aztecNodeInfo.l1ContractAddresses.registryAddress.toString() as Address;
     // The L2 adapter param is bytes32 (Aztec address).
@@ -455,25 +487,19 @@ async function phaseD_wire(
     ]);
     await publicClient.waitForTransactionReceipt({ hash });
     console.log(`  ✓ ${hash}`);
-  } catch (e: any) {
-    if (String(e?.shortMessage || e?.message || "").includes("twice")) {
-      console.log("  L1AztecBridgeAdapter already initialized, skipping.");
-    } else throw e;
   }
 
   // ---- L1ScrollBridgeAdapter.initialize(l2 scroll adapter, gigaBridge) ----
-  try {
-    console.log("Initializing L1ScrollBridgeAdapter...");
+  console.log("Initializing L1ScrollBridgeAdapter...");
+  if ((await (l1ScrollAdapter.read.gigaBridge as any)([])) !== "0x0000000000000000000000000000000000000000") {
+    console.log("  L1ScrollBridgeAdapter already initialized, skipping.");
+  } else {
     const hash = await (l1ScrollAdapter.write.initialize as any)([
       l2ScrollAdapterAddr,
       gigaBridgeAddr,
     ]);
     await publicClient.waitForTransactionReceipt({ hash });
     console.log(`  ✓ ${hash}`);
-  } catch (e: any) {
-    if (String(e?.shortMessage || e?.message || "").includes("only once")) {
-      console.log("  L1ScrollBridgeAdapter already initialized, skipping.");
-    } else throw e;
   }
 
   console.log("\nAll initialize calls done.");
