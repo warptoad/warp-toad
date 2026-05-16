@@ -68,7 +68,7 @@ importers:
         specifier: ^2.0.1
         version: 2.0.1
       aztec-scan-sdk:
-        specifier: github:aztec-scan/aztec-scan-sdk
+        specifier: github:aztec-scan/aztec-scan-sdk#fad17b3179eb4e1f4efb8df49365eca3ba2ae5e1
         version: https://codeload.github.com/aztec-scan/aztec-scan-sdk/tar.gz/fad17b3179eb4e1f4efb8df49365eca3ba2ae5e1(typescript@5.9.3)(zod@3.25.76)
       fixed-merkle-tree:
         specifier: ^0.7.3
@@ -76,6 +76,9 @@ importers:
       poseidon-lite:
         specifier: ^0.3.0
         version: 0.3.0
+      poseidon-solidity:
+        specifier: ^0.0.5
+        version: 0.0.5
       viem:
         specifier: ^2.41.2
         version: 2.47.10(typescript@5.9.3)(zod@3.25.76)

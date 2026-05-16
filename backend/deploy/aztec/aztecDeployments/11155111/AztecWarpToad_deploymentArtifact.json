@@ -1,13 +1,13 @@
 {
-  "address": "0x18ae5f512a3aa3ed4c74c46b227b97cf04c84ef528af5c0f194d24b4988c39c8",
+  "address": "0x16df1e8d7afdd766138feddf5678f35fbd32eafebdf05d8abe716a459a5b4bf0",
+  "salt": "0x0970318d8316e8c4a225f9eb158567259fd4f5882a440f2b7c775bab1b02b3e2",
+  "deployer": "0x03008ceaa91ee934c19bc83ff7c793950b604e4a14d7bdd70799e76461e86a18",
   "constructorArgs": [
-    "0x7f6023b290dc9dd1c57563a90b2f1ee61efb1cbb",
-    "wrpToad-TestUSD",
-    "wrpToad-TUSD",
+    "0xe143e7aE77a1a9Faf32Fcd61b93ac8cC601EAE93",
+    "wrpToad-USD Coin",
+    "wrpToad-USDC",
     "6"
   ],
-  "salt": "0x101dc310ef311a9544805b9e3e65e9705a3fdffbe73ab54d08505126e8ba401b",
-  "deployer": "0x1c854480da3dad0ce245d505d2a255e7f4f8b1fcee5d0330f3e11564be30386f",
   "rawArtifact": {
     "file_map": {
       "0": {

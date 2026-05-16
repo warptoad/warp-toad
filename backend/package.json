@@ -7,13 +7,13 @@
   "author": "Jim Jim Valkema",
   "license": "MIT",
   "scripts": {
-    "compile": "hardhat compile",
-    "test": "BB_BINARY_PATH=\"${BB_BINARY_PATH:-/home/nodestarq/Projects/warptoad/aztec-packages/barretenberg/cpp/build/bin/bb}\" hardhat test",
-    "deploy:local": "BB_BINARY_PATH=\"${BB_BINARY_PATH:-/home/nodestarq/Projects/warptoad/aztec-packages/barretenberg/cpp/build/bin/bb}\" hardhat run scripts/deployLocal.ts --network local",
-    "deploy:testnet": "BB_BINARY_PATH=\"${BB_BINARY_PATH:-/home/nodestarq/Projects/warptoad/aztec-packages/barretenberg/cpp/build/bin/bb}\" dotenv -e .env -- hardhat run scripts/deployTestnet.ts --network sepolia",
+    "compile": "hardhat compile && tsx scripts/emitNpmArtifacts.ts",
+    "test": "BB_BINARY_PATH=\"${BB_BINARY_PATH:?BB_BINARY_PATH must point to a locally-built bb binary at aztec-packages tag v4.2.0-aztecnr-rc.2, see README}\" hardhat test",
+    "deploy:local": "hardhat run scripts/deployLocal.ts --network local",
+    "deploy:testnet": "dotenv -e .env -- tsx scripts/deployTestnet.ts",
     "sync:testnet:to-aztec": "dotenv -e .env -- hardhat run scripts/syncTestnetToAztec.ts --network sepolia",
-    "sync:local": "BB_BINARY_PATH=\"${BB_BINARY_PATH:-/home/nodestarq/Projects/warptoad/aztec-packages/barretenberg/cpp/build/bin/bb}\" hardhat run scripts/syncLocal.ts --network local",
-    "sync:local:from-aztec": "BB_BINARY_PATH=\"${BB_BINARY_PATH:-/home/nodestarq/Projects/warptoad/aztec-packages/barretenberg/cpp/build/bin/bb}\" hardhat run scripts/syncLocalFromAztec.ts --network local",
+    "sync:local": "hardhat run scripts/syncLocal.ts --network local",
+    "sync:local:from-aztec": "hardhat run scripts/syncLocalFromAztec.ts --network local",
     "build:esm": "tsc -p tsconfig.json",
     "build:cjs": "tsc -p tsconfig.cjs.json",
     "build:browser": "tsc -p tsconfig.browser.json",
@@ -61,6 +61,7 @@
     "aztec-scan-sdk": "github:aztec-scan/aztec-scan-sdk#fad17b3179eb4e1f4efb8df49365eca3ba2ae5e1",
     "fixed-merkle-tree": "^0.7.3",
     "poseidon-lite": "^0.3.0",
+    "poseidon-solidity": "^0.0.5",
     "viem": "^2.41.2"
   },
   "files": [

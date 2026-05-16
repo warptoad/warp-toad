@@ -28,19 +28,25 @@ backend/
 │   ├── hashing.ts              Poseidon helpers + generator-index constants
 │   ├── constants.ts            Chain IDs, Scroll messenger addresses
 │   └── types.ts
-├── scripts/                  Hardhat-runnable deploy/sync scripts
+├── scripts/                  Deploy / sync / verify scripts (tsx + hardhat)
 │   ├── deployLocal.ts          Local sandbox deploy (chain 31337)
-│   ├── deployTestnet.ts        Sepolia + Aztec testnet + Scroll Sepolia (4 phases)
+│   ├── deployTestnet.ts        Testnet orchestrator (drives `hardhat ignition deploy` per phase, see root README)
+│   ├── deployAztecTestnet.ts   Aztec testnet deploy (called by deployTestnet.ts phase 3 via aztec.js)
+│   ├── emitNpmArtifacts.ts     Hardhat 3 workaround (emits per-contract JSON + patches userSourceNameMap for npm sources)
+│   ├── verifyAztecScan.ts      Publish Aztec contracts to AztecScan
+│   ├── aztecScanMetadata.ts    Deployer/contract metadata used by verifyAztecScan
 │   ├── syncLocal.ts            L1 -> Aztec gigaRoot push (sandbox)
 │   ├── syncLocalFromAztec.ts   Aztec -> L1 (full L2->L1 message + outbox + gigaRoot)
-│   ├── bridge.ts               CLI wrapper around lib/bridging (legacy)
-│   └── deployment.ts           Hardhat-aware contract loaders (used by scripts/, not lib/)
-├── deploy/                   Deployment metadata (gitignored EXCEPT for the json files)
-│   ├── ignition/deployments/   Per-chain Ignition addresses
+│   ├── syncTestnetToAztec.ts   Same as syncLocal but for Sepolia + Aztec testnet
+│   ├── services/bridger.ts     CLI used by `pnpm bridge:runner`
+│   └── utils.ts                Hardhat-aware helpers (artifact loading, deployed-addresses lookup)
+├── deploy/                   Deployment definitions + recorded addresses
+│   ├── ignition/modules/       Ignition module sources: L1WarpToad, L1Infra, L1Wire, L2Scroll, L2ScrollWire, TestToken, _loadNpmArtifact
+│   ├── ignition/deployments/   Per-chain Ignition state (addresses, journal, artifacts, build-info)
 │   │   ├── chain-31337/        Local sandbox
 │   │   ├── chain-11155111/     Sepolia
 │   │   └── chain-534351/       Scroll Sepolia
-│   ├── aztec/aztecDeployments/ Aztec contract metadata (constructorArgs, salt, deployer)
+│   ├── aztec/aztecDeployments/ Aztec contract metadata (constructorArgs, salt, deployer) per chain
 │   └── utils/aztecUtilsNoEnv.ts  Aztec PXE + sponsored wallet helpers
 ├── test/                     Backend test suite (5 tests)
 │   ├── testL1ToL1.ts
@@ -57,9 +63,12 @@ backend/
 - `lib/` is **runtime-pure**: only depends on viem + @aztec/* + @noir-lang/*.
   No hardhat. Can be imported from any workspace including bridge-sync (which
   pulls in `lib/bridging.ts` directly via cross-workspace relative imports).
-- `scripts/` is **hardhat-aware**: `scripts/deployment.ts` and `scripts/utils.ts`
-  import `hre from 'hardhat'`, which is why bridge-sync deliberately bypasses
-  them with its own `contractLoader.ts`.
+- `scripts/` is **hardhat-aware**: `scripts/utils.ts` and the hardhat-runnable
+  sync scripts (`syncLocal.ts`, `syncLocalFromAztec.ts`) import
+  `hre from 'hardhat'`, which is why bridge-sync deliberately bypasses them
+  with its own `contractLoader.ts`. The orchestrators (`deployTestnet.ts`,
+  `deployAztecTestnet.ts`, `verifyAztecScan.ts`, `emitNpmArtifacts.ts`) run
+  via tsx and don't pull in Hardhat at all.
 
 ## Compile
 
@@ -111,16 +120,25 @@ already-deployed contracts and only retries the missing pieces.
 
 `backend/hardhat.config.ts` reads `process.env` directly (NOT
 `configVariable()`, which falls back to an encrypted keystore by default).
-The `deploy:testnet` script wraps Hardhat with `dotenv-cli` so that
-`backend/.env` is loaded into `process.env` before Hardhat boots:
+The `deploy:testnet` script wraps the tsx orchestrator with `dotenv-cli` so
+that `backend/.env` is loaded into `process.env` before any Hardhat subprocess
+(spawned per phase) boots:
 
 ```jsonc
-"deploy:testnet": "BB_BINARY_PATH=... dotenv -e .env -- hardhat run scripts/deployTestnet.ts --network sepolia"
+"deploy:testnet": "BB_BINARY_PATH=... dotenv -e .env -- tsx scripts/deployTestnet.ts"
 ```
 
 This is a deliberate design choice. Don't switch back to `configVariable()` -
 it'll prompt for a keystore password interactively at config-load time and
 break non-interactive deploys.
+
+The orchestrator spawns `pnpm exec hardhat ignition deploy <module>` per phase
+and inherits the loaded env via `process.env`, so each child Hardhat process
+sees the same `SEPOLIA_RPC_URL` etc. that the orchestrator was started with.
+It also sets `HARDHAT_IGNITION_CONFIRM_DEPLOYMENT=1` /
+`HARDHAT_IGNITION_CONFIRM_RESET=1` on the children to bypass Ignition's
+interactive "Confirm deploy to network sepolia" prompt (which aborts under no
+TTY).
 
 ## Sync (sandbox only)
 

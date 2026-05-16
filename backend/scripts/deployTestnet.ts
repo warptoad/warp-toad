@@ -1,558 +1,453 @@
 /**
- * Deploy the full warp-toad stack to public testnets.
+ * Orchestrator for the warp-toad testnet deploy.
  *
- * Targets:
- *   - L1:    Ethereum Sepolia (chain 11155111)
- *   - L2:    Scroll Sepolia    (chain 534351)
- *   - Aztec: Aztec testnet     (referenced by l1ChainId 11155111)
+ * Replaces the old hand-rolled viem deploy script with a thin tsx wrapper that
+ * drives `hardhat ignition deploy` per phase. Ignition owns the deploy state
+ * (futures, addresses, journal) on disk under deploy/ignition/deployments/,
+ * which makes every phase idempotent: re-running picks up where it left off,
+ * skipping contracts and m.call(initialize)s already recorded.
  *
- * Phases (in dependency order):
- *   A. Sepolia       - libs, USDcoin, verifier, L1WarpToad, L1AztecBridgeAdapter,
- *                      L1ScrollBridgeAdapter, GigaBridge
- *   B. Aztec testnet - WarpToadCore + L2AztecBridgeAdapter (needs L1AztecAdapter
- *                      address from phase A in L2AztecAdapter constructor)
- *   C. Scroll Sepolia- libs, USDcoin, verifier, L2WarpToad, L2ScrollBridgeAdapter
- *                      (L2ScrollAdapter constructor needs L1ScrollAdapter from A)
- *   D. Wire          - initialize() calls on L1WarpToad, L1AztecAdapter,
- *                      L1ScrollAdapter, AztecWarpToad. All cross-chain pointers
- *                      get baked in here.
+ * Phase order:
+ *   1. Poseidon (Sepolia) via Nick's method
+ *   2. L1Infra ignition module on Sepolia
+ *   3. deployAztecTestnet.ts (constructor needs L1AztecAdapter from phase 2)
+ *   4. Poseidon (Scroll Sepolia)
+ *   5. L2Scroll ignition module on Scroll Sepolia
+ *   6. L1Wire ignition module (initialize() calls on L1WarpToad + L1 adapters)
+ *   7. L2ScrollWire ignition module (initialize() L2WarpToad on Scroll)
+ *   8. Etherscan / Blockscout / Sourcify verify via hardhat ignition verify
+ *      (skipped if ETHERSCAN_API_KEY missing)
+ *   9. AztecScan verify via aztec-scan-sdk (skipped if SKIP_AZTEC_SCAN_VERIFY set)
  *
- * Idempotency:
- *   Each phase reads its target deployed_addresses.json before doing anything
- *   and SKIPS contracts that already have a recorded address. Safe to re-run
- *   after a partial failure - it will only deploy what's missing.
+ * Required env (loaded via `dotenv -e .env --` from package.json):
+ *   DEPLOYER_PRIVATE_KEY, SEPOLIA_RPC_URL, SCROLL_SEPOLIA_RPC_URL, AZTEC_NODE_URL
  *
- * Required env (in backend/.env):
- *   DEPLOYER_PRIVATE_KEY      - funded on Sepolia + Scroll Sepolia
- *   SEPOLIA_RPC_URL           - any reliable RPC
- *   SCROLL_SEPOLIA_RPC_URL    - any reliable RPC
- *   AZTEC_NODE_URL            - testnet full node
+ * Optional:
+ *   ETHERSCAN_API_KEY        enables phase 8
+ *   SKIP_AZTEC_SCAN_VERIFY   if set (to any value), skips phase 9
  *
  * Usage:
- *   pnpm hardhat run scripts/deployTestnet.ts --network sepolia
- *
- *   The --network flag is ONLY used to seed hardhat's first connection. The
- *   script switches networks internally (Sepolia -> ScrollSepolia) via
- *   getViemClients(networkName).
+ *   pnpm t:deploy             # runs `dotenv -e .env -- tsx scripts/deployTestnet.ts`
+ *   tsx scripts/deployTestnet.ts   # if you've already loaded env
  */
 
+import { spawn } from "child_process";
 import fs from "fs";
+import os from "os";
 import path from "path";
 import { fileURLToPath } from "url";
-import { type Address, type Hex, getContract, pad } from "viem";
-import { createAztecNodeClient } from "@aztec/aztec.js/node";
-import { Contract } from "@aztec/aztec.js/contracts";
-import { Fr, GrumpkinScalar } from "@aztec/aztec.js/fields";
-import { AztecAddress } from "@aztec/aztec.js/addresses";
-
-import { deployEvmContracts } from "../test/helpers/deploy-evm.js";
 import {
-  getViemClients,
-  deployFromArtifact,
-  deployLibFromBuildInfo,
-} from "../test/helpers/artifacts.js";
-import { EVM_TREE_DEPTH } from "../test/helpers/constants.js";
+  createPublicClient,
+  createWalletClient,
+  http,
+  pad,
+  formatEther,
+  parseEther,
+  type Address,
+  type Hex,
+  type PublicClient,
+  type WalletClient,
+} from "viem";
+import { privateKeyToAccount } from "viem/accounts";
+import { sepolia, scrollSepolia } from "viem/chains";
+// @ts-ignore — poseidon-solidity ships no types and no exports map; the
+// explicit /index.js is required for Node ESM resolution.
+import poseidonSolidity from "poseidon-solidity/index.js";
+import { poseidon2 } from "poseidon-lite";
+import { createAztecNodeClient } from "@aztec/aztec.js/node";
+
 import {
   L1_SCROLL_MESSENGER_SEPOLIA,
   L2_SCROLL_MESSENGER_SEPOLIA,
 } from "../lib/constants.js";
 
-import { initPXE, getAztecWallet } from "../deploy/utils/aztecUtilsNoEnv.js";
-import { WarpToadCoreContractArtifact } from "../aztec/WarpToadCore/src/artifacts/WarpToadCore.js";
-import { L2AztecBridgeAdapterContractArtifact } from "../aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter.js";
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const BACKEND_DIR = path.resolve(__dirname, "..");
 
-// =============================================================================
-// .env loader (no dotenv dep - backend doesn't have it)
-// =============================================================================
+const SEPOLIA_DEPLOYMENT_DIR = path.join(BACKEND_DIR, "deploy/ignition/deployments/chain-11155111");
+const SCROLL_DEPLOYMENT_DIR = path.join(BACKEND_DIR, "deploy/ignition/deployments/chain-534351");
+const AZTEC_DEPLOYMENT_DIR = path.join(BACKEND_DIR, "deploy/aztec/aztecDeployments/11155111");
 
-(function loadDotEnv() {
-  const envFile = path.resolve(__dirname, "../.env");
-  if (!fs.existsSync(envFile)) return;
-  for (const rawLine of fs.readFileSync(envFile, "utf8").split("\n")) {
-    const line = rawLine.trim();
-    if (!line || line.startsWith("#")) continue;
-    const eq = line.indexOf("=");
-    if (eq < 0) continue;
-    const key = line.slice(0, eq).trim();
-    let val = line.slice(eq + 1).trim();
-    // Strip surrounding quotes if present.
-    if ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'"))) {
-      val = val.slice(1, -1);
-    }
-    if (!process.env[key]) process.env[key] = val;
-  }
-})();
+const SEPOLIA_ADDR_FILE = path.join(SEPOLIA_DEPLOYMENT_DIR, "deployed_addresses.json");
+const SCROLL_ADDR_FILE = path.join(SCROLL_DEPLOYMENT_DIR, "deployed_addresses.json");
+const AZTEC_ADDR_FILE = path.join(AZTEC_DEPLOYMENT_DIR, "deployed_addresses.json");
 
-// =============================================================================
-// Constants
-// =============================================================================
+const POSEIDON_T3_ABI = [
+  {
+    type: "function",
+    name: "hash",
+    stateMutability: "pure",
+    inputs: [{ name: "input", type: "uint256[2]" }],
+    outputs: [{ type: "uint256" }],
+  },
+] as const;
 
-const SEPOLIA_CHAIN_ID = 11155111n;
-const SCROLL_SEPOLIA_CHAIN_ID = 534351n;
-
-const SEPOLIA_DIR = path.resolve(
-  __dirname,
-  "../deploy/ignition/deployments/chain-11155111",
-);
-const SCROLL_SEPOLIA_DIR = path.resolve(
-  __dirname,
-  "../deploy/ignition/deployments/chain-534351",
-);
-const AZTEC_TESTNET_DIR = path.resolve(
-  __dirname,
-  "../deploy/aztec/aztecDeployments/11155111",
-);
-
-import type { AztecDeploymentMetadata, DeploymentArtifact } from "../lib/types.js";
-import type { NoirCompiledContract } from "@aztec/aztec.js/abi";
-import WarpToadCoreRawArtifact from "../aztec/WarpToadCore/target/WarpToadCore-WarpToadCore.json" with { type: "json" };
-import L2AztecBridgeAdapterRawArtifact from "../aztec/L2AztecBridgeAdapter/target/L2AztecBridgeAdapter-L2AztecBridgeAdapter.json" with { type: "json" };
-
-// =============================================================================
-// Address-file helpers (Ignition-format JSON)
-// =============================================================================
-
-function loadJsonOrEmpty(file: string): Record<string, any> {
+function loadAddresses(file: string): Record<string, any> {
   if (!fs.existsSync(file)) return {};
-  try {
-    return JSON.parse(fs.readFileSync(file, "utf8"));
-  } catch {
-    return {};
-  }
+  return JSON.parse(fs.readFileSync(file, "utf8"));
 }
 
-function writeJson(file: string, data: any) {
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, JSON.stringify(data, null, 2) + "\n");
-}
-
-const sepoliaAddressFile = path.join(SEPOLIA_DIR, "deployed_addresses.json");
-const scrollSepoliaAddressFile = path.join(SCROLL_SEPOLIA_DIR, "deployed_addresses.json");
-const aztecAddressFile = path.join(AZTEC_TESTNET_DIR, "deployed_addresses.json");
-
-// =============================================================================
-// Phase A: Sepolia EVM deploy
-// =============================================================================
-
-async function phaseA_sepolia() {
-  console.log("\n========== Phase A: Sepolia ==========");
-  const existing = loadJsonOrEmpty(sepoliaAddressFile);
-
-  // If a complete deploy is already recorded, skip and just rebuild handles.
-  if (
-    existing["L1InfraModule#L1WarpToad"] &&
-    existing["L1InfraModule#GigaBridge"] &&
-    existing["L1InfraModule#L1AztecBridgeAdapter"] &&
-    existing["L1InfraModule#L1ScrollBridgeAdapter"]
-  ) {
-    console.log("Sepolia stack already deployed; skipping.");
-    return existing as Record<string, string>;
-  }
-
-  console.log("Deploying full Sepolia stack via deployEvmContracts...");
-  const evm = await deployEvmContracts({
-    withAztecAdapter: true,
-    withScrollAdapter: { l1ScrollMessenger: L1_SCROLL_MESSENGER_SEPOLIA as Address },
-    networkName: "sepolia",
-  });
-  if (!evm.l1AztecBridgeAdapter || !evm.l1ScrollBridgeAdapter) {
-    throw new Error("Sepolia deploy did not return both adapters");
-  }
-
-  const l1ChainId = BigInt(await evm.publicClient.getChainId());
-  if (l1ChainId !== SEPOLIA_CHAIN_ID) {
-    throw new Error(`Expected chain ${SEPOLIA_CHAIN_ID}, got ${l1ChainId}. Check SEPOLIA_RPC_URL.`);
-  }
-
-  const addresses: Record<string, string> = {
-    "TestToken#USDcoin": evm.nativeToken.address,
-    "L1WarpToadModule#L1WarpToad": evm.l1WarpToad.address,
-    "L1WarpToadModule#WithdrawVerifier": evm.withdrawVerifier.address,
-    "L1InfraModule#GigaBridge": evm.gigaBridge.address,
-    "L1InfraModule#L1WarpToad": evm.l1WarpToad.address,
-    "L1InfraModule#L1AztecBridgeAdapter": evm.l1AztecBridgeAdapter.address,
-    "L1InfraModule#L1ScrollBridgeAdapter": evm.l1ScrollBridgeAdapter.address,
-  };
-  writeJson(sepoliaAddressFile, addresses);
-  console.log("Sepolia addresses written:");
-  for (const [k, v] of Object.entries(addresses)) console.log(`  ${k.padEnd(40)} ${v}`);
-  return addresses;
-}
-
-// =============================================================================
-// Phase B: Aztec testnet deploy
-// =============================================================================
-
-async function phaseB_aztec(sepoliaAddrs: Record<string, string>, nativeTokenL1: Address) {
-  console.log("\n========== Phase B: Aztec testnet ==========");
-  const existing = loadJsonOrEmpty(aztecAddressFile);
-  const warpToadArtifactFile = path.join(AZTEC_TESTNET_DIR, "AztecWarpToad_deploymentArtifact.json");
-  const adapterArtifactFile = path.join(AZTEC_TESTNET_DIR, "L2AztecBridgeAdapter_deploymentArtifact.json");
-
-  if (existing.AztecWarpToad?.address && existing.L2AztecBridgeAdapter?.address) {
-    // Addresses already recorded — backfill artifact files if they were deleted.
-    if (!fs.existsSync(warpToadArtifactFile)) {
-      const m = existing.AztecWarpToad as AztecDeploymentMetadata;
-      writeJson(warpToadArtifactFile, { ...m, rawArtifact: WarpToadCoreRawArtifact as unknown as NoirCompiledContract });
-      console.log("  Backfilled AztecWarpToad_deploymentArtifact.json");
-    }
-    if (!fs.existsSync(adapterArtifactFile)) {
-      const m = existing.L2AztecBridgeAdapter as AztecDeploymentMetadata;
-      writeJson(adapterArtifactFile, { ...m, rawArtifact: L2AztecBridgeAdapterRawArtifact as unknown as NoirCompiledContract });
-      console.log("  Backfilled L2AztecBridgeAdapter_deploymentArtifact.json");
-    }
-    console.log("Aztec contracts already deployed; skipping.");
-    return existing as Record<string, AztecDeploymentMetadata>;
-  }
-
-  const aztecNodeUrl = process.env.AZTEC_NODE_URL;
-  if (!aztecNodeUrl) throw new Error("AZTEC_NODE_URL must be set in backend/.env");
-
-  console.log(`Connecting to Aztec node: ${aztecNodeUrl}`);
-  const node = createAztecNodeClient(aztecNodeUrl);
-
-  // Spin up an ephemeral sponsored wallet (no funded credentials needed; the
-  // SponsoredFPC pays gas). Same pattern bridge-sync uses.
-  console.log("Generating ephemeral Aztec deployer wallet (sponsored FPC)...");
-  const secrets = {
-    secret: Fr.random(),
-    salt: Fr.random(),
-    signingKey: GrumpkinScalar.random(),
-  };
-  const { wallet: deployerWallet, sponsoredPaymentMethod } = await getAztecWallet(
-    aztecNodeUrl,
-    secrets,
-    false, // not sandbox
-  );
-  await initPXE(node, SEPOLIA_CHAIN_ID); // shared PXE for the chain
-  const deployerAccounts = await deployerWallet.getAccounts();
-  const deployer = deployerAccounts[0].item;
-  console.log(`Aztec deployer: ${deployer.toString()}`);
-
-  const l1AztecAdapterAddress = sepoliaAddrs["L1InfraModule#L1AztecBridgeAdapter"] as Address;
-
-  // ---- WarpToadCore ----
-  // Constructor args: (nativeToken: EthAddress, name: str<31>, symbol: str<31>, decimals: u8)
-  const warpToadConstructorArgs = [
-    nativeTokenL1,
-    "wrpToad-TestUSD",
-    "wrpToad-TUSD",
-    6n,
-  ];
-  console.log("Deploying WarpToadCore...");
-  const warpToadDeploy = Contract.deploy(
-    deployerWallet,
-    WarpToadCoreContractArtifact,
-    warpToadConstructorArgs,
-  );
-  const { contract: warpToad } = await warpToadDeploy.send({
-    from: deployer,
-    fee: { paymentMethod: sponsoredPaymentMethod },
-  });
-  const warpToadInstance = await warpToadDeploy.getInstance();
-  console.log(`  WarpToadCore        ${warpToad.address.toString()}`);
-
-  // ---- L2AztecBridgeAdapter ----
-  // Constructor args: (l1BridgeAdapter: EthAddress)
-  const adapterConstructorArgs = [l1AztecAdapterAddress];
-  console.log("Deploying L2AztecBridgeAdapter...");
-  const adapterDeploy = Contract.deploy(
-    deployerWallet,
-    L2AztecBridgeAdapterContractArtifact,
-    adapterConstructorArgs,
-  );
-  const { contract: bridgeAdapter } = await adapterDeploy.send({
-    from: deployer,
-    fee: { paymentMethod: sponsoredPaymentMethod },
-  });
-  const adapterInstance = await adapterDeploy.getInstance();
-  console.log(`  L2AztecBridgeAdapter ${bridgeAdapter.address.toString()}`);
-
-  // ---- WarpToadCore.initialize(L2 adapter, L1 adapter) ----
-  console.log("Initializing WarpToadCore on Aztec...");
-  await (warpToad as any).methods
-    .initialize(bridgeAdapter.address, l1AztecAdapterAddress)
-    .send({ from: deployer, fee: { paymentMethod: sponsoredPaymentMethod } });
-  console.log("  ✓ WarpToadCore.initialize done");
-
-  const warpToadConstructorArgsStr = warpToadConstructorArgs.map((v) =>
-    typeof v === "bigint" ? v.toString() : String(v),
-  );
-  const adapterConstructorArgsStr = adapterConstructorArgs.map((v) => String(v));
-
-  const aztecAddrs: Record<string, AztecDeploymentMetadata> = {
-    AztecWarpToad: {
-      address: warpToad.address.toString(),
-      constructorArgs: warpToadConstructorArgsStr,
-      salt: warpToadInstance.salt.toString(),
-      deployer: deployer.toString(),
-    },
-    L2AztecBridgeAdapter: {
-      address: bridgeAdapter.address.toString(),
-      constructorArgs: adapterConstructorArgsStr,
-      salt: adapterInstance.salt.toString(),
-      deployer: deployer.toString(),
-    },
-  };
-  writeJson(aztecAddressFile, aztecAddrs);
-
-  const warpToadDeploymentArtifact: DeploymentArtifact = {
-    address: warpToad.address.toString(),
-    salt: warpToadInstance.salt.toString(),
-    deployer: deployer.toString(),
-    constructorArgs: warpToadConstructorArgsStr,
-    rawArtifact: WarpToadCoreRawArtifact as NoirCompiledContract,
-  };
-  writeJson(path.join(AZTEC_TESTNET_DIR, "AztecWarpToad_deploymentArtifact.json"), warpToadDeploymentArtifact);
-
-  const adapterDeploymentArtifact: DeploymentArtifact = {
-    address: bridgeAdapter.address.toString(),
-    salt: adapterInstance.salt.toString(),
-    deployer: deployer.toString(),
-    constructorArgs: adapterConstructorArgsStr,
-    rawArtifact: L2AztecBridgeAdapterRawArtifact as NoirCompiledContract,
-  };
-  writeJson(path.join(AZTEC_TESTNET_DIR, "L2AztecBridgeAdapter_deploymentArtifact.json"), adapterDeploymentArtifact);
-  console.log("Aztec addresses written.");
-  return { aztecAddrs, node };
-}
-
-// =============================================================================
-// Phase C: Scroll Sepolia EVM deploy
-// =============================================================================
-
-async function phaseC_scrollSepolia(l1ScrollBridgeAdapterAddress: Address) {
-  console.log("\n========== Phase C: Scroll Sepolia ==========");
-  const existing = loadJsonOrEmpty(scrollSepoliaAddressFile);
-  if (
-    existing["L2ScrollModule#L2WarpToad"] &&
-    existing["L2ScrollModule#L2ScrollBridgeAdapter"]
-  ) {
-    console.log("Scroll Sepolia stack already deployed; skipping.");
-    return existing as Record<string, string>;
-  }
-
-  const { deployer, publicClient } = await getViemClients("scrollSepolia");
-  const l2ChainId = BigInt(await publicClient.getChainId());
-  if (l2ChainId !== SCROLL_SEPOLIA_CHAIN_ID) {
-    throw new Error(`Expected chain ${SCROLL_SEPOLIA_CHAIN_ID}, got ${l2ChainId}. Check SCROLL_SEPOLIA_RPC_URL.`);
-  }
-  console.log(`Scroll Sepolia chainId=${l2ChainId}`);
-
-  // 1. Libs (independent per chain - bytecode addresses differ)
-  const poseidonT3 = await deployLibFromBuildInfo(
-    "npm/poseidon-solidity@0.0.5/PoseidonT3.sol",
-    "PoseidonT3",
-    deployer,
-    publicClient,
-  );
-  const lazyIMT = await deployLibFromBuildInfo(
-    "npm/@zk-kit/lazy-imt.sol@2.0.0-beta.12/LazyIMT.sol",
-    "LazyIMT",
-    deployer,
-    publicClient,
-    { PoseidonT3: poseidonT3 },
-  );
-  const libs: Record<string, Address> = { LazyIMT: lazyIMT, PoseidonT3: poseidonT3 };
-
-  // 2. Native token (USDcoin) — fresh deploy on Scroll, independent of Sepolia.
-  const usdcoin = await deployFromArtifact("USDcoin", [], deployer, publicClient);
-
-  // 3. ZKTranscriptLib + verifier
-  const zkTranscript = await deployFromArtifact("ZKTranscriptLib", [], deployer, publicClient);
-  const verifier = await deployFromArtifact("HonkVerifier", [], deployer, publicClient, {
-    ZKTranscriptLib: zkTranscript.address,
-  });
-
-  // 4. L2WarpToad (constructor: maxTreeDepth, verifier, nativeToken, name, symbol)
-  const l2NameTokenViem: any = getContract({
-    address: usdcoin.address,
-    abi: usdcoin.abi,
-    client: { public: publicClient, wallet: deployer },
-  });
-  const tokenName = (await l2NameTokenViem.read.name()) as string;
-  const tokenSymbol = (await l2NameTokenViem.read.symbol()) as string;
-  const l2WarpToad = await deployFromArtifact(
-    "L2WarpToad",
-    [
-      EVM_TREE_DEPTH,
-      verifier.address,
-      usdcoin.address,
-      `wrpToad-${tokenSymbol}`,
-      `wrpToad-${tokenName}`,
-    ],
-    deployer,
-    publicClient,
-    libs,
-  );
-
-  // 5. L2ScrollBridgeAdapter (constructor: l2ScrollMessenger, l1ScrollBridgeAdapter, l2WarpToad)
-  const l2ScrollAdapter = await deployFromArtifact(
-    "L2ScrollBridgeAdapter",
-    [
-      L2_SCROLL_MESSENGER_SEPOLIA as Address,
-      l1ScrollBridgeAdapterAddress,
-      l2WarpToad.address,
-    ],
-    deployer,
-    publicClient,
-  );
-
-  const addresses: Record<string, string> = {
-    "TestToken#USDcoin": usdcoin.address,
-    "L2ScrollModule#WithdrawVerifier": verifier.address,
-    "L2ScrollModule#L2WarpToad": l2WarpToad.address,
-    "L2ScrollModule#L2ScrollBridgeAdapter": l2ScrollAdapter.address,
-  };
-  writeJson(scrollSepoliaAddressFile, addresses);
-  console.log("Scroll Sepolia addresses written:");
-  for (const [k, v] of Object.entries(addresses)) console.log(`  ${k.padEnd(40)} ${v}`);
-  return addresses;
-}
-
-// =============================================================================
-// Phase D: Wire / initialize
-// =============================================================================
-
-async function phaseD_wire(
-  sepoliaAddrs: Record<string, string>,
-  scrollAddrs: Record<string, string>,
-  aztecAddrs: Record<string, AztecDeploymentMetadata>,
-  aztecNode: any,
+async function spawnInherit(
+  cmd: string,
+  args: string[],
+  opts: { cwd?: string; env?: Record<string, string> } = {},
 ) {
-  console.log("\n========== Phase D: Wire / initialize ==========");
-
-  const { deployer, publicClient } = await getViemClients("sepolia");
-
-  // Re-build viem handles for the L1 contracts we just deployed.
-  // We need ABIs - load from the freshly compiled Hardhat artifacts.
-  const loadAbi = (artifactRelPath: string) => {
-    const file = path.resolve(__dirname, `../artifacts/contracts/${artifactRelPath}`);
-    const json = JSON.parse(fs.readFileSync(file, "utf8"));
-    return json.abi as any[];
-  };
-
-  const l1WarpToad: any = getContract({
-    address: sepoliaAddrs["L1InfraModule#L1WarpToad"] as Address,
-    abi: loadAbi("core/L1WarpToad.sol/L1WarpToad.json"),
-    client: { public: publicClient, wallet: deployer },
+  await new Promise<void>((resolve, reject) => {
+    const proc = spawn(cmd, args, {
+      cwd: opts.cwd ?? BACKEND_DIR,
+      env: { ...process.env, ...(opts.env ?? {}) },
+      stdio: "inherit",
+    });
+    proc.on("error", reject);
+    proc.on("exit", (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`${cmd} ${args.join(" ")} exited with code ${code}`));
+    });
   });
-  const l1AztecAdapter: any = getContract({
-    address: sepoliaAddrs["L1InfraModule#L1AztecBridgeAdapter"] as Address,
-    abi: loadAbi("bridge/adapters/L1AztecBridgeAdapter.sol/L1AztecBridgeAdapter.json"),
-    client: { public: publicClient, wallet: deployer },
-  });
-  const l1ScrollAdapter: any = getContract({
-    address: sepoliaAddrs["L1InfraModule#L1ScrollBridgeAdapter"] as Address,
-    abi: loadAbi("bridge/adapters/L1ScrollBridgeAdapter.sol/L1ScrollBridgeAdapter.json"),
-    client: { public: publicClient, wallet: deployer },
-  });
-
-  const gigaBridgeAddr = sepoliaAddrs["L1InfraModule#GigaBridge"] as Address;
-  const aztecWarpToadAddrStr = aztecAddrs.AztecWarpToad.address;
-  const l2AztecAdapterAddrStr = aztecAddrs.L2AztecBridgeAdapter.address;
-  const l2ScrollAdapterAddr = scrollAddrs["L2ScrollModule#L2ScrollBridgeAdapter"] as Address;
-
-  // ---- L1WarpToad.initialize(gigaBridge, self, aztecWarpToadAddress) ----
-  console.log("Initializing L1WarpToad...");
-  if ((await (l1WarpToad.read.gigaRootProvider as any)([])) !== "0x0000000000000000000000000000000000000000") {
-    console.log("  L1WarpToad already initialized, skipping.");
-  } else {
-    const aztecWarpToadAsUint = BigInt(aztecWarpToadAddrStr);
-    const hash = await (l1WarpToad.write.initialize as any)([
-      gigaBridgeAddr,
-      l1WarpToad.address,
-      aztecWarpToadAsUint,
-    ]);
-    await publicClient.waitForTransactionReceipt({ hash });
-    console.log(`  ✓ ${hash}`);
-  }
-
-  // ---- L1AztecBridgeAdapter.initialize(registry, l2 adapter [bytes32], gigaBridge) ----
-  console.log("Initializing L1AztecBridgeAdapter...");
-  if ((await (l1AztecAdapter.read.gigaBridge as any)([])) !== "0x0000000000000000000000000000000000000000") {
-    console.log("  L1AztecBridgeAdapter already initialized, skipping.");
-  } else {
-    const aztecNodeInfo = await aztecNode.getNodeInfo();
-    const registryAddr = aztecNodeInfo.l1ContractAddresses.registryAddress.toString() as Address;
-    // The L2 adapter param is bytes32 (Aztec address).
-    const l2AdapterBytes32 = pad(l2AztecAdapterAddrStr as Hex, { size: 32 });
-    const hash = await (l1AztecAdapter.write.initialize as any)([
-      registryAddr,
-      l2AdapterBytes32,
-      gigaBridgeAddr,
-    ]);
-    await publicClient.waitForTransactionReceipt({ hash });
-    console.log(`  ✓ ${hash}`);
-  }
-
-  // ---- L1ScrollBridgeAdapter.initialize(l2 scroll adapter, gigaBridge) ----
-  console.log("Initializing L1ScrollBridgeAdapter...");
-  if ((await (l1ScrollAdapter.read.gigaBridge as any)([])) !== "0x0000000000000000000000000000000000000000") {
-    console.log("  L1ScrollBridgeAdapter already initialized, skipping.");
-  } else {
-    const hash = await (l1ScrollAdapter.write.initialize as any)([
-      l2ScrollAdapterAddr,
-      gigaBridgeAddr,
-    ]);
-    await publicClient.waitForTransactionReceipt({ hash });
-    console.log(`  ✓ ${hash}`);
-  }
-
-  console.log("\nAll initialize calls done.");
 }
 
-// =============================================================================
-// Main
-// =============================================================================
+async function deployPoseidon(
+  publicClient: PublicClient,
+  walletClient: WalletClient,
+): Promise<Address> {
+  const proxy = (poseidonSolidity as any).proxy;
+  const PoseidonT3 = (poseidonSolidity as any).PoseidonT3;
+  const account = walletClient.account!;
+
+  // Step 1: deploy the keyless proxy (Nick's method) if not already on chain.
+  if ((await publicClient.getCode({ address: proxy.address as Address })) === undefined) {
+    console.log(`  funding proxy deployer ${proxy.from} with ${proxy.gas} wei...`);
+    const fundHash = await walletClient.sendTransaction({
+      account,
+      chain: walletClient.chain,
+      to: proxy.from as Address,
+      value: BigInt(proxy.gas),
+    });
+    await publicClient.waitForTransactionReceipt({ hash: fundHash });
+
+    console.log(`  broadcasting presigned proxy deploy tx...`);
+    const proxyHash = await publicClient.sendRawTransaction({
+      serializedTransaction: proxy.tx as Hex,
+    });
+    await publicClient.waitForTransactionReceipt({ hash: proxyHash });
+  } else {
+    console.log(`  proxy already at ${proxy.address}`);
+  }
+
+  // Step 2: deploy PoseidonT3 via the proxy if not already there.
+  if ((await publicClient.getCode({ address: PoseidonT3.address as Address })) === undefined) {
+    console.log(`  deploying PoseidonT3 via proxy...`);
+    const hash = await walletClient.sendTransaction({
+      account,
+      chain: walletClient.chain,
+      to: proxy.address as Address,
+      data: PoseidonT3.data as Hex,
+    });
+    await publicClient.waitForTransactionReceipt({ hash });
+  } else {
+    console.log(`  PoseidonT3 already at ${PoseidonT3.address}`);
+  }
+
+  // Sanity-check the on-chain hash matches poseidon-lite's pure JS hash. If
+  // these diverge, the contract code does not match what the circuit expects
+  // and EVERY merkle root will be wrong.
+  const preImg: [bigint, bigint] = [1234n, 5678n];
+  const expected = BigInt(poseidon2(preImg));
+  const got = (await publicClient.readContract({
+    address: PoseidonT3.address as Address,
+    abi: POSEIDON_T3_ABI,
+    functionName: "hash",
+    args: [preImg],
+  })) as bigint;
+  if (BigInt(got) !== expected) {
+    throw new Error(
+      `PoseidonT3 hash mismatch! contract=${got} expected=${expected}. Bytecode does not match poseidon-lite.`,
+    );
+  }
+  return PoseidonT3.address as Address;
+}
+
+// Hardhat Ignition prompts interactively before deploying to any non-31337
+// chain ("Confirm deploy to network sepolia (11155111)?"). With no TTY in our
+// orchestrator subprocess, that prompt aborts the deploy. Setting these env
+// vars (presence is enough; value is ignored) bypasses both confirmation
+// gates. Source: @nomicfoundation/hardhat-ignition/dist/src/internal/tasks/deploy.js
+const IGNITION_NONINTERACTIVE_ENV = {
+  HARDHAT_IGNITION_CONFIRM_DEPLOYMENT: "1",
+  HARDHAT_IGNITION_CONFIRM_RESET: "1",
+};
+
+async function runIgnitionDeploy(
+  moduleRelPath: string,
+  network: string,
+  parameters: Record<string, Record<string, unknown>>,
+) {
+  // Write under os.tmpdir() (not BACKEND_DIR) so a hard kill of the
+  // orchestrator doesn't leave .ignition-params-*.json files cluttering
+  // the repo. Hardhat ignition reads the params file path as-is, so an
+  // absolute path under /tmp works fine. PID disambiguates concurrent runs.
+  const paramsFile = path.join(
+    os.tmpdir(),
+    `warptoad-ignition-${network}-${path.basename(moduleRelPath)}-${process.pid}.json`,
+  );
+  fs.writeFileSync(paramsFile, JSON.stringify(parameters, null, 2));
+  try {
+    await spawnInherit(
+      "pnpm",
+      [
+        "exec",
+        "hardhat",
+        "ignition",
+        "deploy",
+        moduleRelPath,
+        "--network",
+        network,
+        "--parameters",
+        paramsFile,
+      ],
+      { env: IGNITION_NONINTERACTIVE_ENV },
+    );
+  } finally {
+    if (fs.existsSync(paramsFile)) fs.unlinkSync(paramsFile);
+  }
+}
+
+async function runIgnitionVerify(deploymentId: string, network: string) {
+  await spawnInherit(
+    "pnpm",
+    ["exec", "hardhat", "ignition", "verify", deploymentId, "--network", network],
+    { env: IGNITION_NONINTERACTIVE_ENV },
+  );
+}
 
 async function main() {
-  // Sanity-check env up front so we don't half-deploy then crash on missing
-  // Aztec / Scroll config.
-  const required = ["DEPLOYER_PRIVATE_KEY", "SEPOLIA_RPC_URL", "SCROLL_SEPOLIA_RPC_URL", "AZTEC_NODE_URL"];
-  const missing = required.filter((k) => !process.env[k]);
+  const REQUIRED = [
+    "DEPLOYER_PRIVATE_KEY",
+    "SEPOLIA_RPC_URL",
+    "SCROLL_SEPOLIA_RPC_URL",
+    "AZTEC_NODE_URL",
+  ];
+  const missing = REQUIRED.filter((k) => !process.env[k]);
   if (missing.length) {
     throw new Error(`Missing required env in backend/.env: ${missing.join(", ")}`);
   }
+  if (!process.env.ETHERSCAN_API_KEY) {
+    console.warn("WARN: ETHERSCAN_API_KEY not set; phase 8 (etherscan verify) will be skipped.");
+  }
+
+  const pk = process.env.DEPLOYER_PRIVATE_KEY!;
+  if (!pk.startsWith("0x")) {
+    throw new Error("DEPLOYER_PRIVATE_KEY must start with 0x");
+  }
+  const account = privateKeyToAccount(pk as Hex);
 
   console.log("warp-toad testnet deploy");
   console.log("========================");
-  console.log(`Sepolia RPC:        ${process.env.SEPOLIA_RPC_URL}`);
-  console.log(`Scroll Sepolia RPC: ${process.env.SCROLL_SEPOLIA_RPC_URL}`);
-  console.log(`Aztec node:         ${process.env.AZTEC_NODE_URL}`);
+  console.log(`Deployer:    ${account.address}`);
+  console.log(`Sepolia RPC: ${process.env.SEPOLIA_RPC_URL}`);
+  console.log(`Scroll RPC:  ${process.env.SCROLL_SEPOLIA_RPC_URL}`);
+  console.log(`Aztec node:  ${process.env.AZTEC_NODE_URL}`);
 
-  // Phase A: Sepolia
-  const sepoliaAddrs = await phaseA_sepolia();
-  const nativeTokenL1 = sepoliaAddrs["TestToken#USDcoin"] as Address;
-  const l1ScrollAdapterAddr = sepoliaAddrs["L1InfraModule#L1ScrollBridgeAdapter"] as Address;
+  const sepoliaPublic = createPublicClient({
+    chain: sepolia,
+    transport: http(process.env.SEPOLIA_RPC_URL),
+  });
+  const sepoliaWallet = createWalletClient({
+    account,
+    chain: sepolia,
+    transport: http(process.env.SEPOLIA_RPC_URL),
+  });
+  const scrollPublic = createPublicClient({
+    chain: scrollSepolia,
+    transport: http(process.env.SCROLL_SEPOLIA_RPC_URL),
+  });
+  const scrollWallet = createWalletClient({
+    account,
+    chain: scrollSepolia,
+    transport: http(process.env.SCROLL_SEPOLIA_RPC_URL),
+  });
 
-  // Phase B: Aztec testnet (needs L1AztecAdapter from A in constructor)
-  const phaseBResult = await phaseB_aztec(sepoliaAddrs, nativeTokenL1);
-  // phaseBResult is either the existing-skip object or { aztecAddrs, node }
-  let aztecAddrs: Record<string, AztecDeploymentMetadata>;
-  let aztecNode: any;
-  if ("AztecWarpToad" in phaseBResult) {
-    aztecAddrs = phaseBResult as Record<string, AztecDeploymentMetadata>;
-    // Need a node connection for Phase D's registry lookup even when skipping.
-    aztecNode = createAztecNodeClient(process.env.AZTEC_NODE_URL!);
-  } else {
-    aztecAddrs = (phaseBResult as any).aztecAddrs;
-    aztecNode = (phaseBResult as any).node;
+  // Sanity: chain ids match the URLs the user gave us.
+  const [sepoliaChainId, scrollChainId] = await Promise.all([
+    sepoliaPublic.getChainId(),
+    scrollPublic.getChainId(),
+  ]);
+  if (sepoliaChainId !== 11155111) {
+    throw new Error(`SEPOLIA_RPC_URL is not Sepolia (chainId=${sepoliaChainId}, expected 11155111)`);
+  }
+  if (scrollChainId !== 534351) {
+    throw new Error(`SCROLL_SEPOLIA_RPC_URL is not Scroll Sepolia (chainId=${scrollChainId}, expected 534351)`);
   }
 
-  // Phase C: Scroll Sepolia (needs L1ScrollAdapter from A in constructor)
-  const scrollAddrs = await phaseC_scrollSepolia(l1ScrollAdapterAddr);
+  // Balance check, warning only. Sepolia needs a few hundredths of an ETH for
+  // the full L1 stack; Scroll is cheaper.
+  const [sepoliaBal, scrollBal] = await Promise.all([
+    sepoliaPublic.getBalance({ address: account.address }),
+    scrollPublic.getBalance({ address: account.address }),
+  ]);
+  console.log(`Balances:    sepolia=${formatEther(sepoliaBal)} ETH, scroll=${formatEther(scrollBal)} ETH`);
+  if (sepoliaBal < parseEther("0.05")) {
+    console.warn(`WARN: low Sepolia balance (${formatEther(sepoliaBal)}); deploy may run out of gas.`);
+  }
+  if (scrollBal < parseEther("0.01")) {
+    console.warn(`WARN: low Scroll Sepolia balance (${formatEther(scrollBal)}); deploy may run out of gas.`);
+  }
 
-  // Phase D: Wire all initializers
-  await phaseD_wire(sepoliaAddrs, scrollAddrs, aztecAddrs, aztecNode);
+  // ---------- Phase 1: Poseidon on Sepolia ----------
+  console.log("\n=== Phase 1/8: PoseidonT3 on Sepolia ===");
+  const sepoliaPoseidon = await deployPoseidon(sepoliaPublic, sepoliaWallet);
+  console.log(`PoseidonT3 (Sepolia): ${sepoliaPoseidon}`);
 
-  console.log("\n========================");
-  console.log("Testnet deploy complete.");
-  console.log("========================");
-  console.log("Next: pnpm --filter frontend pull:addresses");
+  // ---------- Phase 2: L1Infra ignition deploy ----------
+  console.log("\n=== Phase 2/8: hardhat ignition deploy L1Infra (Sepolia) ===");
+  await runIgnitionDeploy("deploy/ignition/modules/L1Infra.ts", "sepolia", {
+    L1WarpToadModule: { PoseidonT3LibAddress: sepoliaPoseidon },
+    L1InfraModule: { L1ScrollMessengerAddress: L1_SCROLL_MESSENGER_SEPOLIA },
+  });
+
+  const sepoliaAddrs = loadAddresses(SEPOLIA_ADDR_FILE);
+  const l1AztecAdapter = sepoliaAddrs["L1InfraModule#L1AztecBridgeAdapter"] as Address;
+  const l1ScrollAdapter = sepoliaAddrs["L1InfraModule#L1ScrollBridgeAdapter"] as Address;
+  if (!l1AztecAdapter || !l1ScrollAdapter) {
+    throw new Error(`L1Infra deploy did not produce expected addresses. Got: ${JSON.stringify(sepoliaAddrs, null, 2)}`);
+  }
+  console.log(`L1AztecBridgeAdapter:  ${l1AztecAdapter}`);
+  console.log(`L1ScrollBridgeAdapter: ${l1ScrollAdapter}`);
+
+  // ---------- Phase 3: Aztec testnet ----------
+  console.log("\n=== Phase 3/8: Aztec testnet (deployAztecTestnet.ts) ===");
+  await spawnInherit("pnpm", ["exec", "tsx", "scripts/deployAztecTestnet.ts"]);
+
+  const aztecAddrs = loadAddresses(AZTEC_ADDR_FILE);
+  const aztecWarpToad = aztecAddrs.AztecWarpToad?.address as string | undefined;
+  const l2AztecAdapter = aztecAddrs.L2AztecBridgeAdapter?.address as string | undefined;
+  if (!aztecWarpToad || !l2AztecAdapter) {
+    throw new Error(`Aztec deploy did not produce expected addresses. Got: ${JSON.stringify(aztecAddrs, null, 2)}`);
+  }
+  console.log(`AztecWarpToad:        ${aztecWarpToad}`);
+  console.log(`L2AztecBridgeAdapter: ${l2AztecAdapter}`);
+
+  // ---------- Phase 4: Poseidon on Scroll Sepolia ----------
+  console.log("\n=== Phase 4/8: PoseidonT3 on Scroll Sepolia ===");
+  const scrollPoseidon = await deployPoseidon(scrollPublic, scrollWallet);
+  console.log(`PoseidonT3 (Scroll): ${scrollPoseidon}`);
+
+  // ---------- Phase 5: L2Scroll ignition deploy ----------
+  console.log("\n=== Phase 5/8: hardhat ignition deploy L2Scroll (Scroll Sepolia) ===");
+  await runIgnitionDeploy("deploy/ignition/modules/L2Scroll.ts", "scrollSepolia", {
+    L2ScrollModule: {
+      PoseidonT3LibAddress: scrollPoseidon,
+      L1ScrollBridgeAdapter: l1ScrollAdapter,
+      l2ScrollMessengerAddress: L2_SCROLL_MESSENGER_SEPOLIA,
+    },
+  });
+
+  const scrollAddrs = loadAddresses(SCROLL_ADDR_FILE);
+  const l2ScrollAdapter = scrollAddrs["L2ScrollModule#L2ScrollBridgeAdapter"] as Address;
+  if (!l2ScrollAdapter) {
+    throw new Error(`L2Scroll deploy did not produce expected addresses. Got: ${JSON.stringify(scrollAddrs, null, 2)}`);
+  }
+  console.log(`L2ScrollBridgeAdapter: ${l2ScrollAdapter}`);
+
+  // ---------- Phase 6: L1 wire (initialize calls) ----------
+  console.log("\n=== Phase 6/8: hardhat ignition deploy L1Wire (Sepolia) ===");
+  // The Aztec node's reported registry is the L1 contract address Aztec uses
+  // as its rollup registry — L1AztecBridgeAdapter routes messages through it.
+  const aztecNode = createAztecNodeClient(process.env.AZTEC_NODE_URL!);
+  const aztecNodeInfo = await aztecNode.getNodeInfo();
+  const aztecRegistry = aztecNodeInfo.l1ContractAddresses.registryAddress.toString() as Address;
+
+  // WarpToadCore.initialize takes the Aztec WarpToad address as uint256 (a
+  // 254-bit Aztec field element); the L1 adapter's L2 counterpart is bytes32.
+  const aztecWarpToadUint = BigInt(aztecWarpToad).toString();
+  const l2AztecAdapterBytes32 = pad(l2AztecAdapter as Hex, { size: 32 });
+
+  await runIgnitionDeploy("deploy/ignition/modules/L1Wire.ts", "sepolia", {
+    L1WarpToadModule: { PoseidonT3LibAddress: sepoliaPoseidon },
+    L1InfraModule: { L1ScrollMessengerAddress: L1_SCROLL_MESSENGER_SEPOLIA },
+    L1WireModule: {
+      aztecRegistry,
+      aztecWarpToadAddress: aztecWarpToadUint,
+      l2AztecAdapterBytes32,
+      l2ScrollAdapter,
+    },
+  });
+
+  // ---------- Phase 7: L2 (Scroll) wire ----------
+  console.log("\n=== Phase 7/8: hardhat ignition deploy L2ScrollWire (Scroll Sepolia) ===");
+  await runIgnitionDeploy("deploy/ignition/modules/L2ScrollWire.ts", "scrollSepolia", {
+    L2ScrollModule: {
+      PoseidonT3LibAddress: scrollPoseidon,
+      L1ScrollBridgeAdapter: l1ScrollAdapter,
+      l2ScrollMessengerAddress: L2_SCROLL_MESSENGER_SEPOLIA,
+    },
+    L2ScrollWireModule: {
+      l1ScrollBridgeAdapter: l1ScrollAdapter,
+      aztecWarpToadAddress: aztecWarpToadUint,
+    },
+  });
+
+  // ---------- Phase 8: Etherscan verify ----------
+  if (process.env.ETHERSCAN_API_KEY) {
+    console.log("\n=== Phase 8/9: Etherscan verify ===");
+    // hardhat ignition deploy (Phases 2 / 5) runs hardhat compile internally,
+    // which strips the per-contract artifact JSONs and resets the
+    // userSourceNameMap patches that emitNpmArtifacts.ts emits for npm
+    // sources. Without this, verify fails HHE100 on LazyIMT. Re-emit before
+    // verify so the artifact + map are present and current.
+    // Memory: hardhat3-npm-verify-user-source-map.
+    await spawnInherit("pnpm", ["exec", "tsx", "scripts/emitNpmArtifacts.ts"]);
+
+    try {
+      console.log("\n-- verifying chain-11155111 (Sepolia) --");
+      await runIgnitionVerify("chain-11155111", "sepolia");
+    } catch (e) {
+      console.warn(`Sepolia verify failed: ${(e as Error).message}; continuing.`);
+    }
+    try {
+      console.log("\n-- verifying chain-534351 (Scroll Sepolia) --");
+      await runIgnitionVerify("chain-534351", "scrollSepolia");
+    } catch (e) {
+      console.warn(`Scroll verify failed: ${(e as Error).message}; continuing.`);
+    }
+  } else {
+    console.log("\n=== Phase 8/9: Etherscan verify -- SKIPPED (no ETHERSCAN_API_KEY) ===");
+  }
+
+  // ---------- Phase 9: AztecScan verify ----------
+  // Aztec is not EVM and not handled by hardhat ignition verify; this calls
+  // aztec-scan-sdk via scripts/verifyAztecScan.ts. Skip with
+  // SKIP_AZTEC_SCAN_VERIFY=1 if AztecScan is down or you're iterating.
+  if (process.env.SKIP_AZTEC_SCAN_VERIFY) {
+    console.log("\n=== Phase 9/9: AztecScan verify -- SKIPPED (SKIP_AZTEC_SCAN_VERIFY set) ===");
+  } else {
+    console.log("\n=== Phase 9/9: AztecScan verify ===");
+    try {
+      await spawnInherit("pnpm", ["exec", "tsx", "scripts/verifyAztecScan.ts"]);
+    } catch (e) {
+      console.warn(`AztecScan verify failed: ${(e as Error).message}; continuing.`);
+    }
+  }
+
+  console.log("\n========================================================");
+  console.log("Testnet deploy COMPLETE.");
+  console.log("========================================================");
+  console.log("Sepolia:");
+  for (const [k, v] of Object.entries(loadAddresses(SEPOLIA_ADDR_FILE))) {
+    console.log(`  ${k.padEnd(45)} ${v}`);
+  }
+  console.log("Scroll Sepolia:");
+  for (const [k, v] of Object.entries(loadAddresses(SCROLL_ADDR_FILE))) {
+    console.log(`  ${k.padEnd(45)} ${v}`);
+  }
+  console.log("Aztec testnet:");
+  for (const [k, v] of Object.entries(loadAddresses(AZTEC_ADDR_FILE))) {
+    console.log(`  ${k.padEnd(25)} ${(v as any).address}`);
+  }
+  console.log("\nNext steps (run from repo root):");
+  console.log("  pnpm bridge:dev    # bootstrap the giga roots once");
+  console.log("  pnpm f:run         # build + preview the frontend (NOT pnpm f:dev)");
 }
 
 main()

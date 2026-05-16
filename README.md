@@ -149,6 +149,12 @@ SCROLL_SEPOLIA_RPC_URL=https://scroll-sepolia.infura.io/v3/<KEY>
 AZTEC_NODE_URL=https://rpc.testnet.aztec-labs.com
 ```
 
+Optional:
+```
+ETHERSCAN_API_KEY=...           # Etherscan v2 unified key; enables Phase 8 block-explorer verify
+SKIP_AZTEC_SCAN_VERIFY=1        # set to any value to skip Phase 9 AztecScan verify
+```
+
 You'll need ~0.05 Sepolia ETH and ~0.02 Scroll Sepolia ETH on the deployer.
 The Aztec testnet deploy is gas-free (sponsored FPC).
 
@@ -161,28 +167,74 @@ pnpm l:deploy                       # deploys L1 + Aztec to localhost, runs pull
 
 ### Testnet deploy
 
-Deploys to Sepolia + Aztec testnet + Scroll Sepolia in a single orchestrated
-script (`backend/scripts/deployTestnet.ts`). The script is idempotent; if
-something fails partway through, just re-run it and it skips already-deployed
-contracts.
+`backend/scripts/deployTestnet.ts` is a tsx orchestrator that drives
+`hardhat ignition deploy` per phase. Ignition owns the deploy state (futures,
+addresses, journal) on disk under `backend/deploy/ignition/deployments/`, so
+every phase is idempotent: re-running picks up where it left off and skips
+contracts + `m.call(initialize)`s already recorded.
 
 ```shell
 pnpm t:deploy
 ```
 
-This runs four phases in order:
-1. **Phase A - Sepolia**: libs, USDcoin, verifier, L1WarpToad, L1AztecBridgeAdapter, L1ScrollBridgeAdapter, GigaBridge
-2. **Phase B - Aztec testnet**: spins up an ephemeral sponsored Aztec wallet, deploys WarpToadCore + L2AztecBridgeAdapter, calls WarpToadCore.initialize
-3. **Phase C - Scroll Sepolia**: libs, USDcoin, verifier, L2WarpToad, L2ScrollBridgeAdapter
-4. **Phase D - Wire**: initialize() calls on L1WarpToad, L1AztecBridgeAdapter, L1ScrollBridgeAdapter (cross-chain pointers settle here)
+The nine phases:
+
+| # | What | How |
+|---|---|---|
+| 1 | PoseidonT3 on Sepolia | Deterministic CREATE via Nick's method (hand-rolled; Ignition can't reach a fixed CREATE address) |
+| 2 | `L1Infra` module on Sepolia | Ignition deploy: L1WarpToad, LazyIMT, ZKTranscriptLib, HonkVerifier, GigaBridge, L1AztecBridgeAdapter, L1ScrollBridgeAdapter, USDcoin |
+| 3 | Aztec testnet | `scripts/deployAztecTestnet.ts` via aztec.js (hand-rolled, Ignition is EVM-only). Deploys AztecWarpToad + L2AztecBridgeAdapter and calls `WarpToadCore.initialize` |
+| 4 | PoseidonT3 on Scroll Sepolia | Same Nick's method as phase 1 |
+| 5 | `L2Scroll` module | Ignition deploy: L2WarpToad, L2ScrollBridgeAdapter |
+| 6 | `L1Wire` module | Ignition `m.call(initialize)` on L1WarpToad and the two L1 adapters (cross-chain pointers settle here) |
+| 7 | `L2ScrollWire` module | Ignition `m.call(initialize)` on L2WarpToad |
+| 8 | EVM verify | `hardhat ignition verify` against Etherscan + Blockscout + Sourcify on both chains (skipped if `ETHERSCAN_API_KEY` is missing) |
+| 9 | AztecScan verify | `scripts/verifyAztecScan.ts` via aztec-scan-sdk (skipped if `SKIP_AZTEC_SCAN_VERIFY` is set) |
 
 When done, `pnpm --filter frontend pull:addresses` regenerates
-`frontend/src/lib/contracts/addresses.ts` with all the new addresses.
+`frontend/src/lib/contracts/addresses.ts` with all the new addresses (the
+`t:deploy` shortcut runs this automatically).
 
-To verify the Aztec contracts on AztecScan after deploy:
+To re-run just the AztecScan verify:
+```shell
+pnpm t:verify:aztec
+```
+
+### Fresh redeploy (full wipe)
+
+To redeploy from scratch on the same chains (e.g. after a contract change),
+wipe Ignition's per-chain journal so it forgets the previous deploy, then
+re-run:
 
 ```shell
-pnpm verify:aztec-scan
+rm -rf backend/deploy/ignition/deployments/chain-11155111 \
+       backend/deploy/ignition/deployments/chain-534351
+rm -f  backend/deploy/aztec/aztecDeployments/11155111/deployed_addresses.json \
+       backend/deploy/aztec/aztecDeployments/11155111/*_deploymentArtifact.json
+pnpm t:deploy
+```
+
+If you also wipe compile output (`backend/artifacts/`,
+`backend/aztec/*/target/`, `backend/aztec/*/src/artifacts/`,
+`backend/circuits/withdraw/target/`,
+`backend/contracts/verifier/WithdrawVerifier.sol`), recompile first in this
+order:
+
+```shell
+export BB_BINARY_PATH=/path/to/aztec-packages/barretenberg/cpp/build/bin/bb
+pnpm b:circuit                # withdraw circuit + VK + Solidity verifier
+pnpm b:compile:aztec          # Aztec/Noir contracts + TS bindings
+pnpm b:compile                # Hardhat compile + emit npm artifacts + userSourceNameMap patch
+pnpm t:deploy
+```
+
+If `pnpm b:compile:aztec` reports "...has not changed. Skipping generation."
+but `backend/aztec/*/src/artifacts/` came out empty, also delete the codegen
+cache markers and re-run:
+```shell
+rm -f backend/aztec/WarpToadCore/codegenCache.json \
+      backend/aztec/L2AztecBridgeAdapter/codegenCache.json
+pnpm b:compile:aztec
 ```
 
 ## Sync (manual, sandbox only)

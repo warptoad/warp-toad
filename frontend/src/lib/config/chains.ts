@@ -15,15 +15,71 @@ import { anvil, sepolia, scrollSepolia, type Chain as ViemChain } from 'viem/cha
 import type { Chain } from '$lib/types/bridge.js';
 import { CONTRACT_ADDRESSES } from '$lib/contracts/addresses';
 
-// For test mode, import directly from deployed JSON files.
-// Backend layout: deploy/ignition/deployments/<chain> and deploy/aztec/aztecDeployments/<chainId>.
-import LocalEvmDeployments from '../../../../backend/deploy/ignition/deployments/chain-31337/deployed_addresses.json';
-import LocalAztecDeployments from '../../../../backend/deploy/aztec/aztecDeployments/31337/deployed_addresses.json';
+// ============================================================================
+// Deployment loading (resilient to missing files)
+// ============================================================================
+//
+// Use import.meta.glob so Vite resolves every existing deployment file at
+// build time and skips missing ones gracefully. With static `import x from
+// './chain-XXX/deployed_addresses.json'`, a missing dir (e.g. after wiping
+// the local sandbox state for a fresh redeploy) fails the whole build even
+// in testnet mode that doesn't need that chain. Globbing lets the chain
+// fall through to empty addresses; the chain is disabled or no-ops at
+// runtime depending on the mode.
 
-// For testnet mode, import from testnet deployment files
-import SepoliaDeployments from '../../../../backend/deploy/ignition/deployments/chain-11155111/deployed_addresses.json';
-import ScrollSepoliaDeployments from '../../../../backend/deploy/ignition/deployments/chain-534351/deployed_addresses.json';
-import TestnetAztecDeployments from '../../../../backend/deploy/aztec/aztecDeployments/11155111/deployed_addresses.json';
+type EvmDeployment = Record<string, string>;
+
+interface AztecDeploymentRecord {
+	address: string;
+	constructorArgs: string[];
+	salt: string;
+	deployer: string;
+}
+
+interface AztecDeploymentFile {
+	AztecWarpToad: AztecDeploymentRecord;
+	L2AztecBridgeAdapter: AztecDeploymentRecord;
+}
+
+const STUB_AZTEC_RECORD: AztecDeploymentRecord = {
+	address: '',
+	constructorArgs: [],
+	salt: '',
+	deployer: '',
+};
+const STUB_AZTEC_FILE: AztecDeploymentFile = {
+	AztecWarpToad: STUB_AZTEC_RECORD,
+	L2AztecBridgeAdapter: STUB_AZTEC_RECORD,
+};
+
+const evmDeploymentModules = import.meta.glob<EvmDeployment>(
+	'../../../../backend/deploy/ignition/deployments/chain-*/deployed_addresses.json',
+	{ eager: true, import: 'default' },
+);
+const aztecDeploymentModules = import.meta.glob<AztecDeploymentFile>(
+	'../../../../backend/deploy/aztec/aztecDeployments/*/deployed_addresses.json',
+	{ eager: true, import: 'default' },
+);
+
+function loadEvmDeployment(chainId: number): EvmDeployment {
+	const key = Object.keys(evmDeploymentModules).find((k) =>
+		k.includes(`/chain-${chainId}/`),
+	);
+	return key ? evmDeploymentModules[key] : ({} as EvmDeployment);
+}
+
+function loadAztecDeployment(chainId: number): AztecDeploymentFile {
+	const key = Object.keys(aztecDeploymentModules).find((k) =>
+		k.includes(`/aztecDeployments/${chainId}/`),
+	);
+	return key ? aztecDeploymentModules[key] : STUB_AZTEC_FILE;
+}
+
+const LocalEvmDeployments = loadEvmDeployment(31337);
+const SepoliaDeployments = loadEvmDeployment(11155111);
+const ScrollSepoliaDeployments = loadEvmDeployment(534351);
+const LocalAztecDeployments = loadAztecDeployment(31337);
+const TestnetAztecDeployments = loadAztecDeployment(11155111);
 
 // ============================================================================
 // Environment Detection
