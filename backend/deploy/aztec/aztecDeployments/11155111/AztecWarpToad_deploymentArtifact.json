@@ -1,9 +1,9 @@
 {
-  "address": "0x2aab3810f6dfdcd937d1e3f49d99a92499145fdbfaefd33be3f61f5722d4a402",
-  "salt": "0x1172c28c884a70ddf315fbeaad3df3c825dbcec1d571197a692315048cccc501",
-  "deployer": "0x228c178277ad9dbc84cff18e499dc7b7e61a94c557f2f7e9a3a32d2731edbae2",
+  "address": "0x16df1e8d7afdd766138feddf5678f35fbd32eafebdf05d8abe716a459a5b4bf0",
+  "salt": "0x0970318d8316e8c4a225f9eb158567259fd4f5882a440f2b7c775bab1b02b3e2",
+  "deployer": "0x03008ceaa91ee934c19bc83ff7c793950b604e4a14d7bdd70799e76461e86a18",
   "constructorArgs": [
-    "0x12762B6Ed8dC07546769E573e51F96dE422CA08e",
+    "0xe143e7aE77a1a9Faf32Fcd61b93ac8cC601EAE93",
     "wrpToad-USD Coin",
     "wrpToad-USDC",
     "6"

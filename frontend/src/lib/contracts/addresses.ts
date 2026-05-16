@@ -3,7 +3,7 @@
  * Auto-generated from Ignition deployments
  * DO NOT EDIT MANUALLY
  * 
- * Generated: 2026-05-16T11:39:53.561Z
+ * Generated: 2026-05-16T20:58:46.448Z
  * Run 'npm run pull:addresses' to update
  */
 
@@ -25,19 +25,26 @@ export interface ChainConfig {
 
 // Contract addresses by chain ID
 export const CONTRACT_ADDRESSES: Record<string, ContractAddresses> = {
+  "31337": {
+    "deploymentBlock": 46,
+    "USDcoin": "0x948b3c65b89df0b4894abe91e6d02fe579834f8f",
+    "L1WarpToad": "0x59f2f1fcfe2474fd5f0b9ba1e73ca90b143eb8d0",
+    "GigaBridge": "0x1275d096b9dbf2347bd2a131fb6bdab0b4882487",
+    "L1AztecBridgeAdapter": "0xc6ba8c3233ecf65b761049ef63466945c362edd2"
+  },
   "534351": {
-    "deploymentBlock": 18149750,
-    "USDcoin": "0x8Fe0d0A76AEa9065B6877e42Bb8346E888507783",
-    "L2WarpToad": "0x8D5C8bA2CFb9191eCE6535d8096Fbf3FEefFe569",
-    "L2ScrollBridgeAdapter": "0x4A944957797E1Ca6409d39ca9339413181bd63E4"
+    "deploymentBlock": 18155073,
+    "USDcoin": "0x784693ce3508BCa9017f3205Edd0A7251A5da77c",
+    "L2WarpToad": "0x9a37F82f625AD318926A059dD215E70a81d12f99",
+    "L2ScrollBridgeAdapter": "0x3C233B1eEE59ca472127d1cFc68E939F9326Ea02"
   },
   "11155111": {
-    "deploymentBlock": 10862510,
-    "L1AztecBridgeAdapter": "0xa7DD8C3cc339093bfa9C826b524D65c82e4990ee",
-    "L1ScrollBridgeAdapter": "0x37D4f4E240CD3633CCF7ce7FAAcef899490ddF05",
-    "USDcoin": "0x12762B6Ed8dC07546769E573e51F96dE422CA08e",
-    "L1WarpToad": "0x3a3f49C6F37003d793a4a0E0FA8A7c601C61D636",
-    "GigaBridge": "0xec1d765627BBDE0C4e5bafa9605769d99CfAf6Fb"
+    "deploymentBlock": 10864757,
+    "L1AztecBridgeAdapter": "0x28063383010117bA4a9c720af60247e9c60F356b",
+    "L1ScrollBridgeAdapter": "0xA06D1A8BdD72cBba27d8AC908d3Fb864aE0fA6e4",
+    "USDcoin": "0xe143e7aE77a1a9Faf32Fcd61b93ac8cC601EAE93",
+    "L1WarpToad": "0x22574AB4B6e5506B5C6481CCC1238ACC43256049",
+    "GigaBridge": "0x61EB69Cd8aEc4C7871005A8Aba0A30BD9B29B115"
   }
 };
 
