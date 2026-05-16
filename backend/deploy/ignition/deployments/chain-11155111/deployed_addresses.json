@@ -1,9 +1,11 @@
 {
-  "TestToken#USDcoin": "0x7f6023b290dc9dd1c57563a90b2f1ee61efb1cbb",
-  "L1WarpToadModule#L1WarpToad": "0xdcb27f60e93e58c78bbf8fd15c9047b6e93dfc2f",
-  "L1WarpToadModule#WithdrawVerifier": "0x4bf20f53e80cd09a68180f1cc2d57921ee979327",
-  "L1InfraModule#GigaBridge": "0x2c3cd8bca9b9cc324548a30f8f0dac3c0f7f321c",
-  "L1InfraModule#L1WarpToad": "0xdcb27f60e93e58c78bbf8fd15c9047b6e93dfc2f",
-  "L1InfraModule#L1AztecBridgeAdapter": "0xd47b31fc658a9ad871fd63a2057e008bdb78a390",
-  "L1InfraModule#L1ScrollBridgeAdapter": "0xf461acc25ba5ab22ddaf322e59effba9582fcde1"
+  "L1WarpToadModule#PoseidonT3": "0x3333333C0A88F9BE4fd23ed0536F9B6c427e3B93",
+  "L1InfraModule#L1AztecBridgeAdapter": "0xa7DD8C3cc339093bfa9C826b524D65c82e4990ee",
+  "L1InfraModule#L1ScrollBridgeAdapter": "0x37D4f4E240CD3633CCF7ce7FAAcef899490ddF05",
+  "L1WarpToadModule#ZKTranscriptLib": "0xcD35aaf84b9Ed3ceF4bD6C1289043DF0449b20D6",
+  "TestToken#USDcoin": "0x12762B6Ed8dC07546769E573e51F96dE422CA08e",
+  "L1WarpToadModule#HonkVerifier": "0x13f855A5D8c0Aac75FF151BF943cA5219EEeB5eF",
+  "L1WarpToadModule#LazyIMT": "0xF13F9Cd247f2560d652feBFBc6255A4BBCDC3cdc",
+  "L1WarpToadModule#L1WarpToad": "0x3a3f49C6F37003d793a4a0E0FA8A7c601C61D636",
+  "L1InfraModule#GigaBridge": "0xec1d765627BBDE0C4e5bafa9605769d99CfAf6Fb"
 }

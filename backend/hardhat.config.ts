@@ -16,6 +16,7 @@ const PLACEHOLDER_URL = "http://localhost:8545";
 const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL || PLACEHOLDER_URL;
 const SCROLL_SEPOLIA_RPC_URL = process.env.SCROLL_SEPOLIA_RPC_URL || PLACEHOLDER_URL;
 const DEPLOYER_PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY ?? "";
+const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY ?? "";
 
 const DEFAULT_PRIV_KEYS_ANVIL = [
   "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
@@ -33,16 +34,35 @@ const DEFAULT_PRIV_KEYS_ANVIL = [
 export default defineConfig({
   defaultNetwork: "local",
   solidity: {
-    version: "0.8.29",
-    settings: {
-      optimizer: {
-        enabled: true,
-        runs: 100,
+    // Hardhat 3 has two build profiles: `default` and `production`. Ignition
+    // defaults to `production`, and Hardhat's `copyFromDefault` drops the user
+    // `settings` block when synthesizing the production profile from a single
+    // version config, replacing optimizer with `{ enabled: true, runs: 200 }`.
+    // We need runs=1 to keep HonkVerifier under EIP-170's 24,576-byte limit
+    // on Sepolia/Scroll Sepolia/mainnet, so we declare both profiles explicitly
+    // with the same settings (the verifier is called rarely, so the slight
+    // gas-cost bump from low optimizer runs is fine).
+    profiles: {
+      default: {
+        version: "0.8.29",
+        settings: {
+          optimizer: { enabled: true, runs: 1 },
+          evmVersion: "cancun",
+        },
       },
-      evmVersion: "cancun",
+      production: {
+        version: "0.8.29",
+        settings: {
+          optimizer: { enabled: true, runs: 1 },
+          evmVersion: "cancun",
+        },
+      },
     },
     npmFilesToBuild: [
       "poseidon-solidity/PoseidonT3.sol",
+      // Ignition's L1WarpToad / L2Scroll modules call m.library("LazyIMT", ...)
+      // which requires Hardhat to have compiled LazyIMT into its artifacts.
+      "@zk-kit/lazy-imt.sol/LazyIMT.sol",
     ],
   },
   plugins: [hardhatToolboxViem],
@@ -51,6 +71,10 @@ export default defineConfig({
     tests: "./test",
     cache: "./cache",
     artifacts: "./artifacts",
+    // Override the default "./ignition". All ignition modules and deployment
+    // state live under deploy/ignition/, alongside the Aztec deploy outputs in
+    // deploy/aztec/, so both halves of the cross-chain deploy live together.
+    ignition: "./deploy/ignition",
   },
   networks: {
     // Points at the Aztec sandbox's bundled anvil so warp-toad's L1 contracts
@@ -84,6 +108,31 @@ export default defineConfig({
       url: SCROLL_SEPOLIA_RPC_URL,
       accounts: DEPLOYER_PRIVATE_KEY ? [DEPLOYER_PRIVATE_KEY] : [],
       chainId: 534351,
+    },
+  },
+  // Scroll Sepolia isn't in Hardhat 3's default chain descriptors, so add it
+  // here. Sepolia (11155111) is in defaults already and inherits etherscan.io.
+  chainDescriptors: {
+    534351: {
+      name: "Scroll Sepolia",
+      blockExplorers: {
+        etherscan: {
+          url: "https://sepolia.scrollscan.com",
+          apiUrl: "https://api-sepolia.scrollscan.com/api",
+        },
+        blockscout: {
+          url: "https://scroll-sepolia.blockscout.com",
+          apiUrl: "https://scroll-sepolia.blockscout.com/api",
+        },
+      },
+    },
+  },
+  // Etherscan v2 unified API key (one key for Sepolia + Scroll Sepolia).
+  // Set ETHERSCAN_API_KEY in backend/.env. Verification is invoked by the
+  // deploy orchestrator via `hardhat ignition verify <deploymentId>`.
+  verify: {
+    etherscan: {
+      apiKey: ETHERSCAN_API_KEY,
     },
   },
 });

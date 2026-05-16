@@ -3,7 +3,7 @@
  * Auto-generated from Ignition deployments
  * DO NOT EDIT MANUALLY
  * 
- * Generated: 2026-04-09T02:14:16.141Z
+ * Generated: 2026-05-16T11:39:53.561Z
  * Run 'npm run pull:addresses' to update
  */
 
@@ -25,33 +25,19 @@ export interface ChainConfig {
 
 // Contract addresses by chain ID
 export const CONTRACT_ADDRESSES: Record<string, ContractAddresses> = {
-  "31337": {
-    "deploymentBlock": 46,
-    "USDcoin": "0x948b3c65b89df0b4894abe91e6d02fe579834f8f",
-    "L1WarpToad": "0x59f2f1fcfe2474fd5f0b9ba1e73ca90b143eb8d0",
-    "GigaBridge": "0x1275d096b9dbf2347bd2a131fb6bdab0b4882487",
-    "L1AztecBridgeAdapter": "0xc6ba8c3233ecf65b761049ef63466945c362edd2"
-  },
-  "131337": {
-    "deploymentBlock": 9827262,
-    "L1WarpToad": "0x5Af41899Fa54Db59fD8ea1Ea0DdB3f833660eFFf",
-    "L1AztecBridgeAdapter": "0xFACA2e4AF1cAE0B96c1eF303442C4118A6E8E145",
-    "L1ScrollBridgeAdapter": "0xD4641657D1d5944Abc9E59f73dd3Eee1014eBF27",
-    "GigaBridge": "0xEc7F7cFAa21abF4005A61f6FeA3289b1650D991C"
-  },
   "534351": {
-    "deploymentBlock": 15967550,
-    "USDcoin": "0xeccb9a0d202338114bae6ccff416d28d4edffbe3",
-    "L2WarpToad": "0xf9f537e76985abdce6321958564743b3f6b17c7b",
-    "L2ScrollBridgeAdapter": "0xb8295892505c1a8b86d2abc18b21ddfb6e776fcb"
+    "deploymentBlock": 18149750,
+    "USDcoin": "0x8Fe0d0A76AEa9065B6877e42Bb8346E888507783",
+    "L2WarpToad": "0x8D5C8bA2CFb9191eCE6535d8096Fbf3FEefFe569",
+    "L2ScrollBridgeAdapter": "0x4A944957797E1Ca6409d39ca9339413181bd63E4"
   },
   "11155111": {
-    "deploymentBlock": 9991951,
-    "USDcoin": "0x7f6023b290dc9dd1c57563a90b2f1ee61efb1cbb",
-    "L1WarpToad": "0xdcb27f60e93e58c78bbf8fd15c9047b6e93dfc2f",
-    "GigaBridge": "0x2c3cd8bca9b9cc324548a30f8f0dac3c0f7f321c",
-    "L1AztecBridgeAdapter": "0xd47b31fc658a9ad871fd63a2057e008bdb78a390",
-    "L1ScrollBridgeAdapter": "0xf461acc25ba5ab22ddaf322e59effba9582fcde1"
+    "deploymentBlock": 10862510,
+    "L1AztecBridgeAdapter": "0xa7DD8C3cc339093bfa9C826b524D65c82e4990ee",
+    "L1ScrollBridgeAdapter": "0x37D4f4E240CD3633CCF7ce7FAAcef899490ddF05",
+    "USDcoin": "0x12762B6Ed8dC07546769E573e51F96dE422CA08e",
+    "L1WarpToad": "0x3a3f49C6F37003d793a4a0E0FA8A7c601C61D636",
+    "GigaBridge": "0xec1d765627BBDE0C4e5bafa9605769d99CfAf6Fb"
   }
 };
 

@@ -1,49 +1,59 @@
-// @NOTICE will be changed to deploy the full WarpToad 
-
-//@ts-ignore
+// @ts-ignore
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
-import { EVM_TREE_DEPTH } from "../../scripts/lib/constants";
-import { IgnitionModuleBuilder } from "@nomicfoundation/ignition-core";
+import { EVM_TREE_DEPTH } from "../../../lib/constants.js";
+import TestTokenModule from "./TestToken.js";
+import { loadNpmArtifact } from "./_loadNpmArtifact.js";
 
+// Same Hardhat 3 scoped-npm-artifact bug as in L1WarpToad. See _loadNpmArtifact.ts.
+const LAZY_IMT_ARTIFACT = loadNpmArtifact("@zk-kit/lazy-imt.sol", "LazyIMT.sol", "LazyIMT");
+
+/**
+ * Deploys the L2 (Scroll Sepolia) stack: libs, verifier, L2WarpToad, and the
+ * L2ScrollBridgeAdapter that pairs with L1ScrollBridgeAdapter.
+ *
+ * Native token (USDcoin) is freshly deployed on Scroll via useModule.
+ *
+ * Parameters:
+ *   PoseidonT3LibAddress         deterministic PoseidonT3 address on Scroll
+ *                                (orchestrator deploys it before this module)
+ *   L1ScrollBridgeAdapter        L1 adapter address (passed across from chain-11155111)
+ *   l2ScrollMessengerAddress     L2 messenger constant for Scroll Sepolia
+ *
+ * L2WarpToad.initialize() is NOT called here. Use L2ScrollWire after L1 +
+ * Aztec deploys are settled so the cross-chain addresses can be wired in.
+ */
 export default buildModule("L2ScrollModule", (m: any) => {
-    
-    const nativeToken = m.getParameter("nativeToken");
-    const name = m.getParameter("name");
-    const symbol = m.getParameter("symbol");
-    const PoseidonT3LibAddress = m.getParameter("PoseidonT3LibAddress");
-    const L1ScrollBridgeAdapterAddress = m.getParameter("L1ScrollBridgeAdapter");
-    const l2ScrollMessengerAddress = m.getParameter("l2ScrollMessengerAddress");
-    const PoseidonT3Lib = m.contractAt("PoseidonT3", PoseidonT3LibAddress)
-    const L1ScrollBridgeAdapter = m.contractAt("L1ScrollBridgeAdapter", L1ScrollBridgeAdapterAddress)
-    const LazyIMTLib = m.library("LazyIMT", {
-        value: 0n,
-        libraries: {
-            PoseidonT3: PoseidonT3Lib,
-        },
-    });
+  const { USDcoin } = m.useModule(TestTokenModule);
 
-    const ZKTranscriptLib = m.library("ZKTranscriptLib");
+  const PoseidonT3LibAddress = m.getParameter("PoseidonT3LibAddress");
+  const L1ScrollBridgeAdapterAddress = m.getParameter("L1ScrollBridgeAdapter");
+  const l2ScrollMessengerAddress = m.getParameter("l2ScrollMessengerAddress");
 
-    const withdrawVerifier = m.contract("HonkVerifier", [], {
-        value: 0n,
-        libraries: {
-            ZKTranscriptLib: ZKTranscriptLib,
-        },
-    });
+  const PoseidonT3Lib = m.contractAt("PoseidonT3", PoseidonT3LibAddress);
 
-    const L2WarpToad = m.contract("L2WarpToad", [EVM_TREE_DEPTH, withdrawVerifier, nativeToken, name, symbol], {
-        value: 0n,
-        libraries: {
-            LazyIMT: LazyIMTLib,
-            PoseidonT3: PoseidonT3Lib
-        },
-    });
+  const LazyIMTLib = m.library("LazyIMT", LAZY_IMT_ARTIFACT, {
+    libraries: { PoseidonT3: PoseidonT3Lib },
+  });
 
-    const L2ScrollBridgeAdapter = m.contract("L2ScrollBridgeAdapter", [l2ScrollMessengerAddress, L1ScrollBridgeAdapter, L2WarpToad], {
-        value: 0n,
-        libraries: {
-        },
-    });
+  const ZKTranscriptLib = m.library("ZKTranscriptLib");
 
-    return { L2WarpToad, withdrawVerifier, PoseidonT3Lib, LazyIMTLib, L2ScrollBridgeAdapter };
+  const WithdrawVerifier = m.contract("HonkVerifier", [], {
+    libraries: { ZKTranscriptLib },
+  });
+
+  // USDcoin: name="USD Coin", symbol="USDC". The previous hand-rolled deploy
+  // had name/symbol swapped, which made MetaMask wallet_watchAsset reject the
+  // token (symbol didn't match what users expected). Fixed here.
+  const L2WarpToad = m.contract(
+    "L2WarpToad",
+    [EVM_TREE_DEPTH, WithdrawVerifier, USDcoin, "wrpToad-USD Coin", "wrpToad-USDC"],
+    { libraries: { LazyIMT: LazyIMTLib, PoseidonT3: PoseidonT3Lib } },
+  );
+
+  const L2ScrollBridgeAdapter = m.contract(
+    "L2ScrollBridgeAdapter",
+    [l2ScrollMessengerAddress, L1ScrollBridgeAdapterAddress, L2WarpToad],
+  );
+
+  return { L2WarpToad, WithdrawVerifier, PoseidonT3Lib, LazyIMTLib, L2ScrollBridgeAdapter, USDcoin };
 });

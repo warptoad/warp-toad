@@ -1,7 +1,7 @@
 import { createInterface } from 'readline/promises';
 import { stdin, stdout } from 'process';
 import fs from "fs/promises";
-import { DeploymentStringyfiedArtifact } from 'scripts/deploy/utils/aztecUtilsNoEnv';
+import { DeploymentStringyfiedArtifact } from '../deploy/utils/aztecUtilsNoEnv.js';
 import hre from 'hardhat';
 import { getContract, type Address, type PublicClient, type WalletClient } from 'viem';
 

@@ -1,6 +1,9 @@
 {
-  "TestToken#USDcoin": "0xeccb9a0d202338114bae6ccff416d28d4edffbe3",
-  "L2ScrollModule#WithdrawVerifier": "0x229dbfd2d424d8209290fd2a82fe78ab27ba204f",
-  "L2ScrollModule#L2WarpToad": "0xf9f537e76985abdce6321958564743b3f6b17c7b",
-  "L2ScrollModule#L2ScrollBridgeAdapter": "0xb8295892505c1a8b86d2abc18b21ddfb6e776fcb"
+  "L2ScrollModule#PoseidonT3": "0x3333333C0A88F9BE4fd23ed0536F9B6c427e3B93",
+  "L2ScrollModule#ZKTranscriptLib": "0x43C97A5fA5FF298b1035e69105e3374c7B3759f6",
+  "TestToken#USDcoin": "0x8Fe0d0A76AEa9065B6877e42Bb8346E888507783",
+  "L2ScrollModule#HonkVerifier": "0xe96DB9d6b1e07599e47bfEF99d04131e968f7237",
+  "L2ScrollModule#LazyIMT": "0x6E18070399cAF9bb6B3Df5e1917b458f701E6DA1",
+  "L2ScrollModule#L2WarpToad": "0x8D5C8bA2CFb9191eCE6535d8096Fbf3FEefFe569",
+  "L2ScrollModule#L2ScrollBridgeAdapter": "0x4A944957797E1Ca6409d39ca9339413181bd63E4"
 }

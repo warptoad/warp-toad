@@ -1,10 +1,10 @@
 {
-  "address": "0x24c91fda5834d61216483331e9db961b4d2da0bf260b6065a9ef592c912d77ad",
+  "address": "0x1ddf2bf419867a31ce68f13d9db904d2742a4e30f6509cbb8cff556b0ae73093",
+  "salt": "0x236f52a15b29dad71521f9c3c308fad44856fc9711cff3e4085759507bd66701",
+  "deployer": "0x228c178277ad9dbc84cff18e499dc7b7e61a94c557f2f7e9a3a32d2731edbae2",
   "constructorArgs": [
-    "0xd47b31fc658a9ad871fd63a2057e008bdb78a390"
+    "0xa7DD8C3cc339093bfa9C826b524D65c82e4990ee"
   ],
-  "salt": "0x1b95f2b6795f1310160a6a541c143f23f3e310a13d0513002f676f323456eb7b",
-  "deployer": "0x1c854480da3dad0ce245d505d2a255e7f4f8b1fcee5d0330f3e11564be30386f",
   "rawArtifact": {
     "file_map": {
       "3": {
