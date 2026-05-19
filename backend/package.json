@@ -24,7 +24,8 @@
     "cp-deployments": "pnpm cp-deployments:esm && pnpm cp-deployments:cjs && pnpm cp-deployments:browser",
     "bridge:runner": "tsx ./scripts/services/bridger.ts",
     "postinstall": "node -e \"const d='node_modules/aztec-scan-sdk';if(!require('fs').existsSync(d+'/dist'))require('child_process').execSync('npx tsc',{cwd:d,stdio:'inherit'})\"",
-    "verify:aztec-scan": "tsx ./scripts/verifyAztecScan.ts"
+    "verify:aztec-scan": "tsx ./scripts/verifyAztecScan.ts",
+    "verify:wiring": "dotenv -e .env -- tsx scripts/verifyWiring.ts"
   },
   "devDependencies": {
     "@nomicfoundation/hardhat-ignition": "^3.0.7",
