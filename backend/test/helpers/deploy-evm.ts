@@ -67,10 +67,12 @@ export async function deployEvmContracts(opts?: {
   // 2. Native token
   const nativeTokenDeploy = await deployFromArtifact("USDcoin", [], deployer, publicClient);
 
-  // 3. Verifier (HonkVerifier depends on ZKTranscriptLib)
+  // 3. Verifier (HonkVerifier depends on ZKTranscriptLib + RelationsLib)
   const zkTranscriptLibDeploy = await deployFromArtifact("ZKTranscriptLib", [], deployer, publicClient);
+  const relationsLibDeploy = await deployFromArtifact("RelationsLib", [], deployer, publicClient);
   const verifierDeploy = await deployFromArtifact("HonkVerifier", [], deployer, publicClient, {
     ZKTranscriptLib: zkTranscriptLibDeploy.address,
+    RelationsLib: relationsLibDeploy.address,
   });
 
   // 4. Token metadata for WarpToad name/symbol

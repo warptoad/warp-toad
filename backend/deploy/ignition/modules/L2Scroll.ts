@@ -36,9 +36,10 @@ export default buildModule("L2ScrollModule", (m: any) => {
   });
 
   const ZKTranscriptLib = m.library("ZKTranscriptLib");
+  const RelationsLib = m.library("RelationsLib");
 
   const WithdrawVerifier = m.contract("HonkVerifier", [], {
-    libraries: { ZKTranscriptLib },
+    libraries: { ZKTranscriptLib, RelationsLib },
   });
 
   // USDcoin: name="USD Coin", symbol="USDC". The previous hand-rolled deploy
