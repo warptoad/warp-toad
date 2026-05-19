@@ -23,8 +23,8 @@ importers:
         specifier: 4.2.0-aztecnr-rc.2
         version: 4.2.0-aztecnr-rc.2(typescript@5.9.3)
       '@aztec/bb.js':
-        specifier: 5.0.0-nightly.20260407
-        version: 5.0.0-nightly.20260407
+        specifier: 5.0.0-nightly.20260518
+        version: 5.0.0-nightly.20260518
       '@aztec/constants':
         specifier: 4.2.0-aztecnr-rc.2
         version: 4.2.0-aztecnr-rc.2
@@ -580,8 +580,8 @@ packages:
     resolution: {integrity: sha512-ksFWHrm8QYAXP059paItEKCM/UhpHg5Dwl/eSp2BI6EAtD9+JlonkOwJ+94TYai2y5Gz0qnrgd65dsvDwJelVQ==}
     hasBin: true
 
-  '@aztec/bb.js@5.0.0-nightly.20260407':
-    resolution: {integrity: sha512-p+UFkvaLYiwTK2cmLPonBi0l5wFmF0hxEj3LDD7KWcJBcIwrbaRFSiyzn0VOxUbDPnzQzXWNu4sIqAyHshNpLg==}
+  '@aztec/bb.js@5.0.0-nightly.20260518':
+    resolution: {integrity: sha512-1QRsn9PRv6263+2te2vh6me0kY/ZXqt3+wwHae6QybzuP5+mcNd6TvXohaoysr51eqnJAkFS5PNTf2ZTYRUAJA==}
     hasBin: true
 
   '@aztec/blob-lib@4.2.0':
@@ -5045,7 +5045,7 @@ snapshots:
       pako: 2.1.0
       tslib: 2.8.1
 
-  '@aztec/bb.js@5.0.0-nightly.20260407':
+  '@aztec/bb.js@5.0.0-nightly.20260518':
     dependencies:
       comlink: 4.4.2
       commander: 12.1.0

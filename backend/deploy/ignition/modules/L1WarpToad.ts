@@ -35,9 +35,10 @@ export default buildModule("L1WarpToadModule", (m: any) => {
   });
 
   const ZKTranscriptLib = m.library("ZKTranscriptLib");
+  const RelationsLib = m.library("RelationsLib");
 
   const WithdrawVerifier = m.contract("HonkVerifier", [], {
-    libraries: { ZKTranscriptLib },
+    libraries: { ZKTranscriptLib, RelationsLib },
   });
 
   // USDcoin is hardcoded as name="USD Coin", symbol="USDC".

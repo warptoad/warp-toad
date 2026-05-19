@@ -23,7 +23,6 @@ The two services + the frontend can be run in Docker via a single root-level
 - pnpm 10.x
 - nargo 1.0.0-beta.19
 - Aztec sandbox (for cross-chain tests and local deployment)
-- A locally-built `bb` binary at the same source tag as `@aztec/bb.js` (see [Locally-built bb](#locally-built-bb-required))
 - Docker + docker compose (only needed for the unified-services flow)
 
 ## Install
@@ -56,53 +55,19 @@ pnpm b:compile:aztec
 
 ### Withdraw circuit + Solidity verifier
 
-Compiles the Noir circuit, generates the verification key, and generates the Solidity verifier contract.
-Requires `BB_BINARY_PATH` to point at a locally-built `bb` (see [Locally-built bb](#locally-built-bb-required)).
+Compiles the Noir circuit and regenerates the Solidity verifier from the
+matching bb.js JS API. No native `bb` binary is needed: `backend/scripts/regenerateVerifier.ts`
+calls `UltraHonkBackend.getSolidityVerifier(vk, { keccakZK: true })` directly.
 
 ```shell
-export BB_BINARY_PATH=/path/to/aztec-packages/barretenberg/cpp/build/bin/bb
 pnpm b:circuit
 ```
 
 Or step by step:
 ```shell
 pnpm b:circuit:compile    # nargo compile (also copies withdraw.json into frontend/)
-pnpm b:circuit:vk         # bb write_vk (EVM target)
-pnpm b:circuit:verifier   # bb write_solidity_verifier (EVM target)
+pnpm b:circuit:verifier   # bb.js getSolidityVerifier -> backend/contracts/verifier/WithdrawVerifier.sol
 ```
-
-## Locally-built bb (required)
-
-The published `@aztec/bb.js@4.2.0-aztecnr-rc.2` ships an internally-inconsistent
-combination: its WASM prover writes proofs with `PAIRING_POINTS_SIZE = 8`, but its
-bundled Solidity verifier codegen template emits `PAIRING_POINTS_SIZE = 16`. The
-two halves don't agree, so any verifier produced by the npm package's
-`write_solidity_verifier` will reject every proof produced by the npm package's
-`UltraHonkBackend.generateProof`. The aztec-packages source at the same git tag
-is consistent (both halves use 8); it's only the published artifact that's broken.
-
-The workaround is to build `bb` from source at that tag and use it for **both**
-`write_solidity_verifier` and proof generation:
-
-```shell
-git clone --depth 1 --branch v4.2.0-aztecnr-rc.2 \
-  https://github.com/AztecProtocol/aztec-packages
-cd aztec-packages/barretenberg/cpp
-CC=clang CXX=clang++ CFLAGS="-march=native" CXXFLAGS="-march=native" \
-  cmake -B build -DCMAKE_BUILD_TYPE=RelWithAssert
-cmake --build build --target bb --parallel
-```
-
-Then export the path before running circuit builds or backend tests:
-
-```shell
-export BB_BINARY_PATH=$PWD/build/bin/bb
-```
-
-`backend/lib/proving.ts` reads `BB_BINARY_PATH` and passes it to
-`@aztec/bb.js` as the `bbPath` option, which makes it spawn this binary as a
-native subprocess instead of falling back to the broken bundled WASM prover.
-The `b:circuit:vk` and `b:circuit:verifier` scripts also require this env var.
 
 ## Test
 
@@ -111,15 +76,15 @@ The `b:circuit:vk` and `b:circuit:verifier` scripts also require this env var.
 anvil (`http://localhost:8545`) so warp-toad's L1 contracts share an L1 chain
 with the Aztec rollup, outbox, and inbox.
 
-You also need `BB_BINARY_PATH` exported (see [Locally-built bb](#locally-built-bb-required))
-because `backend/lib/proving.ts` spawns the local `bb` binary to generate the
-withdraw circuit's UltraHonk proof.
-
 ```shell
 pnpm b:sandbox                      # in one terminal, wait for "Aztec Server listening on port 8080"
-export BB_BINARY_PATH=/path/to/aztec-packages/barretenberg/cpp/build/bin/bb
 pnpm b:test                         # full suite, ~2.5 minutes
 ```
+
+The WASM prover bundled in `@aztec/bb.js@5.0.0-nightly.20260518` is used for proof
+generation. If you want to delegate to a native `bb` instead, export
+`BB_BINARY_PATH=/path/to/bb` before running `pnpm b:test`; `backend/lib/proving.ts`
+will pass it through to `Barretenberg.new({ bbPath })`.
 
 Each cross-chain test redeploys all contracts from scratch, so leaving the
 sandbox running across multiple test runs is fine and faster than restarting
@@ -221,8 +186,7 @@ If you also wipe compile output (`backend/artifacts/`,
 order:
 
 ```shell
-export BB_BINARY_PATH=/path/to/aztec-packages/barretenberg/cpp/build/bin/bb
-pnpm b:circuit                # withdraw circuit + VK + Solidity verifier
+pnpm b:circuit                # withdraw circuit + Solidity verifier (via bb.js JS API)
 pnpm b:compile:aztec          # Aztec/Noir contracts + TS bindings
 pnpm b:compile                # Hardhat compile + emit npm artifacts + userSourceNameMap patch
 pnpm t:deploy
@@ -365,13 +329,11 @@ For local sandbox testing set `VITE_TEST_MODE=true` in `frontend/.env`.
 | Node.js | `>= 22` |
 | Docker base image | `node:22-trixie-slim` (Debian 13) |
 
-The `bb` binary used for VK/verifier generation **and** for proof generation
-in the test pipeline **must** be a locally-built `bb` from the
-`v4.2.0-aztecnr-rc.2` source tag of aztec-packages, not the one bundled with
-the published `@aztec/bb.js@4.2.0-aztecnr-rc.2`. The published bundle is
-internally inconsistent (its codegen template hardcodes `PAIRING_POINTS_SIZE = 16`
-while its WASM prover writes 8). See
-[Locally-built bb](#locally-built-bb-required).
+Verifier generation and proof generation both go through `@aztec/bb.js@5.0.0-nightly.20260518`'s
+bundled WASM prover. Earlier versions (pre-`.20260518`) had a Shplemini bug
+that made WASM-generated proofs fail the matching Solidity verifier with
+`ShpleminiFailed()`; that bug is fixed upstream, so no native `bb` binary is
+needed anymore.
 
 The Docker images run on Debian trixie (Debian 13) instead of bookworm
 (Debian 12) because `@aztec/bb.js` ships a precompiled native module that
