@@ -13,6 +13,7 @@
     "l:deploy": "pnpm --filter @warp-toad/backend deploy:local && pnpm --filter frontend pull:addresses",
     "t:deploy": "pnpm --filter @warp-toad/backend deploy:testnet && pnpm --filter frontend pull:addresses",
     "t:verify:aztec": "pnpm --filter @warp-toad/backend verify:aztec-scan",
+    "t:verify:wiring": "pnpm --filter @warp-toad/backend verify:wiring",
     "t:sync": "pnpm --filter @warp-toad/backend sync:testnet:to-aztec",
     "l:sync": "pnpm --filter @warp-toad/backend sync:local",
     "l:sync:from-aztec": "pnpm --filter @warp-toad/backend sync:local:from-aztec",
