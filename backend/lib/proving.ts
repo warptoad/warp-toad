@@ -9,7 +9,6 @@ import { WarpToadCoreContract as WarpToadAztec } from '../aztec/WarpToadCore/src
 import { toHex, decodeAbiParameters, parseAbiParameters, type Address, type PublicClient } from "viem";
 import { MerkleTree, Element } from "fixed-merkle-tree";
 
-import { type NotesFilter } from '@aztec/stdlib/note';
 import { PXE } from "@aztec/pxe/server";
 import { AztecNode } from "@aztec/aztec.js/node";
 import { Wallet as AztecWallet } from "@aztec/aztec.js/wallet";
@@ -219,10 +218,6 @@ export async function getL1BridgeAdapterAztec(WarpToad: WarpToadAztec, aztecWall
 export async function getAztecMerkleData(WarpToad: WarpToadAztec, commitment: bigint, destinationLocalRootBlock: number, PXE: PXE, aztecWallet: AztecWallet) {
     console.log("finding unique_note_hash index within the tx")
     console.log({ "warptoadAddressAztec": WarpToad.address })
-    const warpToadNoteFilter: NotesFilter = {
-        contractAddress: WarpToad.address,
-        storageSlot: WarpToadAztec.storage.commitments.slot
-    }
     console.warn("TODO @JIMJIM PXE.getNotes is still broken complain about it. Rn it uses the contract util 'get_notes_util' But afaik it only gets 16 notes not all!!!")
     const notesWithNoncesSim = await WarpToad.methods.get_notes_with_nonces(WarpToadAztec.storage.commitments.slot).simulate({ from: (await aztecWallet.getAccounts())[0].item }) as any;
     const notesWithNonces = notesWithNoncesSim.result ?? notesWithNoncesSim;
@@ -378,7 +373,7 @@ export async function getProofInputs(
 export async function createProof(proofInputs: ProofInputs, threads: number | undefined): Promise<ProofData> {
     threads = threads ? threads : (typeof window !== "undefined" ? window.navigator.hardwareConcurrency : 69)
 
-    const noir = new Noir(circuit as CompiledCircuit);
+    const noir = new Noir(circuit as unknown as CompiledCircuit);
     console.log({ threads })
 
     const bbPath = process.env.BB_BINARY_PATH || undefined;

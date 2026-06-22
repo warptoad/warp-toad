@@ -1,7 +1,7 @@
 use poseidon::poseidon2;
 use poseidon::poseidon;
 use trees::{merkle::{MembershipProver, MerkleTree}, types::MT_Creator};
-use aztec::protocol::traits::{Serialize, ToField};
+use aztec::protocol::traits::{Serialize, Deserialize, ToField};
 
 #[derive(Serialize)]
 pub struct Aztec_merkle_data<let D: u32> {
@@ -11,7 +11,7 @@ pub struct Aztec_merkle_data<let D: u32> {
     pub contract_address: Field,
 }
 
-#[derive(Serialize)]
+#[derive(Serialize, Deserialize)]
 pub struct Evm_merkle_data<let D: u32> {
     pub leaf_index: Field,
     pub hash_path: [Field; D],

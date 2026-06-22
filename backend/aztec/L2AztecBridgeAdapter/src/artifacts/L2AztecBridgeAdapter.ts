@@ -4,7 +4,7 @@
 /* eslint-disable */
 import { AztecAddress, CompleteAddress } from '@aztec/aztec.js/addresses';
 import { type AbiType, type AztecAddressLike, type ContractArtifact, EventSelector, decodeFromAbi, type EthAddressLike, type FieldLike, type FunctionSelectorLike, loadContractArtifact, loadContractArtifactForPublic, type NoirCompiledContract, type OptionLike, type U128Like, type WrappedFieldLike } from '@aztec/aztec.js/abi';
-import { Contract, ContractBase, ContractFunctionInteraction, type ContractMethod, type ContractStorageLayout, DeployMethod } from '@aztec/aztec.js/contracts';
+import { Contract, ContractBase, ContractFunctionInteraction, type ContractMethod, type ContractStorageLayout, type DeployInstantiationOptions, DeployMethod } from '@aztec/aztec.js/contracts';
 import { EthAddress } from '@aztec/aztec.js/addresses';
 import { Fr, Point } from '@aztec/aztec.js/fields';
 import { type PublicKey, PublicKeys } from '@aztec/aztec.js/keys';
@@ -44,32 +44,37 @@ export class L2AztecBridgeAdapterContract extends ContractBase {
   
   /**
    * Creates a tx to deploy a new instance of this contract.
+   * @param instantiation - Optional address-affecting parameters (salt, deployer / universalDeploy, publicKeys).
+   *                       Salt defaults to a random value; the deployer is locked lazily from the first send-time `from`.
    */
-  public static deploy(wallet: Wallet, l1BridgeAdapter: EthAddressLike) {
-    return new DeployMethod<L2AztecBridgeAdapterContract>(PublicKeys.default(), wallet, L2AztecBridgeAdapterContractArtifact, (instance, wallet) => L2AztecBridgeAdapterContract.at(instance.address, wallet), Array.from(arguments).slice(1));
-  }
-
-  /**
-   * Creates a tx to deploy a new instance of this contract using the specified public keys hash to derive the address.
-   */
-  public static deployWithPublicKeys(publicKeys: PublicKeys, wallet: Wallet, l1BridgeAdapter: EthAddressLike) {
-    return new DeployMethod<L2AztecBridgeAdapterContract>(publicKeys, wallet, L2AztecBridgeAdapterContractArtifact, (instance, wallet) => L2AztecBridgeAdapterContract.at(instance.address, wallet), Array.from(arguments).slice(2));
+  public static deploy(wallet: Wallet, l1BridgeAdapter: EthAddressLike, instantiation?: DeployInstantiationOptions) {
+    return DeployMethod.create<L2AztecBridgeAdapterContract>(
+      wallet,
+      {
+        artifact: L2AztecBridgeAdapterContractArtifact,
+        postDeployCtor: (instance, wallet) => L2AztecBridgeAdapterContract.at(instance.address, wallet),
+        args: [l1BridgeAdapter],
+      },
+      instantiation,
+    );
   }
 
   /**
    * Creates a tx to deploy a new instance of this contract using the specified constructor method.
    */
   public static deployWithOpts<M extends keyof L2AztecBridgeAdapterContract['methods']>(
-    opts: { publicKeys?: PublicKeys; method?: M; wallet: Wallet },
+    opts: { method?: M; wallet: Wallet; instantiation?: DeployInstantiationOptions },
     ...args: Parameters<L2AztecBridgeAdapterContract['methods'][M]>
   ) {
-    return new DeployMethod<L2AztecBridgeAdapterContract>(
-      opts.publicKeys ?? PublicKeys.default(),
+    return DeployMethod.create<L2AztecBridgeAdapterContract>(
       opts.wallet,
-      L2AztecBridgeAdapterContractArtifact,
-      (instance, wallet) => L2AztecBridgeAdapterContract.at(instance.address, wallet),
-      Array.from(arguments).slice(1),
-      opts.method ?? 'constructor',
+      {
+        artifact: L2AztecBridgeAdapterContractArtifact,
+        postDeployCtor: (instance, wallet) => L2AztecBridgeAdapterContract.at(instance.address, wallet),
+        args,
+        constructorNameOrArtifact: opts.method ?? 'constructor',
+      },
+      opts.instantiation,
     );
   }
   

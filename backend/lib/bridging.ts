@@ -40,9 +40,9 @@ import { SiblingPath } from "@aztec/foundation/trees";
 
 import {
     type L2ToL1MembershipWitness,
-    computeL2ToL1MembershipWitness,
 } from '@aztec/stdlib/messaging';
 import { TxHash } from "@aztec/stdlib/tx";
+import type { BlockNumber } from "@aztec/foundation/branded-types";
 
 // Minimal ABIs for ad-hoc viem reads against contracts we don't have full handles for.
 const LOCAL_ROOT_PROVIDER_ABI = [
@@ -352,7 +352,7 @@ export async function bridgeAZTECLocalRootToL1(
         console.log(`resuming aztec L2->L1 leg from tx ${resumeFrom.aztecTxHashHex} @ block ${blockNumberOfRoot}`)
     } else {
         blockNumberOfRoot = await aztecNode.getBlockNumber()
-        PXE_L2Root = (await aztecNode.getBlock(blockNumberOfRoot))?.header.state.partial.noteHashTree.root as Fr
+        PXE_L2Root = (await aztecNode.getBlock(blockNumberOfRoot as BlockNumber))?.header.state.partial.noteHashTree.root as Fr
         sendRootToL1Tx = await L2AztecBridgeAdapter.methods.send_root_to_l1(blockNumberOfRoot).send({ fee: { paymentMethod: sponsoredPaymentMethod }, from: (await aztecWallet.getAccounts())[0].item });
         aztecTxHash = sendRootToL1Tx.receipt.txHash
         if (onSent) {
@@ -407,7 +407,7 @@ export async function bridgeAZTECLocalRootToL1(
     let messageWitness: L2ToL1MembershipWitness | undefined
     for (let i = 0; i < maxPolls; i++) {
         try {
-            messageWitness = (await computeL2ToL1MembershipWitness(aztecNode, contentHash, aztecTxHash)) as L2ToL1MembershipWitness | undefined
+            messageWitness = (await aztecNode.getL2ToL1MembershipWitness(aztecTxHash, contentHash)) as L2ToL1MembershipWitness | undefined
         } catch (err) {
             // Transient RPC failures (Bad Gateway, etc); log and keep polling.
             if (i % 5 === 0) console.log(`computeL2ToL1MembershipWitness threw (will retry): ${(err as Error).message ?? err}`)
@@ -417,10 +417,10 @@ export async function bridgeAZTECLocalRootToL1(
         if (i % 5 === 0) {
             let provenEpoch = -1
             try {
-                const provenBlockNum = Number(await aztecNode.getProvenBlockNumber())
+                const provenBlockNum = Number(await aztecNode.getBlockNumber('proven'))
                 if (provenBlockNum > 0) {
-                    const provenBlock = await aztecNode.getBlock(provenBlockNum)
-                    if (provenBlock) provenEpoch = Number(BigInt(provenBlock.slot) / epochDuration)
+                    const provenBlock = await aztecNode.getBlock(provenBlockNum as BlockNumber)
+                    if (provenBlock) provenEpoch = Number(BigInt(provenBlock.header.globalVariables.slotNumber) / epochDuration)
                 }
             } catch {}
             console.log(`waiting for L2->L1 message ${contentHash.toString()} to be proven (provenEpoch=${provenEpoch})... (${i}/${maxPolls})`)

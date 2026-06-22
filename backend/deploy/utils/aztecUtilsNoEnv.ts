@@ -180,8 +180,8 @@ export async function getAztecWallet(nodeUrl: string, secrets: { secret: Fr, sal
 
 export async function deployAndCreateDeploymentArtifact(wallet: Wallet, account: AztecAddress, artifact: ContractArtifact, constructorArgs: any[], salt?: Fr, constructorName = "constructor",optionalInstantiontionOpts?:{publicKeys?:PublicKeys, skipArgsDecoding?:boolean}) {
     salt ??= Fr.random()
-    const deployer = new ContractDeployer(artifact, wallet, undefined, constructorName);
-    const { contract: deployedContract } = await deployer.deploy(...constructorArgs).send({ contractAddressSalt: salt, from: account });
+    const deployer = new ContractDeployer(artifact, wallet, constructorName);
+    const { contract: deployedContract } = await deployer.deploy(constructorArgs, { salt, deployer: account }).send({ from: account });
     const instantiationData = {
         constructorArtifact: constructorName,
         constructorArgs: constructorArgs.map((v)=>typeof v === "bigint" ? toHex(v) : v),

@@ -462,7 +462,7 @@ export async function generateWithdrawProof(
 	};
 
 	log('Initializing Noir circuit...');
-	const noir = new Noir(circuit as CompiledCircuit);
+	const noir = new Noir(circuit as unknown as CompiledCircuit);
 
 	log('Initializing UltraHonk backend...');
 	const threads = typeof navigator !== 'undefined'

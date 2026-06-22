@@ -20,7 +20,7 @@ pub contract WarpToadCore {
             functions::{external, initializer, view},
             storage::storage,
         },
-        messages::message_delivery::MessageDelivery,
+        messages::delivery::MessageDelivery,
         note::note_getter_options::NoteGetterOptions,
         oracle::get_membership_witness::get_note_hash_membership_witness,
         oracle::nullifiers::check_nullifier_exists,
@@ -112,11 +112,11 @@ pub contract WarpToadCore {
     // @TODO @WARNING remove this in prod!! Do minting from giga root instead
     #[external("private")]
     fn mint_for_testing(amount: u128, recipient: AztecAddress) {
-        self.storage.balances.at(recipient).add(amount).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
+        self.storage.balances.at(recipient).add(amount).deliver(MessageDelivery::onchain_unconstrained());
         self.emit(
             Transfer { from: self.context.this_address(), to: recipient, amount },
         )
-            .deliver_to(recipient, MessageDelivery.ONCHAIN_UNCONSTRAINED);
+            .deliver_to(recipient, MessageDelivery::onchain_unconstrained());
     }
 
     #[external("public")]
@@ -158,16 +158,16 @@ pub contract WarpToadCore {
         // verify commitment is part of origin_local_root
         evm_merkle_verify(origin_local_root, commitment, evm_merkle_data);
 
-        self.context.push_nullifier(nullifier);
+        self.context.push_nullifier_unsafe(nullifier);
 
         self.storage.balances.at(recipient).add(amount).deliver(
-            MessageDelivery.ONCHAIN_UNCONSTRAINED,
+            MessageDelivery::onchain_unconstrained(),
         );
 
         self.emit(
             Transfer { from: self.context.this_address(), to: recipient, amount },
         )
-            .deliver_to(recipient, MessageDelivery.ONCHAIN_UNCONSTRAINED);
+            .deliver_to(recipient, MessageDelivery::onchain_unconstrained());
     }
 
     #[external("private")]
@@ -175,7 +175,7 @@ pub contract WarpToadCore {
         let sender = self.msg_sender();
         let recipient = sender;
 
-        self.storage.balances.at(sender).sub(amount).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
+        self.storage.balances.at(sender).sub(amount).deliver(MessageDelivery::onchain_unconstrained());
 
         let warptoad_note: WarpToadNote = WarpToadNote::new(
             nullifier_preimage,
@@ -185,13 +185,13 @@ pub contract WarpToadCore {
         );
 
         self.storage.commitments.at(recipient).insert(warptoad_note).deliver(
-            MessageDelivery.ONCHAIN_UNCONSTRAINED,
+            MessageDelivery::onchain_unconstrained(),
         );
 
         self.emit(
             Transfer { from: sender, to: self.context.this_address(), amount },
         )
-            .deliver_to(sender, MessageDelivery.ONCHAIN_UNCONSTRAINED);
+            .deliver_to(sender, MessageDelivery::onchain_unconstrained());
     }
 
     //-----------------------------------------------
@@ -207,22 +207,22 @@ pub contract WarpToadCore {
     ) {
         let from = self.msg_sender();
 
-        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
-        self.storage.balances.at(to).add(amount).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
+        self.storage.balances.at(from).sub(amount).deliver(MessageDelivery::onchain_unconstrained());
+        self.storage.balances.at(to).add(amount).deliver(MessageDelivery::onchain_unconstrained());
         self.emit(
             Transfer { from, to, amount },
         )
-            .deliver_to(to, MessageDelivery.ONCHAIN_UNCONSTRAINED);
+            .deliver_to(to, MessageDelivery::onchain_unconstrained());
     }
 
     #[external("private")]
     fn increase_allowance(spender: AztecAddress, added: u128) {
         let owner = self.msg_sender();
-        self.storage.allowances.at(owner).add(added).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
+        self.storage.allowances.at(owner).add(added).deliver(MessageDelivery::onchain_unconstrained());
         let _ = added;
         self.emit(Approval { owner, spender, amount: added }).deliver_to(
             owner,
-            MessageDelivery.ONCHAIN_UNCONSTRAINED,
+            MessageDelivery::onchain_unconstrained(),
         );
     }
 
@@ -230,27 +230,27 @@ pub contract WarpToadCore {
     fn decrease_allowance(spender: AztecAddress, subtracted: u128) {
         let owner = self.msg_sender();
         self.storage.allowances.at(owner).sub(subtracted).deliver(
-            MessageDelivery.ONCHAIN_UNCONSTRAINED,
+            MessageDelivery::onchain_unconstrained(),
         );
         self.emit(
             Approval { owner, spender, amount: 0u128 },
         )
-            .deliver_to(owner, MessageDelivery.ONCHAIN_UNCONSTRAINED);
+            .deliver_to(owner, MessageDelivery::onchain_unconstrained());
     }
 
     #[external("private")]
     fn transfer_from(owner: AztecAddress, to: AztecAddress, amount: u128) {
         let spender = self.msg_sender();
         self.storage.allowances.at(spender).sub(amount).deliver(
-            MessageDelivery.ONCHAIN_UNCONSTRAINED,
+            MessageDelivery::onchain_unconstrained(),
         );
 
-        self.storage.balances.at(owner).sub(amount).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
-        self.storage.balances.at(to).add(amount).deliver(MessageDelivery.ONCHAIN_UNCONSTRAINED);
+        self.storage.balances.at(owner).sub(amount).deliver(MessageDelivery::onchain_unconstrained());
+        self.storage.balances.at(to).add(amount).deliver(MessageDelivery::onchain_unconstrained());
 
         self.emit(Transfer { from: owner, to, amount }).deliver_to(
             to,
-            MessageDelivery.ONCHAIN_UNCONSTRAINED,
+            MessageDelivery::onchain_unconstrained(),
         );
     }
 

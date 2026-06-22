@@ -23,7 +23,7 @@
     "b:warptoad:compile": "cd backend/aztec/WarpToadCore && aztec compile && aztec codegen -o src/artifacts target",
     "b:rootbridge:compile": "cd backend/aztec/L2AztecBridgeAdapter && aztec compile && aztec codegen -o src/artifacts target",
     "b:compile:aztec": "pnpm b:warptoad:compile && pnpm b:rootbridge:compile",
-    "b:circuit:compile": "cd backend/circuits/withdraw && nargo compile && cp target/withdraw.json ../../../frontend/src/lib/circuits/withdraw.json",
+    "b:circuit:compile": "cd backend/circuits/withdraw && aztec-nargo compile && cp target/withdraw.json ../../../frontend/src/lib/circuits/withdraw.json",
     "b:circuit:verifier": "pnpm --filter @warp-toad/backend exec tsx scripts/regenerateVerifier.ts",
     "b:circuit": "pnpm b:circuit:compile && pnpm b:circuit:verifier",
     "b:sandbox": "aztec start --local-network",
@@ -54,10 +54,10 @@
   "license": "MIT",
   "pnpm": {
     "overrides": {
-      "@aztec/noir-acvm_js": "4.2.0-aztecnr-rc.2",
-      "@aztec/noir-noirc_abi": "4.2.0-aztecnr-rc.2",
-      "@aztec/noir-types": "4.2.0-aztecnr-rc.2",
-      "@aztec/noir-protocol-circuits-types": "4.2.0-aztecnr-rc.2"
+      "@aztec/noir-acvm_js": "5.0.0-rc.1",
+      "@aztec/noir-noirc_abi": "5.0.0-rc.1",
+      "@aztec/noir-types": "5.0.0-rc.1",
+      "@aztec/noir-protocol-circuits-types": "5.0.0-rc.1"
     }
   }
 }

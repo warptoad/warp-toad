@@ -32,7 +32,6 @@ import { createAztecNodeClient } from "@aztec/aztec.js/node";
 import { Fr } from "@aztec/aztec.js/fields";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { getContractInstanceFromInstantiationParams } from "@aztec/aztec.js/contracts";
-import { computeL2ToL1MembershipWitness } from "@aztec/stdlib/messaging";
 import {
     updateGigaRoot,
     sendGigaRoot,
@@ -141,11 +140,11 @@ async function main() {
 
     const startWait = Date.now();
     const maxWaitMs = 5 * 60_000; // 5 minutes
-    let witness: Awaited<ReturnType<typeof computeL2ToL1MembershipWitness>> | undefined;
+    let witness: Awaited<ReturnType<typeof node.getL2ToL1MembershipWitness>> | undefined;
     let pollCount = 0;
     while (!witness) {
         try {
-            witness = await computeL2ToL1MembershipWitness(node, messageHash, sendRootTxHash);
+            witness = await node.getL2ToL1MembershipWitness(sendRootTxHash, messageHash);
         } catch (e: any) {
             // Surface the error instead of silently swallowing it
             console.warn(`  computeL2ToL1MembershipWitness threw: ${e?.message ?? e}`);

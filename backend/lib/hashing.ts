@@ -1,4 +1,5 @@
-import { AztecAddress, Fr } from '@aztec/aztec.js';
+import { AztecAddress } from '@aztec/aztec.js/addresses';
+import { Fr } from '@aztec/aztec.js/fields';
 import { poseidon1, poseidon2, poseidon3 } from "poseidon-lite"
 import { MerkleTree, PartialMerkleTree, Element } from 'fixed-merkle-tree'
 import { poseidon2Hash } from "@zkpassport/poseidon2";
@@ -11,8 +12,8 @@ export function hashCommitment(preCommitment:bigint, amount:bigint ): bigint {
     return poseidon2([preCommitment, amount])
 }
 
-export function hashCommitmentFromNoteItems(noteItems: Fr[] ): bigint {
-    const [nullifier_preimage, secret, chain_id, amount] = noteItems;
+export function hashCommitmentFromNoteItems(noteItems: (Fr | bigint)[]): bigint {
+    const [nullifier_preimage, secret, chain_id, amount] = noteItems.map((x) => (typeof x === "bigint" ? x : x.toBigInt()));
     const preCommitment = hashPreCommitment(nullifier_preimage, secret, chain_id)
     return poseidon2([preCommitment, amount])
 }
