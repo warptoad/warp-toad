@@ -128,14 +128,16 @@ contract L1AztecBridgeAdapter is IL1BridgeAdapter, ILocalRootProvider, IGigaRoot
      * @dev Second part of getting the L2 root to L1, must be initiated from L2 first as it will consume a message from outbox
      * @param _newL2Root - the merkle root currently on the L2 to add into the GigaRoot
      * @param _bridgedL2BlockNumber - the block number that is in the content hash (should exactly match the block _newL2Root is from)
-     * @param _witnessL2BlockNumber - the block number where we retrieve the message proof from (should exactly match the block at which the witness (aka _path) is retrieved )
+     * @param _epoch - the epoch the L2->L1 message was included in (from the membership witness)
+     * @param _numCheckpointsInEpoch - number of checkpoints covered by the partial-proof root (from the witness; selects the matching Outbox root slot)
      * @param _leafIndex - The amount to withdraw
      * @param _path - Must match the caller of the message (specified from L2) to consume it.
      */
     function getNewRootFromL2(
         bytes32 _newL2Root,
         uint256 _bridgedL2BlockNumber,
-        uint256 _witnessL2BlockNumber,
+        uint256 _epoch,
+        uint256 _numCheckpointsInEpoch,
         uint256 _leafIndex,
         bytes32[] calldata _path
     ) external {
@@ -149,7 +151,7 @@ contract L1AztecBridgeAdapter is IL1BridgeAdapter, ILocalRootProvider, IGigaRoot
             content: contentHash
         });
 
-        outbox.consume(message, _witnessL2BlockNumber, _leafIndex, _path);
+        outbox.consume(message, _epoch, _numCheckpointsInEpoch, _leafIndex, _path);
 
         // convert from bytes32 to uint256
         uint256 newL2RootCast = uint256(_newL2Root);

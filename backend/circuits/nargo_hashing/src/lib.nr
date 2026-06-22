@@ -13,9 +13,12 @@ pub struct Evm_merkle_data<let D: u32> {
     pub hash_path: [Field; D],
 }
 
-// trees::merkle::MerkleTree requires a hasher function
+// trees::merkle::MerkleTree requires a hasher function.
+// v5 note-hash tree hashes internal nodes WITH the MERKLE_HASH domain separator:
+// poseidon2([DomainSeparator.MERKLE_HASH, left, right]). Pre-v5 it was poseidon2([left, right]).
+// Source: @aztec/constants DomainSeparator.MERKLE_HASH = 2982624097.
 fn poseidon2_hasher(leaves: [Field; 2]) -> Field {
-    poseidon2::Poseidon2::hash(leaves,leaves.len())
+    poseidon2::Poseidon2::hash([2982624097, leaves[0], leaves[1]], 3)
 }
 
 fn poseidon_hasher(leaves: [Field; 2]) -> Field {

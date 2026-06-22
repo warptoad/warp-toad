@@ -46,7 +46,8 @@ interface IOutbox {
      * @dev Only useable by portals / recipients of messages
      * @dev Emits `MessageConsumed` when consuming messages
      * @param _message - The L2 to L1 message
-     * @param _l2BlockNumber - The block number specifying the block that contains the message we want to consume
+     * @param _epoch - The epoch that contains the message we want to consume
+     * @param _numCheckpointsInEpoch - Number of checkpoints covered by the partial-proof root (selects the matching root slot)
      * @param _leafIndex - The index inside the merkle tree where the message is located
      * @param _path - The sibling path used to prove inclusion of the message, the _path length directly depends
      * on the total amount of L2 to L1 messages in the block. i.e. the length of _path is equal to the depth of the
@@ -54,7 +55,8 @@ interface IOutbox {
      */
     function consume(
         DataStructures.L2ToL1Msg calldata _message,
-        uint256 _l2BlockNumber,
+        uint256 _epoch,
+        uint256 _numCheckpointsInEpoch,
         uint256 _leafIndex,
         bytes32[] calldata _path
     ) external;
@@ -74,15 +76,16 @@ interface IOutbox {
     // docs:end:outbox_has_message_been_consumed_at_block_and_index
 
     /**
-     * @notice  Fetch the root data for a given block number
-     *          Returns (0, 0) if the block is not proven
+     * @notice  Fetch the root data for a given epoch and checkpoint count
+     *          Returns 0 if the epoch is not proven
      *
-     * @param _l2BlockNumber - The block number to fetch the root data for
+     * @param _epoch - The epoch to fetch the root data for
+     * @param _numCheckpointsInEpoch - Number of checkpoints covered by the partial-proof root
      *
      * @return root - The root of the merkle tree containing the L2 to L1 messages
-     * @return minHeight - The min height for the merkle tree that the root corresponds to
      */
     function getRootData(
-        uint256 _l2BlockNumber
-    ) external view returns (bytes32 root, uint256 minHeight);
+        uint256 _epoch,
+        uint256 _numCheckpointsInEpoch
+    ) external view returns (bytes32 root);
 }

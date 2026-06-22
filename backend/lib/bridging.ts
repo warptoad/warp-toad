@@ -55,7 +55,7 @@ const ROLLUP_EPOCH_ABI = [
 ] as const;
 
 const OUTBOX_ABI = [
-    { type: "function", name: "getRootData", stateMutability: "view", inputs: [{ name: "_epoch", type: "uint256" }], outputs: [{ name: "root", type: "bytes32" }] },
+    { type: "function", name: "getRootData", stateMutability: "view", inputs: [{ name: "_epoch", type: "uint256" }, { name: "_numCheckpointsInEpoch", type: "uint256" }], outputs: [{ name: "root", type: "bytes32" }] },
 ] as const;
 
 const L1_SCROLL_MESSENGER_ABI = [
@@ -442,7 +442,7 @@ export async function bridgeAZTECLocalRootToL1(
             address: outboxAddress,
             abi: OUTBOX_ABI,
             functionName: "getRootData",
-            args: [BigInt(foundEpoch)],
+            args: [BigInt(foundEpoch), BigInt(messageWitness.numCheckpointsInEpoch)],
         }) as Hex
         if (rootHex && rootHex !== "0x0000000000000000000000000000000000000000000000000000000000000000") break
         if (Date.now() - outboxStart > outboxTimeoutMs) {
@@ -458,6 +458,7 @@ export async function bridgeAZTECLocalRootToL1(
         PXE_L2Root.toString() as Hex,
         BigInt(blockNumberOfRoot),
         BigInt(foundEpoch),
+        BigInt(messageWitness.numCheckpointsInEpoch),
         BigInt(messageWitness.leafIndex),
         siblingPathArray.map((s: string) => s as Hex),
     ] as const

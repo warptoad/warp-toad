@@ -90,7 +90,7 @@ export async function getAztecTestAccounts(aztecNode: AztecNode) {
     const wallets = []
     for (const accountData of testAccountsData) {
         const wallet = await setupWallet(aztecNode);
-        await wallet.createSchnorrAccount(accountData.secret, accountData.salt);
+        await wallet.createSchnorrInitializerlessAccount(accountData.secret, accountData.salt);
         wallets.push(wallet)
     }
     return wallets
@@ -118,7 +118,7 @@ export async function getAztecTestAccountNoEnv(chainId: bigint, nodeUrl: string)
 
     if (chainId == 31337n) {
         console.warn("assuming ur on sandbox since chainId is 31337")
-        await wallet.createSchnorrAccount(testAccountData.secret, testAccountData.salt);
+        await wallet.createSchnorrInitializerlessAccount(testAccountData.secret, testAccountData.salt);
         return wallet
     } else {
         console.warn("assuming ur on testnet since chainId is NOT 31337")
