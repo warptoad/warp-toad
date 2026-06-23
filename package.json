@@ -26,7 +26,7 @@
     "b:circuit:compile": "cd backend/circuits/withdraw && aztec-nargo compile && cp target/withdraw.json ../../../frontend/src/lib/circuits/withdraw.json",
     "b:circuit:verifier": "pnpm --filter @warp-toad/backend exec tsx scripts/regenerateVerifier.ts",
     "b:circuit": "pnpm b:circuit:compile && pnpm b:circuit:verifier",
-    "b:sandbox": "aztec start --local-network",
+    "b:sandbox": "WS_NUM_HISTORIC_CHECKPOINTS=0 aztec start --local-network",
     "bridge:dev": "pnpm --filter @warp-toad/bridge-sync dev",
     "bridge:build": "pnpm --filter @warp-toad/bridge-sync build",
     "bridge:start": "pnpm --filter @warp-toad/bridge-sync start",

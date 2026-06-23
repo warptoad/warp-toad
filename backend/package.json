@@ -8,7 +8,7 @@
   "license": "MIT",
   "scripts": {
     "compile": "hardhat compile && tsx scripts/emitNpmArtifacts.ts",
-    "test": "hardhat test",
+    "test": "hardhat test test/testAztecToL1.ts && hardhat test --no-compile test/testL1ToAztec.ts && hardhat test --no-compile test/testL1ToL1.ts",
     "deploy:local": "hardhat run scripts/deployLocal.ts --network local",
     "deploy:testnet": "dotenv -e .env -- tsx scripts/deployTestnet.ts",
     "sync:testnet:to-aztec": "dotenv -e .env -- hardhat run scripts/syncTestnetToAztec.ts --network sepolia",
