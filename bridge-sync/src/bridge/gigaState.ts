@@ -74,10 +74,11 @@ export async function fetchGigaState(l1ChainIdStr: string): Promise<GigaState> {
 
 	const { gigaBridge, l1WarpToadAddress, gigaBridgeAddress } = loadL1Contracts(l1ChainId, publicClient as any, {} as any, true);
 	const aztec = loadL1AdapterByType(l1ChainId, publicClient as any, {} as any, 'aztec');
-	const scroll = loadL1AdapterByType(l1ChainId, publicClient as any, {} as any, 'scroll');
-	const providers = providersForChain(l1ChainId, {
-		l1WarpToadAddress, aztecAdapter: aztec.address, scrollAdapter: scroll.address,
-	});
+	// Scroll adapter is absent on local/dev deploys (Scroll disabled); load it
+	// optionally and only include it as a provider when present.
+	const scroll = loadL1AdapterByType(l1ChainId, publicClient as any, {} as any, 'scroll', true);
+	const providers = [l1WarpToadAddress, aztec.address];
+	if (scroll) providers.push(scroll.address);
 
 	// Collapse the contract reads into a single Promise.all; viem will
 	// pipeline them to the upstream RPC. Pre-allocates leaves[] at the tree
