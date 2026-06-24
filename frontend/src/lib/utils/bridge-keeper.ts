@@ -28,22 +28,27 @@ const BRIDGE_KEEPER_URL =
 	(isTestMode ? 'http://localhost:6969' : 'https://bridge.warptoad.xyz');
 
 /**
- * Burn-leaf indexer toggle. TESTNET-ONLY RPC-cost optimization: instead of every
- * user re-scanning all Burn events to rebuild a merkle path, the keeper serves a
+ * Burn-leaf indexer toggle. An RPC-cost optimization: instead of every user
+ * re-scanning all Burn events to rebuild a merkle path, the keeper serves a
  * cached leaf snapshot and the client builds the path locally.
  *
- * It can NEVER become a mainnet dependency:
- *   - Hard-gated to test-mode builds, so a production build (VITE_TEST_MODE !=
- *     'true') never calls it, no matter the env.
- *   - Set VITE_USE_BRIDGE_INDEXER=false to turn it off even on testnet.
- *   - Every consumer falls back to a direct on-chain scan on ANY failure (and
- *     re-verifies the reconstructed root), so deleting the indexer just makes
- *     withdraws scan again.
+ * Gating keeps it an opt-in convenience, never an implicit/mainnet dependency.
+ * NOTE: VITE_TEST_MODE=true means the LOCAL SANDBOX build (anvil/localhost), not
+ * a public testnet. A VPS testnet deployment is a VITE_TEST_MODE=false build, so
+ * it must opt in explicitly:
+ *   - Local sandbox (VITE_TEST_MODE=true): ON by default; set
+ *     VITE_USE_BRIDGE_INDEXER=false to disable.
+ *   - Any real deployment (public testnet on a VPS, mainnet): OFF by default;
+ *     set VITE_USE_BRIDGE_INDEXER=true to enable. Turn it on for your testnet
+ *     deploy to cut RPC cost; leave it unset for mainnet.
+ *   - Every consumer falls back to a direct on-chain scan on ANY failure and
+ *     re-verifies the reconstructed root, so enabling it is never a hard
+ *     dependency and removing the indexer just makes withdraws scan again.
  */
 export const isBridgeIndexerEnabled =
 	isBridgeKeeperEnabled &&
-	isTestMode &&
-	import.meta.env.VITE_USE_BRIDGE_INDEXER !== 'false';
+	(import.meta.env.VITE_USE_BRIDGE_INDEXER === 'true' ||
+		(isTestMode && import.meta.env.VITE_USE_BRIDGE_INDEXER !== 'false'));
 
 export interface IndexerBurnLeaf { index: number; commitment: bigint; amount: bigint; }
 
