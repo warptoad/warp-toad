@@ -68,6 +68,7 @@ const VALID_ROUTES = new Set([
   '534351:aztec',     // Scroll -> Aztec (multi-hop via Sepolia L1 hub)
   '31337:534351',     // Local -> Scroll (for testing)
   '31337:aztec',      // Local -> Aztec (for testing)
+  'aztec:31337',      // Aztec -> Local (for testing withdraws)
 ]);
 
 export function isValidRoute(fromChainId: ChainId, toChainId: ChainId): boolean {
