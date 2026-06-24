@@ -192,6 +192,7 @@ if [ "$DO_SERVICES" -eq 1 ]; then
   else
     log "starting bridge-sync with local overrides..."
     start_bg "$LOG_DIR/bridge-sync.log" "bridge-sync" \
+      SYNC_L1_CHAIN_ID=31337 \
       AZTEC_NODE_URL="$AZTEC_LOCAL_URL" \
       AZTEC_HEARTBEAT_ENABLED=false \
       EVM_PRIVATE_KEY="$ANVIL_KEY_0" \

@@ -227,7 +227,9 @@ export async function runSyncCycle(
   // pinned to whatever root it last received - breaking aztec→scroll
   // withdraws that read Scroll's stale gigaRoot.
   const aztecAdapter = loadL1AdapterByType(l1ChainId, l1PublicClient as any, l1WalletClient as any, 'aztec');
-  const scrollAdapter = loadL1AdapterByType(l1ChainId, l1PublicClient as any, l1WalletClient as any, 'scroll');
+  // Scroll adapter is absent on local/dev deploys (Scroll disabled), so load it
+  // optionally; an aztec-only cycle must not fail resolving a recipient it won't use.
+  const scrollAdapter = loadL1AdapterByType(l1ChainId, l1PublicClient as any, l1WalletClient as any, 'scroll', true);
 
   // Aztec-side state (wallet + contracts) - needed for any Aztec-touching flag.
   let aztecState: { wallet: any; pxe: any; node: any; sponsoredPaymentMethod: any; aztecWarpToad: any; aztecBridgeAdapter: any } | null = null;
@@ -401,7 +403,9 @@ export async function runSyncCycle(
   // Step 5 still gates the *receive* on the dispatch flags - we don't want to
   // wait for the L2 receive on cycles the user doesn't care about - but the
   // dispatch itself is cheap and keeps everyone in sync.
-  const sendGigaRootRecipients: Address[] = [l1WarpToadAddress, aztecAdapter.address, scrollAdapter.address];
+  const sendGigaRootRecipients: Address[] = [l1WarpToadAddress];
+  if (aztecAdapter) sendGigaRootRecipients.push(aztecAdapter.address);
+  if (scrollAdapter) sendGigaRootRecipients.push(scrollAdapter.address);
 
   const payable = await getPayableGigaRootRecipients(l1ChainId);
   console.log(`[sync] step 4: sendGigaRoot to ${sendGigaRootRecipients.length} recipients`);

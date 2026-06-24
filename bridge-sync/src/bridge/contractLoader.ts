@@ -131,14 +131,33 @@ export function loadL1AdapterByType(
   publicClient: PublicClient,
   walletClient: WalletClient,
   kind: 'aztec' | 'scroll',
-): { adapter: any; address: Address } {
+): { adapter: any; address: Address };
+export function loadL1AdapterByType(
+  l1ChainId: bigint,
+  publicClient: PublicClient,
+  walletClient: WalletClient,
+  kind: 'aztec' | 'scroll',
+  optional: boolean,
+): { adapter: any; address: Address } | null;
+export function loadL1AdapterByType(
+  l1ChainId: bigint,
+  publicClient: PublicClient,
+  walletClient: WalletClient,
+  kind: 'aztec' | 'scroll',
+  optional = false,
+): { adapter: any; address: Address } | null {
   const addrs = loadDeployedAddresses(l1ChainId);
   const address = (
     kind === 'aztec'
       ? addrs['L1InfraModule#L1AztecBridgeAdapter']
       : addrs['L1InfraModule#L1ScrollBridgeAdapter']
   ) as Address;
-  if (!address) throw new Error(`L1 ${kind} adapter address missing for chain ${l1ChainId}`);
+  if (!address) {
+    // Local/dev deploys omit the Scroll adapter (Scroll is disabled). Optional
+    // callers treat a missing adapter as "not a recipient" instead of failing.
+    if (optional) return null;
+    throw new Error(`L1 ${kind} adapter address missing for chain ${l1ChainId}`);
+  }
   const adapter = getContract({
     address,
     abi: kind === 'aztec' ? L1_AZTEC_BRIDGE_ADAPTER_ABI() : L1_SCROLL_BRIDGE_ADAPTER_ABI(),
