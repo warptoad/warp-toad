@@ -39,7 +39,7 @@ function loadAbi(relPath: string): any[] {
   return artifact.abi;
 }
 
-const L1_WARPTOAD_ABI = () => loadAbi('core/L1WarpToad.sol/L1WarpToad.json');
+export const L1_WARPTOAD_ABI = () => loadAbi('core/L1WarpToad.sol/L1WarpToad.json');
 const GIGA_BRIDGE_ABI = () => loadAbi('bridge/GigaBridge.sol/GigaBridge.json');
 const L1_AZTEC_BRIDGE_ADAPTER_ABI = () =>
   loadAbi('bridge/adapters/L1AztecBridgeAdapter.sol/L1AztecBridgeAdapter.json');

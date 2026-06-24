@@ -14,6 +14,7 @@ import { routeToRequirements } from './bridge/syncRequirements.js';
 import type { FullSyncResult } from './bridge/executor.js';
 import type { BridgeRequest, BridgeOperation } from './types/index.js';
 import { fetchGigaState } from './bridge/gigaState.js';
+import { fetchBurnLeaves } from './bridge/burnLeaves.js';
 import { startAztecHeartbeat, getHeartbeatState } from './bridge/aztecHeartbeat.js';
 import { computeStaleLegs, buildStaleLegInputs } from './bridge/staleLegs.js';
 import { loadAll, saveOperation } from './bridge/operationsStore.js';
@@ -187,6 +188,39 @@ app.get('/giga-state/:chainId', async (req, res) => {
   } catch (err: any) {
     console.error(`[giga-state] error for chain ${chainId}:`, err);
     res.status(502).json({ ok: false, error: err?.message ?? 'Failed to fetch giga state' });
+  }
+});
+
+/**
+ * TESTNET-CONVENIENCE burn-leaf snapshot for the frontend's EVM merkle-path
+ * builder. Returns the full ordered leaf set for a block range so the client
+ * builds its own path locally (the server never sees which commitment). The
+ * client recomputes the local root and falls back to its own scan on mismatch,
+ * so this is a pure RPC-cost optimization, never a correctness/liveness
+ * dependency. Safe to remove for mainnet.
+ */
+app.get('/burn-leaves/:chainId/:warpToadAddress', async (req, res) => {
+  const { chainId, warpToadAddress } = req.params;
+  if (!isValidChainId(chainId)) {
+    return res.status(400).json({ ok: false, error: `Invalid chain ID: ${chainId}` });
+  }
+  if (!/^0x[0-9a-fA-F]{40}$/.test(warpToadAddress)) {
+    return res.status(400).json({ ok: false, error: `Invalid address: ${warpToadAddress}` });
+  }
+  let fromBlock: bigint;
+  let toBlock: bigint;
+  try {
+    fromBlock = BigInt((req.query.fromBlock as string) ?? '0');
+    toBlock = BigInt((req.query.toBlock as string) ?? '0');
+  } catch {
+    return res.status(400).json({ ok: false, error: 'fromBlock/toBlock must be integers' });
+  }
+  try {
+    const snap = await fetchBurnLeaves(chainId, warpToadAddress, fromBlock, toBlock);
+    res.json({ ok: true, ...snap });
+  } catch (err: any) {
+    console.error(`[burn-leaves] error for chain ${chainId}:`, err?.message ?? err);
+    res.status(502).json({ ok: false, error: err?.message ?? 'Failed to fetch burn leaves' });
   }
 });
 

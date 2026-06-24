@@ -22,7 +22,7 @@ import { getContractAddresses, CONTRACT_ADDRESSES } from '$lib/contracts/address
 import { GigaBridgeAbi, L1WarpToadAbi, L2WarpToadAbi } from '$lib/contracts/abis';
 import { queryEventInChunks } from './viem-chunks';
 import { rpcSettings } from '$lib/stores/rpc-settings.svelte';
-import { fetchGigaStateFromKeeper, tryGetGigaLeavesForRoot, BridgeSyncStaleError } from './bridge-keeper';
+import { fetchGigaStateFromKeeper, tryGetGigaLeavesForRoot, BridgeSyncStaleError, fetchBurnLeavesFromKeeper, isBridgeIndexerEnabled } from './bridge-keeper';
 import { poseidon1, poseidon2, poseidon3 } from 'poseidon-lite';
 import { MerkleTree, type Element } from 'fixed-merkle-tree';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
@@ -717,25 +717,21 @@ async function getAztecBlockNumberForGigaRoot(
 // MERKLE DATA GENERATION
 // =============================================================================
 
-/**
- * Get EVM merkle proof for a commitment in the L1WarpToad tree
- */
-async function getEvmMerkleData(
-	publicClient: PublicClient,
-	warpToadAddress: string,
-	commitment: bigint,
-	chainId: number,
-	localRootBlockNumber: number,
-	expectedLocalRoot: bigint
-): Promise<EvmMerkleData> {
-	// Get all burn events up to the local root block
-	const burnEvents = await getBurnEvents(
-		publicClient,
-		warpToadAddress,
-		chainId,
-		BigInt(localRootBlockNumber)
-	);
+type BurnLeafEvent = { commitment: bigint; amount: bigint; index: number };
 
+/**
+ * Build the EVM merkle proof for `commitment` from an ordered set of burn
+ * leaves, verifying the reconstructed tree root matches the on-chain local
+ * root. Throws if the commitment is absent or the root doesn't reconstruct -
+ * which is exactly what lets callers safely fall back to a different leaf
+ * source (the indexer can never silently change the result).
+ */
+function buildEvmMerkleFromLeaves(
+	burnEvents: BurnLeafEvent[],
+	commitment: bigint,
+	expectedLocalRoot: bigint,
+	localRootBlockNumber: number
+): EvmMerkleData {
 	if (burnEvents.length === 0) {
 		throw new Error('No burn events found');
 	}
@@ -743,7 +739,6 @@ async function getEvmMerkleData(
 	// Build sorted leaves array by index
 	const sortedLeaves: bigint[] = [];
 	let commitmentIndex = -1;
-
 	for (const event of burnEvents) {
 		sortedLeaves[event.index] = event.commitment;
 		if (event.commitment === commitment) {
@@ -768,11 +763,9 @@ async function getEvmMerkleData(
 	// Build merkle tree and get proof using fixed-merkle-tree
 	const tree = createPoseidonMerkleTree(EVM_TREE_DEPTH, sortedLeaves);
 
-	// Validate the recreated tree root matches the expected local root
+	// Validate the recreated tree root matches the expected local root. This is
+	// the safety net: a wrong/stale leaf source (e.g. the indexer) can't pass it.
 	const computedRoot = BigInt(tree.root);
-	console.log('EVM tree - computed root:', computedRoot.toString());
-	console.log('EVM tree - expected local root:', expectedLocalRoot.toString());
-
 	if (computedRoot !== expectedLocalRoot) {
 		throw new Error(
 			`Could not recreate the localRoot with events. ` +
@@ -782,11 +775,48 @@ async function getEvmMerkleData(
 	}
 
 	const proof = getMerkleProof(tree, commitment);
-
 	return {
 		leaf_index: BigInt(proof.leafIndex),
 		hash_path: proof.pathElements,
 	};
+}
+
+/**
+ * Get EVM merkle proof for a commitment in the L1WarpToad tree.
+ *
+ * Leaf source: the testnet burn-leaf indexer when it's enabled and the user
+ * hasn't set a custom RPC; otherwise (and on ANY indexer failure) a direct
+ * on-chain scan. The reconstructed root is always verified against the on-chain
+ * local root, so the indexer only ever saves RPC, never changes the result, and
+ * the scan path stays the source of truth. See isBridgeIndexerEnabled.
+ */
+async function getEvmMerkleData(
+	publicClient: PublicClient,
+	warpToadAddress: string,
+	commitment: bigint,
+	chainId: number,
+	localRootBlockNumber: number,
+	expectedLocalRoot: bigint
+): Promise<EvmMerkleData> {
+	const toBlock = BigInt(localRootBlockNumber);
+
+	// Fast path: cached leaf snapshot from the keeper (testnet only). On any
+	// failure - network, bad shape, stale data that fails the root check - fall
+	// through to the authoritative on-chain scan below.
+	if (isBridgeIndexerEnabled && !rpcSettings.isUsingCustom(chainId)) {
+		try {
+			const fromBlock = getDeploymentBlock(chainId);
+			const leaves = await fetchBurnLeavesFromKeeper(chainId, warpToadAddress, fromBlock, toBlock);
+			const data = buildEvmMerkleFromLeaves(leaves, commitment, expectedLocalRoot, localRootBlockNumber);
+			console.log('[getEvmMerkleData] built path from indexer snapshot (no per-user scan)');
+			return data;
+		} catch (err) {
+			console.warn('[getEvmMerkleData] indexer path failed, falling back to on-chain scan:', err);
+		}
+	}
+
+	const burnEvents = await getBurnEvents(publicClient, warpToadAddress, chainId, toBlock);
+	return buildEvmMerkleFromLeaves(burnEvents, commitment, expectedLocalRoot, localRootBlockNumber);
 }
 
 /**

@@ -28,6 +28,49 @@ const BRIDGE_KEEPER_URL =
 	(isTestMode ? 'http://localhost:6969' : 'https://bridge.warptoad.xyz');
 
 /**
+ * Burn-leaf indexer toggle. TESTNET-ONLY RPC-cost optimization: instead of every
+ * user re-scanning all Burn events to rebuild a merkle path, the keeper serves a
+ * cached leaf snapshot and the client builds the path locally.
+ *
+ * It can NEVER become a mainnet dependency:
+ *   - Hard-gated to test-mode builds, so a production build (VITE_TEST_MODE !=
+ *     'true') never calls it, no matter the env.
+ *   - Set VITE_USE_BRIDGE_INDEXER=false to turn it off even on testnet.
+ *   - Every consumer falls back to a direct on-chain scan on ANY failure (and
+ *     re-verifies the reconstructed root), so deleting the indexer just makes
+ *     withdraws scan again.
+ */
+export const isBridgeIndexerEnabled =
+	isBridgeKeeperEnabled &&
+	isTestMode &&
+	import.meta.env.VITE_USE_BRIDGE_INDEXER !== 'false';
+
+export interface IndexerBurnLeaf { index: number; commitment: bigint; amount: bigint; }
+
+/**
+ * Fetch the burn-leaf snapshot for [fromBlock, toBlock] from the keeper's
+ * indexer. Throws on any non-OK response so callers fall back to a direct scan.
+ * The server only sees the block range, never which commitment is wanted.
+ */
+export async function fetchBurnLeavesFromKeeper(
+	chainId: number,
+	warpToadAddress: string,
+	fromBlock: bigint,
+	toBlock: bigint,
+): Promise<IndexerBurnLeaf[]> {
+	const url = `${BRIDGE_KEEPER_URL}/burn-leaves/${chainId}/${warpToadAddress}?fromBlock=${fromBlock}&toBlock=${toBlock}`;
+	const res = await fetch(url);
+	if (!res.ok) throw new Error(`indexer /burn-leaves HTTP ${res.status}`);
+	const data = await res.json();
+	if (!data?.ok || !Array.isArray(data.leaves)) throw new Error('indexer /burn-leaves bad shape');
+	return data.leaves.map((l: any) => ({
+		index: Number(l.index),
+		commitment: BigInt(l.commitment),
+		amount: BigInt(l.amount),
+	}));
+}
+
+/**
  * Thrown when a withdraw flow detects that the bridge keeper hasn't yet
  * pushed the source chain's local root to L1 (or hasn't dispatched the
  * resulting gigaRoot to the destination chain). The central WithdrawForm
