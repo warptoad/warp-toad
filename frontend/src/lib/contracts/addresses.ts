@@ -3,7 +3,7 @@
  * Auto-generated from Ignition deployments
  * DO NOT EDIT MANUALLY
  * 
- * Generated: 2026-06-24T07:03:42.136Z
+ * Generated: 2026-06-24T17:21:06.043Z
  * Run 'npm run pull:addresses' to update
  */
 
@@ -33,18 +33,18 @@ export const CONTRACT_ADDRESSES: Record<string, ContractAddresses> = {
     "L1AztecBridgeAdapter": "0x0cf17d5dcda9cf25889cec9ae5610b0fb9725f65"
   },
   "534351": {
-    "deploymentBlock": 18195213,
-    "USDcoin": "0xD4641657D1d5944Abc9E59f73dd3Eee1014eBF27",
-    "L2WarpToad": "0xe29fB9eD20CFe008B344aF5A974b995c73c12afa",
-    "L2ScrollBridgeAdapter": "0x1f8df01B117038deC8519511FE0E8C715B9C110c"
+    "deploymentBlock": 18726837,
+    "USDcoin": "0x538849781f2F8aB07b6EecaaE23c6927c17124A4",
+    "L2WarpToad": "0xa0e2b408078FF946D1bBe7A94e81fc610D0cCe3f",
+    "L2ScrollBridgeAdapter": "0xe21B2Ac64Cb232773179c19C6CeA9aaCb727028b"
   },
   "11155111": {
-    "deploymentBlock": 10880246,
-    "L1AztecBridgeAdapter": "0x2024c7728F85DC2762613d122f69307399141dC3",
-    "L1ScrollBridgeAdapter": "0xAcFFC811712Ea3490135731AF0FBB177a89093cd",
-    "USDcoin": "0xe835B8D433c538030751800383A466c5A0cdA130",
-    "L1WarpToad": "0x34B94D8CB25369F7D9f08839e2Bb93E19E80AD06",
-    "GigaBridge": "0x6f28ffB636DAd6F33468B3C7685506D5A129f031"
+    "deploymentBlock": 11130522,
+    "L1AztecBridgeAdapter": "0x4F16fA797c6A25c8B35b40a3117CC7Be23CC1777",
+    "L1ScrollBridgeAdapter": "0xBc2A51428a0835bDD908c69Cbf61947C17312206",
+    "USDcoin": "0x75B61938C4c162D1821AFD65a1CCcf7B62fddFEa",
+    "L1WarpToad": "0x2C72c9ce58ddacaC5BbA0EC090FB74A0d1396eDF",
+    "GigaBridge": "0x6C2cD1f51fE98536335b48dBcd44a47cF2795D74"
   }
 };
 
