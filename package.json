@@ -11,6 +11,7 @@
     "f:dev": "pnpm --filter frontend dev",
     "f:run": "pnpm --filter frontend build && pnpm --filter frontend preview",
     "l:deploy": "pnpm --filter @warp-toad/backend deploy:local && pnpm --filter frontend pull:addresses",
+    "l:up": "bash scripts/local-test.sh",
     "t:deploy": "pnpm --filter @warp-toad/backend deploy:testnet && pnpm --filter frontend pull:addresses",
     "t:verify:aztec": "pnpm --filter @warp-toad/backend verify:aztec-scan",
     "t:verify:wiring": "pnpm --filter @warp-toad/backend verify:wiring",
