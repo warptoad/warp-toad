@@ -1,6 +1,6 @@
 /**
  * USDcoin Contract ABI
- * Auto-generated from backend typechain types
+ * Auto-generated from backend Hardhat artifacts
  * DO NOT EDIT MANUALLY
  */
 

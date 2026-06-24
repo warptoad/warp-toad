@@ -1,8 +1,8 @@
 {
-  "TestToken#USDcoin": "0x948b3c65b89df0b4894abe91e6d02fe579834f8f",
-  "L1WarpToadModule#L1WarpToad": "0x59f2f1fcfe2474fd5f0b9ba1e73ca90b143eb8d0",
-  "L1WarpToadModule#WithdrawVerifier": "0xbcf26943c0197d2ee0e5d05c716be60cc2761508",
-  "L1InfraModule#GigaBridge": "0x1275d096b9dbf2347bd2a131fb6bdab0b4882487",
-  "L1InfraModule#L1WarpToad": "0x59f2f1fcfe2474fd5f0b9ba1e73ca90b143eb8d0",
-  "L1InfraModule#L1AztecBridgeAdapter": "0xc6ba8c3233ecf65b761049ef63466945c362edd2"
+  "TestToken#USDcoin": "0x1e2f4432bfef9e9ad39da6d272f4aff33629c770",
+  "L1WarpToadModule#L1WarpToad": "0x677df0cb865368207999f2862ece576dc56d8df6",
+  "L1WarpToadModule#WithdrawVerifier": "0xed17543171c1459714cdc6519b58ffcc29a3c3c9",
+  "L1InfraModule#GigaBridge": "0xcec91d876e8f003110d43381359b1bad124e7f2b",
+  "L1InfraModule#L1WarpToad": "0x677df0cb865368207999f2862ece576dc56d8df6",
+  "L1InfraModule#L1AztecBridgeAdapter": "0x0cf17d5dcda9cf25889cec9ae5610b0fb9725f65"
 }

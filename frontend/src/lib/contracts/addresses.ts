@@ -3,7 +3,7 @@
  * Auto-generated from Ignition deployments
  * DO NOT EDIT MANUALLY
  * 
- * Generated: 2026-05-19T15:32:50.954Z
+ * Generated: 2026-06-24T07:03:42.136Z
  * Run 'npm run pull:addresses' to update
  */
 
@@ -27,10 +27,10 @@ export interface ChainConfig {
 export const CONTRACT_ADDRESSES: Record<string, ContractAddresses> = {
   "31337": {
     "deploymentBlock": 46,
-    "USDcoin": "0x948b3c65b89df0b4894abe91e6d02fe579834f8f",
-    "L1WarpToad": "0x59f2f1fcfe2474fd5f0b9ba1e73ca90b143eb8d0",
-    "GigaBridge": "0x1275d096b9dbf2347bd2a131fb6bdab0b4882487",
-    "L1AztecBridgeAdapter": "0xc6ba8c3233ecf65b761049ef63466945c362edd2"
+    "USDcoin": "0x1e2f4432bfef9e9ad39da6d272f4aff33629c770",
+    "L1WarpToad": "0x677df0cb865368207999f2862ece576dc56d8df6",
+    "GigaBridge": "0xcec91d876e8f003110d43381359b1bad124e7f2b",
+    "L1AztecBridgeAdapter": "0x0cf17d5dcda9cf25889cec9ae5610b0fb9725f65"
   },
   "534351": {
     "deploymentBlock": 18195213,

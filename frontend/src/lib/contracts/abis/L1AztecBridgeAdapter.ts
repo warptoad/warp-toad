@@ -1,6 +1,6 @@
 /**
  * L1AztecBridgeAdapter Contract ABI
- * Auto-generated from backend typechain types
+ * Auto-generated from backend Hardhat artifacts
  * DO NOT EDIT MANUALLY
  */
 
@@ -110,7 +110,12 @@ export const L1AztecBridgeAdapterAbi = [
       },
       {
         "internalType": "uint256",
-        "name": "_witnessL2BlockNumber",
+        "name": "_epoch",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "_numCheckpointsInEpoch",
         "type": "uint256"
       },
       {
