@@ -18,6 +18,64 @@ import type { AztecMerkleData, EvmMerkleData } from './aztec-interactions';
 import circuit from '$lib/circuits/withdraw.json';
 
 // =============================================================================
+// CRS CACHE GUARD
+// =============================================================================
+
+/**
+ * bb.js caches the uncompressed G1 CRS in the browser's IndexedDB (idb-keyval's
+ * default database 'keyval-store'). That cache is keyed by origin, so a CRS
+ * written by an older bb.js survives upgrades and frontend rebuilds. bb.js then
+ * reuses the cached buffer whenever `length >= numPoints * 64`, so an
+ * older-format entry (e.g. 128 bytes/point) is accepted and later rejected by
+ * the wasm with "SrsInitSrs: invalid points_buf size ... got 128", which breaks
+ * withdraw proof generation.
+ *
+ * Bump CRS_CACHE_VERSION whenever the bundled @aztec/bb.js (its CRS format)
+ * changes. On a mismatch we drop the cache once so bb.js re-downloads it fresh.
+ */
+const CRS_CACHE_VERSION = 'bb-5.0.0-rc.1';
+const CRS_CACHE_VERSION_KEY = 'warptoad:bbCrsCacheVersion';
+const BB_CRS_IDB_NAME = 'keyval-store';
+
+let crsCacheChecked = false;
+
+function deleteIndexedDb(name: string): Promise<boolean> {
+	return new Promise((resolve) => {
+		try {
+			const req = indexedDB.deleteDatabase(name);
+			req.onsuccess = () => resolve(true);
+			req.onerror = () => resolve(false);
+			// Blocked = another connection still holds the DB. We run this before
+			// bb.js opens it, so this is unexpected; resolve rather than hang.
+			req.onblocked = () => resolve(false);
+		} catch {
+			resolve(false);
+		}
+	});
+}
+
+/**
+ * Drop bb.js's cached CRS once if it was written by a different bb.js version.
+ * No-op after the first run for a given CRS_CACHE_VERSION, and a no-op outside
+ * the browser. Must run before the first `Barretenberg.new`.
+ */
+async function ensureCrsCacheVersion(): Promise<void> {
+	if (crsCacheChecked) return;
+	crsCacheChecked = true; // run at most once per page load
+	if (typeof window === 'undefined' || typeof indexedDB === 'undefined') return;
+	try {
+		if (window.localStorage?.getItem(CRS_CACHE_VERSION_KEY) === CRS_CACHE_VERSION) return;
+		const cleared = await deleteIndexedDb(BB_CRS_IDB_NAME);
+		if (cleared) {
+			window.localStorage?.setItem(CRS_CACHE_VERSION_KEY, CRS_CACHE_VERSION);
+			console.log(`[ProofGen] Reset bb.js CRS cache for ${CRS_CACHE_VERSION}`);
+		}
+	} catch (err) {
+		console.warn('[ProofGen] CRS cache version check failed (continuing):', err);
+	}
+}
+
+// =============================================================================
 // TYPES
 // =============================================================================
 
@@ -469,6 +527,9 @@ export async function generateWithdrawProof(
 		? navigator.hardwareConcurrency || 4
 		: 4;
 	log(`Using ${threads} threads for proof generation`);
+
+	// Drop a stale CRS cache from an older bb.js before it can poison proving.
+	await ensureCrsCacheVersion();
 
 	const api = await Barretenberg.new({ threads });
 	const backend = new UltraHonkBackend(circuit.bytecode, api);
