@@ -142,7 +142,7 @@ async function main() {
 	const l1Addrs = JSON.parse(fs.readFileSync(l1AddressesPath, "utf8")) as Record<string, string>;
 	const aztecAddrs = JSON.parse(fs.readFileSync(aztecAddressesPath, "utf8")) as any;
 
-	const l1WarpToadAddress = l1Addrs["L1InfraModule#L1WarpToad"] as Address;
+	const l1WarpToadAddress = (l1Addrs["L1InfraModule#L1WarpToad"] || l1Addrs["L1WarpToadModule#L1WarpToad"]) as Address;
 	const gigaBridgeAddress = l1Addrs["L1InfraModule#GigaBridge"] as Address;
 	const l1AztecBridgeAdapterAddress = l1Addrs["L1InfraModule#L1AztecBridgeAdapter"] as Address;
 	if (!l1WarpToadAddress || !gigaBridgeAddress || !l1AztecBridgeAdapterAddress) {
