@@ -23,8 +23,8 @@ import fs from "fs/promises";
 import path from "path";
 
 import { ArgumentParser } from "argparse";
-import { AztecScanClient, fromContractInstance, type DeployerMetadata, type NetworkName } from "aztec-scan-sdk";
-import { getContractInstanceFromInstantiationParams } from "@aztec/aztec.js/contracts";
+import { AztecScanClient, fromContractInstance, callExplorerApi, generateVerifyInstanceUrl, type DeployerMetadata, type NetworkName } from "aztec-scan-sdk";
+import { getContractInstanceFromInstantiationParams, getContractClassFromArtifact } from "@aztec/aztec.js/contracts";
 import { AztecAddress } from "@aztec/aztec.js/addresses";
 import { Fr } from "@aztec/aztec.js/fields";
 import { loadContractArtifact, type NoirCompiledContract } from "@aztec/aztec.js/abi";
@@ -65,12 +65,38 @@ async function verifyContract(
         constructorArgs,
     });
 
-    const artifactRes = await client.verifyArtifact(contractClassId, instance.version, rawArtifact as any as Record<string, unknown>);
-    const instanceRes = await client.verifyInstance(
-        address,
-        { ...verifyInstanceArgs, artifactObj: rawArtifact as any as Record<string, unknown> },
-        deployerMetadata,
-    )
+    // AztecScan's POST /l2/contract-classes/{classId}/versions/{version} wants the
+    // contract CLASS version, not the instance version. Both were 1 under Aztec v4,
+    // but v5 bumped the instance version to 2 while the class version stayed 1
+    // (CONTRACT_CLASS_VERSION). Passing instance.version here 404'd on testnet, and
+    // the 404 came back with an empty JSON body so the SDK crashed on response.json().
+    const contractClass = await getContractClassFromArtifact(artifact);
+    const artifactRes = await client.verifyArtifact(contractClassId, contractClass.version, rawArtifact as any as Record<string, unknown>);
+    // client.verifyInstance() routes through generateVerifyInstancePayload(), which
+    // hardcodes a v4 publicKeysString length check (514). Aztec v5 public keys
+    // serialize to 450 chars, so that guard throws before anything is sent. The
+    // server accepts the v5 payload fine (verified via probe), so build the same
+    // body here and POST it through the SDK's own url builder + http helper,
+    // skipping only the stale client-side guard.
+    const instanceArtifact =
+        rawArtifact && typeof (rawArtifact as any).default === "object"
+            ? (rawArtifact as any).default
+            : rawArtifact;
+    const instanceRes = await callExplorerApi({
+        url: generateVerifyInstanceUrl(client.config, address),
+        method: "POST",
+        label: `verifyInstance(${address})`,
+        body: JSON.stringify({
+            verifiedDeploymentArguments: {
+                salt: verifyInstanceArgs.salt,
+                deployer: verifyInstanceArgs.deployer,
+                publicKeysString: verifyInstanceArgs.publicKeysString,
+                constructorArgs: verifyInstanceArgs.constructorArgs,
+                stringifiedArtifactJson: JSON.stringify(instanceArtifact),
+            },
+            deployerMetadata,
+        }),
+    })
 
 
     console.log(`
@@ -80,7 +106,7 @@ async function verifyContract(
 
         Address:            ${address}
         contractClassId:    ${contractClassId}
-        version:            ${instance.version}
+        version:            ${contractClass.version}
         `)
 
 
