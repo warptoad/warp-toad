@@ -59,7 +59,7 @@ function deleteIndexedDb(name: string): Promise<boolean> {
  * No-op after the first run for a given CRS_CACHE_VERSION, and a no-op outside
  * the browser. Must run before the first `Barretenberg.new`.
  */
-async function ensureCrsCacheVersion(): Promise<void> {
+export async function ensureCrsCacheVersion(): Promise<void> {
 	if (crsCacheChecked) return;
 	crsCacheChecked = true; // run at most once per page load
 	if (typeof window === 'undefined' || typeof indexedDB === 'undefined') return;

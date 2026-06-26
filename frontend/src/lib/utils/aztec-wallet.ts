@@ -29,6 +29,7 @@ import { getContractInstanceFromInstantiationParams } from '@aztec/aztec.js/cont
 import { SponsoredFPCContractArtifact } from '@aztec/noir-contracts.js/SponsoredFPC';
 import { SPONSORED_FPC_SALT } from '@aztec/constants';
 import { getAztecChain, isTestMode } from '$lib/config/chains.js';
+import { ensureCrsCacheVersion } from '$lib/utils/proof-generation.js';
 
 export type AztecAccountMode = 'sandbox-test' | 'custom';
 
@@ -188,6 +189,13 @@ export async function connectAztecBrowserWallet(
 
 	const nodeUrl = getAztecNodeUrl();
 	const sandbox = isTestMode;
+
+	// A CRS cached by an older bb.js on this origin (e.g. the pre-v5 site) is reused
+	// by the prover and then rejected with "SrsInitSrs: invalid points_buf size ...
+	// got 128", aborting the account-deploy ClientIVC proof below. Drop a stale
+	// cache before the PXE's prover touches it. Mirrors the withdraw-path guard;
+	// idempotent (runs at most once per page load).
+	await ensureCrsCacheVersion();
 
 	// 1. Build the embedded wallet (creates a lazy PXE under the hood).
 	report('pxe-init');
