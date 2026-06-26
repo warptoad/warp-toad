@@ -50,13 +50,16 @@ export function hasAnyRequirement(r: SyncRequirements): boolean {
  * dispatch never happen). Running the Aztec leg as its own cycle first lets its
  * fold+dispatch land on-chain before the slow Scroll leg runs. Each cycle still
  * dispatches the fresh gigaRoot to ALL adapters (executor step 4), so the other
- * L2 isn't left stale. Returns a single-element list when only one side (or
- * neither) is involved, preserving the original single-cycle behaviour.
+ * L2 isn't left stale. Only splits when a slow Scroll L2->L1 push coincides
+ * with Aztec work; everything else (including a dispatch-only Scroll leg, which
+ * is fast) stays a single cycle so the always-on keeper heartbeat doesn't pay
+ * double updateGigaRoot/sendGigaRoot gas every tick.
  */
 export function splitRequirements(r: SyncRequirements): SyncRequirements[] {
   const touchesAztec = r.needAztecL2ToL1 || r.dispatchToAztec;
-  const touchesScroll = r.needScrollL2ToL1 || r.dispatchToScroll;
-  if (!touchesAztec || !touchesScroll) return [r];
+  // Split only to isolate a SLOW Scroll L2->L1 push from Aztec work it would
+  // otherwise block. A Scroll-only dispatch needs no isolation.
+  if (!(r.needScrollL2ToL1 && touchesAztec)) return [r];
   return [
     { needAztecL2ToL1: r.needAztecL2ToL1, dispatchToAztec: r.dispatchToAztec, needScrollL2ToL1: false, dispatchToScroll: false },
     { needAztecL2ToL1: false, dispatchToAztec: false, needScrollL2ToL1: r.needScrollL2ToL1, dispatchToScroll: r.dispatchToScroll },
