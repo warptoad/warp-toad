@@ -402,6 +402,19 @@
 								</button>
 							</div>
 						{/if}
+						{#if walletStore.aztecUpgradeNotice}
+							<div class="rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2 text-[0.65rem] leading-snug text-muted-foreground">
+								Your previous Aztec wallet was reset for the v5 upgrade. Reconnect to
+								create a fresh one; the old testnet wallet isn't recoverable from this
+								build.
+								<button
+									onclick={() => walletStore.dismissAztecUpgradeNotice()}
+									class="cursor-pointer mt-1 block text-[0.65rem] font-medium text-amber-400 hover:underline"
+								>
+									Dismiss
+								</button>
+							</div>
+						{/if}
 						<button
 							onclick={handleConnectAztec}
 							disabled={walletStore.isConnectingAztec}

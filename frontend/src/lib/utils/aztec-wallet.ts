@@ -174,8 +174,25 @@ export function isAztecWalletAvailable(): boolean {
  *  4. For custom mode, ensure the account is deployed on chain (try-catch
  *     "Existing nullifier" so reconnects are idempotent).
  */
+/**
+ * Thrown by the auto-reconnect path when stored custom keys derive a different
+ * address than the previously-deployed wallet (an Aztec account-contract upgrade,
+ * e.g. v4 -> v5). The stale custom-key state has ALREADY been cleared by the time
+ * this is thrown, so callers should surface a friendly one-time notice rather than
+ * the loud manual guard.
+ */
+export class AztecUpgradeResetError extends Error {
+	constructor(
+		public readonly previousAddress: string,
+		public readonly newAddress: string,
+	) {
+		super('Aztec wallet reset for upgrade (auto-reconnect)');
+		this.name = 'AztecUpgradeResetError';
+	}
+}
+
 export async function connectAztecBrowserWallet(
-	options?: { onProgress?: AztecConnectProgress },
+	options?: { onProgress?: AztecConnectProgress; autoResetOnDrift?: boolean },
 ): Promise<{ wallet: Wallet; address: string }> {
 	const report = (stage: AztecConnectStage) =>
 		options?.onProgress?.(stage, STAGE_MESSAGES[stage]);
@@ -253,6 +270,14 @@ export async function connectAztecBrowserWallet(
 		// so warn loudly instead of pretending it's a fresh account.
 		const previousDeployedAddress = localStorage.getItem(CUSTOM_DEPLOYED_KEY);
 		if (previousDeployedAddress && previousDeployedAddress !== address) {
+			if (options?.autoResetOnDrift) {
+				// Page-load auto-reconnect: don't make returning users hand-resolve the
+				// v4->v5 address change. Clear the stale custom-key state so the next
+				// connect mints a fresh v5 wallet, and signal the caller to show a
+				// one-time notice instead of the loud manual guard below.
+				clearCustomSecrets();
+				throw new AztecUpgradeResetError(previousDeployedAddress, address);
+			}
 			throw new Error(
 				`Aztec wallet address drift detected. Stored keys now derive ${address}, ` +
 				`but a previously-deployed wallet at ${previousDeployedAddress} exists for ` +
@@ -327,7 +352,7 @@ export async function disconnectAztecWallet(): Promise<void> {
  * fresh account on every page load, which would be confusing).
  */
 export async function autoReconnect(
-	options?: { onProgress?: AztecConnectProgress },
+	options?: { onProgress?: AztecConnectProgress; onUpgradeReset?: () => void },
 ): Promise<{ wallet: Wallet; address: string } | null> {
 	if (typeof window === 'undefined') return null;
 
@@ -344,8 +369,16 @@ export async function autoReconnect(
 	}
 
 	try {
-		return await connectAztecBrowserWallet(options);
+		// autoResetOnDrift: on a v4->v5 address change, clear the stale wallet and
+		// surface a one-time notice instead of failing the reconnect. The loud guard
+		// stays on the user-clicked Connect path (connectAztec without this flag).
+		return await connectAztecBrowserWallet({ onProgress: options?.onProgress, autoResetOnDrift: true });
 	} catch (error) {
+		if (error instanceof AztecUpgradeResetError) {
+			console.info('Aztec wallet reset for the v5 upgrade (stale keys cleared)');
+			options?.onUpgradeReset?.();
+			return null;
+		}
 		console.debug('Aztec auto-reconnect failed:', error);
 		return null;
 	}

@@ -79,6 +79,7 @@ class WalletStore {
 	private _aztecConnectMessage = $state<string | null>(null);
 	private _error = $state<string | null>(null);
 	private _aztecError = $state<string | null>(null);
+	private _aztecUpgradeNotice = $state<boolean>(false);
 	private _balance = $state<bigint | null>(null);
 	private _aztecWallet: Wallet | null = null;
 	private cleanupAccountListener: (() => void) | null = null;
@@ -120,6 +121,15 @@ class WalletStore {
 
 	get aztecConnectMessage(): string | null {
 		return this._aztecConnectMessage;
+	}
+
+	/** True after page-load auto-reconnect cleared a pre-v5 Aztec wallet (address drift). */
+	get aztecUpgradeNotice(): boolean {
+		return this._aztecUpgradeNotice;
+	}
+
+	dismissAztecUpgradeNotice(): void {
+		this._aztecUpgradeNotice = false;
 	}
 
 	get error(): string | null {
@@ -228,6 +238,9 @@ class WalletStore {
 				onProgress: (stage, message) => {
 					this._aztecConnectStage = stage;
 					this._aztecConnectMessage = message;
+				},
+				onUpgradeReset: () => {
+					this._aztecUpgradeNotice = true;
 				},
 			});
 			if (result) {
