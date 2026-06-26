@@ -66,8 +66,10 @@
   --warp-purple-dark: var(--color-accent-hover);
   --warp-purple-muted: var(--color-accent);
 
-  --eye-yellow: #d97706;
-  --eye-yellow-glow: #f59e0b;
+  /* Warnings use the brand accent (violet), not amber. Orange/amber is reserved
+     for rare high-urgency alerts so it actually draws the eye when used. */
+  --eye-yellow: var(--color-accent);
+  --eye-yellow-glow: var(--color-accent-hover);
 
   --swamp-black: var(--background);
   --swamp-deep: var(--background);
