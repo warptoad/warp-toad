@@ -23,7 +23,7 @@
 	import { uiStore } from "$lib/stores/ui.svelte.js";
 	import { themeStore } from "$lib/stores/theme.svelte.js";
 	import { isTestMode } from "$lib/config/chains.js";
-	import { Menu, Wallet, Sun, Moon, Monitor, Github, ExternalLink, Mail } from "@lucide/svelte";
+	import { Menu, Wallet, Sun, Moon, Monitor, Github, ExternalLink, Mail, Megaphone } from "@lucide/svelte";
 	import warptoadLogo from "$lib/../assets/warptoad-logo.svg";
 
 	let walletDialogOpen = $state(false);
@@ -104,6 +104,18 @@
 						</svg>
 						<span class="invisible opacity-0 group-hover:visible group-hover:opacity-100 absolute top-full mt-2 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-md text-xs font-medium whitespace-nowrap bg-background/95 backdrop-blur-md border border-border shadow-md transition-opacity duration-150 z-50 pointer-events-none">
 							follow us on x
+						</span>
+					</a>
+					<a
+						href="https://blog.warptoad.org"
+						target="_blank"
+						rel="noopener noreferrer"
+						class="group relative cursor-pointer h-9 w-9 rounded-full bg-background/90 backdrop-blur-md border border-border hover:border-[color:var(--color-accent)] hover:text-[color:var(--color-accent)] transition-colors flex items-center justify-center"
+						aria-label="Blog"
+					>
+						<Megaphone class="size-4" />
+						<span class="invisible opacity-0 group-hover:visible group-hover:opacity-100 absolute top-full mt-2 left-1/2 -translate-x-1/2 px-2.5 py-1 rounded-md text-xs font-medium whitespace-nowrap bg-background/95 backdrop-blur-md border border-border shadow-md transition-opacity duration-150 z-50 pointer-events-none">
+							read our blog
 						</span>
 					</a>
 					<a
