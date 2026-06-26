@@ -23,7 +23,7 @@
 	import { uiStore } from "$lib/stores/ui.svelte.js";
 	import { themeStore } from "$lib/stores/theme.svelte.js";
 	import { isTestMode } from "$lib/config/chains.js";
-	import { Menu, Wallet, Sun, Moon, Monitor, Github, ExternalLink, Mail, Megaphone } from "@lucide/svelte";
+	import { Menu, Wallet, Sun, Moon, Monitor, Github, ExternalLink, Mail, Megaphone, TriangleAlert, X } from "@lucide/svelte";
 	import warptoadLogo from "$lib/../assets/warptoad-logo.svg";
 
 	let walletDialogOpen = $state(false);
@@ -32,6 +32,11 @@
 	function openWalletDialog() {
 		walletDialogOpen = true;
 		mobileMenuOpen = false;
+	}
+
+	function reconnectFromNotice() {
+		walletStore.dismissAztecUpgradeNotice();
+		openWalletDialog();
 	}
 
 	function themeLabel() {
@@ -49,6 +54,29 @@
 
 	<!-- Header: floating islands, no shared bar -->
 	<header class="fixed top-0 left-0 right-0 z-50">
+		{#if walletStore.aztecUpgradeNotice}
+			<div class="bg-[color:var(--color-accent)]/10 border-b border-[color:var(--color-accent)]/25 backdrop-blur-md">
+				<div class="container mx-auto max-w-[1200px] px-4 md:px-6 py-2.5 flex items-center gap-2 md:gap-3">
+					<TriangleAlert class="size-4 shrink-0 text-[color:var(--color-accent)]" />
+					<span class="flex-1 text-xs leading-snug text-foreground/90">
+						Aztec upgraded to v5. Your previous Aztec wallet was reset and can't be restored from this build.
+					</span>
+					<button
+						onclick={reconnectFromNotice}
+						class="cursor-pointer shrink-0 h-7 px-3 rounded-full text-xs font-medium border border-[color:var(--color-accent)] text-[color:var(--color-accent)] hover:bg-[color:var(--color-accent)]/10 transition-colors"
+					>
+						Reconnect
+					</button>
+					<button
+						onclick={() => walletStore.dismissAztecUpgradeNotice()}
+						aria-label="Dismiss notice"
+						class="cursor-pointer shrink-0 h-7 w-7 rounded-full flex items-center justify-center text-muted-foreground hover:text-foreground transition-colors"
+					>
+						<X class="size-4" />
+					</button>
+				</div>
+			</div>
+		{/if}
 		<div class="container mx-auto px-6 py-4 max-w-[1200px]">
 			<div class="flex items-center gap-2">
 				<!-- Logo island -->
@@ -301,7 +329,7 @@
 	</header>
 
 	<!-- Main Content -->
-	<main class="relative z-10 flex flex-col items-stretch md:items-center justify-center min-h-[100dvh] px-4 pt-24 pb-6 md:px-6 md:pt-20 md:pb-6">
+	<main class="relative z-10 flex flex-col items-stretch md:items-center justify-center min-h-[100dvh] px-4 pb-6 md:px-6 md:pb-6 {walletStore.aztecUpgradeNotice ? 'pt-36 md:pt-32' : 'pt-24 md:pt-20'}">
 		<Tabs bind:value={uiStore.activeTab} class="w-full max-w-2xl mx-auto flex flex-col flex-1 md:flex-none">
 			<div class="w-full rounded-xl border border-border bg-card overflow-hidden flex flex-col flex-1 md:flex-none">
 				<!-- Mobile: tab islands inside the card -->

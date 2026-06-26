@@ -240,6 +240,12 @@ class WalletStore {
 					this._aztecConnectMessage = message;
 				},
 				onUpgradeReset: () => {
+					// Fully clear the stale wallet so the UI reads as disconnected
+					// (the header dot + isAztecConnected key off _wallets.aztec, not the
+					// wallet object), then raise the one-time upgrade notice.
+					this._aztecWallet = null;
+					this._wallets.aztec = null;
+					saveWallets(this._wallets);
 					this._aztecUpgradeNotice = true;
 				},
 			});
