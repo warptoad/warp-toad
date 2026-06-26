@@ -8,32 +8,30 @@
  * 10k-block chunks was 70+ getLogs calls on every withdraw - routinely
  * tripping Infura's rate limit even on paid tier.
  *
- * This aggregator does the same work in a handful of contract reads:
- *   1. GigaBridge.gigaRoot()            — current root
- *   2. per-provider: getLocalRootProvidersIndex(addr)  — tree index
- *   3. per-provider: adapter.getLocalRootAndBlock()    — current leaf value
+ * IMPORTANT (fixed 2026-06-26): the leaf value MUST be the root that was
+ * actually FOLDED into the gigaRoot - i.e. the latest `ReceivedNewLocalRoot`
+ * event per index - NOT each provider's current `getLocalRootAndBlock()`. The
+ * adapter's current root runs ahead of the gigaRoot whenever a fresh L2->L1
+ * root has landed but `updateGigaRoot` hasn't folded it yet (every keeper sync
+ * window). Using `getLocalRootAndBlock()` made the snapshot self-inconsistent:
+ * its leaves could not reconstruct the gigaRoot it returned, so the frontend
+ * threw "Could not recreate the gigaRoot". We read the folded values from
+ * events here (bounded, cached) so clients still never scan logs themselves.
  *
- * The result is deterministic against the chain's current state, so we just
- * cache briefly (5 s) to coalesce concurrent withdraw-page loads without
- * stale-reading through a fresh updateGigaRoot tx.
+ * The result is deterministic against the chain's current state, so we cache
+ * briefly (5 s) to coalesce concurrent withdraw-page loads.
  */
-import { createPublicClient, http, type Address } from 'viem';
+import { createPublicClient, http, type Address, type AbiEvent } from 'viem';
 import { loadL1Contracts, loadL1AdapterByType } from './contractLoader.js';
 import { getChainConfig } from './chainMapper.js';
-
-const LOCAL_ROOT_PROVIDER_ABI = [
-	{ type: 'function', name: 'mostRecentL2Root', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
-	{ type: 'function', name: 'mostRecentL2RootBlockNumber', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
-	{ type: 'function', name: 'getLocalRootAndBlock', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }, { type: 'uint256' }] },
-] as const;
 
 export interface GigaLeaf {
 	provider: Address;
 	/** 0-based index into the giga tree's leaves. */
 	index: number;
-	/** The local root this provider last committed. */
+	/** The local root this provider last committed (the value FOLDED into gigaRoot). */
 	localRoot: string;
-	/** The L2 block number that root came from. For L1WarpToad this is an L1 block. */
+	/** The L2 block number that folded root came from. For L1WarpToad this is an L1 block. */
 	localRootBlockNumber: number;
 }
 
@@ -50,17 +48,67 @@ export interface GigaState {
 const CACHE_TTL_MS = 5_000;
 const cache = new Map<string, { state: GigaState; expiresAtMs: number }>();
 
-/** Per-chain: the set of provider addresses the frontend wants leaves for.
- * L1WarpToad is always index 0 per the deployment module ordering; aztec and
- * scroll adapters follow. The GigaBridge itself stores the provider→index
- * mapping, so we just probe each one. */
-function providersForChain(l1ChainId: bigint, addrs: {
-	l1WarpToadAddress: Address;
-	aztecAdapter: Address;
-	scrollAdapter: Address;
-}): Address[] {
-	// Order here is cosmetic; actual index comes from getLocalRootProvidersIndex.
-	return [addrs.l1WarpToadAddress, addrs.aztecAdapter, addrs.scrollAdapter];
+// getLogs chunk size (Infura caps eth_getLogs at 10k blocks per call).
+const CHUNK = 10_000n;
+// Block where each chain's GigaBridge was deployed, so the folded-leaf scan
+// starts at the first possible ReceivedNewLocalRoot instead of genesis. An
+// index that has never been folded legitimately has leaf value 0 (the
+// constructor's LazyIMT.insert(0)), so we must scan the full lifetime to be
+// sure - hence the explicit deploy block. Fallback below for unlisted chains.
+const GIGA_BRIDGE_DEPLOY_BLOCK: Record<string, bigint> = {
+	'11155111': 11130522n, // Sepolia, v5 redeploy
+};
+// For chains without a recorded deploy block, look back this far from head.
+const DEFAULT_LOOKBACK = 250_000n;
+
+let receivedEventCache: AbiEvent | undefined;
+function receivedEvent(abi: any[]): AbiEvent {
+	if (!receivedEventCache) {
+		const ev = abi.find((x: any) => x.type === 'event' && x.name === 'ReceivedNewLocalRoot');
+		if (!ev) throw new Error('ReceivedNewLocalRoot event not found in GigaBridge ABI');
+		receivedEventCache = ev as AbiEvent;
+	}
+	return receivedEventCache;
+}
+
+/**
+ * The leaf actually folded into gigaRoot for each index = the latest
+ * ReceivedNewLocalRoot(newLocalRoot, localRootIndex, localRootBlockNumber)
+ * event per index, up to `toBlock`. Returns index -> { root, blockNumber }.
+ */
+async function fetchFoldedLeaves(
+	client: ReturnType<typeof createPublicClient>,
+	gigaBridgeAddress: Address,
+	abi: any[],
+	fromBlock: bigint,
+	toBlock: bigint,
+): Promise<Map<number, { root: bigint; blockNumber: bigint }>> {
+	const ev = receivedEvent(abi);
+	// index -> { root, blockNumber (folded L2 block), evBlock, logIndex }
+	const latest = new Map<number, { root: bigint; blockNumber: bigint; evBlock: bigint; logIndex: number }>();
+	for (let start = fromBlock; start <= toBlock; start += CHUNK) {
+		let end = start + CHUNK - 1n;
+		if (end > toBlock) end = toBlock;
+		const logs = await client.getLogs({ address: gigaBridgeAddress, event: ev, fromBlock: start, toBlock: end });
+		for (const log of logs as any[]) {
+			const idx = Number(log.args.localRootIndex);
+			const cand = {
+				root: log.args.newLocalRoot as bigint,
+				blockNumber: log.args.localRootBlockNumber as bigint,
+				evBlock: log.blockNumber as bigint,
+				logIndex: Number(log.logIndex),
+			};
+			const cur = latest.get(idx);
+			// Forward scan, so a later block (or higher logIndex in the same block)
+			// is the more recent fold and wins.
+			if (!cur || cand.evBlock > cur.evBlock || (cand.evBlock === cur.evBlock && cand.logIndex > cur.logIndex)) {
+				latest.set(idx, cand);
+			}
+		}
+	}
+	const out = new Map<number, { root: bigint; blockNumber: bigint }>();
+	for (const [idx, v] of latest) out.set(idx, { root: v.root, blockNumber: v.blockNumber });
+	return out;
 }
 
 export async function fetchGigaState(l1ChainIdStr: string): Promise<GigaState> {
@@ -80,37 +128,36 @@ export async function fetchGigaState(l1ChainIdStr: string): Promise<GigaState> {
 	const providers = [l1WarpToadAddress, aztec.address];
 	if (scroll) providers.push(scroll.address);
 
-	// Collapse the contract reads into a single Promise.all; viem will
-	// pipeline them to the upstream RPC. Pre-allocates leaves[] at the tree
-	// index the GigaBridge assigns each provider.
-	const [gigaRoot, amountOfLocalRootsRaw, ...perProvider] = await Promise.all([
-		gigaBridge.read.gigaRoot() as Promise<bigint>,
+	// Pin the gigaRoot read and the folded-leaf scan to the SAME head block, so a
+	// concurrent updateGigaRoot can't make the returned root and leaves disagree.
+	const head = await publicClient.getBlockNumber();
+
+	const [gigaRoot, amountOfLocalRootsRaw, ...providerIndexes] = await Promise.all([
+		publicClient.readContract({
+			address: gigaBridgeAddress,
+			abi: gigaBridge.abi,
+			functionName: 'gigaRoot',
+			blockNumber: head,
+		}) as Promise<bigint>,
 		gigaBridge.read.amountOfLocalRoots() as Promise<bigint>,
-		...providers.flatMap((addr) => [
-			gigaBridge.read.getLocalRootProvidersIndex([addr]) as Promise<number>,
-			// Each provider exposes getLocalRootAndBlock; L1WarpToad and the
-			// adapters all implement it per the ILocalRootProvider interface.
-			// It reverts before the first L2→L1 root lands, so tolerate that
-			// and emit zeros instead of failing the whole snapshot.
-			publicClient.readContract({
-				address: addr,
-				abi: LOCAL_ROOT_PROVIDER_ABI,
-				functionName: 'getLocalRootAndBlock',
-			}).catch(() => [0n, 0n] as readonly [bigint, bigint]),
-		]),
+		...providers.map((addr) => gigaBridge.read.getLocalRootProvidersIndex([addr]) as Promise<number>),
 	]);
 
 	const amountOfLocalRoots = Number(amountOfLocalRootsRaw);
+	const fromBlock = GIGA_BRIDGE_DEPLOY_BLOCK[l1ChainIdStr] ?? (head > DEFAULT_LOOKBACK ? head - DEFAULT_LOOKBACK : 0n);
+	const folded = await fetchFoldedLeaves(publicClient, gigaBridgeAddress, gigaBridge.abi, fromBlock, head);
+
 	const leaves: GigaLeaf[] = [];
 	for (let i = 0; i < providers.length; i++) {
 		const providerAddr = providers[i];
-		const idx = Number(perProvider[i * 2]);
-		const [localRoot, localRootBlockNumber] = perProvider[i * 2 + 1] as readonly [bigint, bigint];
+		const idx = Number(providerIndexes[i]);
+		const f = folded.get(idx);
 		leaves[idx] = {
 			provider: providerAddr,
 			index: idx,
-			localRoot: localRoot.toString(),
-			localRootBlockNumber: Number(localRootBlockNumber),
+			// No event for this index => never folded => leaf is the constructor's 0.
+			localRoot: (f?.root ?? 0n).toString(),
+			localRootBlockNumber: Number(f?.blockNumber ?? 0n),
 		};
 	}
 

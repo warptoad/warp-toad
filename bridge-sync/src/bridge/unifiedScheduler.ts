@@ -43,6 +43,7 @@ import { runSyncCycle, type FullSyncResult } from './executor.js';
 import { computeStaleLegs, buildStaleLegInputs } from './staleLegs.js';
 import {
 	hasAnyRequirement,
+	splitRequirements,
 	type SyncRequirements,
 } from './syncRequirements.js';
 import type { ChainId } from '../types/index.js';
@@ -289,18 +290,32 @@ async function tick() {
 		console.log(
 			`[scheduler] tick: running cycle (waiters=${tickWaiters.length}) flags=${JSON.stringify(flags)}`,
 		);
+		// Split combined Aztec+Scroll work into independent cycles (Aztec leg
+		// first) so a stuck Scroll L2->L1 finalization can't block the Aztec
+		// fold+dispatch. Each cycle still dispatches the gigaRoot to all adapters,
+		// so neither L2 is left stale.
+		const cycles = splitRequirements(flags);
+		if (cycles.length > 1) {
+			console.log(`[scheduler] split into ${cycles.length} cycles (Aztec leg first) so a slow Scroll leg can't block the Aztec fold`);
+		}
 		let result: FullSyncResult | null = null;
 		let finalErr: any = null;
-		let attempt = 0;
-		while (attempt < 2) {
-			attempt += 1;
-			try {
-				result = await runSyncCycle(state.config.privateKey, state.config.confirmations, flags);
+		for (const cycleFlags of cycles) {
+			let cycleResult: FullSyncResult | null = null;
+			let attempt = 0;
+			while (attempt < 2) {
+				attempt += 1;
+				try {
+					cycleResult = await runSyncCycle(state.config.privateKey, state.config.confirmations, cycleFlags);
+					break;
+				} catch (e) {
+					finalErr = e;
+					console.error(`[scheduler] cycle ${JSON.stringify(cycleFlags)} attempt ${attempt} failed:`, e);
+				}
+			}
+			if (cycleResult) {
+				result = cycleResult;
 				finalErr = null;
-				break;
-			} catch (e) {
-				finalErr = e;
-				console.error(`[scheduler] tick attempt ${attempt} failed:`, e);
 			}
 		}
 

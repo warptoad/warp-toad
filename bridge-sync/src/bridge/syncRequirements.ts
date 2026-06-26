@@ -41,6 +41,29 @@ export function hasAnyRequirement(r: SyncRequirements): boolean {
 }
 
 /**
+ * Split combined requirements into independent per-L2 cycles, Aztec leg FIRST.
+ *
+ * runSyncCycle does its single updateGigaRoot fold only AFTER both the Aztec
+ * (step 1) and Scroll (step 2) L2->L1 pushes. Scroll finalization can take up
+ * to 3h, so a stuck Scroll leg blocks the Aztec root from ever being folded
+ * into gigaRoot - which strands Aztec->L1 withdraws (the fold + L1->Aztec
+ * dispatch never happen). Running the Aztec leg as its own cycle first lets its
+ * fold+dispatch land on-chain before the slow Scroll leg runs. Each cycle still
+ * dispatches the fresh gigaRoot to ALL adapters (executor step 4), so the other
+ * L2 isn't left stale. Returns a single-element list when only one side (or
+ * neither) is involved, preserving the original single-cycle behaviour.
+ */
+export function splitRequirements(r: SyncRequirements): SyncRequirements[] {
+  const touchesAztec = r.needAztecL2ToL1 || r.dispatchToAztec;
+  const touchesScroll = r.needScrollL2ToL1 || r.dispatchToScroll;
+  if (!touchesAztec || !touchesScroll) return [r];
+  return [
+    { needAztecL2ToL1: r.needAztecL2ToL1, dispatchToAztec: r.dispatchToAztec, needScrollL2ToL1: false, dispatchToScroll: false },
+    { needAztecL2ToL1: false, dispatchToAztec: false, needScrollL2ToL1: r.needScrollL2ToL1, dispatchToScroll: r.dispatchToScroll },
+  ];
+}
+
+/**
  * Map an HTTP route (from → to) to its minimal sync requirements.
  *
  *   from=aztec   : local root must be pushed to L1.
