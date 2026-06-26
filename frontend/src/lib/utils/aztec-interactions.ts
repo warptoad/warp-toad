@@ -22,7 +22,7 @@ import { getContractAddresses, CONTRACT_ADDRESSES } from '$lib/contracts/address
 import { GigaBridgeAbi, L1WarpToadAbi, L2WarpToadAbi } from '$lib/contracts/abis';
 import { queryEventInChunks } from './viem-chunks';
 import { rpcSettings } from '$lib/stores/rpc-settings.svelte';
-import { fetchGigaStateFromKeeper, tryGetGigaLeavesForRoot, BridgeSyncStaleError, fetchBurnLeavesFromKeeper, isBridgeIndexerEnabled } from './bridge-keeper';
+import { tryGetGigaLeavesForRoot, BridgeSyncStaleError, fetchBurnLeavesFromKeeper, isBridgeIndexerEnabled } from './bridge-keeper';
 import { poseidon1, poseidon2, poseidon3 } from 'poseidon-lite';
 import { MerkleTree, type Element } from 'fixed-merkle-tree';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
@@ -2217,18 +2217,20 @@ async function buildGigaMerkleProofForAztec(
 	//   (b) user opted into their own RPC — scan events client-side against
 	//       their endpoint. We don't know their URL to relay for them, and
 	//       they explicitly opted in, so they eat the cost.
-	const usingCustomRpc = rpcSettings.isUsingCustom(chainId);
+	// Prefer the keeper's folded-leaf snapshot, but only when its gigaRoot matches
+	// the one we're proving against (tryGetGigaLeavesForRoot guards that). Falls
+	// back to a client-side event scan for custom-RPC users, a keeper on a
+	// different root (mid-sync drift / historical), or a keeper outage.
+	const cached = await tryGetGigaLeavesForRoot(chainId, expectedGigaRoot);
 	let sortedLeaves: bigint[];
 	let amountOfLocalRoots: number;
-	if (!usingCustomRpc) {
-		const state = await fetchGigaStateFromKeeper(String(chainId));
-		amountOfLocalRoots = state.amountOfLocalRoots;
+	if (cached) {
+		amountOfLocalRoots = cached.amountOfLocalRoots;
 		sortedLeaves = [];
 		for (let i = 0; i < amountOfLocalRoots; i++) {
-			const leaf = state.leaves.find((l) => l.index === i);
-			sortedLeaves[i] = leaf ? BigInt(leaf.localRoot) : 0n;
+			sortedLeaves[i] = cached.leaves.get(i)?.localRoot ?? 0n;
 		}
-		console.log('Amount of local roots in GigaBridge:', amountOfLocalRoots, '(via keeper)');
+		console.log('Amount of local roots in GigaBridge:', amountOfLocalRoots, '(via keeper, folded)');
 	} else {
 		// Opted-in client-side scan path. Kept for parity with the server
 		// aggregator so custom-RPC users aren't locked out of withdrawing.
@@ -2351,16 +2353,10 @@ export async function getMerkleDataForAztecToL1(
 	// Create public client for L1
 	const publicClient = createEvmClient(destinationChainId);
 
-	// Step 1: Get Aztec's local root + L2 block directly from the L1AztecBridgeAdapter
-	// (mostRecentL2Root / mostRecentL2RootBlockNumber). This is the canonical source
-	// of truth - parsing ConstructedNewGigaRoot events is brittle when the same
-	// gigaRoot value recurs across runs.
-	//
-	// getLocalRootAndBlock() reverts with a cryptic "refreshRoot must be called"
-	// message whenever the Aztec L2→L1 sync hasn't landed yet, so we pre-check
-	// mostRecentL2Root and surface an actionable message. The Aztec leg takes
-	// 30-90 min on testnet (prover lag + outbox settle) and users hitting this
-	// usually just need to wait, not chase a bug.
+	// Pre-check: the adapter must have received at least one L2->L1 root, else
+	// getLocalRootAndBlock() reverts with a cryptic "refreshRoot must be called".
+	// The Aztec leg takes 30-90 min on testnet (prover lag + outbox settle) and
+	// users hitting this usually just need to wait, not chase a bug.
 	const mostRecentL2Root = await publicClient.readContract({
 		address: addresses.L1AztecBridgeAdapter as `0x${string}`,
 		abi: [{
@@ -2373,19 +2369,7 @@ export async function getMerkleDataForAztecToL1(
 		throw new Error('Aztec root not yet synced to L1. Try again in 30-90 min.');
 	}
 
-	const [adapterLocalRoot, adapterLocalRootBlock] = await publicClient.readContract({
-		address: addresses.L1AztecBridgeAdapter as `0x${string}`,
-		abi: [{
-			type: 'function', name: 'getLocalRootAndBlock', stateMutability: 'view',
-			inputs: [], outputs: [{ type: 'uint256' }, { type: 'uint256' }],
-		}],
-		functionName: 'getLocalRootAndBlock',
-	}) as [bigint, bigint];
-	const aztecLocalRoot = adapterLocalRoot;
-	const aztecLocalRootBlockNumber = Number(adapterLocalRootBlock);
-
-	// We still need the index of L1AztecBridgeAdapter in GigaBridge's localRootProviders,
-	// and the L1 block where the matching gigaRoot was constructed (for the giga proof).
+	// Index of L1AztecBridgeAdapter in GigaBridge's localRootProviders.
 	const localRootIndexRaw = await publicClient.readContract({
 		address: addresses.GigaBridge as `0x${string}`,
 		abi: GigaBridgeAbi,
@@ -2394,11 +2378,44 @@ export async function getMerkleDataForAztecToL1(
 	});
 	const aztecLocalRootIndex = Number(localRootIndexRaw);
 
-	const gigaRootEvents = await getGigaRootEvents(publicClient, addresses.GigaBridge, destinationChainId, gigaRoot);
-	if (gigaRootEvents.length === 0) {
-		throw new Error(`GigaRoot ${gigaRoot} not found in L1 events.`);
+	// The Aztec root we prove against MUST be the one FOLDED into `gigaRoot`, not
+	// the adapter's current getLocalRootAndBlock(): that runs ahead of the fold
+	// during keeper sync (a fresh L2->L1 root has landed but updateGigaRoot hasn't
+	// folded it yet), so proving against it would target a root not in the
+	// gigaRoot and fail. Take the folded value from the keeper's snapshot when it
+	// matches `gigaRoot` (tryGetGigaLeavesForRoot guards that), and fall back to
+	// the adapter read for custom-RPC users / keeper outages.
+	const cachedLeaves = await tryGetGigaLeavesForRoot(destinationChainId, gigaRoot);
+	const foldedAztec = cachedLeaves?.leaves.get(aztecLocalRootIndex);
+	let aztecLocalRoot: bigint;
+	let aztecLocalRootBlockNumber: number;
+	if (foldedAztec) {
+		aztecLocalRoot = foldedAztec.localRoot;
+		aztecLocalRootBlockNumber = foldedAztec.localRootBlockNumber;
+	} else {
+		const [adapterLocalRoot, adapterLocalRootBlock] = await publicClient.readContract({
+			address: addresses.L1AztecBridgeAdapter as `0x${string}`,
+			abi: [{
+				type: 'function', name: 'getLocalRootAndBlock', stateMutability: 'view',
+				inputs: [], outputs: [{ type: 'uint256' }, { type: 'uint256' }],
+			}],
+			functionName: 'getLocalRootAndBlock',
+		}) as [bigint, bigint];
+		aztecLocalRoot = adapterLocalRoot;
+		aztecLocalRootBlockNumber = Number(adapterLocalRootBlock);
 	}
-	const gigaRootBlockNumber = Number(gigaRootEvents[gigaRootEvents.length - 1].blockNumber);
+
+	// L1 block where the matching gigaRoot was constructed - only needed for the
+	// client-side event-scan fallback inside buildGigaMerkleProofForAztec. On the
+	// snapshot path we skip it so the happy path stays getLogs-free.
+	let gigaRootBlockNumber = 0;
+	if (!cachedLeaves) {
+		const gigaRootEvents = await getGigaRootEvents(publicClient, addresses.GigaBridge, destinationChainId, gigaRoot);
+		if (gigaRootEvents.length === 0) {
+			throw new Error(`GigaRoot ${gigaRoot} not found in L1 events.`);
+		}
+		gigaRootBlockNumber = Number(gigaRootEvents[gigaRootEvents.length - 1].blockNumber);
+	}
 
 	console.log('Aztec local root:', aztecLocalRoot.toString().slice(0, 20) + '...');
 	console.log('Aztec local root block number:', aztecLocalRootBlockNumber);
