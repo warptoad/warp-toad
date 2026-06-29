@@ -219,10 +219,11 @@ class ProofStore {
 		return proof;
 	}
 
-	markProofAsUsed(proofId: string) {
+	markProofAsUsed(proofId: string, mintTxHash?: string) {
 		const proof = this._proofs.find(p => p.id === proofId);
 		if (proof) {
 			proof.used = true;
+			if (mintTxHash) proof.mintTxHash = mintTxHash;
 			saveProofs(this._proofs);
 		}
 	}

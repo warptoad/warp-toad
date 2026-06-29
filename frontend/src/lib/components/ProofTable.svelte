@@ -13,6 +13,7 @@
 	import { Trash2, Download } from "@lucide/svelte";
 	import { proofStore } from "$lib/stores/proofs.svelte.js";
 	import type { Proof } from "$lib/types/bridge.js";
+	import ExplorerLink from "./ExplorerLink.svelte";
 
 	import { tick, type Snippet } from "svelte";
 	import { slide } from "svelte/transition";
@@ -270,6 +271,7 @@
 					<TableHead>Route</TableHead>
 					<TableHead>Date</TableHead>
 					<TableHead>Status</TableHead>
+					<TableHead>Tx</TableHead>
 				</TableRow>
 			</TableHeader>
 			<TableBody>
@@ -314,10 +316,17 @@
 								<Badge variant="default">Ready</Badge>
 							{/if}
 						</TableCell>
+						<TableCell class="text-xs whitespace-nowrap">
+							{#if proof.used && proof.mintTxHash}
+								<ExplorerLink chain={proof.targetChain} txHash={proof.mintTxHash} iconOnly label={`Withdraw tx on ${proof.targetChain}`} />
+							{:else}
+								<span class="opacity-40">-</span>
+							{/if}
+						</TableCell>
 					</TableRow>
 					{#if proof.id === selectedId && details}
 						<TableRow class="proof-row-details">
-							<TableCell colspan={7} class="!p-0 overflow-hidden">
+							<TableCell colspan={8} class="!p-0 overflow-hidden">
 								<div
 									transition:slide={{ duration: 220, easing: cubicOut }}
 									class="p-4 bg-[var(--swamp-deep)] border-t border-[rgba(130,226,102,0.2)] whitespace-normal space-y-3"

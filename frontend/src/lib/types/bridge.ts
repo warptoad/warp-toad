@@ -127,7 +127,11 @@ export interface Proof {
 	commitmentData?: CommitmentPreImage;
 	preCommitment?: string;
 	commitment?: string;
+	/** Source-chain tx hash of the deposit/burn that created this note. */
 	burnTxHash?: string;
+	/** Dest-chain tx hash of the mint/withdraw that consumed this note. Set when
+	 * the proof is marked used, so the history can deep-link to the withdraw tx. */
+	mintTxHash?: string;
 	/** Bridge-sync tracking (post-burn). Null/undefined when no sync was
 	 * triggered yet, or when one completed and was cleared. */
 	bridgeSync?: ProofBridgeSync | null;
