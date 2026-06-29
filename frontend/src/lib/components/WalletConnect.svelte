@@ -13,6 +13,8 @@
 		AlertCircle,
 		CheckCircle2,
 		Zap,
+		Download,
+		Upload,
 	} from "@lucide/svelte";
 	import { walletStore } from "$lib/stores/wallets.svelte.js";
 	import { balanceStore } from "$lib/stores/balances.svelte.js";
@@ -206,6 +208,77 @@
 
 	async function handleResetCustomAccount() {
 		await walletStore.resetCustomAztecAccount();
+	}
+
+	// In-browser Aztec wallet backup / restore.
+	let aztecBackupError = $state<string | null>(null);
+	let aztecBackupSuccess = $state<string | null>(null);
+	let restoreInput = $state<HTMLInputElement | null>(null);
+
+	function handleExportAztecWallet() {
+		aztecBackupError = null;
+		aztecBackupSuccess = null;
+		const backup = walletStore.getAztecWalletBackup();
+		if (!backup) {
+			aztecBackupError =
+				"No wallet to export yet. Connect once to create one, then export.";
+			return;
+		}
+		// Human-readable header + the machine-parseable JSON. Restore tolerates the
+		// surrounding text (it extracts the JSON object), so the file stays readable.
+		const fileBody = [
+			"warptoad Aztec testnet wallet backup",
+			"",
+			"WARNING: this is an in-browser TESTNET wallet. Anyone with these keys",
+			"controls it, so keep this file private. Testnet funds have no real value.",
+			"Restore via: warptoad -> Wallets -> Aztec -> Restore from file.",
+			"",
+			JSON.stringify(backup, null, 2),
+			"",
+		].join("\n");
+		const blob = new Blob([fileBody], { type: "text/plain" });
+		const url = URL.createObjectURL(blob);
+		const tag = backup.address ? backup.address.slice(2, 10) : "wallet";
+		const a = document.createElement("a");
+		a.href = url;
+		a.download = `warptoad-aztec-backup-${tag}.txt`;
+		document.body.appendChild(a);
+		a.click();
+		a.remove();
+		URL.revokeObjectURL(url);
+		aztecBackupSuccess = "Backup downloaded. Store it somewhere safe.";
+	}
+
+	function parseWalletBackup(text: string): unknown {
+		try {
+			return JSON.parse(text);
+		} catch {
+			// File may carry the human-readable header above the JSON; pull the object out.
+			const start = text.indexOf("{");
+			const end = text.lastIndexOf("}");
+			if (start !== -1 && end > start) {
+				return JSON.parse(text.slice(start, end + 1));
+			}
+			throw new Error("Could not find wallet data in the file.");
+		}
+	}
+
+	async function handleRestoreAztecWallet(event: Event) {
+		aztecBackupError = null;
+		aztecBackupSuccess = null;
+		const input = event.target as HTMLInputElement;
+		const file = input.files?.[0];
+		if (!file) return;
+		try {
+			const backup = parseWalletBackup(await file.text());
+			await walletStore.restoreCustomAztecAccount(backup);
+			aztecBackupSuccess = "Wallet restored. Click Connect to use it.";
+		} catch (e) {
+			aztecBackupError = e instanceof Error ? e.message : "Restore failed.";
+		} finally {
+			// Reset so re-selecting the same file fires `change` again.
+			input.value = "";
+		}
 	}
 
 	async function handleDisconnectAztec() {
@@ -441,6 +514,51 @@
 							>
 								Reset custom key
 							</button>
+						{/if}
+					</div>
+				{/if}
+
+				<!-- In-browser wallet backup / restore (custom mode only) -->
+				{#if walletStore.aztecAccountMode === 'custom'}
+					<div class="pt-2 mt-1 border-t border-[rgba(255,255,255,0.05)] space-y-2">
+						<p class="text-[0.6rem] text-[var(--muted-foreground)] leading-snug">
+							This is an in-browser <span style="color: var(--color-accent)">testnet</span> wallet.
+							Its keys live only in this browser, so clearing site data, switching
+							devices, or app updates can lose access. Export a backup to be safe.
+							Testnet funds have no real value.
+						</p>
+						{#if walletStore.isAztecConnected}
+							<!-- Connected: the active wallet exists, so it can be backed up. -->
+							<button
+								onclick={handleExportAztecWallet}
+								class="cursor-pointer w-full h-9 rounded-full text-xs font-medium bg-background/90 backdrop-blur-md border border-border text-muted-foreground hover:border-[color:var(--color-accent)] hover:text-[color:var(--color-accent)] transition-colors flex items-center justify-center gap-1.5"
+							>
+								<Download class="size-3" />
+								Export wallet
+							</button>
+						{:else}
+							<!-- Disconnected: restore a wallet from a previously-exported file. -->
+							<button
+								onclick={() => restoreInput?.click()}
+								disabled={walletStore.isConnectingAztec}
+								class="cursor-pointer w-full h-9 rounded-full text-xs font-medium bg-background/90 backdrop-blur-md border border-border text-muted-foreground hover:border-[color:var(--color-accent)] hover:text-[color:var(--color-accent)] transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+							>
+								<Upload class="size-3" />
+								Restore from file
+							</button>
+							<input
+								bind:this={restoreInput}
+								type="file"
+								accept=".txt,.json,application/json,text/plain"
+								onchange={handleRestoreAztecWallet}
+								class="hidden"
+							/>
+						{/if}
+						{#if aztecBackupError}
+							<p class="text-[0.6rem] text-red-400 leading-snug">{aztecBackupError}</p>
+						{/if}
+						{#if aztecBackupSuccess}
+							<p class="text-[0.6rem] leading-snug" style="color: var(--toad-green)">{aztecBackupSuccess}</p>
 						{/if}
 					</div>
 				{/if}

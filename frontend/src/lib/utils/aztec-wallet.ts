@@ -140,6 +140,80 @@ export function clearCustomSecrets(): void {
 	localStorage.removeItem(CUSTOM_DEPLOYED_KEY);
 }
 
+/**
+ * Serializable backup of a custom in-browser Aztec wallet. The three keys are
+ * everything needed to re-derive the account on any device/browser; `address` is
+ * informational (lets a restore label which wallet it is without re-deriving).
+ */
+export interface AztecWalletBackup {
+	type: 'warptoad-aztec-wallet-backup';
+	version: 1;
+	address?: string;
+	secret: string;
+	salt: string;
+	signingKey: string;
+}
+
+/**
+ * Read the persisted custom secrets for backup. Returns null if no complete custom
+ * key set exists in this browser (e.g. sandbox-test mode, or never connected).
+ */
+export function exportCustomSecrets(): AztecWalletBackup | null {
+	if (typeof window === 'undefined') return null;
+	const secret = localStorage.getItem(CUSTOM_SECRET_KEY);
+	const salt = localStorage.getItem(CUSTOM_SALT_KEY);
+	const signingKey = localStorage.getItem(CUSTOM_SIGNING_KEY);
+	if (!secret || !salt || !signingKey) return null;
+	return {
+		type: 'warptoad-aztec-wallet-backup',
+		version: 1,
+		address: localStorage.getItem(CUSTOM_DEPLOYED_KEY) ?? undefined,
+		secret,
+		salt,
+		signingKey,
+	};
+}
+
+/**
+ * Restore custom secrets from a parsed backup object (the JSON contents of an
+ * exported file). Each field is parsed into its Aztec type first, so a malformed
+ * file fails loudly here instead of bricking the next connect. Switches the account
+ * mode to `custom` so the restored keys are actually used, and drops the stale
+ * "already deployed" marker so connect re-checks on-chain state (the connect path's
+ * Existing-nullifier catch makes a redundant redeploy attempt idempotent).
+ */
+export function importCustomSecrets(backup: unknown): void {
+	if (typeof window === 'undefined') {
+		throw new Error('Wallet restore is only available in the browser.');
+	}
+	if (typeof backup !== 'object' || backup === null) {
+		throw new Error('Invalid backup file: expected a JSON object.');
+	}
+	const b = backup as Record<string, unknown>;
+	const { secret, salt, signingKey } = b;
+	if (
+		typeof secret !== 'string' ||
+		typeof salt !== 'string' ||
+		typeof signingKey !== 'string'
+	) {
+		throw new Error('Invalid backup file: missing secret, salt, or signingKey.');
+	}
+	// Validate shapes - throws if the hex doesn't parse into the expected field types.
+	try {
+		Fr.fromHexString(secret);
+		Fr.fromHexString(salt);
+		GrumpkinScalar.fromString(signingKey);
+	} catch {
+		throw new Error('Invalid backup file: keys are not valid Aztec field elements.');
+	}
+
+	localStorage.setItem(CUSTOM_SECRET_KEY, secret);
+	localStorage.setItem(CUSTOM_SALT_KEY, salt);
+	localStorage.setItem(CUSTOM_SIGNING_KEY, signingKey);
+	localStorage.removeItem(CUSTOM_DEPLOYED_KEY);
+	setAccountMode('custom');
+}
+
 // ============================================================================
 // Wallet lifecycle
 // ============================================================================

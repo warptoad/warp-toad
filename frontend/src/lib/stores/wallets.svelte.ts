@@ -21,8 +21,11 @@ import {
 	getAccountMode,
 	setAccountMode,
 	clearCustomSecrets,
+	exportCustomSecrets,
+	importCustomSecrets,
 	type AztecAccountMode,
 	type AztecConnectStage,
+	type AztecWalletBackup,
 } from '$lib/utils/aztec-wallet.js';
 import type { Wallet } from '@aztec/aztec.js/wallet';
 
@@ -358,6 +361,23 @@ class WalletStore {
 	async resetCustomAztecAccount(): Promise<void> {
 		clearCustomSecrets();
 		if (this._aztecWallet && getAccountMode() === 'custom') {
+			await this.disconnectAztec();
+		}
+	}
+
+	/** Current custom-wallet backup, or null if no complete key set exists locally. */
+	getAztecWalletBackup(): AztecWalletBackup | null {
+		return exportCustomSecrets();
+	}
+
+	/**
+	 * Restore a custom Aztec wallet from a parsed backup blob. Persists the keys
+	 * (validated inside `importCustomSecrets`) and, if a wallet is currently
+	 * connected, disconnects so the next connect rebuilds from the restored keys.
+	 */
+	async restoreCustomAztecAccount(backup: unknown): Promise<void> {
+		importCustomSecrets(backup);
+		if (this._aztecWallet) {
 			await this.disconnectAztec();
 		}
 	}
