@@ -4,7 +4,7 @@ import { USDcoinAbi, L1WarpToadAbi, GigaBridgeAbi, L1WarpToadAbi as WarpToadAbi 
 import { createClient, getChainId } from './evm-wallet';
 import { createPublicClient, http, toHex, type Hash } from 'viem';
 import { getContractAddresses, CONTRACT_ADDRESSES } from '$lib/contracts/addresses';
-import { poseidon2, poseidon3 } from 'poseidon-lite';
+import { poseidon1, poseidon2, poseidon3 } from 'poseidon-lite';
 import { getEVMChain } from '$lib/config/chains';
 import { queryEventInChunks } from './viem-chunks';
 import { getLatestLocalRootEventForIndex } from './aztec-interactions';
@@ -49,6 +49,60 @@ function getDeploymentBlock(chainId: number): bigint {
 		return BigInt(chainData.deploymentBlock);
 	}
 	return chainId === 31337 ? 0n : 0n; // localhost = 0, others = 0 (fallback)
+}
+
+// Both L1WarpToad and L2WarpToad expose this spent-nullifier view.
+const NULLIFIER_EXISTS_ABI = [
+	{
+		inputs: [{ name: '_nullifier', type: 'uint256' }],
+		name: 'nullifierExists',
+		outputs: [{ name: '', type: 'bool' }],
+		stateMutability: 'view',
+		type: 'function',
+	},
+] as const;
+
+/**
+ * Check whether a note's nullifier has already been spent on an EVM destination
+ * (Ethereum L1 or Scroll). It's a single `eth_call` against the destination
+ * WarpToad's `nullifierExists` view, so it's cheap and avoids the burn-leaf log
+ * scan that can 429 a rate-limited RPC. The EVM nullifier is
+ * `poseidon1([nullifier_preimg])`, matching what the withdraw proof feeds the
+ * contract. `success: false` means the check itself couldn't run (RPC down).
+ */
+export async function isNoteUsedEvm(
+	chainName: Chain,
+	nullifierPreimg: bigint,
+): Promise<{ isSpent: boolean; success: boolean; error?: string }> {
+	try {
+		const chainDef = getEVMChain(chainName);
+		if (!chainDef) {
+			return { isSpent: false, success: false, error: `Chain ${chainName} not configured` };
+		}
+		const warpToad = chainDef.contracts.warpToad;
+		if (!warpToad) {
+			return { isSpent: false, success: false, error: `WarpToad address not found for ${chainName}` };
+		}
+
+		const nullifier = poseidon1([nullifierPreimg]);
+		const publicClient = createPublicClient({
+			chain: chainDef.viemChain,
+			transport: http(getRpcUrl(chainDef.chainId)),
+		});
+		const exists = await publicClient.readContract({
+			address: warpToad as `0x${string}`,
+			abi: NULLIFIER_EXISTS_ABI,
+			functionName: 'nullifierExists',
+			args: [nullifier],
+		});
+		return { isSpent: Boolean(exists), success: true };
+	} catch (error) {
+		return {
+			isSpent: false,
+			success: false,
+			error: error instanceof Error ? error.message : 'Failed to check nullifier',
+		};
+	}
 }
 
 /**

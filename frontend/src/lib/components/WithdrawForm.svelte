@@ -5,7 +5,8 @@
 	import { proofStore } from "$lib/stores/proofs.svelte.js";
 	import { balanceStore } from "$lib/stores/balances.svelte.js";
 	import ProofTable from "./ProofTable.svelte";
-	import type { Proof } from "$lib/types/bridge.js";
+	import type { Proof, Chain } from "$lib/types/bridge.js";
+	import ExplorerLink from "./ExplorerLink.svelte";
 	import { getWalletInstance } from "$lib/utils/aztec-wallet.js";
 	import {
 		mintFromEVM,
@@ -33,6 +34,7 @@
 		decodeNote,
 		getMerkleDataForL1ToScroll,
 		getMerkleDataForScrollToL1,
+		isNoteUsedEvm,
 	} from "$lib/utils/evm-interactions.js";
 	import {
 		getScrollGigaRoot,
@@ -83,6 +85,35 @@
 	let fileInput: HTMLInputElement;
 	let uploadError = $state<string | null>(null);
 	let successMessage = $state<string | null>(null);
+	// Set on a successful withdraw so the success banner can deep-link to the mint
+	// tx on its explorer (the persistent copy lives in the ProofTable history row).
+	let successTxHash = $state<string | null>(null);
+	let successTxChain = $state<Chain | null>(null);
+
+	/** Mark the active proof used, record the dest-chain mint tx hash on it (so the
+	 * history row links to the withdraw tx), and stash it for the success banner. */
+	function completeWithdraw(mintTxHash: string) {
+		if (!selectedProof) return;
+		proofStore.markProofAsUsed(selectedProof.id, mintTxHash);
+		successTxHash = mintTxHash;
+		successTxChain = selectedProof.targetChain;
+	}
+
+	/** Destination-aware "already withdrawn" check. Aztec hits the nullifier tree;
+	 * EVM destinations read the WarpToad `nullifierExists` view (one eth_call, no
+	 * log scan). `success: false` means the check itself couldn't run, so callers
+	 * should fall through rather than block a legitimate withdraw. */
+	async function checkProofSpent(
+		proof: Proof,
+	): Promise<{ isSpent: boolean; success: boolean; error?: string }> {
+		const nullifierPreimg = proof.commitmentData?.nullifier_preimg;
+		if (nullifierPreimg === undefined) {
+			return { isSpent: false, success: false, error: "Note is missing nullifier data" };
+		}
+		return proof.targetChain === "Aztec"
+			? await isNoteUsed(nullifierPreimg)
+			: await isNoteUsedEvm(proof.targetChain, nullifierPreimg);
+	}
 	let isWithdrawing = $state(false);
 	let isCheckingNullifier = $state(false);
 	let withdrawStep = $state<
@@ -308,37 +339,30 @@
 			}
 		}
 
-		// Check if the note has already been used on Aztec (nullifier check)
-		// Only check if targeting Aztec and not already marked as used
-		if (proof && proof.targetChain === "Aztec" && !proof.used) {
-			const nullifierPreimg =
-				proof.commitmentData?.nullifier_preimg ||
-				noteData?.nullifier_preimg;
+		// Check whether the note was already withdrawn on its destination chain
+		// before treating it as a Ready proof. Cheap on every destination: Aztec
+		// hits the nullifier tree, EVM reads `nullifierExists` (one eth_call).
+		// Skipped if it's already marked used locally.
+		if (proof && !proof.used) {
+			isCheckingNullifier = true;
+			uploadError = null;
+			// Force Svelte to see the state change
+			await new Promise((resolve) => setTimeout(resolve, 0));
 
-			if (nullifierPreimg) {
-				isCheckingNullifier = true;
-				uploadError = null;
-				// Force Svelte to see the state change
-				await new Promise((resolve) => setTimeout(resolve, 0));
+			const result = await checkProofSpent(proof);
 
-				const result = await isNoteUsed(nullifierPreimg);
+			isCheckingNullifier = false;
 
-				isCheckingNullifier = false;
-
-				if (!result.success) {
-					// Could not connect to Aztec node - show warning but allow user to proceed
-					uploadError =
-						result.error ||
-						"Could not verify note status. Aztec node may be unavailable.";
-					// Don't return - let user see the proof and try to withdraw anyway
-				} else if (result.isSpent) {
-					// Nullifier is spent - mark as used
-					proofStore.markProofAsUsed(proof.id);
-					proof = { ...proof, used: true };
-					successMessage = null;
-					uploadError =
-						"This note has already been withdrawn on Aztec.";
-				}
+			if (!result.success) {
+				// Couldn't verify (RPC/node down) - warn but let the user proceed.
+				uploadError =
+					result.error ||
+					"Could not verify note status. The destination RPC may be unavailable.";
+			} else if (result.isSpent) {
+				proofStore.markProofAsUsed(proof.id);
+				proof = { ...proof, used: true };
+				successMessage = null;
+				uploadError = `This note has already been withdrawn on ${proof.targetChain}.`;
 			}
 		}
 
@@ -577,6 +601,17 @@
 			// Route based on source and target chain combination
 			const { sourceChain, targetChain } = selectedProof;
 
+			// Fast-fail if the note was already withdrawn, before the RPC-heavy
+			// merkle scan (which can 429 a rate-limited endpoint). One eth_call /
+			// nullifier-tree lookup; if the check can't run we fall through and
+			// let the normal flow proceed.
+			const spent = await checkProofSpent(selectedProof);
+			if (spent.success && spent.isSpent) {
+				proofStore.markProofAsUsed(selectedProof.id);
+				selectedProof = { ...selectedProof, used: true };
+				throw new Error(`This note has already been withdrawn on ${targetChain}.`);
+			}
+
 			// Check for same-chain transfer first
 			if (sourceChain === targetChain) {
 				// Same-chain private transfer (L1 -> L1 or Scroll -> Scroll)
@@ -771,7 +806,7 @@
 		withdrawStep = "complete";
 		withdrawMessage = "Withdraw complete!";
 
-		proofStore.markProofAsUsed(selectedProof.id);
+		completeWithdraw(txHash);
 		successMessage = `Successfully withdrew ${selectedProof.amount} ${selectedProof.token}! Tx: ${txHash.slice(0, 16)}...`;
 
 		// Refresh balances after successful withdraw
@@ -923,7 +958,7 @@
 		withdrawStep = "complete";
 		withdrawMessage = "Withdraw to Scroll complete!";
 
-		proofStore.markProofAsUsed(selectedProof.id);
+		completeWithdraw(mintTxHash);
 		successMessage = `Withdrew ${selectedProof.amount} ${selectedProof.token} to Scroll! Tx: ${mintTxHash.slice(0, 10)}...`;
 
 		// Refresh balances
@@ -1112,7 +1147,7 @@
 		withdrawStep = "complete";
 		withdrawMessage = "Withdrawal to Scroll complete!";
 
-		proofStore.markProofAsUsed(selectedProof.id);
+		completeWithdraw(mintTxHash);
 		successMessage = `Withdrew ${selectedProof.amount} ${selectedProof.token} to Scroll! Tx: ${mintTxHash.slice(0, 10)}...`;
 
 		// Refresh balances
@@ -1309,7 +1344,7 @@
 		withdrawStep = "complete";
 		withdrawMessage = "Withdrawal to L1 complete!";
 
-		proofStore.markProofAsUsed(selectedProof.id);
+		completeWithdraw(mintTxHash);
 		successMessage = `Withdrew ${selectedProof.amount} ${selectedProof.token} to Ethereum L1! Tx: ${mintTxHash.slice(0, 10)}...`;
 
 		// Refresh balances
@@ -1536,7 +1571,7 @@
 		withdrawStep = "complete";
 		withdrawMessage = "Withdrawal complete!";
 
-		proofStore.markProofAsUsed(selectedProof.id);
+		completeWithdraw(mintTxHash);
 
 		if (autoUnwrap && !unwrapTxHash) {
 			successMessage = `Withdrew ${selectedProof.amount} ${selectedProof.token}! Mint tx: ${mintTxHash.slice(0, 10)}... (unwrap skipped - contract bug)`;
@@ -1758,7 +1793,7 @@
 		withdrawMessage = "Withdrawal complete!";
 
 		// Mark note as consumed/used
-		proofStore.markProofAsUsed(selectedProof.id);
+		completeWithdraw(mintTxHash);
 
 		successMessage = `Successfully withdrew ${selectedProof.amount} ${selectedProof.token} on Scroll! Tx: ${mintTxHash.slice(0, 16)}...`;
 
@@ -2031,7 +2066,7 @@
 		withdrawStep = "complete";
 		withdrawMessage = "Withdraw complete!";
 
-		proofStore.markProofAsUsed(selectedProof.id);
+		completeWithdraw(mintTxHash);
 
 		if (autoUnwrap && !unwrapTxHash) {
 			successMessage = `Withdrew ${selectedProof.amount} ${selectedProof.token}! Mint tx: ${mintTxHash.slice(0, 10)}... (unwrap skipped - contract bug)`;
@@ -2572,7 +2607,12 @@
 				<div class="size-7 rounded-full bg-[rgba(130,226,102,0.2)] flex items-center justify-center flex-shrink-0">
 					<CheckCircle2 class="size-4 text-[var(--toad-green)]" />
 				</div>
-				<p class="text-xs font-medium text-[var(--foreground)]">{successMessage}</p>
+				<div class="flex-1 min-w-0">
+					<p class="text-xs font-medium text-[var(--foreground)]">{successMessage}</p>
+					{#if successTxChain && successTxHash}
+						<ExplorerLink chain={successTxChain} txHash={successTxHash} class="text-[0.7rem] mt-0.5" />
+					{/if}
+				</div>
 			</div>
 		</div>
 	{/if}
