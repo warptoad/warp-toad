@@ -4,14 +4,31 @@ function minBigInt(a: bigint, b: bigint): bigint {
 	return a < b ? a : b;
 }
 
-// Defaults are tuned for a paid Infura/Alchemy tier, with env overrides for
-// slower RPCs. Sequential 499-block scans over ~1.5M Sepolia blocks take
-// ~3000 calls - parallelism + larger chunks drops that into the seconds range.
+// Defaults lean conservative so a shared free-tier RPC (e.g. public Infura)
+// doesn't get 429'd. Bump VITE_RPC_CONCURRENCY / VITE_RPC_CHUNK_SIZE on a paid
+// tier for speed. On a 429 each chunk retries with exponential backoff, so a
+// brief rate-limit slows the scan instead of failing it.
 const ENV_CHUNK_SIZE = import.meta.env?.VITE_RPC_CHUNK_SIZE;
 const ENV_CONCURRENCY = import.meta.env?.VITE_RPC_CONCURRENCY;
+const ENV_MAX_RETRIES = import.meta.env?.VITE_RPC_MAX_RETRIES;
 
 const DEFAULT_CHUNK_SIZE: bigint = ENV_CHUNK_SIZE ? BigInt(ENV_CHUNK_SIZE) : 10_000n;
-const DEFAULT_CONCURRENCY: number = ENV_CONCURRENCY ? Number(ENV_CONCURRENCY) : 10;
+const DEFAULT_CONCURRENCY: number = ENV_CONCURRENCY ? Number(ENV_CONCURRENCY) : 4;
+// Per-chunk retry budget for rate-limit (429) responses.
+const MAX_RPC_RETRIES: number = ENV_MAX_RETRIES ? Number(ENV_MAX_RETRIES) : 5;
+const MAX_BACKOFF_MS = 8_000;
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/** True for HTTP 429 / "rate limit" / "too many requests" errors from any RPC. */
+function isRateLimitError(err: unknown): boolean {
+	const e = err as
+		| { status?: number; code?: number; message?: string; details?: string; cause?: { status?: number } }
+		| null;
+	if (e?.status === 429 || e?.code === 429 || e?.cause?.status === 429) return true;
+	const msg = `${e?.message ?? ''} ${e?.details ?? ''}`;
+	return /\b429\b|too many requests|rate.?limit/i.test(msg);
+}
 
 /**
  * Query contract events in chunks, optionally in parallel, to avoid RPC
@@ -73,13 +90,24 @@ export async function queryEventInChunks<
 	const scan = async (index: bigint) => {
 		const start = firstBlock + index * chunkSize;
 		const stop = minBigInt(start + chunkSize - 1n, resolvedLast);
-		return (await publicClient.getLogs({
-			address,
-			event: eventAbi,
-			args: eventFilterArgs,
-			fromBlock: start,
-			toBlock: stop,
-		})) as Log<bigint, number, false, TAbiEvent, true>[];
+		let delayMs = 500;
+		for (let attempt = 0; ; attempt++) {
+			try {
+				return (await publicClient.getLogs({
+					address,
+					event: eventAbi,
+					args: eventFilterArgs,
+					fromBlock: start,
+					toBlock: stop,
+				})) as Log<bigint, number, false, TAbiEvent, true>[];
+			} catch (err) {
+				// Back off and retry on rate-limit responses; rethrow anything else,
+				// and give up once the retry budget is spent.
+				if (attempt >= MAX_RPC_RETRIES || !isRateLimitError(err)) throw err;
+				await sleep(delayMs + Math.floor(Math.random() * 250));
+				delayMs = Math.min(delayMs * 2, MAX_BACKOFF_MS);
+			}
+		}
 	};
 
 	const range = resolvedLast - firstBlock + 1n;
