@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { Upload, CheckCircle2, Loader2, AlertCircle, Download, Shield } from "@lucide/svelte";
+	import { Upload, CheckCircle2, Loader2, AlertCircle, Download, Shield, X } from "@lucide/svelte";
 	import { badgeVariants } from "$lib/components/ui/badge";
 	import { walletStore } from "$lib/stores/wallets.svelte.js";
 	import { proofStore } from "$lib/stores/proofs.svelte.js";
@@ -2209,7 +2209,15 @@
 						<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
 					</svg>
 				</div>
-				<p class="text-xs text-[var(--foreground)] whitespace-pre-wrap">{uploadError}</p>
+				<p class="flex-1 min-w-0 text-xs text-[var(--foreground)] whitespace-pre-wrap max-h-32 overflow-y-auto">{uploadError}</p>
+				<button
+					onclick={() => (uploadError = null)}
+					aria-label="Dismiss"
+					title="Dismiss"
+					class="shrink-0 text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors cursor-pointer"
+				>
+					<X class="size-3.5" />
+				</button>
 			</div>
 		{/if}
 
@@ -2613,6 +2621,14 @@
 						<ExplorerLink chain={successTxChain} txHash={successTxHash} class="text-[0.7rem] mt-0.5" />
 					{/if}
 				</div>
+				<button
+					onclick={() => { successMessage = null; successTxHash = null; successTxChain = null; }}
+					aria-label="Dismiss"
+					title="Dismiss"
+					class="shrink-0 text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors cursor-pointer"
+				>
+					<X class="size-3.5" />
+				</button>
 			</div>
 		</div>
 	{/if}
