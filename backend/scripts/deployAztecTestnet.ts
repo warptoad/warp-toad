@@ -16,7 +16,7 @@
  * L2AztecBridgeAdapter, exits immediately without redeploying.
  *
  * Env required (loaded from backend/.env via dotenv-cli):
- *   AZTEC_NODE_URL  testnet full node, e.g. https://rpc.testnet.aztec-labs.com
+ *   AZTEC_NODE_URL  testnet full node, e.g. https://v5.testnet.rpc.aztec-labs.com
  */
 
 import fs from "fs";

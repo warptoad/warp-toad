@@ -33,7 +33,7 @@ import circuit from '$lib/circuits/withdraw.json';
  * Bump CRS_CACHE_VERSION whenever the bundled @aztec/bb.js (its CRS format)
  * changes. On a mismatch we drop the cache once so bb.js re-downloads it fresh.
  */
-const CRS_CACHE_VERSION = 'bb-5.0.0-rc.1';
+const CRS_CACHE_VERSION = 'bb-5.0.0';
 const CRS_CACHE_VERSION_KEY = 'warptoad:bbCrsCacheVersion';
 const BB_CRS_IDB_NAME = 'keyval-store';
 

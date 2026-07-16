@@ -32,9 +32,9 @@ const CHAINS: Record<ChainId, ChainConfig> = {
     id: 'aztec',
     name: 'Aztec Network',
     type: 'Aztec',
-    // Default to the current Aztec alpha testnet full node. Override via
+    // Default to the current Aztec v5 testnet full node. Override via
     // AZTEC_NODE_URL env if you point at a different testnet/devnet.
-    rpcUrl: process.env.AZTEC_NODE_URL || 'https://aztec-alpha-testnet-fullnode.zkv.xyz',
+    rpcUrl: process.env.AZTEC_NODE_URL || 'https://v5.testnet.rpc.aztec-labs.com',
     isAztec: true,
   },
 };

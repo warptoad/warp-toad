@@ -128,7 +128,7 @@ async function reconstructAztecContracts(l1ChainId: bigint, aztecWallet: any) {
     WarpToadCoreContractArtifact,
     {
       constructorArgs: warpToadCtorArgs,
-      deployer: AztecAddress.fromString(aztecAddrs.AztecWarpToad.deployer),
+      deployer: AztecAddress.fromStringUnsafe(aztecAddrs.AztecWarpToad.deployer),
       salt: Fr.fromHexString(aztecAddrs.AztecWarpToad.salt),
     },
   );
@@ -139,7 +139,7 @@ async function reconstructAztecContracts(l1ChainId: bigint, aztecWallet: any) {
     L2AztecBridgeAdapterContractArtifact,
     {
       constructorArgs: aztecAddrs.L2AztecBridgeAdapter.constructorArgs,
-      deployer: AztecAddress.fromString(aztecAddrs.L2AztecBridgeAdapter.deployer),
+      deployer: AztecAddress.fromStringUnsafe(aztecAddrs.L2AztecBridgeAdapter.deployer),
       salt: Fr.fromHexString(aztecAddrs.L2AztecBridgeAdapter.salt),
     },
   );

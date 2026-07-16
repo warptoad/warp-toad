@@ -65,7 +65,7 @@ For testnet:
 VITE_TEST_MODE=false
 VITE_SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/<KEY>
 VITE_SCROLL_SEPOLIA_RPC_URL=https://scroll-sepolia.infura.io/v3/<KEY>
-VITE_AZTEC_NODE_URL=https://rpc.testnet.aztec-labs.com
+VITE_AZTEC_NODE_URL=https://v5.testnet.rpc.aztec-labs.com
 VITE_BRIDGE_KEEPER_URL=https://bridge.warptoad.xyz   # or http://localhost:6969 if running locally
 VITE_RELAY_SERVICE_URL=https://relay.warptoad.xyz    # or http://localhost:7777 if running locally
 ```

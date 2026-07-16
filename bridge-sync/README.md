@@ -98,7 +98,7 @@ cd bridge-sync
 EVM_PRIVATE_KEY=0x... \
 SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/<KEY> \
 SCROLL_RPC_URL=https://scroll-sepolia.infura.io/v3/<KEY> \
-AZTEC_NODE_URL=https://rpc.testnet.aztec-labs.com \
+AZTEC_NODE_URL=https://v5.testnet.rpc.aztec-labs.com \
 PORT=6969 \
 pnpm dev
 ```
@@ -113,7 +113,7 @@ scripts both invoke `tsx src/server.ts`.
 | `EVM_PRIVATE_KEY` | Signs L1 root-update + Scroll-message-dispatch txs. Should NOT be the same wallet as `RELAYER_PRIVATE_KEY` to avoid mempool nonce races. |
 | `SEPOLIA_RPC_URL` | Sepolia L1 RPC |
 | `SCROLL_RPC_URL` | Scroll Sepolia L2 RPC |
-| `AZTEC_NODE_URL` | Aztec testnet full node, e.g. `https://rpc.testnet.aztec-labs.com` |
+| `AZTEC_NODE_URL` | Aztec testnet full node, e.g. `https://v5.testnet.rpc.aztec-labs.com` |
 
 Optional:
 | Var | Default | Purpose |

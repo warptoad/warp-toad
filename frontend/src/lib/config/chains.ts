@@ -243,7 +243,7 @@ const AZTEC_CHAIN: AztecChainDefinition = isTestMode
 		name: 'Testnet',
 		type: 'Aztec',
 		role: 'Privacy',
-		nodeUrl: import.meta.env.VITE_AZTEC_NODE_URL || 'https://rpc.testnet.aztec-labs.com',
+		nodeUrl: import.meta.env.VITE_AZTEC_NODE_URL || 'https://v5.testnet.rpc.aztec-labs.com',
 		network: 'testnet',
 		contracts: {
 			warpToad: {

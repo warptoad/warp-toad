@@ -111,7 +111,7 @@ Required vars:
 DEPLOYER_PRIVATE_KEY=0x...                                # funded on both EVM chains
 SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/<KEY>
 SCROLL_SEPOLIA_RPC_URL=https://scroll-sepolia.infura.io/v3/<KEY>
-AZTEC_NODE_URL=https://rpc.testnet.aztec-labs.com
+AZTEC_NODE_URL=https://v5.testnet.rpc.aztec-labs.com
 ```
 
 Optional:
@@ -245,7 +245,7 @@ See [`.env.template`](./.env.template) for the full list with comments. The mini
 EVM_PRIVATE_KEY=0x...                                      # signs L1 root-update txs
 SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/<KEY>
 SCROLL_RPC_URL=https://scroll-sepolia.infura.io/v3/<KEY>
-AZTEC_NODE_URL=https://rpc.testnet.aztec-labs.com
+AZTEC_NODE_URL=https://v5.testnet.rpc.aztec-labs.com
 
 # relay-service
 RELAYER_PRIVATE_KEY=0x...                                  # signs mint() relay txs (use a different wallet from EVM_PRIVATE_KEY)
@@ -287,7 +287,7 @@ cd bridge-sync
 EVM_PRIVATE_KEY=0x... \
 SEPOLIA_RPC_URL=https://... \
 SCROLL_RPC_URL=https://... \
-AZTEC_NODE_URL=https://rpc.testnet.aztec-labs.com \
+AZTEC_NODE_URL=https://v5.testnet.rpc.aztec-labs.com \
 PORT=6969 \
 pnpm dev
 ```
@@ -321,7 +321,7 @@ For local sandbox testing set `VITE_TEST_MODE=true` in `frontend/.env`.
 | Component | Version |
 |-----------|---------|
 | `@aztec/*` packages | `4.2.0-aztecnr-rc.2` |
-| Aztec testnet node | `4.2.0-nightly.20260408-1` (rpc.testnet.aztec-labs.com) |
+| Aztec testnet node | `5.0.0` (v5.testnet.rpc.aztec-labs.com) |
 | `@noir-lang/noir_js` | `1.0.0-beta.19` |
 | nargo | `1.0.0-beta.19` |
 | Solidity | `0.8.29` |

@@ -179,17 +179,14 @@ export async function getWarpToadContract(wallet: Wallet): Promise<WarpToadCoreC
 		WarpToadCoreContractArtifact,
 		{
 			constructorArgs: AZTEC_CONTRACTS.AztecWarpToad.constructorArgs,
-			deployer: AztecAddress.fromString(AZTEC_CONTRACTS.AztecWarpToad.deployer),
+			deployer: AztecAddress.fromStringUnsafe(AZTEC_CONTRACTS.AztecWarpToad.deployer),
 			salt: Fr.fromHexString(AZTEC_CONTRACTS.AztecWarpToad.contractAddressSalt),
 		}
 	);
 
-	const registeredContract = await wallet.registerContract(
-		contract,
-		WarpToadCoreContractArtifact
-	);
+	await wallet.registerContract(contract, WarpToadCoreContractArtifact);
 
-	const warptoadContract = await WarpToadCoreContract.at(registeredContract.address, wallet);
+	const warptoadContract = await WarpToadCoreContract.at(contract.address, wallet);
 
 	return warptoadContract;
 }
@@ -1407,7 +1404,7 @@ export async function isNoteUsed(nullifierPreimage: bigint): Promise<NullifierCh
 				error: 'WarpToad contract address not configured'
 			};
 		}
-		const warpToadAddress = AztecAddress.fromString(warpToadAddressStr);
+		const warpToadAddress = AztecAddress.fromStringUnsafe(warpToadAddressStr);
 
 		// Step 3: Silo the nullifier with the contract address
 		// This matches what Aztec does internally when context.push_nullifier() is called
@@ -1544,7 +1541,7 @@ export async function mintFromEVM(
 	});
 
 	// Step 3: Prepare recipient address
-	const recipient = AztecAddress.fromString(recipientAddress);
+	const recipient = AztecAddress.fromStringUnsafe(recipientAddress);
 
 	// Step 3.5: For Scroll, find the Aztec block number where actualGigaRoot is stored
 	// For L1, use the blockNumber from merkleData
@@ -1648,7 +1645,7 @@ export async function getAztecBalance(
 	const from = accounts[0].item;
 
 	const owner = ownerAddress
-		? AztecAddress.fromString(ownerAddress)
+		? AztecAddress.fromStringUnsafe(ownerAddress)
 		: from;
 
 	// Note: balance_of is an unconstrained function, uses 'from' for simulation context.
@@ -1958,7 +1955,7 @@ export async function getAztecMerkleData(
 
 	// Step 3: Compute the siloed and unique note hash
 	const warpToadAddressStr = AZTEC_CONTRACTS.AztecWarpToad.address;
-	const contractAddressBigInt = BigInt(AztecAddress.fromString(warpToadAddressStr).toBigInt());
+	const contractAddressBigInt = BigInt(AztecAddress.fromStringUnsafe(warpToadAddressStr).toBigInt());
 
 	const siloedNoteHash = await hashSiloedNoteHash(contractAddressBigInt, commitment);
 	console.log('Siloed note hash:', siloedNoteHash.toString().slice(0, 20) + '...');

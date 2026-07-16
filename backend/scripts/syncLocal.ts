@@ -113,7 +113,7 @@ async function main() {
     });
     const warpToadInstance = await getContractInstanceFromInstantiationParams(WarpToadCoreContractArtifact, {
         constructorArgs: warpToadConstructorArgs,
-        deployer: AztecAddress.fromString(aztecAddrs.AztecWarpToad.deployer),
+        deployer: AztecAddress.fromStringUnsafe(aztecAddrs.AztecWarpToad.deployer),
         salt: Fr.fromHexString(aztecAddrs.AztecWarpToad.salt),
     });
     await aztecDeployer.registerContract(warpToadInstance, WarpToadCoreContractArtifact);
@@ -122,7 +122,7 @@ async function main() {
     // Reconstruct L2AztecBridgeAdapter
     const adapterInstance = await getContractInstanceFromInstantiationParams(L2AztecBridgeAdapterContractArtifact, {
         constructorArgs: aztecAddrs.L2AztecBridgeAdapter.constructorArgs,
-        deployer: AztecAddress.fromString(aztecAddrs.L2AztecBridgeAdapter.deployer),
+        deployer: AztecAddress.fromStringUnsafe(aztecAddrs.L2AztecBridgeAdapter.deployer),
         salt: Fr.fromHexString(aztecAddrs.L2AztecBridgeAdapter.salt),
     });
     await aztecDeployer.registerContract(adapterInstance, L2AztecBridgeAdapterContractArtifact);

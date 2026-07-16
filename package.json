@@ -55,10 +55,10 @@
   "license": "MIT",
   "pnpm": {
     "overrides": {
-      "@aztec/noir-acvm_js": "5.0.0-rc.1",
-      "@aztec/noir-noirc_abi": "5.0.0-rc.1",
-      "@aztec/noir-types": "5.0.0-rc.1",
-      "@aztec/noir-protocol-circuits-types": "5.0.0-rc.1"
+      "@aztec/noir-acvm_js": "5.0.0",
+      "@aztec/noir-noirc_abi": "5.0.0",
+      "@aztec/noir-types": "5.0.0",
+      "@aztec/noir-protocol-circuits-types": "5.0.0"
     }
   }
 }
