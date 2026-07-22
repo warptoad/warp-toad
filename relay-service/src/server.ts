@@ -3,7 +3,7 @@ import cors from 'cors';
 import * as dotenv from 'dotenv';
 import { createPublicClient, createWalletClient, http, type Hex, type PublicClient, type WalletClient } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { sepolia, scrollSepolia, anvil, type Chain } from 'viem/chains';
+import { sepolia, zksyncSepoliaTestnet, anvil, type Chain } from 'viem/chains';
 import { createRelayRouter } from './routes/relay.js';
 
 dotenv.config();
@@ -18,7 +18,10 @@ const ALLOWED_ORIGINS = (
 // ----- Required env -----
 const RELAYER_PRIVATE_KEY = process.env.RELAYER_PRIVATE_KEY as Hex | undefined;
 const L1_RPC_URL = process.env.L1_RPC_URL;
-const SCROLL_RPC_URL = process.env.SCROLL_RPC_URL;
+// zkSync Era Sepolia replaced Scroll Sepolia as the L2. Optional: viem's public
+// endpoint is a usable default, override it if the relayer gets rate-limited.
+const ZKSYNC_ERA_SEPOLIA_RPC_URL =
+	process.env.ZKSYNC_ERA_SEPOLIA_RPC_URL || 'https://sepolia.era.zksync.dev';
 
 if (!RELAYER_PRIVATE_KEY) {
 	console.error('ERROR: RELAYER_PRIVATE_KEY environment variable is required');
@@ -26,10 +29,6 @@ if (!RELAYER_PRIVATE_KEY) {
 }
 if (!L1_RPC_URL) {
 	console.error('ERROR: L1_RPC_URL environment variable is required');
-	process.exit(1);
-}
-if (!SCROLL_RPC_URL) {
-	console.error('ERROR: SCROLL_RPC_URL environment variable is required');
 	process.exit(1);
 }
 
@@ -54,15 +53,15 @@ function buildBinding(chain: Chain, rpcUrl: string): ChainBinding {
 	return { chain, publicClient, walletClient };
 }
 
-// Sepolia + local anvil share the L1 RPC; Scroll Sepolia uses its own.
+// Sepolia + local anvil share the L1 RPC; the L2 uses its own.
 const l1Binding = buildBinding(sepolia, L1_RPC_URL);
 const anvilBinding = buildBinding(anvil, L1_RPC_URL);
-const scrollBinding = buildBinding(scrollSepolia, SCROLL_RPC_URL);
+const zkStackBinding = buildBinding(zksyncSepoliaTestnet, ZKSYNC_ERA_SEPOLIA_RPC_URL);
 
 const bindings = new Map<number, ChainBinding>([
 	[11155111, l1Binding],
 	[31337, anvilBinding],
-	[534351, scrollBinding],
+	[300, zkStackBinding],
 ]);
 
 console.log('='.repeat(60));
@@ -70,7 +69,7 @@ console.log('WarpToad Multi-Chain Relay Service');
 console.log('='.repeat(60));
 console.log(`Relayer Address: ${account.address}`);
 console.log(`L1 RPC URL: ${L1_RPC_URL}`);
-console.log(`Scroll RPC URL: ${SCROLL_RPC_URL}`);
+console.log(`ZKsync Era RPC URL: ${ZKSYNC_ERA_SEPOLIA_RPC_URL}`);
 console.log(`Fee bounds: min=${MIN_FEE_FACTOR}, max=${MAX_FEE_FACTOR} (0 = altruistic)`);
 console.log(`Supported chains: ${Array.from(bindings.keys()).join(', ')}`);
 console.log('='.repeat(60));

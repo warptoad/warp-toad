@@ -15,11 +15,11 @@
 		type Token,
 	} from "$lib/types/bridge.js";
 	import { bridgeToChain } from "$lib/utils/evm-interactions.js";
-	import { bridgeFromScroll } from "$lib/utils/scroll-interactions.js";
+	import { bridgeFromZkStack } from "$lib/utils/zkstack-interactions.js";
 	import { getEVMChain } from "$lib/config/chains.js";
 
 	// Only EVM chains for transfer (no Aztec)
-	type EVMChain = "Ethereum" | "Scroll";
+	type EVMChain = "Ethereum" | "ZKsync";
 
 	let selectedChain = $state<EVMChain>("Ethereum");
 	let selectedToken = $state<Token>("USDC");
@@ -120,14 +120,14 @@
 				burnTxHash: string;
 			};
 
-			if (selectedChain === "Scroll") {
+			if (selectedChain === "ZKsync") {
 				// ==========================================
 				// SCROLL SAME-CHAIN TRANSFER
 				// ==========================================
 				generationStep = "burning";
-				generationMessage = "Burning tokens on Scroll...";
+				generationMessage = "Burning tokens on ZKsync Era...";
 
-				bridgeResult = await bridgeFromScroll(amount, destinationChainId);
+				bridgeResult = await bridgeFromZkStack(amount, destinationChainId);
 			} else {
 				// ==========================================
 				// ETHEREUM L1 SAME-CHAIN TRANSFER
@@ -197,7 +197,7 @@
 
 	function handleChainSelect(chain: Chain) {
 		// Only allow EVM chains
-		if (chain === "Ethereum" || chain === "Scroll") {
+		if (chain === "Ethereum" || chain === "ZKsync") {
 			selectedChain = chain;
 		}
 	}
@@ -325,7 +325,7 @@
 			</div>
 			<div class="text-xs">
 				<span class="font-medium text-[var(--foreground)]">{selectedChain} Unavailable</span>
-				{#if selectedChain === "Scroll"}
+				{#if selectedChain === "ZKsync"}
 					<span class="text-[var(--muted-foreground)]"> -Switch to testnet mode</span>
 				{/if}
 			</div>

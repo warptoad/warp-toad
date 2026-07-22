@@ -2,6 +2,7 @@
 	import { Popover } from "bits-ui";
 	import { CHAIN_STYLES, type Chain } from "$lib/types/bridge.js";
 	import { ALL_CHAINS, isChainDisabled, isTestMode } from "$lib/config/environment.js";
+	import { getEVMChain } from "$lib/config/chains.js";
 	import { ChevronDown } from "@lucide/svelte";
 
 	interface Props {
@@ -37,16 +38,15 @@
 		if (chain === "Ethereum") {
 			return isTestMode ? "Localhost (Anvil)" : "Sepolia Testnet";
 		}
-		if (chain === "Scroll") {
-			if (isChainDisabled(chain)) {
-				return "Not available in test mode";
-			}
-			return "Layer 2 (Scroll Sepolia)";
-		}
 		if (chain === "Aztec") {
 			return isTestMode ? "Sandbox (Local)" : "Devnet";
 		}
-		return "Layer 2";
+		if (isChainDisabled(chain)) {
+			return "Not available in test mode";
+		}
+		// Name comes from the chain registry, so adopting another L2 needs no edit here.
+		const def = getEVMChain(chain);
+		return def ? `Layer 2 (${def.name})` : "Layer 2";
 	}
 
 	function getNetworkBadge(chain: Chain): string | null {

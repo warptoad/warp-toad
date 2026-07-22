@@ -2,12 +2,12 @@
  * On-disk persistence for HTTP operation tracking.
  *
  * Today's `operations` Map in server.ts is in-memory only. A container
- * rebuild during a 2-3h Scroll-finalization wait orphans the opIds clients
+ * rebuild during a multi-hour L2-finalization wait orphans the opIds clients
  * are polling: GET /status/:opId returns 404 even though the underlying
- * sync work resumes (aztec-pending and scroll-pending are persisted).
+ * sync work resumes (aztec-pending and zkstack-pending are persisted).
  * Frontend goes blind.
  *
- * This store mirrors the aztecPending/scrollPending pattern: a single JSON
+ * This store mirrors the aztecPending/zkStackPending pattern: a single JSON
  * file under BRIDGE_SYNC_DB_DIR, write-debounced, auto-pruned, never
  * crashes the service if disk fails.
  *

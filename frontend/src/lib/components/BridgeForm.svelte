@@ -41,10 +41,10 @@
 		getAztecWarpToadDecimals 
 	} from "$lib/utils/aztec-interactions.js";
 	import { 
-		bridgeFromScroll, 
+		bridgeFromZkStack, 
 		getScrollTokenDecimals,
 		getScrollChainId 
-	} from "$lib/utils/scroll-interactions.js";
+	} from "$lib/utils/zkstack-interactions.js";
 	import { getWalletInstance } from "$lib/utils/aztec-wallet.js";
 	import { getEVMChain, isChainEnabled } from "$lib/config/chains.js";
 	import {
@@ -96,7 +96,7 @@
 	async function getDestinationChainId(): Promise<bigint> {
 		// Bridging FROM Aztec to EVM
 		if (sourceChain === "Aztec") {
-			if (targetChain === "Ethereum" || targetChain === "Scroll") {
+			if (targetChain === "Ethereum" || targetChain === "ZKsync") {
 				return BigInt(getChainIdForChain(targetChain));
 			}
 			throw new Error(`Unsupported target chain: ${targetChain}`);
@@ -111,7 +111,7 @@
 			// Get the correct Aztec chain ID from the contract
 			// This is computed as poseidon2([salt, aztec_version])
 			return await getAztecChainId(aztecWallet);
-		} else if (targetChain === "Scroll" || targetChain === "Ethereum") {
+		} else if (targetChain === "ZKsync" || targetChain === "Ethereum") {
 			// EVM target chain
 			return BigInt(getChainIdForChain(targetChain));
 		}
@@ -130,7 +130,7 @@
 				throw new Error("Aztec wallet not connected");
 			}
 			return await getAztecChainId(aztecWallet);
-		} else if (sourceChain === "Scroll" || sourceChain === "Ethereum") {
+		} else if (sourceChain === "ZKsync" || sourceChain === "Ethereum") {
 			// EVM source chain
 			return BigInt(getChainIdForChain(sourceChain));
 		}
@@ -228,11 +228,11 @@
 				// AZTEC -> EVM FLOW
 				// ==========================================
 				createdProof = await bridgeFromAztecUI(sourceChainId, destinationChainId);
-			} else if (sourceChain === "Scroll") {
+			} else if (sourceChain === "ZKsync") {
 				// ==========================================
 				// SCROLL -> AZTEC/L1 FLOW
 				// ==========================================
-				createdProof = await bridgeFromScrollUI(destinationChainId);
+				createdProof = await bridgeFromZkStackUI(destinationChainId);
 			} else {
 				// ==========================================
 				// ETHEREUM L1 -> AZTEC/SCROLL FLOW
@@ -249,8 +249,8 @@
 			generationMessage = `Bridge complete! Note generated successfully.
 
 ⏳ Root synchronization initiated.
-${targetChain === 'Scroll' || sourceChain === 'Scroll'
-	? ' Synchronization will take 2-3 hours for Scroll bridges.'
+${targetChain === 'ZKsync' || sourceChain === 'ZKsync'
+	? ' Synchronization will take 2-3 hours for ZKsync Era bridges.'
 	: '⏱️ Synchronization will take 30-60 minutes for Aztec bridges.'}
 
 You can close this page. Your note has been downloaded.`;
@@ -341,7 +341,7 @@ You can close this page. Your note has been downloaded.`;
 	}
 	
 	/**
-	 * Bridge from Aztec to EVM (L1 or Scroll)
+	 * Bridge from Aztec to EVM (L1 or ZKsync Era)
 	 * Burns tokens on Aztec and creates a note for EVM withdrawal
 	 */
 	async function bridgeFromAztecUI(sourceChainId: bigint, destinationChainId: bigint): Promise<Proof> {
@@ -403,17 +403,17 @@ You can close this page. Your note has been downloaded.`;
 	}
 
 	/**
-	 * Bridge from Scroll L2 to Aztec/L1
-	 * Burns tokens on Scroll and creates a note for withdrawal
+	 * Bridge from ZKsync Era L2 to Aztec/L1
+	 * Burns tokens on ZKsync Era and creates a note for withdrawal
 	 */
-	async function bridgeFromScrollUI(destinationChainId: bigint): Promise<Proof> {
-		// On Scroll, users already have wrapped tokens (from L2WarpToad)
+	async function bridgeFromZkStackUI(destinationChainId: bigint): Promise<Proof> {
+		// On ZKsync Era, users already have wrapped tokens (from L2WarpToad)
 		// No need to approve/wrap - just burn directly
 		
 		generationStep = "burning";
-		generationMessage = "Burning tokens on Scroll L2...";
+		generationMessage = "Burning tokens on ZKsync Era L2...";
 		
-		const bridgeResult = await bridgeFromScroll(amount, destinationChainId);
+		const bridgeResult = await bridgeFromZkStack(amount, destinationChainId);
 		
 		// Add proof and download
 		const proof = proofStore.addProof(
@@ -432,7 +432,7 @@ You can close this page. Your note has been downloaded.`;
 	}
 
 	/**
-	 * Bridge from EVM (Ethereum L1) to Aztec/Scroll
+	 * Bridge from EVM (Ethereum L1) to Aztec/ZKsync Era
 	 */
 	async function bridgeFromEvm(destinationChainId: bigint): Promise<Proof> {
 		// Step 2: Approving tokens
@@ -758,16 +758,16 @@ You can close this page. Your note has been downloaded.`;
 				Synchronization Time
 			</DialogTitle>
 			<DialogDescription class="space-y-4 pt-3">
-				{#if targetChain === 'Scroll' || sourceChain === 'Scroll'}
+				{#if targetChain === 'ZKsync' || sourceChain === 'ZKsync'}
 					<div class="p-4 rounded-xl bg-[rgba(139,92,246,0.1)] border border-[rgba(139,92,246,0.2)]">
 						<div class="flex items-center gap-2 text-[var(--eye-yellow)] font-semibold">
 							<svg class="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
 							</svg>
-							<span>2-3 hours for Scroll</span>
+							<span>2-3 hours for ZKsync Era</span>
 						</div>
 						<p class="text-xs text-[var(--muted-foreground)] mt-2">
-							Scroll L2 finalization and claim data availability requires extended processing time.
+							ZKsync Era L2 finalization and claim data availability requires extended processing time.
 						</p>
 					</div>
 				{:else if targetChain === 'Aztec' || sourceChain === 'Aztec'}

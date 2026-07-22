@@ -19,15 +19,15 @@
 #   # bridge-sync
 #   EVM_PRIVATE_KEY=0x...               # signs L1 root-update txs
 #   SEPOLIA_RPC_URL=https://...
-#   SCROLL_RPC_URL=https://...
-#   AZTEC_NODE_URL=https://rpc.testnet.aztec-labs.com
+#   ZKSYNC_ERA_SEPOLIA_RPC_URL=https://sepolia.era.zksync.dev   # optional
+#   AZTEC_NODE_URL=https://v5.testnet.rpc.aztec-labs.com
 #
 #   # relay-service
 #   RELAYER_PRIVATE_KEY=0x...           # signs mint() relay txs
 #   L1_RPC_URL=https://...              # same Sepolia RPC; relay-service uses
 #                                       # a different var name than bridge-sync
 #                                       # for historical reasons
-#   # SCROLL_RPC_URL is reused from bridge-sync section above
+#   # ZKSYNC_ERA_SEPOLIA_RPC_URL is reused from bridge-sync section above
 #
 #   # both
 #   ALLOWED_ORIGINS=https://your.frontend,https://other.frontend
@@ -47,7 +47,7 @@ services:
       args:
         VITE_TEST_MODE: ${VITE_TEST_MODE:-false}
         VITE_SEPOLIA_RPC_URL: ${VITE_SEPOLIA_RPC_URL:-${SEPOLIA_RPC_URL}}
-        VITE_SCROLL_SEPOLIA_RPC_URL: ${VITE_SCROLL_SEPOLIA_RPC_URL:-${SCROLL_RPC_URL}}
+        VITE_ZKSYNC_ERA_SEPOLIA_RPC_URL: ${VITE_ZKSYNC_ERA_SEPOLIA_RPC_URL:-${ZKSYNC_ERA_SEPOLIA_RPC_URL:-https://sepolia.era.zksync.dev}}
         VITE_AZTEC_NODE_URL: ${VITE_AZTEC_NODE_URL:-${AZTEC_NODE_URL}}
         VITE_LOCAL_AZTEC_NODE_URL: ${VITE_LOCAL_AZTEC_NODE_URL:-http://localhost:8080}
         # The frontend bundle runs in the user's BROWSER, so these URLs must
@@ -92,7 +92,7 @@ services:
       PORT: 6969
       EVM_PRIVATE_KEY: ${EVM_PRIVATE_KEY}
       SEPOLIA_RPC_URL: ${SEPOLIA_RPC_URL}
-      SCROLL_RPC_URL: ${SCROLL_RPC_URL}
+      ZKSYNC_ERA_SEPOLIA_RPC_URL: ${ZKSYNC_ERA_SEPOLIA_RPC_URL:-https://sepolia.era.zksync.dev}
       AZTEC_NODE_URL: ${AZTEC_NODE_URL}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
       DEFAULT_CONFIRMATIONS: ${DEFAULT_CONFIRMATIONS:-3}
@@ -131,7 +131,7 @@ services:
       PORT: 7777
       RELAYER_PRIVATE_KEY: ${RELAYER_PRIVATE_KEY}
       L1_RPC_URL: ${L1_RPC_URL:-${SEPOLIA_RPC_URL}}
-      SCROLL_RPC_URL: ${SCROLL_RPC_URL}
+      ZKSYNC_ERA_SEPOLIA_RPC_URL: ${ZKSYNC_ERA_SEPOLIA_RPC_URL:-https://sepolia.era.zksync.dev}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
       MIN_FEE_FACTOR: ${MIN_FEE_FACTOR:-0}
       MAX_FEE_FACTOR: ${MAX_FEE_FACTOR:-0}
@@ -159,7 +159,7 @@ services:
       PORT: 8888
       FAUCET_PRIVATE_KEY: ${FAUCET_PRIVATE_KEY}
       SEPOLIA_RPC_URL: ${SEPOLIA_RPC_URL}
-      SCROLL_RPC_URL: ${SCROLL_RPC_URL}
+      ZKSYNC_ERA_SEPOLIA_RPC_URL: ${ZKSYNC_ERA_SEPOLIA_RPC_URL:-https://sepolia.era.zksync.dev}
       FAUCET_DRIP_AMOUNT_ETH: ${FAUCET_DRIP_AMOUNT_ETH:-0.05}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
     volumes:

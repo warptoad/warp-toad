@@ -2,7 +2,7 @@
  * Block explorer links.
  *
  * EVM explorers come for free from viem's chain definitions
- * (`blockExplorers.default`): Etherscan for Sepolia, Scrollscan for Scroll.
+ * (`blockExplorers.default`): Etherscan for Sepolia, Scrollscan for ZKsync Era.
  * The local anvil chain has none, so those calls return null.
  *
  * Aztec uses Aztecscan. The base URL is overridable via

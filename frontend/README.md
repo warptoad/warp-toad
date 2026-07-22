@@ -17,7 +17,7 @@ This is a workspace package; for the full Docker stack see the
 - Theme-aware ASCII noise canvas background, light/dark mode toggle (system / light / dark cycle)
 
 Three forms in three tabs:
-- **Transfer**: same-chain L1 → L1 (or Scroll → Scroll) deposit + withdraw round-trip
+- **Transfer**: same-chain L1 → L1 (or ZKsync → ZKsync) deposit + withdraw round-trip
 - **Bridge**: cross-chain deposit (L1 → L2 / L2 → L1 / EVM → Aztec / Aztec → EVM)
 - **Withdraw**: upload a proof JSON, optionally use the gasless relayer, mint on the destination chain
 
@@ -64,8 +64,8 @@ For testnet:
 ```
 VITE_TEST_MODE=false
 VITE_SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/<KEY>
-VITE_SCROLL_SEPOLIA_RPC_URL=https://scroll-sepolia.infura.io/v3/<KEY>
-VITE_AZTEC_NODE_URL=https://rpc.testnet.aztec-labs.com
+VITE_ZKSYNC_ERA_SEPOLIA_RPC_URL=https://sepolia.era.zksync.dev
+VITE_AZTEC_NODE_URL=https://v5.testnet.rpc.aztec-labs.com
 VITE_BRIDGE_KEEPER_URL=https://bridge.warptoad.xyz   # or http://localhost:6969 if running locally
 VITE_RELAY_SERVICE_URL=https://relay.warptoad.xyz    # or http://localhost:7777 if running locally
 ```
@@ -97,10 +97,10 @@ The preview server listens on `http://localhost:4173` by default.
 ## Withdraw flow
 
 1. Connect both wallets:
-   - **MetaMask** (or other EVM wallet) for L1/Scroll
+   - **MetaMask** (or other EVM wallet) for L1/ZKsync
    - **In-browser Aztec wallet** auto-spins up via `BrowserEmbeddedWallet` (no extension needed)
 2. Go to the **Withdraw** tab, upload your proof JSON or pick one from the saved proofs table
-3. (Optional) Toggle **Gasless Withdrawal** to use the relay service. Only available for EVM destinations (`Aztec → L1`, `Aztec → Scroll`, any `EVM → EVM`). Aztec destinations always use the user's own wallet because the EVM relayer can't broadcast Aztec txs.
+3. (Optional) Toggle **Gasless Withdrawal** to use the relay service. Only available for EVM destinations (`Aztec → L1`, `Aztec → ZKsync`, any `EVM → EVM`). Aztec destinations always use the user's own wallet because the EVM relayer can't broadcast Aztec txs.
 4. Click withdraw. The frontend generates the ZK proof in-browser (~30-60s), then either submits the `mint()` tx itself or POSTs the proof to relay-service for gasless submission.
 
 ## Memory of gotchas

@@ -13,11 +13,14 @@
  * modal edits `custom`.
  */
 
+import { getEVMChains } from "$lib/config/chains.js";
+
 const STORAGE_KEY = "warptoad.customRpc";
 
 // Chain IDs the frontend actually lets users override. Anything else falls
-// straight through to the default.
-const SUPPORTED_CHAIN_IDS = new Set<number>([11155111, 534351]);
+// straight through to the default. Derived from the registry: a hand-written list
+// silently rejects overrides for a newly adopted L2 and keeps offering retired ones.
+const SUPPORTED_CHAIN_IDS = new Set<number>(getEVMChains().map((c) => c.chainId));
 
 function readCustom(): Record<number, string> {
 	if (typeof localStorage === "undefined") return {};
@@ -145,7 +148,14 @@ function createRpcSettingsStore() {
 
 export const rpcSettings = createRpcSettingsStore();
 
+/**
+ * Chains the user may override the RPC for. Derived from the chain registry rather
+ * than hand-listed, so a retired L2 stops being offered the moment it leaves the
+ * registry (chain 534351 lingered here after Scroll Sepolia was shut down).
+ */
 export const RPC_OVERRIDE_CHAINS: Array<{ chainId: number; label: string }> = [
 	{ chainId: 11155111, label: "Sepolia (L1)" },
-	{ chainId: 534351, label: "Scroll Sepolia (L2)" },
+	...getEVMChains()
+		.filter((c) => c.role === "L2")
+		.map((c) => ({ chainId: c.chainId, label: `${c.name} (L2)` })),
 ];

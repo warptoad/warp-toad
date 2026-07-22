@@ -1,6 +1,6 @@
 # faucet-service
 
-Testnet ETH faucet for warp-toad. Drips a fixed amount of Sepolia / Scroll
+Testnet ETH faucet for warp-toad. Drips a fixed amount of Sepolia / ZKsync Era
 Sepolia ETH per wallet, one claim per chain forever (no cooldown).
 
 Self-contained. viem-native, no backend coupling, runs via tsx.
@@ -63,7 +63,7 @@ docker compose up -d
 cd faucet-service
 FAUCET_PRIVATE_KEY=0x... \
 SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/<KEY> \
-SCROLL_RPC_URL=https://scroll-sepolia.infura.io/v3/<KEY> \
+ZKSYNC_ERA_SEPOLIA_RPC_URL=https://sepolia.era.zksync.dev \
 PORT=8888 \
 pnpm dev
 ```
@@ -74,7 +74,7 @@ pnpm dev
 |---|---|
 | `FAUCET_PRIVATE_KEY` | Wallet that holds the testnet ETH and signs the drip txs. Should be a dedicated wallet, NOT the same as bridge-sync's `EVM_PRIVATE_KEY` or relay-service's `RELAYER_PRIVATE_KEY`. |
 | `SEPOLIA_RPC_URL` | Sepolia L1 RPC (also accepts `L1_RPC_URL` as a fallback) |
-| `SCROLL_RPC_URL` | Scroll Sepolia L2 RPC |
+| `ZKSYNC_ERA_SEPOLIA_RPC_URL` | ZKsync Era Sepolia L2 RPC (optional, defaults to the public endpoint) |
 
 Optional:
 | Var | Default | Purpose |
@@ -96,7 +96,7 @@ node -e "const { privateKeyToAccount } = require('viem/accounts'); console.log(p
 
 Then send testnet ETH to that address on each chain:
 - Sepolia: https://sepoliafaucet.com/ (or any other Sepolia faucet)
-- Scroll Sepolia: bridge from Sepolia via https://scroll.io/bridge
+- ZKsync Era Sepolia: bridge from Sepolia via https://portal.zksync.io/bridge/?network=sepolia
 
 5 ETH per chain ÷ 0.05 ETH drip = 100 claims per chain before refill is needed.
 The `/health` endpoint reports current balances so you can monitor.

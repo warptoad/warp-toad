@@ -11,16 +11,20 @@
  *   1. Poseidon (Sepolia) via Nick's method
  *   2. L1Infra ignition module on Sepolia
  *   3. deployAztecTestnet.ts (constructor needs L1AztecAdapter from phase 2)
- *   4. Poseidon (Scroll Sepolia)
- *   5. L2Scroll ignition module on Scroll Sepolia
+ *   4. Poseidon, once per ZK Stack L2 in ZK_STACK_TARGETS
+ *   5. L2ZkStack ignition module, once per ZK Stack L2
  *   6. L1Wire ignition module (initialize() calls on L1WarpToad + L1 adapters)
- *   7. L2ScrollWire ignition module (initialize() L2WarpToad on Scroll)
+ *   7. L2ZkStackWire ignition module (initialize() L2WarpToad), once per L2
  *   8. Etherscan / Blockscout / Sourcify verify via hardhat ignition verify
  *      (skipped if ETHERSCAN_API_KEY missing)
  *   9. AztecScan verify via aztec-scan-sdk (skipped if SKIP_AZTEC_SCAN_VERIFY set)
  *
+ * Phases 4, 5 and 7 loop over ZK_STACK_TARGETS, so adopting another ZK Stack chain is
+ * an entry there plus one in ZK_STACK_CHAINS, not new phases.
+ *
  * Required env (loaded via `dotenv -e .env --` from package.json):
- *   DEPLOYER_PRIVATE_KEY, SEPOLIA_RPC_URL, SCROLL_SEPOLIA_RPC_URL, AZTEC_NODE_URL
+ *   DEPLOYER_PRIVATE_KEY, SEPOLIA_RPC_URL, AZTEC_NODE_URL, and one RPC URL per entry
+ *   in ZK_STACK_TARGETS (currently ZKSYNC_ERA_SEPOLIA_RPC_URL)
  *
  * Optional:
  *   ETHERSCAN_API_KEY        enables phase 8
@@ -49,29 +53,34 @@ import {
   type WalletClient,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { sepolia, scrollSepolia } from "viem/chains";
+import { sepolia } from "viem/chains";
 // @ts-ignore — poseidon-solidity ships no types and no exports map; the
 // explicit /index.js is required for Node ESM resolution.
 import poseidonSolidity from "poseidon-solidity/index.js";
 import { poseidon2 } from "poseidon-lite";
 import { createAztecNodeClient } from "@aztec/aztec.js/node";
 
-import {
-  L1_SCROLL_MESSENGER_SEPOLIA,
-  L2_SCROLL_MESSENGER_SEPOLIA,
-} from "../lib/constants.js";
+import { ZK_STACK_BRIDGEHUB_SEPOLIA } from "../lib/constants.js";
+import { ZK_STACK_TARGETS, assertZkStackRegistryConsistent } from "../lib/zkStackChains.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const BACKEND_DIR = path.resolve(__dirname, "..");
 
 const SEPOLIA_DEPLOYMENT_DIR = path.join(BACKEND_DIR, "deploy/ignition/deployments/chain-11155111");
-const SCROLL_DEPLOYMENT_DIR = path.join(BACKEND_DIR, "deploy/ignition/deployments/chain-534351");
 const AZTEC_DEPLOYMENT_DIR = path.join(BACKEND_DIR, "deploy/aztec/aztecDeployments/11155111");
 
 const SEPOLIA_ADDR_FILE = path.join(SEPOLIA_DEPLOYMENT_DIR, "deployed_addresses.json");
-const SCROLL_ADDR_FILE = path.join(SCROLL_DEPLOYMENT_DIR, "deployed_addresses.json");
 const AZTEC_ADDR_FILE = path.join(AZTEC_DEPLOYMENT_DIR, "deployed_addresses.json");
+
+const deploymentDir = (chainId: number | bigint) =>
+  path.join(BACKEND_DIR, `deploy/ignition/deployments/chain-${chainId}`);
+const addrFile = (chainId: number | bigint) =>
+  path.join(deploymentDir(chainId), "deployed_addresses.json");
+
+// Guard against the registry lists drifting apart, which would silently deploy an L2
+// whose L1 adapter slot never gets initialized (or vice versa).
+assertZkStackRegistryConsistent();
 
 const POSEIDON_T3_ABI = [
   {
@@ -222,15 +231,21 @@ async function runIgnitionVerify(deploymentId: string, network: string) {
 }
 
 async function main() {
-  const REQUIRED = [
-    "DEPLOYER_PRIVATE_KEY",
-    "SEPOLIA_RPC_URL",
-    "SCROLL_SEPOLIA_RPC_URL",
-    "AZTEC_NODE_URL",
-  ];
+  const REQUIRED = ["DEPLOYER_PRIVATE_KEY", "SEPOLIA_RPC_URL", "AZTEC_NODE_URL"];
   const missing = REQUIRED.filter((k) => !process.env[k]);
   if (missing.length) {
     throw new Error(`Missing required env in backend/.env: ${missing.join(", ")}`);
+  }
+  // Each ZK Stack target has a public RPC default, so an unset var is survivable rather
+  // than fatal. It is still worth shouting about: this deploy pushes ~60M gas of
+  // contract creations per L2, and public endpoints rate-limit long deploys to death.
+  for (const t of ZK_STACK_TARGETS) {
+    if (!process.env[t.rpcEnv]) {
+      console.warn(
+        `WARN: ${t.rpcEnv} not set; falling back to the public RPC for ${t.label} ` +
+          `(${t.viemChain.rpcUrls.default.http[0]}). Set it in backend/.env if the deploy stalls.`,
+      );
+    }
   }
   if (!process.env.ETHERSCAN_API_KEY) {
     console.warn("WARN: ETHERSCAN_API_KEY not set; phase 8 (etherscan verify) will be skipped.");
@@ -246,7 +261,9 @@ async function main() {
   console.log("========================");
   console.log(`Deployer:    ${account.address}`);
   console.log(`Sepolia RPC: ${process.env.SEPOLIA_RPC_URL}`);
-  console.log(`Scroll RPC:  ${process.env.SCROLL_SEPOLIA_RPC_URL}`);
+  for (const t of ZK_STACK_TARGETS) {
+    console.log(`${t.label} RPC: ${process.env[t.rpcEnv] ?? t.viemChain.rpcUrls.default.http[0]}`);
+  }
   console.log(`Aztec node:  ${process.env.AZTEC_NODE_URL}`);
 
   const sepoliaPublic = createPublicClient({
@@ -258,40 +275,46 @@ async function main() {
     chain: sepolia,
     transport: http(process.env.SEPOLIA_RPC_URL),
   });
-  const scrollPublic = createPublicClient({
-    chain: scrollSepolia,
-    transport: http(process.env.SCROLL_SEPOLIA_RPC_URL),
-  });
-  const scrollWallet = createWalletClient({
-    account,
-    chain: scrollSepolia,
-    transport: http(process.env.SCROLL_SEPOLIA_RPC_URL),
+  // One client pair per targeted ZK Stack L2.
+  const l2Clients = ZK_STACK_TARGETS.map((target) => {
+    const url = process.env[target.rpcEnv];
+    const transport = http(url);
+    return {
+      target,
+      public: createPublicClient({ chain: target.viemChain, transport }),
+      wallet: createWalletClient({ account, chain: target.viemChain, transport }),
+    };
   });
 
-  // Sanity: chain ids match the URLs the user gave us.
-  const [sepoliaChainId, scrollChainId] = await Promise.all([
-    sepoliaPublic.getChainId(),
-    scrollPublic.getChainId(),
-  ]);
+  // Sanity: chain ids match the URLs the user gave us. A wrong RPC here is the
+  // expensive mistake, since the L1 adapter slot bakes in an l2ChainId that must match
+  // the chain its counterpart actually lives on.
+  const sepoliaChainId = await sepoliaPublic.getChainId();
   if (sepoliaChainId !== 11155111) {
     throw new Error(`SEPOLIA_RPC_URL is not Sepolia (chainId=${sepoliaChainId}, expected 11155111)`);
   }
-  if (scrollChainId !== 534351) {
-    throw new Error(`SCROLL_SEPOLIA_RPC_URL is not Scroll Sepolia (chainId=${scrollChainId}, expected 534351)`);
+  for (const { target, public: pub } of l2Clients) {
+    const id = await pub.getChainId();
+    if (id !== target.chainId) {
+      throw new Error(
+        `${target.rpcEnv} is not ${target.label} (chainId=${id}, expected ${target.chainId})`,
+      );
+    }
   }
 
   // Balance check, warning only. Sepolia needs a few hundredths of an ETH for
-  // the full L1 stack; Scroll is cheaper.
-  const [sepoliaBal, scrollBal] = await Promise.all([
-    sepoliaPublic.getBalance({ address: account.address }),
-    scrollPublic.getBalance({ address: account.address }),
-  ]);
-  console.log(`Balances:    sepolia=${formatEther(sepoliaBal)} ETH, scroll=${formatEther(scrollBal)} ETH`);
+  // the full L1 stack; the L2s are cheaper.
+  const sepoliaBal = await sepoliaPublic.getBalance({ address: account.address });
+  console.log(`Balance:     sepolia=${formatEther(sepoliaBal)} ETH`);
   if (sepoliaBal < parseEther("0.05")) {
     console.warn(`WARN: low Sepolia balance (${formatEther(sepoliaBal)}); deploy may run out of gas.`);
   }
-  if (scrollBal < parseEther("0.01")) {
-    console.warn(`WARN: low Scroll Sepolia balance (${formatEther(scrollBal)}); deploy may run out of gas.`);
+  for (const { target, public: pub } of l2Clients) {
+    const bal = await pub.getBalance({ address: account.address });
+    console.log(`Balance:     ${target.label}=${formatEther(bal)} ETH`);
+    if (bal < parseEther("0.01")) {
+      console.warn(`WARN: low ${target.label} balance (${formatEther(bal)}); deploy may run out of gas.`);
+    }
   }
 
   // ---------- Phase 1: Poseidon on Sepolia ----------
@@ -301,19 +324,29 @@ async function main() {
 
   // ---------- Phase 2: L1Infra ignition deploy ----------
   console.log("\n=== Phase 2/8: hardhat ignition deploy L1Infra (Sepolia) ===");
-  await runIgnitionDeploy("deploy/ignition/modules/L1Infra.ts", "sepolia", {
+  const l1InfraParams = {
     L1WarpToadModule: { PoseidonT3LibAddress: sepoliaPoseidon },
-    L1InfraModule: { L1ScrollMessengerAddress: L1_SCROLL_MESSENGER_SEPOLIA },
-  });
+    L1InfraModule: { bridgehubAddress: ZK_STACK_BRIDGEHUB_SEPOLIA },
+  };
+  await runIgnitionDeploy("deploy/ignition/modules/L1Infra.ts", "sepolia", l1InfraParams);
 
   const sepoliaAddrs = loadAddresses(SEPOLIA_ADDR_FILE);
   const l1AztecAdapter = sepoliaAddrs["L1InfraModule#L1AztecBridgeAdapter"] as Address;
-  const l1ScrollAdapter = sepoliaAddrs["L1InfraModule#L1ScrollBridgeAdapter"] as Address;
-  if (!l1AztecAdapter || !l1ScrollAdapter) {
+  if (!l1AztecAdapter) {
     throw new Error(`L1Infra deploy did not produce expected addresses. Got: ${JSON.stringify(sepoliaAddrs, null, 2)}`);
   }
   console.log(`L1AztecBridgeAdapter:  ${l1AztecAdapter}`);
-  console.log(`L1ScrollBridgeAdapter: ${l1ScrollAdapter}`);
+
+  // Resolve the L1 adapter slot each target chain will pair with.
+  const l1ZkStackAdapters = new Map<number, Address>();
+  for (const { slot, label } of ZK_STACK_TARGETS) {
+    const addr = sepoliaAddrs[`L1InfraModule#L1ZkStackBridgeAdapter_${slot}`] as Address;
+    if (!addr) {
+      throw new Error(`L1Infra deploy produced no L1ZkStackBridgeAdapter_${slot}`);
+    }
+    l1ZkStackAdapters.set(slot, addr);
+    console.log(`L1ZkStackBridgeAdapter_${slot} (${label}): ${addr}`);
+  }
 
   // ---------- Phase 3: Aztec testnet ----------
   console.log("\n=== Phase 3/8: Aztec testnet (deployAztecTestnet.ts) ===");
@@ -328,27 +361,39 @@ async function main() {
   console.log(`AztecWarpToad:        ${aztecWarpToad}`);
   console.log(`L2AztecBridgeAdapter: ${l2AztecAdapter}`);
 
-  // ---------- Phase 4: Poseidon on Scroll Sepolia ----------
-  console.log("\n=== Phase 4/8: PoseidonT3 on Scroll Sepolia ===");
-  const scrollPoseidon = await deployPoseidon(scrollPublic, scrollWallet);
-  console.log(`PoseidonT3 (Scroll): ${scrollPoseidon}`);
+  // ---------- Phases 4+5: Poseidon + L2ZkStack per target chain ----------
+  // The same L2ZkStackModule is deployed to every ZK Stack chain, each into its own
+  // chain-<id> deployment dir, so the deployment keys are identical across chains.
+  const l2ZkStackParams = new Map<number, Record<string, any>>();
+  const l2ZkStackAdapters = new Map<number, Address>();
 
-  // ---------- Phase 5: L2Scroll ignition deploy ----------
-  console.log("\n=== Phase 5/8: hardhat ignition deploy L2Scroll (Scroll Sepolia) ===");
-  await runIgnitionDeploy("deploy/ignition/modules/L2Scroll.ts", "scrollSepolia", {
-    L2ScrollModule: {
-      PoseidonT3LibAddress: scrollPoseidon,
-      L1ScrollBridgeAdapter: l1ScrollAdapter,
-      l2ScrollMessengerAddress: L2_SCROLL_MESSENGER_SEPOLIA,
-    },
-  });
+  for (const { target, public: pub, wallet } of l2Clients) {
+    console.log(`\n=== Phase 4/8: PoseidonT3 on ${target.label} ===`);
+    const poseidon = await deployPoseidon(pub, wallet);
+    console.log(`PoseidonT3 (${target.label}): ${poseidon}`);
 
-  const scrollAddrs = loadAddresses(SCROLL_ADDR_FILE);
-  const l2ScrollAdapter = scrollAddrs["L2ScrollModule#L2ScrollBridgeAdapter"] as Address;
-  if (!l2ScrollAdapter) {
-    throw new Error(`L2Scroll deploy did not produce expected addresses. Got: ${JSON.stringify(scrollAddrs, null, 2)}`);
+    const l1Adapter = l1ZkStackAdapters.get(target.slot)!;
+
+    console.log(`\n=== Phase 5/8: hardhat ignition deploy L2ZkStack (${target.label}) ===`);
+    const params = {
+      L2ZkStackModule: {
+        PoseidonT3LibAddress: poseidon,
+        L1ZkStackBridgeAdapter: l1Adapter,
+      },
+    };
+    l2ZkStackParams.set(target.slot, params);
+    await runIgnitionDeploy("deploy/ignition/modules/L2ZkStack.ts", target.hardhatNetwork, params);
+
+    const addrs = loadAddresses(addrFile(target.chainId));
+    const l2Adapter = addrs["L2ZkStackModule#L2ZkStackBridgeAdapter"] as Address;
+    if (!l2Adapter) {
+      throw new Error(
+        `L2ZkStack deploy on ${target.label} did not produce expected addresses. Got: ${JSON.stringify(addrs, null, 2)}`,
+      );
+    }
+    l2ZkStackAdapters.set(target.slot, l2Adapter);
+    console.log(`L2ZkStackBridgeAdapter (${target.label}): ${l2Adapter}`);
   }
-  console.log(`L2ScrollBridgeAdapter: ${l2ScrollAdapter}`);
 
   // ---------- Phase 6: L1 wire (initialize calls) ----------
   console.log("\n=== Phase 6/8: hardhat ignition deploy L1Wire (Sepolia) ===");
@@ -363,30 +408,33 @@ async function main() {
   const aztecWarpToadUint = BigInt(aztecWarpToad).toString();
   const l2AztecAdapterBytes32 = pad(l2AztecAdapter as Hex, { size: 32 });
 
+  // One l2ZkStackAdapter_<slot> parameter per claimed slot, consumed by the
+  // ZK_STACK_CHAINS loop in L1Wire.ts.
+  const l1WireModuleParams: Record<string, any> = {
+    aztecRegistry,
+    aztecWarpToadAddress: aztecWarpToadUint,
+    l2AztecAdapterBytes32,
+  };
+  for (const [slot, addr] of l2ZkStackAdapters) {
+    l1WireModuleParams[`l2ZkStackAdapter_${slot}`] = addr;
+  }
+
   await runIgnitionDeploy("deploy/ignition/modules/L1Wire.ts", "sepolia", {
-    L1WarpToadModule: { PoseidonT3LibAddress: sepoliaPoseidon },
-    L1InfraModule: { L1ScrollMessengerAddress: L1_SCROLL_MESSENGER_SEPOLIA },
-    L1WireModule: {
-      aztecRegistry,
-      aztecWarpToadAddress: aztecWarpToadUint,
-      l2AztecAdapterBytes32,
-      l2ScrollAdapter,
-    },
+    ...l1InfraParams,
+    L1WireModule: l1WireModuleParams,
   });
 
-  // ---------- Phase 7: L2 (Scroll) wire ----------
-  console.log("\n=== Phase 7/8: hardhat ignition deploy L2ScrollWire (Scroll Sepolia) ===");
-  await runIgnitionDeploy("deploy/ignition/modules/L2ScrollWire.ts", "scrollSepolia", {
-    L2ScrollModule: {
-      PoseidonT3LibAddress: scrollPoseidon,
-      L1ScrollBridgeAdapter: l1ScrollAdapter,
-      l2ScrollMessengerAddress: L2_SCROLL_MESSENGER_SEPOLIA,
-    },
-    L2ScrollWireModule: {
-      l1ScrollBridgeAdapter: l1ScrollAdapter,
-      aztecWarpToadAddress: aztecWarpToadUint,
-    },
-  });
+  // ---------- Phase 7: L2 wire, per target chain ----------
+  for (const { target } of l2Clients) {
+    console.log(`\n=== Phase 7/8: hardhat ignition deploy L2ZkStackWire (${target.label}) ===`);
+    await runIgnitionDeploy("deploy/ignition/modules/L2ZkStackWire.ts", target.hardhatNetwork, {
+      ...l2ZkStackParams.get(target.slot)!,
+      L2ZkStackWireModule: {
+        l1ZkStackBridgeAdapter: l1ZkStackAdapters.get(target.slot)!,
+        aztecWarpToadAddress: aztecWarpToadUint,
+      },
+    });
+  }
 
   // ---------- Phase 8: Etherscan verify ----------
   if (process.env.ETHERSCAN_API_KEY) {
@@ -405,11 +453,13 @@ async function main() {
     } catch (e) {
       console.warn(`Sepolia verify failed: ${(e as Error).message}; continuing.`);
     }
-    try {
-      console.log("\n-- verifying chain-534351 (Scroll Sepolia) --");
-      await runIgnitionVerify("chain-534351", "scrollSepolia");
-    } catch (e) {
-      console.warn(`Scroll verify failed: ${(e as Error).message}; continuing.`);
+    for (const { target } of l2Clients) {
+      try {
+        console.log(`\n-- verifying chain-${target.chainId} (${target.label}) --`);
+        await runIgnitionVerify(`chain-${target.chainId}`, target.hardhatNetwork);
+      } catch (e) {
+        console.warn(`${target.label} verify failed: ${(e as Error).message}; continuing.`);
+      }
     }
   } else {
     console.log("\n=== Phase 8/9: Etherscan verify -- SKIPPED (no ETHERSCAN_API_KEY) ===");
@@ -437,9 +487,11 @@ async function main() {
   for (const [k, v] of Object.entries(loadAddresses(SEPOLIA_ADDR_FILE))) {
     console.log(`  ${k.padEnd(45)} ${v}`);
   }
-  console.log("Scroll Sepolia:");
-  for (const [k, v] of Object.entries(loadAddresses(SCROLL_ADDR_FILE))) {
-    console.log(`  ${k.padEnd(45)} ${v}`);
+  for (const { target } of l2Clients) {
+    console.log(`${target.label}:`);
+    for (const [k, v] of Object.entries(loadAddresses(addrFile(target.chainId)))) {
+      console.log(`  ${k.padEnd(45)} ${v}`);
+    }
   }
   console.log("Aztec testnet:");
   for (const [k, v] of Object.entries(loadAddresses(AZTEC_ADDR_FILE))) {

@@ -12,6 +12,7 @@ import {
 import { requestSync, getOrchestratorState } from './bridge/syncOrchestrator.js';
 import { routeToRequirements } from './bridge/syncRequirements.js';
 import type { FullSyncResult } from './bridge/executor.js';
+import { LEGS, legRpcUrl, zkStackLegs } from './bridge/legRegistry.js';
 import type { BridgeRequest, BridgeOperation } from './types/index.js';
 import { fetchGigaState } from './bridge/gigaState.js';
 import { fetchBurnLeaves } from './bridge/burnLeaves.js';
@@ -55,7 +56,7 @@ if (!EVM_PRIVATE_KEY) {
   process.exit(1);
 }
 
-// Operation state, persisted across restarts so the 2-3h Scroll-finalization
+// Operation state, persisted across restarts so the multi-hour L2-finalization
 // wait survives a container rebuild. Each HTTP request gets its own
 // operationId, but many operationIds end up attached to the same scheduler
 // tick. The map is the source of truth in memory; saveOperation writes a
@@ -113,9 +114,23 @@ const RPC_METHOD_ALLOWLIST = new Set([
   'net_version',
 ]);
 
+// Proxy targets, keyed by a URL-safe alias. L1 is fixed; the L2 entries are generated
+// from the leg registry so a new chain gets a proxy route without editing this map.
+// ZK Stack legs are addressable by chain id (e.g. /rpc/300) and by slug.
 const RPC_UPSTREAMS: Record<string, string | undefined> = {
   sepolia: process.env.SEPOLIA_RPC_URL,
-  'scroll-sepolia': process.env.SCROLL_RPC_URL,
+  ...Object.fromEntries(
+    zkStackLegs().flatMap((leg) => {
+      let url: string | undefined;
+      try {
+        url = legRpcUrl(leg);
+      } catch {
+        url = undefined;
+      }
+      const slug = leg.label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      return [[leg.key, url], [slug, url]];
+    }),
+  ),
 };
 
 interface JsonRpcRequest {
@@ -270,18 +285,24 @@ app.get('/config', (req, res) => {
 
 /**
  * Flatten a FullSyncResult into the flat txHashes map the frontend polls for.
- * Values are 'N/A' when a leg was skipped (e.g. missing SCROLL_RPC_URL).
+ * Values are 'N/A' when a leg was skipped (e.g. its RPC URL isn't configured).
+ *
+ * Keys are generated per leg (`<legKey>SendRootToL1`, ...) rather than hardcoded, so a
+ * new L2 shows up in the response without touching this function. The 'aztec' prefix
+ * is unchanged; ZK Stack legs are keyed by chain id, e.g. `300SendRootToL1`.
  */
 function resultToTxHashes(r: FullSyncResult): Record<string, string> {
-  return {
-    aztecSendRootToL1: r.aztec?.sendRootToL1TxHash || 'N/A',
-    aztecRefreshRoot: r.aztec?.refreshRootTxHash || 'N/A',
-    aztecReceiveGigaRoot: r.aztec?.receiveGigaRootTxHash || 'N/A',
-    scrollSendRootToL1: r.scroll?.sendRootToL1TxHash || 'N/A',
-    scrollReceiveGigaRoot: r.scroll?.receiveGigaRootTxHash || 'N/A',
+  const out: Record<string, string> = {
     updateGigaRoot: r.updateGigaRootTxHash,
     sendGigaRoot: r.sendGigaRootTxHash,
   };
+  for (const leg of LEGS) {
+    const res = r.legs?.[leg.key] ?? null;
+    out[`${leg.key}SendRootToL1`] = res?.sendRootToL1TxHash || 'N/A';
+    out[`${leg.key}ReceiveGigaRoot`] = res?.receiveGigaRootTxHash || 'N/A';
+    if (leg.kind === 'aztec') out[`${leg.key}RefreshRoot`] = res?.refreshRootTxHash || 'N/A';
+  }
+  return out;
 }
 
 app.post('/bridge/:fromChainId/:toChainId', async (req, res) => {

@@ -38,8 +38,8 @@ const CONTRACTS_TO_GENERATE = [
 
   // Bridge adapters
   { artifactName: 'L1AztecBridgeAdapter', name: 'L1AztecBridgeAdapter' },
-  { artifactName: 'L1ScrollBridgeAdapter', name: 'L1ScrollBridgeAdapter' },
-  { artifactName: 'L2ScrollBridgeAdapter', name: 'L2ScrollBridgeAdapter' },
+  { artifactName: 'L1ZkStackBridgeAdapter', name: 'L1ZkStackBridgeAdapter' },
+  { artifactName: 'L2ZkStackBridgeAdapter', name: 'L2ZkStackBridgeAdapter' },
 
   // GigaBridge
   { artifactName: 'GigaBridge', name: 'GigaBridge' },

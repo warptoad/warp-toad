@@ -1,6 +1,6 @@
 # Warp Toad
 
-Cross-chain privacy bridge connecting Ethereum L1, Scroll L2, and Aztec L2 using zero-knowledge proofs.
+Cross-chain privacy bridge connecting Ethereum L1, ZKsync Era L2, and Aztec L2 using zero-knowledge proofs.
 
 ## Architecture
 
@@ -12,7 +12,7 @@ Five workspaces in a single pnpm monorepo:
 | `frontend/` | Svelte 5 + Vite SPA, in-browser Aztec wallet, ZK proof generation |
 | `bridge-sync/` | HTTP service ("BridgeKeeper") that triggers cross-chain root sync. In-process viem-native, calls `backend/lib/bridging.ts` directly |
 | `relay-service/` | HTTP service for gasless EVM withdrawals via meta-tx |
-| `faucet-service/` | HTTP service that drips testnet ETH (Sepolia + Scroll Sepolia) to user wallets, one claim per chain |
+| `faucet-service/` | HTTP service that drips testnet ETH (Sepolia + ZKsync Era Sepolia) to user wallets, one claim per chain |
 
 The two services + the frontend can be run in Docker via a single root-level
 `docker-compose.yml` (recommended), or locally for dev.
@@ -110,8 +110,8 @@ Required vars:
 ```
 DEPLOYER_PRIVATE_KEY=0x...                                # funded on both EVM chains
 SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/<KEY>
-SCROLL_SEPOLIA_RPC_URL=https://scroll-sepolia.infura.io/v3/<KEY>
-AZTEC_NODE_URL=https://rpc.testnet.aztec-labs.com
+ZKSYNC_ERA_SEPOLIA_RPC_URL=https://sepolia.era.zksync.dev     # optional, public default
+AZTEC_NODE_URL=https://v5.testnet.rpc.aztec-labs.com
 ```
 
 Optional:
@@ -120,7 +120,7 @@ ETHERSCAN_API_KEY=...           # Etherscan v2 unified key; enables Phase 8 bloc
 SKIP_AZTEC_SCAN_VERIFY=1        # set to any value to skip Phase 9 AztecScan verify
 ```
 
-You'll need ~0.05 Sepolia ETH and ~0.02 Scroll Sepolia ETH on the deployer.
+You'll need ~0.05 Sepolia ETH and ~0.02 ZKsync Era Sepolia ETH on the deployer.
 The Aztec testnet deploy is gas-free (sponsored FPC).
 
 ### Local sandbox deploy
@@ -147,12 +147,12 @@ The nine phases:
 | # | What | How |
 |---|---|---|
 | 1 | PoseidonT3 on Sepolia | Deterministic CREATE via Nick's method (hand-rolled; Ignition can't reach a fixed CREATE address) |
-| 2 | `L1Infra` module on Sepolia | Ignition deploy: L1WarpToad, LazyIMT, ZKTranscriptLib, HonkVerifier, GigaBridge, L1AztecBridgeAdapter, L1ScrollBridgeAdapter, USDcoin |
+| 2 | `L1Infra` module on Sepolia | Ignition deploy: L1WarpToad, LazyIMT, ZKTranscriptLib, HonkVerifier, GigaBridge, L1AztecBridgeAdapter, 4x L1ZkStackBridgeAdapter, USDcoin |
 | 3 | Aztec testnet | `scripts/deployAztecTestnet.ts` via aztec.js (hand-rolled, Ignition is EVM-only). Deploys AztecWarpToad + L2AztecBridgeAdapter and calls `WarpToadCore.initialize` |
-| 4 | PoseidonT3 on Scroll Sepolia | Same Nick's method as phase 1 |
-| 5 | `L2Scroll` module | Ignition deploy: L2WarpToad, L2ScrollBridgeAdapter |
-| 6 | `L1Wire` module | Ignition `m.call(initialize)` on L1WarpToad and the two L1 adapters (cross-chain pointers settle here) |
-| 7 | `L2ScrollWire` module | Ignition `m.call(initialize)` on L2WarpToad |
+| 4 | PoseidonT3 on each ZK Stack L2 | Same Nick's method as phase 1, looped over `ZK_STACK_TARGETS` |
+| 5 | `L2ZkStack` module | Ignition deploy: L2WarpToad, L2ZkStackBridgeAdapter, once per ZK Stack L2 |
+| 6 | `L1Wire` module | Ignition `m.call(initialize)` on L1WarpToad and the claimed L1 adapters (cross-chain pointers settle here) |
+| 7 | `L2ZkStackWire` module | Ignition `m.call(initialize)` on L2WarpToad, once per ZK Stack L2 |
 | 8 | EVM verify | `hardhat ignition verify` against Etherscan + Blockscout + Sourcify on both chains (skipped if `ETHERSCAN_API_KEY` is missing) |
 | 9 | AztecScan verify | `scripts/verifyAztecScan.ts` via aztec-scan-sdk (skipped if `SKIP_AZTEC_SCAN_VERIFY` is set) |
 
@@ -173,7 +173,7 @@ re-run:
 
 ```shell
 rm -rf backend/deploy/ignition/deployments/chain-11155111 \
-       backend/deploy/ignition/deployments/chain-534351
+       backend/deploy/ignition/deployments/chain-300
 rm -f  backend/deploy/aztec/aztecDeployments/11155111/deployed_addresses.json \
        backend/deploy/aztec/aztecDeployments/11155111/*_deploymentArtifact.json
 pnpm t:deploy
@@ -244,8 +244,8 @@ See [`.env.template`](./.env.template) for the full list with comments. The mini
 # bridge-sync (BridgeKeeper)
 EVM_PRIVATE_KEY=0x...                                      # signs L1 root-update txs
 SEPOLIA_RPC_URL=https://sepolia.infura.io/v3/<KEY>
-SCROLL_RPC_URL=https://scroll-sepolia.infura.io/v3/<KEY>
-AZTEC_NODE_URL=https://rpc.testnet.aztec-labs.com
+ZKSYNC_ERA_SEPOLIA_RPC_URL=https://sepolia.era.zksync.dev
+AZTEC_NODE_URL=https://v5.testnet.rpc.aztec-labs.com
 
 # relay-service
 RELAYER_PRIVATE_KEY=0x...                                  # signs mint() relay txs (use a different wallet from EVM_PRIVATE_KEY)
@@ -286,8 +286,8 @@ For iterative development on bridge-sync or relay-service.
 cd bridge-sync
 EVM_PRIVATE_KEY=0x... \
 SEPOLIA_RPC_URL=https://... \
-SCROLL_RPC_URL=https://... \
-AZTEC_NODE_URL=https://rpc.testnet.aztec-labs.com \
+ZKSYNC_ERA_SEPOLIA_RPC_URL=https://sepolia.era.zksync.dev \
+AZTEC_NODE_URL=https://v5.testnet.rpc.aztec-labs.com \
 PORT=6969 \
 pnpm dev
 ```
@@ -298,7 +298,7 @@ pnpm dev
 cd relay-service
 RELAYER_PRIVATE_KEY=0x... \
 L1_RPC_URL=https://... \
-SCROLL_RPC_URL=https://... \
+ZKSYNC_ERA_SEPOLIA_RPC_URL=https://sepolia.era.zksync.dev \
 PORT=7777 \
 pnpm dev
 ```
@@ -321,7 +321,7 @@ For local sandbox testing set `VITE_TEST_MODE=true` in `frontend/.env`.
 | Component | Version |
 |-----------|---------|
 | `@aztec/*` packages | `4.2.0-aztecnr-rc.2` |
-| Aztec testnet node | `4.2.0-nightly.20260408-1` (rpc.testnet.aztec-labs.com) |
+| Aztec testnet node | `5.0.0` (v5.testnet.rpc.aztec-labs.com) |
 | `@noir-lang/noir_js` | `1.0.0-beta.19` |
 | nargo | `1.0.0-beta.19` |
 | Solidity | `0.8.29` |

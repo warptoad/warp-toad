@@ -14,7 +14,7 @@ inside this workspace.
 backend/
 ├── contracts/                Solidity sources
 │   ├── core/                   L1WarpToad, L2WarpToad, WarpToadCore (abstract)
-│   ├── bridge/                 GigaBridge + per-L2 adapters (Aztec, Scroll)
+│   ├── bridge/                 GigaBridge + per-L2 adapters (Aztec, ZK Stack)
 │   ├── verifier/               Generated WithdrawVerifier.sol
 │   └── interfaces/
 ├── aztec/                    Aztec/Noir contracts + generated TS artifacts
@@ -26,7 +26,7 @@ backend/
 │   ├── bridging.ts             Cross-chain orchestrator (bridgeBetweenL1AndL2 etc)
 │   ├── proving.ts              ZK proof generation, calls bb binary
 │   ├── hashing.ts              Poseidon helpers + generator-index constants
-│   ├── constants.ts            Chain IDs, Scroll messenger addresses
+│   ├── constants.ts            Chain IDs, ZK Stack Bridgehub addresses
 │   └── types.ts
 ├── scripts/                  Deploy / sync / verify scripts (tsx + hardhat)
 │   ├── deployLocal.ts          Local sandbox deploy (chain 31337)
@@ -41,11 +41,11 @@ backend/
 │   ├── services/bridger.ts     CLI used by `pnpm bridge:runner`
 │   └── utils.ts                Hardhat-aware helpers (artifact loading, deployed-addresses lookup)
 ├── deploy/                   Deployment definitions + recorded addresses
-│   ├── ignition/modules/       Ignition module sources: L1WarpToad, L1Infra, L1Wire, L2Scroll, L2ScrollWire, TestToken, _loadNpmArtifact
+│   ├── ignition/modules/       Ignition module sources: L1WarpToad, L1Infra, L1Wire, L2ZkStack, L2ZkStackWire, TestToken, _loadNpmArtifact
 │   ├── ignition/deployments/   Per-chain Ignition state (addresses, journal, artifacts, build-info)
 │   │   ├── chain-31337/        Local sandbox
 │   │   ├── chain-11155111/     Sepolia
-│   │   └── chain-534351/       Scroll Sepolia
+│   │   └── chain-300/          ZKsync Era Sepolia
 │   ├── aztec/aztecDeployments/ Aztec contract metadata (constructorArgs, salt, deployer) per chain
 │   └── utils/aztecUtilsNoEnv.ts  Aztec PXE + sponsored wallet helpers
 ├── test/                     Backend test suite (5 tests)
@@ -53,7 +53,7 @@ backend/
 │   ├── testL1ToAztec.ts
 │   ├── testAztecToL1.ts
 │   └── helpers/                deploy-evm, setup, artifacts
-├── hardhat.config.ts         Networks: local, sepolia, scrollSepolia (read from .env)
+├── hardhat.config.ts         Networks: local, sepolia, zksyncEraSepolia (read from .env)
 ├── .env.template             Required env for testnet deploy
 └── package.json
 ```
@@ -102,12 +102,12 @@ npx hardhat test test/testAztecToL1.ts
 ## Deploy
 
 Configure `backend/.env` (see [`.env.template`](./.env.template)) with
-`DEPLOYER_PRIVATE_KEY`, `SEPOLIA_RPC_URL`, `SCROLL_SEPOLIA_RPC_URL`,
+`DEPLOYER_PRIVATE_KEY`, `SEPOLIA_RPC_URL`, `ZKSYNC_ERA_SEPOLIA_RPC_URL`,
 `AZTEC_NODE_URL`. Then from the monorepo root:
 
 ```bash
 pnpm l:deploy       # local sandbox (chain 31337)
-pnpm t:deploy       # Sepolia + Aztec testnet + Scroll Sepolia
+pnpm t:deploy       # Sepolia + Aztec testnet + ZKsync Era Sepolia
 ```
 
 Both shortcuts also run `pull:addresses` so the frontend's

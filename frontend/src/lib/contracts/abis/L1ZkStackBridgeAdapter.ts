@@ -1,15 +1,15 @@
 /**
- * L1ScrollBridgeAdapter Contract ABI
+ * L1ZkStackBridgeAdapter Contract ABI
  * Auto-generated from backend Hardhat artifacts
  * DO NOT EDIT MANUALLY
  */
 
-export const L1ScrollBridgeAdapterAbi = [
+export const L1ZkStackBridgeAdapterAbi = [
   {
     "inputs": [
       {
         "internalType": "address",
-        "name": "_l1ScrollMessenger",
+        "name": "_bridgehub",
         "type": "address"
       }
     ],
@@ -37,6 +37,45 @@ export const L1ScrollBridgeAdapterAbi = [
   },
   {
     "inputs": [],
+    "name": "DEFAULT_L2_GAS_LIMIT",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "L2_GAS_PER_PUBDATA_BYTE_LIMIT",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "bridgehub",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
     "name": "getLocalRootAndBlock",
     "outputs": [
       {
@@ -57,13 +96,28 @@ export const L1ScrollBridgeAdapterAbi = [
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_l2Root",
+        "name": "_batchNumber",
         "type": "uint256"
       },
       {
         "internalType": "uint256",
-        "name": "_l2BlockNumber",
+        "name": "_index",
         "type": "uint256"
+      },
+      {
+        "internalType": "uint16",
+        "name": "_txNumberInBatch",
+        "type": "uint16"
+      },
+      {
+        "internalType": "bytes",
+        "name": "_message",
+        "type": "bytes"
+      },
+      {
+        "internalType": "bytes32[]",
+        "name": "_proof",
+        "type": "bytes32[]"
       }
     ],
     "name": "getNewRootFromL2",
@@ -87,8 +141,13 @@ export const L1ScrollBridgeAdapterAbi = [
   {
     "inputs": [
       {
+        "internalType": "uint256",
+        "name": "_l2ChainId",
+        "type": "uint256"
+      },
+      {
         "internalType": "address",
-        "name": "_l2ScrollBridgeAdapter",
+        "name": "_l2ZkStackBridgeAdapter",
         "type": "address"
       },
       {
@@ -104,12 +163,12 @@ export const L1ScrollBridgeAdapterAbi = [
   },
   {
     "inputs": [],
-    "name": "l1ScrollMessenger",
+    "name": "l2ChainId",
     "outputs": [
       {
-        "internalType": "address",
+        "internalType": "uint256",
         "name": "",
-        "type": "address"
+        "type": "uint256"
       }
     ],
     "stateMutability": "view",
@@ -117,7 +176,7 @@ export const L1ScrollBridgeAdapterAbi = [
   },
   {
     "inputs": [],
-    "name": "l2ScrollBridgeAdapter",
+    "name": "l2ZkStackBridgeAdapter",
     "outputs": [
       {
         "internalType": "address",
@@ -158,11 +217,11 @@ export const L1ScrollBridgeAdapterAbi = [
     "inputs": [
       {
         "internalType": "uint256",
-        "name": "_newGigaRoot",
+        "name": "_l2GasLimit",
         "type": "uint256"
       }
     ],
-    "name": "receiveGigaRoot",
+    "name": "pushGigaRoot",
     "outputs": [],
     "stateMutability": "payable",
     "type": "function"
@@ -173,11 +232,6 @@ export const L1ScrollBridgeAdapterAbi = [
         "internalType": "uint256",
         "name": "_newGigaRoot",
         "type": "uint256"
-      },
-      {
-        "internalType": "uint256",
-        "name": "_gasLimit",
-        "type": "uint256"
       }
     ],
     "name": "receiveGigaRoot",
@@ -187,4 +241,4 @@ export const L1ScrollBridgeAdapterAbi = [
   }
 ] as const;
 
-export type L1ScrollBridgeAdapterAbi = typeof L1ScrollBridgeAdapterAbi;
+export type L1ZkStackBridgeAdapterAbi = typeof L1ZkStackBridgeAdapterAbi;

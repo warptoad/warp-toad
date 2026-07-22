@@ -33,7 +33,7 @@ import circuit from '$lib/circuits/withdraw.json';
  * Bump CRS_CACHE_VERSION whenever the bundled @aztec/bb.js (its CRS format)
  * changes. On a mismatch we drop the cache once so bb.js re-downloads it fresh.
  */
-const CRS_CACHE_VERSION = 'bb-5.0.0-rc.1';
+const CRS_CACHE_VERSION = 'bb-5.0.0';
 const CRS_CACHE_VERSION_KEY = 'warptoad:bbCrsCacheVersion';
 const BB_CRS_IDB_NAME = 'keyval-store';
 
@@ -357,18 +357,18 @@ export function prepareProofInputsForSameChain(
 }
 
 /**
- * Prepare proof inputs for L1 → Scroll (EVM to EVM) withdrawal
+ * Prepare proof inputs for L1 → ZKsync Era (EVM to EVM) withdrawal
  * Uses is_from_aztec = false
  * 
  * @param commitmentData - The commitment pre-image from the L1 burn
  * @param l1EvmMerkleData - Merkle proof from L1 burn tree
  * @param gigaMerkleData - Merkle proof from GigaBridge tree (L1 local root in giga root)
  * @param gigaRoot - The giga root from GigaBridge
- * @param scrollLocalRoot - The Scroll local root (destination)
+ * @param l2LocalRoot - The ZKsync Era local root (destination)
  * @param l1LocalRoot - The L1 local root (origin)
  * @param aztecWarptoadAddress - The Aztec WarpToad address (from L1WarpToad contract)
- * @param scrollChainId - The Scroll chain ID
- * @param recipientAddress - The recipient's Scroll address
+ * @param scrollChainId - The ZKsync Era chain ID
+ * @param recipientAddress - The recipient's ZKsync Era address
  * @param feeConfig - Optional fee configuration for relaying
  * @returns ProofInputs ready for the circuit
  */
@@ -377,7 +377,7 @@ export function prepareProofInputsForL1ToScroll(
 	l1EvmMerkleData: EvmMerkleData,
 	gigaMerkleData: EvmMerkleData,
 	gigaRoot: bigint,
-	scrollLocalRoot: bigint,
+	l2LocalRoot: bigint,
 	l1LocalRoot: bigint,
 	aztecWarptoadAddress: bigint,
 	scrollChainId: bigint,
@@ -399,7 +399,7 @@ export function prepareProofInputsForL1ToScroll(
 		chain_id: toHex(scrollChainId),
 		amount: toHex(commitmentData.amount),
 		giga_root: toHex(gigaRoot),
-		destination_local_root: toHex(scrollLocalRoot),
+		destination_local_root: toHex(l2LocalRoot),
 		aztec_warptoad_address: toHex(aztecWarptoadAddress),
 		fee_factor: toHex(feeFactor),
 		priority_fee: toHex(priorityFee),
@@ -409,7 +409,7 @@ export function prepareProofInputsForL1ToScroll(
 
 		// ----- private inputs -----
 		origin_local_root: toHex(l1LocalRoot),
-		is_from_aztec: false, // L1 → Scroll uses EVM merkle proof
+		is_from_aztec: false, // L1 → ZKsync Era uses EVM merkle proof
 		nullifier_preimage: toHex(commitmentData.nullifier_preimg),
 		secret: toHex(commitmentData.secret),
 		aztec_merkle_data: createEmptyAztecMerkleData(), // Not used for EVM → EVM
@@ -427,16 +427,16 @@ export function prepareProofInputsForL1ToScroll(
 }
 
 /**
- * Prepare proof inputs for Scroll → L1 withdrawal
+ * Prepare proof inputs for ZKsync Era → L1 withdrawal
  * Uses is_from_aztec = false
  * 
- * @param commitmentData - The commitment pre-image from the Scroll burn
- * @param scrollEvmMerkleData - Merkle proof from Scroll burn tree
- * @param gigaMerkleData - Merkle proof from GigaBridge tree (Scroll local root in giga root)
+ * @param commitmentData - The commitment pre-image from the ZKsync Era burn
+ * @param scrollEvmMerkleData - Merkle proof from ZKsync Era burn tree
+ * @param gigaMerkleData - Merkle proof from GigaBridge tree (ZKsync Era local root in giga root)
  * @param gigaRoot - The giga root from GigaBridge
  * @param l1LocalRoot - The L1 local root (destination)
- * @param scrollLocalRoot - The Scroll local root (origin)
- * @param aztecWarptoadAddress - The Aztec WarpToad address (from Scroll L2WarpToad contract)
+ * @param l2LocalRoot - The ZKsync Era local root (origin)
+ * @param aztecWarptoadAddress - The Aztec WarpToad address (from ZKsync Era L2WarpToad contract)
  * @param l1ChainId - The L1 chain ID
  * @param recipientAddress - The recipient's L1 address
  * @param feeConfig - Optional fee configuration for relaying
@@ -448,7 +448,7 @@ export function prepareProofInputsForScrollToL1(
 	gigaMerkleData: EvmMerkleData,
 	gigaRoot: bigint,
 	l1LocalRoot: bigint,
-	scrollLocalRoot: bigint,
+	l2LocalRoot: bigint,
 	aztecWarptoadAddress: bigint,
 	l1ChainId: bigint,
 	recipientAddress: string,
@@ -478,8 +478,8 @@ export function prepareProofInputsForScrollToL1(
 		recipient_address: addressToHex(recipientAddress),
 
 		// ----- private inputs -----
-		origin_local_root: toHex(scrollLocalRoot),
-		is_from_aztec: false, // Scroll → L1 uses EVM merkle proof
+		origin_local_root: toHex(l2LocalRoot),
+		is_from_aztec: false, // ZKsync Era → L1 uses EVM merkle proof
 		nullifier_preimage: toHex(commitmentData.nullifier_preimg),
 		secret: toHex(commitmentData.secret),
 		aztec_merkle_data: createEmptyAztecMerkleData(), // Not used for EVM → EVM

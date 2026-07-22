@@ -30,8 +30,9 @@ interface ChainAddresses {
 	L2WarpToad?: string;
 	GigaBridge?: string;
 	L1AztecBridgeAdapter?: string;
-	L1ScrollBridgeAdapter?: string;
-	L2ScrollBridgeAdapter?: string;
+	/** L1 ZK Stack adapter slots, keyed by slot index. Includes unclaimed spares. */
+	L1ZkStackBridgeAdapters?: Record<string, string>;
+	L2ZkStackBridgeAdapter?: string;
 }
 
 function extractContractAddresses(deployedAddresses: DeployedAddresses): Partial<ChainAddresses> {
@@ -57,12 +58,19 @@ function extractContractAddresses(deployedAddresses: DeployedAddresses): Partial
 			case 'L1AztecBridgeAdapter':
 				addresses.L1AztecBridgeAdapter = address;
 				break;
-			case 'L1ScrollBridgeAdapter':
-				addresses.L1ScrollBridgeAdapter = address;
+			case 'L2ZkStackBridgeAdapter':
+				addresses.L2ZkStackBridgeAdapter = address;
 				break;
-			case 'L2ScrollBridgeAdapter':
-				addresses.L2ScrollBridgeAdapter = address;
+			default: {
+				// L1 adapter slots are deployed as L1ZkStackBridgeAdapter_<slot>, so
+				// they can't be matched by a fixed name. Collect them by index.
+				const slot = contractName?.match(/^L1ZkStackBridgeAdapter_(\d+)$/)?.[1];
+				if (slot !== undefined) {
+					addresses.L1ZkStackBridgeAdapters ??= {};
+					addresses.L1ZkStackBridgeAdapters[slot] = address;
+				}
 				break;
+			}
 		}
 	}
 
@@ -74,8 +82,9 @@ function getChainName(chainId: string): string {
 		'31337': 'localhost',
 		'1': 'mainnet',
 		'11155111': 'sepolia',
-		'534351': 'scrollSepolia',
-		'534352': 'scroll',
+		'300': 'zksyncEraSepolia',
+		'324': 'zksyncEra',
+		'11124': 'abstractTestnet',
 	};
 
 	return chainIdMap[chainId] || `chain_${chainId}`;
@@ -175,8 +184,8 @@ export interface ContractAddresses {
 	L2WarpToad?: string;
 	GigaBridge?: string;
 	L1AztecBridgeAdapter?: string;
-	L1ScrollBridgeAdapter?: string;
-	L2ScrollBridgeAdapter?: string;
+	L1ZkStackBridgeAdapters?: Record<string, string>;
+	L2ZkStackBridgeAdapter?: string;
 }
 
 export interface ChainConfig {
@@ -210,8 +219,9 @@ export const CHAIN_NAMES: Record<string, string> = {
 	'31337': 'Localhost (Anvil)',
 	'1': 'Ethereum Mainnet',
 	'11155111': 'Sepolia Testnet',
-	'534351': 'Scroll Sepolia Testnet',
-	'534352': 'Scroll Mainnet',
+	'300': 'ZKsync Era Sepolia',
+	'324': 'ZKsync Era',
+	'11124': 'Abstract Testnet',
 };
 
 export function getChainName(chainId: number | string): string {

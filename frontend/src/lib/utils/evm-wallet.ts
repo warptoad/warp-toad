@@ -1,5 +1,5 @@
 import { createWalletClient, custom, type WalletClient, type Chain as ViemChain, http, createPublicClient } from 'viem';
-import { anvil, mainnet, scrollSepolia } from 'viem/chains';
+import { anvil, mainnet, zksyncSepoliaTestnet } from 'viem/chains';
 import type { Chain } from '$lib/types/bridge.js';
 import { L1_CONFIG, L2_SCROLL_CONFIG, getNetworkConfigs, isTestMode } from '$lib/config/environment.js';
 
@@ -12,8 +12,8 @@ export const CHAIN_ID_TO_NAME: Partial<Record<number, Chain>> = {
 	[L1_CONFIG.chainId]: 'Ethereum',
 	// Always include anvil for backwards compatibility in test mode
 	...(isTestMode ? { [anvil.id]: 'Ethereum' } : {}),
-	// Include Scroll if available
-	...(L2_SCROLL_CONFIG ? { [L2_SCROLL_CONFIG.chainId]: 'Scroll' } : {}),
+	// Include ZKsync Era if available
+	...(L2_SCROLL_CONFIG ? { [L2_SCROLL_CONFIG.chainId]: 'ZKsync' } : {}),
 };
 
 export interface EVMWalletState {

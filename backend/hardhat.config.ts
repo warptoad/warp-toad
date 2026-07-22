@@ -14,7 +14,8 @@ import hardhatToolboxViem from "@nomicfoundation/hardhat-toolbox-viem";
 // having set the env var. Compile / test / unrelated commands run unaffected.
 const PLACEHOLDER_URL = "http://localhost:8545";
 const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL || PLACEHOLDER_URL;
-const SCROLL_SEPOLIA_RPC_URL = process.env.SCROLL_SEPOLIA_RPC_URL || PLACEHOLDER_URL;
+const ZKSYNC_ERA_SEPOLIA_RPC_URL =
+  process.env.ZKSYNC_ERA_SEPOLIA_RPC_URL || "https://sepolia.era.zksync.dev";
 const DEPLOYER_PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY ?? "";
 const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY ?? "";
 
@@ -39,7 +40,7 @@ export default defineConfig({
     // `settings` block when synthesizing the production profile from a single
     // version config, replacing optimizer with `{ enabled: true, runs: 200 }`.
     // We need runs=1 to keep HonkVerifier under EIP-170's 24,576-byte limit
-    // on Sepolia/Scroll Sepolia/mainnet, so we declare both profiles explicitly
+    // on Sepolia/mainnet, so we declare both profiles explicitly
     // with the same settings (the verifier is called rarely, so the slight
     // gas-cost bump from low optimizer runs is fine).
     profiles: {
@@ -60,7 +61,7 @@ export default defineConfig({
     },
     npmFilesToBuild: [
       "poseidon-solidity/PoseidonT3.sol",
-      // Ignition's L1WarpToad / L2Scroll modules call m.library("LazyIMT", ...)
+      // Ignition's L1WarpToad / L2ZkStack modules call m.library("LazyIMT", ...)
       // which requires Hardhat to have compiled LazyIMT into its artifacts.
       "@zk-kit/lazy-imt.sol/LazyIMT.sol",
     ],
@@ -103,31 +104,35 @@ export default defineConfig({
       accounts: DEPLOYER_PRIVATE_KEY ? [DEPLOYER_PRIVATE_KEY] : [],
       chainId: 11155111,
     },
-    scrollSepolia: {
+    // zkSync Era Sepolia, the ZK Stack L2 that replaced the retired Scroll Sepolia.
+    // Plain solc: the EVM bytecode interpreter is enabled on Era (ContractDeployer
+    // (0x8006).allowedBytecodeTypesToDeploy() == 1), so zksolc and the Hardhat-2-only
+    // @matterlabs/hardhat-zksync plugins are NOT needed and must not be added.
+    zksyncEraSepolia: {
       type: "http",
-      url: SCROLL_SEPOLIA_RPC_URL,
+      url: ZKSYNC_ERA_SEPOLIA_RPC_URL,
       accounts: DEPLOYER_PRIVATE_KEY ? [DEPLOYER_PRIVATE_KEY] : [],
-      chainId: 534351,
+      chainId: 300,
     },
   },
-  // Scroll Sepolia isn't in Hardhat 3's default chain descriptors, so add it
+  // zkSync Era Sepolia is not in Hardhat 3's default chain descriptors, so add it
   // here. Sepolia (11155111) is in defaults already and inherits etherscan.io.
   chainDescriptors: {
-    534351: {
-      name: "Scroll Sepolia",
+    300: {
+      name: "zkSync Era Sepolia",
       blockExplorers: {
         etherscan: {
-          url: "https://sepolia.scrollscan.com",
-          apiUrl: "https://api-sepolia.scrollscan.com/api",
+          url: "https://sepolia-era.zksync.network",
+          apiUrl: "https://api-sepolia-era.zksync.network/api",
         },
         blockscout: {
-          url: "https://scroll-sepolia.blockscout.com",
-          apiUrl: "https://scroll-sepolia.blockscout.com/api",
+          url: "https://sepolia.explorer.zksync.io",
+          apiUrl: "https://block-explorer-api.sepolia.zksync.dev/api",
         },
       },
     },
   },
-  // Etherscan v2 unified API key (one key for Sepolia + Scroll Sepolia).
+  // Etherscan v2 unified API key (one key for Sepolia + zkSync Era Sepolia).
   // Set ETHERSCAN_API_KEY in backend/.env. Verification is invoked by the
   // deploy orchestrator via `hardhat ignition verify <deploymentId>`.
   verify: {

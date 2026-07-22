@@ -20,6 +20,7 @@ import type { CommitmentPreImage } from '$lib/types/bridge';
 import { createPublicClient, http, keccak256, toHex, type PublicClient } from 'viem';
 import { getContractAddresses, CONTRACT_ADDRESSES } from '$lib/contracts/addresses';
 import { GigaBridgeAbi, L1WarpToadAbi, L2WarpToadAbi } from '$lib/contracts/abis';
+import { getL1AdapterForEvmChainId, getChainNameByChainId, getRpcUrlByChainId, isL2ChainId } from '$lib/config/chains';
 import { queryEventInChunks } from './viem-chunks';
 import { rpcSettings } from '$lib/stores/rpc-settings.svelte';
 import { tryGetGigaLeavesForRoot, BridgeSyncStaleError, fetchBurnLeavesFromKeeper, isBridgeIndexerEnabled } from './bridge-keeper';
@@ -80,7 +81,7 @@ export interface MerkleDataResult {
 	originLocalRoot: bigint;
 	gigaMerkleData: EvmMerkleData;
 	evmMerkleData: EvmMerkleData;
-	actualGigaRoot?: bigint; // The gigaRoot actually used for proofs (may differ from Aztec's current gigaRoot for Scroll)
+	actualGigaRoot?: bigint; // The gigaRoot actually used for proofs (may differ from Aztec's current gigaRoot for ZKsync Era)
 }
 
 interface LocalRootData {
@@ -179,17 +180,14 @@ export async function getWarpToadContract(wallet: Wallet): Promise<WarpToadCoreC
 		WarpToadCoreContractArtifact,
 		{
 			constructorArgs: AZTEC_CONTRACTS.AztecWarpToad.constructorArgs,
-			deployer: AztecAddress.fromString(AZTEC_CONTRACTS.AztecWarpToad.deployer),
+			deployer: AztecAddress.fromStringUnsafe(AZTEC_CONTRACTS.AztecWarpToad.deployer),
 			salt: Fr.fromHexString(AZTEC_CONTRACTS.AztecWarpToad.contractAddressSalt),
 		}
 	);
 
-	const registeredContract = await wallet.registerContract(
-		contract,
-		WarpToadCoreContractArtifact
-	);
+	await wallet.registerContract(contract, WarpToadCoreContractArtifact);
 
-	const warptoadContract = await WarpToadCoreContract.at(registeredContract.address, wallet);
+	const warptoadContract = await WarpToadCoreContract.at(contract.address, wallet);
 
 	return warptoadContract;
 }
@@ -232,14 +230,13 @@ export function hashNullifier(nullifierPreimage: bigint): bigint {
  * Create a public client for the given chain
  */
 function createEvmClient(chainId: number, rpcUrl?: string): PublicClient {
-	// Use environment config for RPC URLs
+	// Resolve the RPC from the chain registry, so adopting another L2 needs no change
+	// here. The local sandbox L1 isn't in the registry, so it keeps its own branch.
 	let defaultRpcUrl: string | undefined;
 	if (chainId === L1_CONFIG.chainId || chainId === 31337) {
 		defaultRpcUrl = L1_CONFIG.rpcUrl;
-	} else if (chainId === 11155111) {
-		defaultRpcUrl = import.meta.env.VITE_SEPOLIA_RPC_URL;
-	} else if (chainId === 534351) {
-		defaultRpcUrl = import.meta.env.VITE_SCROLL_SEPOLIA_RPC_URL;
+	} else {
+		defaultRpcUrl = getRpcUrlByChainId(chainId);
 	}
 
 	const resolvedRpc = rpcUrl ?? defaultRpcUrl;
@@ -253,7 +250,7 @@ function createEvmClient(chainId: number, rpcUrl?: string): PublicClient {
 	return createPublicClient({
 		chain: {
 			id: chainId,
-			name: chainId === 31337 ? 'Localhost' : chainId === 11155111 ? 'Sepolia' : `Chain ${chainId}`,
+			name: chainId === 31337 ? 'Localhost' : (getChainNameByChainId(chainId) ?? `Chain ${chainId}`),
 			nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
 			rpcUrls: {
 				default: { http: [resolvedRpc] },
@@ -506,7 +503,7 @@ async function findBurnEventForCommitment(
  * Find a gigaRoot that contains the given commitment from a specific source chain.
  * Searches recent gigaRoots on L1 (last ~6.5 hours) to find one that includes the commitment.
  * 
- * @param sourceChainId - Chain where the burn happened (e.g., 534351 for Scroll)
+ * @param sourceChainId - Chain where the burn happened (e.g., 300 for ZKsync Era)
  * @param commitment - The commitment to search for
  * @param sourceWarpToadAddress - WarpToad contract address on source chain
  * @returns Object with gigaRoot, localRoot, localRootIndex, and localRootBlockNumber
@@ -532,13 +529,13 @@ async function findGigaRootWithCommitment(
 	}
 
 	// Determine which local root provider to query
+	// An L2 source registers its roots with GigaBridge through its own L1 adapter slot;
+	// an L1 source is its own provider. Resolved from the chain registry so this works
+	// for any L2, rather than testing for one hardcoded chain id.
 	let localRootProviderAddress: string;
-	if (sourceChainId === 534351) {
-		// For Scroll, use L1ScrollBridgeAdapter
-		if (!gigaBridgeAddresses.L1ScrollBridgeAdapter) {
-			throw new Error('L1ScrollBridgeAdapter address not found');
-		}
-		localRootProviderAddress = gigaBridgeAddresses.L1ScrollBridgeAdapter;
+	const sourceL1Adapter = getL1AdapterForEvmChainId(sourceChainId);
+	if (sourceL1Adapter) {
+		localRootProviderAddress = sourceL1Adapter;
 	} else {
 		// For L1 chains, use L1WarpToad
 		if (!gigaBridgeAddresses.L1WarpToad) {
@@ -554,7 +551,7 @@ async function findGigaRootWithCommitment(
 	// loop below) gets us the leaf index and burn block for this commitment.
 	// All "is the commitment in this local root?" checks then reduce to a
 	// single `lastLeafIndex(at block)` read against the L2 WarpToad.
-	const sourceWarpToadAbi = sourceChainId === 534351 ? L2WarpToadAbi : L1WarpToadAbi;
+	const sourceWarpToadAbi = isL2ChainId(sourceChainId) ? L2WarpToadAbi : L1WarpToadAbi;
 	const userBurn = await findBurnEventForCommitment(
 		sourceClient,
 		sourceWarpToadAddress,
@@ -592,7 +589,7 @@ async function findGigaRootWithCommitment(
 	}
 
 	// Memoize lastLeafIndex(at block) across the loop. In practice the keeper
-	// publishes new gigaRoots faster than Scroll's local root advances on L1,
+	// publishes new gigaRoots faster than ZKsync Era's local root advances on L1,
 	// so several consecutive gigaRoots usually share the same
 	// localRootBlockNumber for our provider. Without this cache, each one
 	// pays a fresh historical read.
@@ -616,7 +613,7 @@ async function findGigaRootWithCommitment(
 
 			// "Is the commitment in this local root?" is equivalent to
 			// "did the L2 WarpToad have at least userLeafIndex+1 leaves at
-			// the block recorded with the local root?". `getEvmMerkleDataForScroll`
+			// the block recorded with the local root?". `getEvmMerkleDataForZkStack`
 			// already trusts this relationship (it reads `lastLeafIndex` at the
 			// recorded block, scans that many burns, and verifies the
 			// reconstructed root equals `cachedLocalRoot` at the same block).
@@ -999,7 +996,7 @@ async function getLocalRootData(
 
 /**
  * Get L1 chain ID based on environment
- * For Scroll L2, GigaBridge lives on L1 (Sepolia or Localhost)
+ * For ZKsync Era L2, GigaBridge lives on L1 (Sepolia or Localhost)
  */
 function getL1ChainId(): number {
 	// In test mode: localhost (31337)
@@ -1011,11 +1008,11 @@ function getL1ChainId(): number {
 /**
  * Determine which chain has the GigaBridge for a given source chain
  * - L1 chains (31337, 11155111): GigaBridge is on same chain
- * - L2 chains (534351 Scroll): GigaBridge is on L1
+ * - L2 chains (e.g. 300 ZKsync Era): GigaBridge is on L1
  */
 function getGigaBridgeChainId(sourceChainId: number): number {
-	// Scroll Sepolia (534351) -> GigaBridge is on L1 (Sepolia/Localhost)
-	if (sourceChainId === 534351) {
+	// Any registered L2 -> GigaBridge lives on L1 (Sepolia/Localhost)
+	if (isL2ChainId(sourceChainId)) {
 		return getL1ChainId();
 	}
 	// L1 chains have GigaBridge on same chain
@@ -1029,7 +1026,7 @@ function getGigaBridgeChainId(sourceChainId: number): number {
 /**
  * Get all merkle data needed for minting on Aztec
  * 
- * @param sourceChainId - The chain ID where the burn happened (e.g., 31337 for anvil, 534351 for Scroll)
+ * @param sourceChainId - The chain ID where the burn happened (e.g., 31337 for anvil, 300 for ZKsync Era)
  * @param commitment - The commitment hash from the burn
  * @param gigaRoot - The specific gigaRoot value from the Aztec contract (ensures consistency)
  * @returns Merkle data for the mint transaction
@@ -1043,14 +1040,14 @@ export async function getMerkleData(
 	
 	const addresses = getContractAddresses(sourceChainId);
 
-	// Use L2WarpToad for Scroll (534351), L1WarpToad for other chains
+	// Use L2WarpToad on an L2, L1WarpToad for other chains
 	const warpToadAddress = addresses.L2WarpToad || addresses.L1WarpToad;
 	
 	if (!warpToadAddress) {
 		throw new Error(`WarpToad address not found for chain ${sourceChainId}`);
 	}
 	
-	// For Scroll L2, GigaBridge lives on L1, not on Scroll itself
+	// For ZKsync Era L2, GigaBridge lives on L1, not on ZKsync Era itself
 	const gigaBridgeChainId = getGigaBridgeChainId(sourceChainId);
 	console.log(`[getMerkleData] GigaBridge chain: ${gigaBridgeChainId}`);
 	
@@ -1063,14 +1060,14 @@ export async function getMerkleData(
 	// The provider is the address that registered roots with GigaBridge
 	let localRootProviderAddress: string;
 	
-	if (sourceChainId === 534351) {
-		// For Scroll: Use L1ScrollBridgeAdapter (the provider registered with GigaBridge)
-		// Architecture: Scroll L2WarpToad → L2ScrollBridgeAdapter → L1ScrollBridgeAdapter → GigaBridge
-		if (!gigaBridgeAddresses.L1ScrollBridgeAdapter) {
-			throw new Error(`L1ScrollBridgeAdapter address not found for chain ${gigaBridgeChainId}`);
-		}
-		localRootProviderAddress = gigaBridgeAddresses.L1ScrollBridgeAdapter;
-		console.log(`[getMerkleData] Using L1ScrollBridgeAdapter as local root provider: ${localRootProviderAddress}`);
+	// An L2 source registers its roots through its own L1 adapter slot; an L1 source is
+	// its own provider. Architecture: L2WarpToad -> L2ZkStackBridgeAdapter ->
+	// L1ZkStackBridgeAdapter slot -> GigaBridge. Resolved from the chain registry so
+	// this works for any L2 rather than testing one hardcoded chain id.
+	const sourceL1Adapter = getL1AdapterForEvmChainId(sourceChainId);
+	if (sourceL1Adapter) {
+		localRootProviderAddress = sourceL1Adapter;
+		console.log(`[getMerkleData] Using L1 adapter slot as local root provider: ${localRootProviderAddress}`);
 	} else {
 		// For L1 chains: Use L1WarpToad directly
 		if (!gigaBridgeAddresses.L1WarpToad) {
@@ -1085,14 +1082,14 @@ export async function getMerkleData(
 	const gigaBridgeClient = createEvmClient(gigaBridgeChainId);
 
 	// Step 1: Get local root data
-	// For Scroll: Find a gigaRoot that contains the commitment (may differ from Aztec's current gigaRoot)
+	// For an L2: Find a gigaRoot that contains the commitment (may differ from Aztec's current gigaRoot)
 	// For L1: Use the gigaRoot from Aztec contract directly
 	let localRootData: LocalRootData;
 	let actualGigaRoot: bigint;
 
-	if (sourceChainId === 534351) {
-		// Scroll case: Find ANY gigaRoot on L1 that contains our commitment
-		console.log('[getMerkleData] Scroll detected - searching for gigaRoot containing commitment...');
+	if (isL2ChainId(sourceChainId)) {
+		// L2 case: Find ANY gigaRoot on L1 that contains our commitment
+		console.log('[getMerkleData] L2 source detected - searching for gigaRoot containing commitment...');
 		const foundData = await findGigaRootWithCommitment(
 			sourceChainId,
 			commitment,
@@ -1125,7 +1122,7 @@ export async function getMerkleData(
 	}
 
 	// Step 2: Get EVM merkle proof (commitment in local root)
-	// This queries the source chain (L1 or Scroll) for burn events
+	// This queries the source chain (L1 or ZKsync Era) for burn events
 	console.log('Building EVM merkle proof...');
 	const evmMerkleData = await getEvmMerkleData(
 		sourceClient,
@@ -1153,7 +1150,7 @@ export async function getMerkleData(
 
 	// Step 4: Get Aztec block number for historical state read
 	// For L1: Use current block number (traditional flow)
-	// For Scroll: We need to return the actualGigaRoot so mintFromEVM can find its block number
+	// For ZKsync Era: We need to return the actualGigaRoot so mintFromEVM can find its block number
 	const aztecNode = await getAztecNode();
 	const blockNumber = await aztecNode.getBlockNumber();
 
@@ -1241,7 +1238,7 @@ export async function validateCommitmentExists(
 	try {
 		const addresses = getContractAddresses(sourceChainId);
 		
-		// Use L2WarpToad for Scroll (534351), L1WarpToad for other chains
+		// Use L2WarpToad on an L2, L1WarpToad for other chains
 		const warpToadAddress = addresses.L2WarpToad || addresses.L1WarpToad;
 		
 		if (!warpToadAddress) {
@@ -1407,7 +1404,7 @@ export async function isNoteUsed(nullifierPreimage: bigint): Promise<NullifierCh
 				error: 'WarpToad contract address not configured'
 			};
 		}
-		const warpToadAddress = AztecAddress.fromString(warpToadAddressStr);
+		const warpToadAddress = AztecAddress.fromStringUnsafe(warpToadAddressStr);
 
 		// Step 3: Silo the nullifier with the contract address
 		// This matches what Aztec does internally when context.push_nullifier() is called
@@ -1526,7 +1523,7 @@ export async function mintFromEVM(
 		merkleData.gigaMerkleData.hash_path.map(BigInt),
 	);
 
-	// For Scroll, merkleData.actualGigaRoot may differ from the gigaRoot parameter
+	// For ZKsync Era, merkleData.actualGigaRoot may differ from the gigaRoot parameter
 	const expectedGigaRoot = merkleData.actualGigaRoot || gigaRoot;
 	console.log('[mintFromEVM] Giga path recomputed root matches? :', gigaRootFromPath.toString() === expectedGigaRoot.toString());
 
@@ -1544,13 +1541,13 @@ export async function mintFromEVM(
 	});
 
 	// Step 3: Prepare recipient address
-	const recipient = AztecAddress.fromString(recipientAddress);
+	const recipient = AztecAddress.fromStringUnsafe(recipientAddress);
 
-	// Step 3.5: For Scroll, find the Aztec block number where actualGigaRoot is stored
+	// Step 3.5: For ZKsync Era, find the Aztec block number where actualGigaRoot is stored
 	// For L1, use the blockNumber from merkleData
 	let aztecBlockNumber: number;
 	if (merkleData.actualGigaRoot) {
-		console.log('[mintFromEVM] Scroll flow detected - finding Aztec block for gigaRoot:', merkleData.actualGigaRoot.toString());
+		console.log('[mintFromEVM] ZKsync Era flow detected - finding Aztec block for gigaRoot:', merkleData.actualGigaRoot.toString());
 		aztecBlockNumber = await getAztecBlockNumberForGigaRoot(wallet, merkleData.actualGigaRoot);
 		console.log('[mintFromEVM] Found Aztec block number:', aztecBlockNumber);
 	} else {
@@ -1648,7 +1645,7 @@ export async function getAztecBalance(
 	const from = accounts[0].item;
 
 	const owner = ownerAddress
-		? AztecAddress.fromString(ownerAddress)
+		? AztecAddress.fromStringUnsafe(ownerAddress)
 		: from;
 
 	// Note: balance_of is an unconstrained function, uses 'from' for simulation context.
@@ -1873,7 +1870,7 @@ async function hashUniqueNoteHash(nonce: bigint, siloedNoteHash: bigint): Promis
 /**
  * Get Aztec merkle data for a commitment
  *
- * Needed for Aztec -> L1 / Aztec -> Scroll withdrawals. The function:
+ * Needed for Aztec -> L1 / Aztec -> ZKsync Era withdrawals. The function:
  * 1. Determines the note nonce. Two paths:
  *    - **knownNonce path** (preferred): caller passes the nonce captured at
  *      burn time and persisted in note.txt. PXE state is irrelevant, so the
@@ -1958,7 +1955,7 @@ export async function getAztecMerkleData(
 
 	// Step 3: Compute the siloed and unique note hash
 	const warpToadAddressStr = AZTEC_CONTRACTS.AztecWarpToad.address;
-	const contractAddressBigInt = BigInt(AztecAddress.fromString(warpToadAddressStr).toBigInt());
+	const contractAddressBigInt = BigInt(AztecAddress.fromStringUnsafe(warpToadAddressStr).toBigInt());
 
 	const siloedNoteHash = await hashSiloedNoteHash(contractAddressBigInt, commitment);
 	console.log('Siloed note hash:', siloedNoteHash.toString().slice(0, 20) + '...');

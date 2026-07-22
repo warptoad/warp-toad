@@ -56,7 +56,7 @@ async function verifyContract(
     const constructorArgs = deployment.constructorArgs.map((v) => v.startsWith("0x") ? new Fr(BigInt(v)) : v);
     const instance = await getContractInstanceFromInstantiationParams(artifact, {
         salt: Fr.fromHexString(deployment.salt),
-        deployer: AztecAddress.fromField(Fr.fromHexString(deployment.deployer)),
+        deployer: AztecAddress.fromFieldUnsafe(Fr.fromHexString(deployment.deployer)),
         constructorArgs,
     });
 

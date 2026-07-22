@@ -42,7 +42,7 @@ pub contract L2AztecBridgeAdapter {
         let l1BridgeAdapter = self.storage.l1BridgeAdapter.read();
 
         // Consume message and emit nullifier
-        self.context.consume_l1_to_l2_message(content_hash, secret, l1BridgeAdapter, message_leaf_index);
+        self.context.consume_l1_to_l2_message(content_hash, [secret], l1BridgeAdapter, message_leaf_index);
         //call warptoad!
         WarpToadCore::WarpToadCore::at(warpToadCore).receive_giga_root(new_gigaroot).call(self.context);
     }

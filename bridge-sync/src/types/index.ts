@@ -1,4 +1,4 @@
-export type ChainId = string; // '11155111' | '534351' | '31337' | 'aztec'
+export type ChainId = string; // '11155111' | '300' | '31337' | 'aztec'
 export type OperationStatus = 'pending' | 'running' | 'completed' | 'failed' | 'timeout';
 
 export interface ChainConfig {

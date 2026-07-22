@@ -68,8 +68,13 @@ const CUSTOM_DEPLOYED_KEY = 'warptoad:aztec:custom-deployed-address';
 
 // Canonical sandbox test account #0 (matches @aztec/accounts/testing INITIAL_TEST_*).
 // Pre-deployed and pre-funded by the Aztec sandbox at startup; safe to hardcode.
+// The signing key has to be spelled out since v5: it is now the account's ownership root
+// rather than something derived from the secret, and the genesis keys are fixed constants
+// instead of each account's ivsk_m. Passing the wrong one silently yields a different
+// address, which the sandbox has neither deployed nor funded.
 const SANDBOX_TEST_SECRET = '0x2153536ff6628eee01cf4024889ff977a18d9fa61d0e414422f7681cf085c281';
 const SANDBOX_TEST_SALT = '0x0000000000000000000000000000000000000000000000000000000000000000';
+const SANDBOX_TEST_SIGNING_KEY = '0x0102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f';
 
 // Module-level cache: building a PXE in the browser is expensive (lazy WASM, IndexedDB),
 // we want one instance per page lifetime.
@@ -307,22 +312,22 @@ export async function connectAztecBrowserWallet(
 	// 3. Schnorr account from the chosen mode.
 	report('account-setup');
 	const mode = getAccountMode();
-	let secret: Fr;
-	let salt: Fr;
-	let signingKey: GrumpkinScalar | undefined;
 
+	// The genesis accounts are initializerless, so they have to be created through the
+	// matching method: a plain schnorr account is a different contract class and lands on
+	// a different address, which step 4 below never deploys for sandbox-test.
+	let accountManager;
 	if (mode === 'sandbox-test') {
-		secret = Fr.fromHexString(SANDBOX_TEST_SECRET);
-		salt = Fr.fromHexString(SANDBOX_TEST_SALT);
-		signingKey = undefined; // sandbox test accounts derive their signing key
+		accountManager = await wallet.createSchnorrInitializerlessAccount(
+			Fr.fromHexString(SANDBOX_TEST_SECRET),
+			Fr.fromHexString(SANDBOX_TEST_SALT),
+			GrumpkinScalar.fromHexString(SANDBOX_TEST_SIGNING_KEY),
+		);
 	} else {
 		const custom = loadOrCreateCustomSecrets();
-		secret = custom.secret;
-		salt = custom.salt;
-		signingKey = custom.signingKey;
+		accountManager = await wallet.createSchnorrAccount(custom.secret, custom.salt, custom.signingKey);
 	}
 
-	const accountManager = await wallet.createSchnorrAccount(secret, salt, signingKey);
 	const address = accountManager.address.toString();
 
 	// 4. Deploy the account if needed. Sandbox-test is pre-deployed; custom needs a deploy

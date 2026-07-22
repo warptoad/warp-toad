@@ -17,7 +17,7 @@
  * cost one cycle's worth of L1 gas AND only trigger the sub-tasks any of
  * them actually need.
  */
-import { runSyncCycle, type FullSyncResult } from './executor.js';
+import { runSyncCycle, emptySyncResult, type FullSyncResult } from './executor.js';
 import {
   type SyncRequirements,
   EMPTY_REQUIREMENTS,
@@ -85,13 +85,7 @@ async function cycleLoop(privateKey: string, confirmations: number) {
         if (!hasAnyRequirement(merged)) {
           // Degenerate case: somehow all waiters have empty requirements.
           // Resolve them with a no-op synthetic result and move on.
-          result = {
-            aztec: null,
-            scroll: null,
-            updateGigaRootTxHash: 'N/A',
-            sendGigaRootTxHash: 'N/A',
-            gigaRootSent: '',
-          };
+          result = emptySyncResult();
           break;
         }
         console.log(`[sync-orch] running cycle (attempt ${attempt}, ${inflight.length} waiters) requirements=${JSON.stringify(merged)}`);

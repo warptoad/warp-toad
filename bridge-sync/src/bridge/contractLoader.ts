@@ -19,6 +19,7 @@ import {
   type PublicClient,
   type WalletClient,
 } from 'viem';
+import { getLeg, type LegDescriptor, type LegKey } from './legRegistry.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -43,11 +44,11 @@ export const L1_WARPTOAD_ABI = () => loadAbi('core/L1WarpToad.sol/L1WarpToad.jso
 const GIGA_BRIDGE_ABI = () => loadAbi('bridge/GigaBridge.sol/GigaBridge.json');
 const L1_AZTEC_BRIDGE_ADAPTER_ABI = () =>
   loadAbi('bridge/adapters/L1AztecBridgeAdapter.sol/L1AztecBridgeAdapter.json');
-const L1_SCROLL_BRIDGE_ADAPTER_ABI = () =>
-  loadAbi('bridge/adapters/L1ScrollBridgeAdapter.sol/L1ScrollBridgeAdapter.json');
+const L1_ZKSTACK_BRIDGE_ADAPTER_ABI = () =>
+  loadAbi('bridge/adapters/L1ZkStackBridgeAdapter.sol/L1ZkStackBridgeAdapter.json');
 const L2_WARPTOAD_ABI = () => loadAbi('core/L2WarpToad.sol/L2WarpToad.json');
-const L2_SCROLL_BRIDGE_ADAPTER_ABI = () =>
-  loadAbi('bridge/adapters/L2ScrollBridgeAdapter.sol/L2ScrollBridgeAdapter.json');
+const L2_ZKSTACK_BRIDGE_ADAPTER_ABI = () =>
+  loadAbi('bridge/adapters/L2ZkStackBridgeAdapter.sol/L2ZkStackBridgeAdapter.json');
 
 interface DeployedAddresses {
   [key: string]: string;
@@ -77,26 +78,35 @@ export interface L1ContractHandles {
   l1AdapterAddress: Address;
 }
 
+/** Deployment key of the L1 adapter that serves a given leg. */
+function l1AdapterKey(leg: LegDescriptor): string {
+  return leg.kind === 'aztec'
+    ? 'L1InfraModule#L1AztecBridgeAdapter'
+    : `L1InfraModule#L1ZkStackBridgeAdapter_${leg.slot}`;
+}
+
+function l1AdapterAbi(leg: LegDescriptor): any[] {
+  return leg.kind === 'aztec' ? L1_AZTEC_BRIDGE_ADAPTER_ABI() : L1_ZKSTACK_BRIDGE_ADAPTER_ABI();
+}
+
 /**
- * Load L1 contract handles for the given chain. `isAztec` selects between the
- * Aztec adapter and the Scroll adapter as the L1 adapter binding.
+ * Load L1 contract handles for the given chain, with `L1Adapter` bound to the adapter
+ * serving `legKey`. Was a boolean (`isAztec`), which structurally allowed exactly two
+ * adapter kinds; a leg key allows as many as the registry defines.
  */
 export function loadL1Contracts(
   l1ChainId: bigint,
   publicClient: PublicClient,
   walletClient: WalletClient,
-  isAztec: boolean,
+  legKey: LegKey,
 ): L1ContractHandles {
   const addrs = loadDeployedAddresses(l1ChainId);
+  const leg = getLeg(legKey);
 
   const l1WarpToadAddress =
     (addrs['L1InfraModule#L1WarpToad'] || addrs['L1WarpToadModule#L1WarpToad']) as Address;
   const gigaBridgeAddress = addrs['L1InfraModule#GigaBridge'] as Address;
-  const l1AdapterAddress = (
-    isAztec
-      ? addrs['L1InfraModule#L1AztecBridgeAdapter']
-      : addrs['L1InfraModule#L1ScrollBridgeAdapter'] || addrs['L1InfraModule#L1AztecBridgeAdapter']
-  ) as Address;
+  const l1AdapterAddress = addrs[l1AdapterKey(leg)] as Address;
 
   if (!l1WarpToadAddress) throw new Error(`L1WarpToad address missing for chain ${l1ChainId}`);
   if (!gigaBridgeAddress) throw new Error(`GigaBridge address missing for chain ${l1ChainId}`);
@@ -114,7 +124,7 @@ export function loadL1Contracts(
   });
   const L1Adapter = getContract({
     address: l1AdapterAddress,
-    abi: isAztec ? L1_AZTEC_BRIDGE_ADAPTER_ABI() : L1_SCROLL_BRIDGE_ADAPTER_ABI(),
+    abi: l1AdapterAbi(leg),
     client: { public: publicClient, wallet: walletClient },
   });
 
@@ -122,65 +132,68 @@ export function loadL1Contracts(
 }
 
 /**
- * Load a specific L1 adapter contract handle by type. Useful for multi-hop
- * routes (aztec↔scroll) where both adapters need to be accessed from the same
- * executor run.
+ * Load one leg's L1 adapter handle. Used where several adapters must be reached from
+ * the same executor run (multi-hop routes, dispatch fan-out, stale-leg checks).
  */
-export function loadL1AdapterByType(
+export function loadL1AdapterForLeg(
   l1ChainId: bigint,
   publicClient: PublicClient,
   walletClient: WalletClient,
-  kind: 'aztec' | 'scroll',
+  legKey: LegKey,
 ): { adapter: any; address: Address };
-export function loadL1AdapterByType(
+export function loadL1AdapterForLeg(
   l1ChainId: bigint,
   publicClient: PublicClient,
   walletClient: WalletClient,
-  kind: 'aztec' | 'scroll',
+  legKey: LegKey,
   optional: boolean,
 ): { adapter: any; address: Address } | null;
-export function loadL1AdapterByType(
+export function loadL1AdapterForLeg(
   l1ChainId: bigint,
   publicClient: PublicClient,
   walletClient: WalletClient,
-  kind: 'aztec' | 'scroll',
+  legKey: LegKey,
   optional = false,
 ): { adapter: any; address: Address } | null {
   const addrs = loadDeployedAddresses(l1ChainId);
-  const address = (
-    kind === 'aztec'
-      ? addrs['L1InfraModule#L1AztecBridgeAdapter']
-      : addrs['L1InfraModule#L1ScrollBridgeAdapter']
-  ) as Address;
+  const leg = getLeg(legKey);
+  const address = addrs[l1AdapterKey(leg)] as Address;
   if (!address) {
-    // Local/dev deploys omit the Scroll adapter (Scroll is disabled). Optional
-    // callers treat a missing adapter as "not a recipient" instead of failing.
+    // Local/dev deploys omit the ZK Stack adapters. Optional callers treat a missing
+    // adapter as "not a recipient" instead of failing.
     if (optional) return null;
-    throw new Error(`L1 ${kind} adapter address missing for chain ${l1ChainId}`);
+    throw new Error(`L1 adapter for leg '${legKey}' missing for chain ${l1ChainId}`);
   }
   const adapter = getContract({
     address,
-    abi: kind === 'aztec' ? L1_AZTEC_BRIDGE_ADAPTER_ABI() : L1_SCROLL_BRIDGE_ADAPTER_ABI(),
+    abi: l1AdapterAbi(leg),
     client: { public: publicClient, wallet: walletClient },
   });
   return { adapter, address };
 }
 
-export interface ScrollContractHandles {
+export interface ZkStackContractHandles {
   L2WarpToad: any;
   L2Adapter: any;
+  l2WarpToadAddress: Address;
+  l2AdapterAddress: Address;
 }
 
-export function loadScrollContracts(
+/**
+ * Load the L2 handles for a ZK Stack chain. The deployment keys are identical on every
+ * ZK Stack chain (one shared L2ZkStackModule per chain-<id> dir), so only the chain id
+ * differs.
+ */
+export function loadZkStackContracts(
   l2ChainId: bigint,
   publicClient: PublicClient,
   walletClient: WalletClient,
-): ScrollContractHandles {
+): ZkStackContractHandles {
   const addrs = loadDeployedAddresses(l2ChainId);
-  const l2WarpToadAddress = addrs['L2ScrollModule#L2WarpToad'] as Address;
-  const l2AdapterAddress = addrs['L2ScrollModule#L2ScrollBridgeAdapter'] as Address;
+  const l2WarpToadAddress = addrs['L2ZkStackModule#L2WarpToad'] as Address;
+  const l2AdapterAddress = addrs['L2ZkStackModule#L2ZkStackBridgeAdapter'] as Address;
   if (!l2WarpToadAddress) throw new Error(`L2WarpToad missing for chain ${l2ChainId}`);
-  if (!l2AdapterAddress) throw new Error(`L2ScrollBridgeAdapter missing for chain ${l2ChainId}`);
+  if (!l2AdapterAddress) throw new Error(`L2ZkStackBridgeAdapter missing for chain ${l2ChainId}`);
 
   const L2WarpToad = getContract({
     address: l2WarpToadAddress,
@@ -189,10 +202,10 @@ export function loadScrollContracts(
   });
   const L2Adapter = getContract({
     address: l2AdapterAddress,
-    abi: L2_SCROLL_BRIDGE_ADAPTER_ABI(),
+    abi: L2_ZKSTACK_BRIDGE_ADAPTER_ABI(),
     client: { public: publicClient, wallet: walletClient },
   });
-  return { L2WarpToad, L2Adapter };
+  return { L2WarpToad, L2Adapter, l2WarpToadAddress, l2AdapterAddress };
 }
 
 export interface AztecContractMetadata {

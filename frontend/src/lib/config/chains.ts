@@ -5,13 +5,19 @@
  * This architecture makes it easy to add new chains in the future.
  *
  * To add a new chain:
- * 1. Add the chain to the Chain type in types/bridge.ts
+ * 1. Add an entry to CHAIN_DISPLAY in types/bridge.ts (this defines the Chain id)
  * 2. Add a ChainDefinition here with contracts and config
- * 3. Implement chain-specific interactions in utils/[chain]-interactions.ts
- * 4. The rest of the app will automatically pick up the new chain
+ * 3. For another ZK Stack chain, that's it: ZK_STACK_CHAIN_DEFS below is a list, and
+ *    the L2 interaction code is already chain-agnostic. For a genuinely new chain
+ *    family, also implement utils/[family]-interactions.ts.
+ *
+ * The helpers below all iterate CHAIN_REGISTRY, so nothing else needs editing.
+ *
+ * ZK Stack entries must match `backend/lib/zkStackChains.ts` (the deploy-side source
+ * of truth); a mismatch means the frontend reads a slot the deploy never wired.
  */
 
-import { anvil, sepolia, scrollSepolia, type Chain as ViemChain } from 'viem/chains';
+import { anvil, sepolia, zksyncSepoliaTestnet, type Chain as ViemChain } from 'viem/chains';
 import type { Chain } from '$lib/types/bridge.js';
 import { CONTRACT_ADDRESSES } from '$lib/contracts/addresses';
 
@@ -77,7 +83,6 @@ function loadAztecDeployment(chainId: number): AztecDeploymentFile {
 
 const LocalEvmDeployments = loadEvmDeployment(31337);
 const SepoliaDeployments = loadEvmDeployment(11155111);
-const ScrollSepoliaDeployments = loadEvmDeployment(534351);
 const LocalAztecDeployments = loadAztecDeployment(31337);
 const TestnetAztecDeployments = loadAztecDeployment(11155111);
 
@@ -102,6 +107,12 @@ export interface EVMChainContracts {
 	nativeToken: string;
 	bridgeAdapter?: string;
 	gigaBridge?: string;
+	/**
+	 * L2 chains only: the L1-side adapter slot that serves this L2, on the L1 hub.
+	 * Needed because withdraw proofs read this L2's local-root leaf out of the L1 giga
+	 * tree, and with several L2s there is no longer a single "the L2 adapter".
+	 */
+	l1Adapter?: string;
 }
 
 export interface AztecChainContracts {
@@ -190,24 +201,60 @@ const ETHEREUM_CHAIN: EVMChainDefinition = isTestMode
 	};
 
 /**
- * Scroll L2 Chain Definition
- * Only enabled in testnet mode (not local test mode)
+ * ZK Stack (Elastic Chain) L2 definitions.
+ *
+ * Every ZK Stack chain deploys the SAME Ignition module into its own chain-<id>
+ * directory, so the deployment keys are identical across chains and only the chain id
+ * and RPC differ. That's what makes this a list rather than a hand-written const per
+ * chain: adding one is an entry here plus one in CHAIN_DISPLAY.
+ *
+ * Only enabled in testnet mode (the local sandbox has no L2).
  */
-const SCROLL_CHAIN: EVMChainDefinition = {
-	id: 'Scroll',
-	name: 'Scroll Sepolia',
-	type: 'EVM',
-	role: 'L2',
-	chainId: 534351,
-	viemChain: scrollSepolia,
-	rpcUrl: import.meta.env.VITE_SCROLL_SEPOLIA_RPC_URL || 'https://sepolia-rpc.scroll.io',
-	contracts: {
-		warpToad: (ScrollSepoliaDeployments as Record<string, string>)['L2ScrollModule#L2WarpToad'],
-		nativeToken: (ScrollSepoliaDeployments as Record<string, string>)['TestToken#USDcoin'],
-		bridgeAdapter: (ScrollSepoliaDeployments as Record<string, string>)['L2ScrollModule#L2ScrollBridgeAdapter'],
+interface ZkStackChainSpec {
+	id: Chain;
+	name: string;
+	chainId: number;
+	viemChain: ViemChain;
+	rpcUrl: string;
+	/** GigaBridge adapter slot this chain claimed. Must match ZK_STACK_CHAINS in
+	 *  backend/lib/constants.ts, or proofs read the wrong leaf. */
+	l1AdapterSlot: number;
+}
+
+const ZK_STACK_CHAIN_SPECS: ZkStackChainSpec[] = [
+	{
+		id: 'ZKsync',
+		name: 'ZKsync Era Sepolia',
+		chainId: 300,
+		viemChain: zksyncSepoliaTestnet,
+		rpcUrl: import.meta.env.VITE_ZKSYNC_ERA_SEPOLIA_RPC_URL || 'https://sepolia.era.zksync.dev',
+		l1AdapterSlot: 0,
 	},
-	enabled: !isTestMode, // Only available in testnet mode
-};
+];
+
+function buildZkStackChain(spec: ZkStackChainSpec): EVMChainDefinition {
+	const deployments = loadEvmDeployment(spec.chainId) as Record<string, string>;
+	return {
+		id: spec.id,
+		name: spec.name,
+		type: 'EVM',
+		role: 'L2',
+		chainId: spec.chainId,
+		viemChain: spec.viemChain,
+		rpcUrl: spec.rpcUrl,
+		contracts: {
+			warpToad: deployments['L2ZkStackModule#L2WarpToad'],
+			nativeToken: deployments['TestToken#USDcoin'],
+			bridgeAdapter: deployments['L2ZkStackModule#L2ZkStackBridgeAdapter'],
+			l1Adapter: (isTestMode ? LocalEvmDeployments : (SepoliaDeployments as Record<string, string>))[
+				`L1InfraModule#L1ZkStackBridgeAdapter_${spec.l1AdapterSlot}`
+			],
+		},
+		enabled: !isTestMode, // Only available in testnet mode
+	};
+}
+
+const ZK_STACK_CHAINS: EVMChainDefinition[] = ZK_STACK_CHAIN_SPECS.map(buildZkStackChain);
 
 /**
  * Aztec Chain Definition
@@ -243,7 +290,7 @@ const AZTEC_CHAIN: AztecChainDefinition = isTestMode
 		name: 'Testnet',
 		type: 'Aztec',
 		role: 'Privacy',
-		nodeUrl: import.meta.env.VITE_AZTEC_NODE_URL || 'https://rpc.testnet.aztec-labs.com',
+		nodeUrl: import.meta.env.VITE_AZTEC_NODE_URL || 'https://v5.testnet.rpc.aztec-labs.com',
 		network: 'testnet',
 		contracts: {
 			warpToad: {
@@ -271,8 +318,11 @@ const AZTEC_CHAIN: AztecChainDefinition = isTestMode
  */
 export const CHAIN_REGISTRY: Record<Chain, ChainDefinition> = {
 	Ethereum: ETHEREUM_CHAIN,
-	Scroll: SCROLL_CHAIN,
 	Aztec: AZTEC_CHAIN,
+	...(Object.fromEntries(ZK_STACK_CHAINS.map((c) => [c.id, c])) as Pick<
+		Record<Chain, ChainDefinition>,
+		Exclude<Chain, 'Ethereum' | 'Aztec'>
+	>),
 };
 
 // ============================================================================
@@ -367,6 +417,27 @@ export function getViemChainById(chainId: number): ViemChain | undefined {
 }
 
 /**
+ * Get the configured RPC URL for an EVM chain ID.
+ *
+ * Callers that need a client for an arbitrary chain id should go through this rather
+ * than reading a VITE_*_RPC_URL directly, so adopting another L2 stays a registry edit.
+ */
+export function getRpcUrlByChainId(chainId: number): string | undefined {
+	const chainName = getChainByChainId(chainId);
+	if (!chainName) return undefined;
+	return getEVMChain(chainName)?.rpcUrl;
+}
+
+/**
+ * Get the human-readable name for an EVM chain ID.
+ */
+export function getChainNameByChainId(chainId: number): string | undefined {
+	const chainName = getChainByChainId(chainId);
+	if (!chainName) return undefined;
+	return getEVMChain(chainName)?.name;
+}
+
+/**
  * Get all EVM chains (for network configs)
  */
 export function getEVMChains(): EVMChainDefinition[] {
@@ -419,6 +490,51 @@ export function getBridgeAdapterAddress(chain: Chain): string | undefined {
 	} else {
 		return def.contracts.bridgeAdapter.address;
 	}
+}
+
+/**
+ * L1-side adapter address serving a given L2 chain. Undefined for L1/Aztec.
+ */
+export function getL1AdapterForL2(chain: Chain): string | undefined {
+	const def = getEVMChain(chain);
+	return def?.role === 'L2' ? def.contracts.l1Adapter : undefined;
+}
+
+/**
+ * L1-side adapter address serving the L2 with this EVM chain id.
+ *
+ * Returns undefined for an L1 chain id, which is the caller's signal to use L1WarpToad
+ * as the local-root provider instead. Replaces `sourceChainId === 534351` checks.
+ */
+export function getL1AdapterForEvmChainId(chainId: number): string | undefined {
+	for (const def of Object.values(CHAIN_REGISTRY)) {
+		if (def.type === 'EVM' && def.role === 'L2' && def.chainId === chainId) {
+			return def.contracts.l1Adapter;
+		}
+	}
+	return undefined;
+}
+
+/**
+ * Is this EVM chain id one of our L2s?
+ *
+ * The canonical replacement for `chainId === 534351` style checks. Those checks are
+ * how the frontend silently kept talking to a retired chain: the id is a bare number
+ * with no type safety, so nothing breaks at compile time when the L2 changes.
+ */
+export function isL2ChainId(chainId: number): boolean {
+	return Object.values(CHAIN_REGISTRY).some(
+		(def) => def.type === 'EVM' && def.role === 'L2' && def.chainId === chainId,
+	);
+}
+
+/**
+ * Numeric EVM chain id for a registry chain. Undefined for Aztec.
+ *
+ * Use instead of hand-mapping a Chain to a literal id.
+ */
+export function getChainIdFor(chain: Chain): number | undefined {
+	return getEVMChain(chain)?.chainId;
 }
 
 /**

@@ -6,7 +6,7 @@
  *
  * Supports:
  * - Ethereum L1 (native token balance)
- * - Scroll L2 (wrapped token balance from L2WarpToad)
+ * - ZKsync Era L2 (wrapped token balance from L2WarpToad)
  * - Aztec (wrapped token balance from AztecWarpToad)
  */
 
@@ -50,7 +50,7 @@ class BalanceStore {
 		const chainId = walletStore.chainId;
 		if (!chainId) return this._ethereumBalance;
 
-		const scrollChain = getEVMChain('Scroll');
+		const scrollChain = getEVMChain('ZKsync');
 		if (scrollChain?.enabled && chainId === scrollChain.chainId) {
 			return this._scrollBalance;
 		}
@@ -89,7 +89,7 @@ class BalanceStore {
 		switch (chain) {
 			case 'Aztec':
 				return this._aztecBalance;
-			case 'Scroll':
+			case 'ZKsync':
 				return this._scrollBalance;
 			case 'Ethereum':
 			default:
@@ -104,7 +104,7 @@ class BalanceStore {
 		switch (chain) {
 			case 'Aztec':
 				return this._isLoadingAztec;
-			case 'Scroll':
+			case 'ZKsync':
 				return this._isLoadingScroll;
 			case 'Ethereum':
 			default:
@@ -127,8 +127,8 @@ class BalanceStore {
 
 		const refreshTasks: Promise<void>[] = [this.refreshEthereumBalance(), this.refreshAztecBalance()];
 
-		// Only refresh Scroll if enabled
-		if (isChainEnabled('Scroll')) {
+		// Only refresh ZKsync Era if enabled
+		if (isChainEnabled('ZKsync')) {
 			refreshTasks.push(this.refreshScrollBalance());
 		}
 
@@ -194,8 +194,8 @@ class BalanceStore {
 	}
 
 	/**
-	 * Refresh Scroll L2 balance
-	 * On Scroll, users hold wrapped tokens from L2WarpToad
+	 * Refresh ZKsync Era L2 balance
+	 * On ZKsync Era, users hold wrapped tokens from L2WarpToad
 	 */
 	async refreshScrollBalance(): Promise<void> {
 		const evmAddress = walletStore.wallets.evm;
@@ -205,7 +205,7 @@ class BalanceStore {
 			return;
 		}
 
-		const scrollChain = getEVMChain('Scroll');
+		const scrollChain = getEVMChain('ZKsync');
 		if (!scrollChain || !scrollChain.enabled) {
 			this._scrollBalance = 'N/A';
 			return;
@@ -219,7 +219,7 @@ class BalanceStore {
 				transport: http(scrollChain.rpcUrl),
 			});
 
-			// On Scroll, query the L2WarpToad contract for balance
+			// On ZKsync Era, query the L2WarpToad contract for balance
 			// L2WarpToad is itself an ERC20 token
 			const [decimals, rawBalance] = await Promise.all([
 				publicClient.readContract({
@@ -237,9 +237,9 @@ class BalanceStore {
 
 			const balance = Number(rawBalance) / 10 ** Number(decimals);
 			this._scrollBalance = balance.toString();
-			console.log(`[BalanceStore] Scroll balance: ${this._scrollBalance}`);
+			console.log(`[BalanceStore] ZKsync Era balance: ${this._scrollBalance}`);
 		} catch (error) {
-			console.error('[BalanceStore] Failed to fetch Scroll balance:', error);
+			console.error('[BalanceStore] Failed to fetch ZKsync Era balance:', error);
 			// Don't reset balance on error - keep previous value
 		} finally {
 			this._isLoadingScroll = false;

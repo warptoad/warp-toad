@@ -15,11 +15,11 @@
     "docker:down": "cd .. && docker compose down"
   },
   "dependencies": {
-    "@aztec/accounts": "5.0.0-rc.1",
-    "@aztec/aztec.js": "5.0.0-rc.1",
-    "@aztec/foundation": "5.0.0-rc.1",
-    "@aztec/pxe": "5.0.0-rc.1",
-    "@aztec/stdlib": "5.0.0-rc.1",
+    "@aztec/accounts": "5.0.0",
+    "@aztec/aztec.js": "5.0.0",
+    "@aztec/foundation": "5.0.0",
+    "@aztec/pxe": "5.0.0",
+    "@aztec/stdlib": "5.0.0",
     "@warp-toad/backend": "workspace:*",
     "cors": "^2.8.5",
     "dotenv": "^16.4.1",
