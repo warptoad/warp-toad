@@ -13,7 +13,10 @@ contract GigaBridge is IGigaBridge, ILocalRootRecipient, IGigaRootProvider  {
     // get allIndexes you need by looking at amountOfLocalRoots
     // work ur way down until you found all indexes.
 
-    uint256 public gigaRoot; // keep this here pls so it's alway at slot 0 for L1SLOAD on scroll
+    // Kept first so gigaRoot stays at storage slot 0. Originally so Scroll's L1SLOAD
+    // could read it directly; that chain is retired, but the layout is baked into
+    // deployed instances and off-chain readers, so leave it where it is.
+    uint256 public gigaRoot;
 
     LazyIMTData public rootTreeData; // does this need to be public? yes? maybe we can sync clients faster somehow?
     uint8 public maxTreeDepth;
@@ -97,7 +100,8 @@ contract GigaBridge is IGigaBridge, ILocalRootRecipient, IGigaRootProvider  {
     }   
 
     // TODO this is very convenient to initiated all bridging txs at once but the problem is that every bridge is different
-    // so the might require different parameter handed to them by a eoa like scrolls bridge needs a extra gaslimit
+    // so they might require different parameters handed to them by an eoa (ZK Stack's
+    // Bridgehub needs an l2GasLimit and a prepaid mintValue, for instance)
     // so we should pull from the gigaRoot from the L1Adapter instead
 
     // Made this a second function because the addresses that want the gigaRoot
@@ -125,7 +129,7 @@ contract GigaBridge is IGigaBridge, ILocalRootRecipient, IGigaRootProvider  {
         IGigaRootRecipient(_gigaRootRecipient).receiveGigaRoot{value: msg.value}(_gigaRoot);
     }
 
-    // // for scroll who needs eth to make the bridge tx
+    // // for L2s whose bridge needs eth to make the bridge tx
     // // this is kinda getting messy. Next version of gigaBridge should instead only receive leafValues and have a public getter for gigaRoot (history)
     // // then the adapters can handle all these whacky different bridge apis. 
     // // for loops are also bad in gigaBridge, since it forces gigaBridge to know what the bridge api is like before hand. Instead we should just do multi-call or whatever

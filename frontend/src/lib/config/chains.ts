@@ -417,6 +417,27 @@ export function getViemChainById(chainId: number): ViemChain | undefined {
 }
 
 /**
+ * Get the configured RPC URL for an EVM chain ID.
+ *
+ * Callers that need a client for an arbitrary chain id should go through this rather
+ * than reading a VITE_*_RPC_URL directly, so adopting another L2 stays a registry edit.
+ */
+export function getRpcUrlByChainId(chainId: number): string | undefined {
+	const chainName = getChainByChainId(chainId);
+	if (!chainName) return undefined;
+	return getEVMChain(chainName)?.rpcUrl;
+}
+
+/**
+ * Get the human-readable name for an EVM chain ID.
+ */
+export function getChainNameByChainId(chainId: number): string | undefined {
+	const chainName = getChainByChainId(chainId);
+	if (!chainName) return undefined;
+	return getEVMChain(chainName)?.name;
+}
+
+/**
  * Get all EVM chains (for network configs)
  */
 export function getEVMChains(): EVMChainDefinition[] {

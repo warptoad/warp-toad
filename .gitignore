@@ -9,12 +9,21 @@ yarn-error.log*
 # Secrets and runtime state - NEVER COMMIT
 # ============================================================================
 # Per-package env files (templates use the .env.template suffix and stay tracked)
+# Ignore every .env variant by default, then re-allow only the tracked templates.
+# The blanket suffix rule matters: a bare `.env` pattern does NOT cover copies like
+# `.env.bak`, `.env.old` or `.env.2026-07-22`, which is exactly how a real key ends
+# up in a commit.
 .env
-.env.local
-.env.*.local
+.env.*
 **/.env
-**/.env.local
-**/.env.*.local
+**/.env.*
+
+!.env.template
+!.env.example
+!.env.sample
+!**/.env.template
+!**/.env.example
+!**/.env.sample
 
 # Private keys, mnemonics, keystore exports
 *.pem

@@ -10,7 +10,7 @@ import {
 	type WalletClient,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
-import { sepolia, scrollSepolia, type Chain } from "viem/chains";
+import { sepolia, zksyncSepoliaTestnet, type Chain } from "viem/chains";
 
 import { createFaucetRouter } from "./routes/faucet.js";
 import { LedgerStore } from "./ledger.js";
@@ -49,7 +49,10 @@ const __dirname = path.dirname(__filename);
 const PORT = parseInt(process.env.PORT || "8888");
 const FAUCET_PRIVATE_KEY = process.env.FAUCET_PRIVATE_KEY as Hex | undefined;
 const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL || process.env.L1_RPC_URL;
-const SCROLL_RPC_URL = process.env.SCROLL_RPC_URL;
+// zkSync Era Sepolia replaced Scroll Sepolia as the L2. Optional: viem's public
+// endpoint is a fine default for a faucet's low request volume.
+const ZKSYNC_ERA_SEPOLIA_RPC_URL =
+	process.env.ZKSYNC_ERA_SEPOLIA_RPC_URL || "https://sepolia.era.zksync.dev";
 const DRIP_AMOUNT_ETH = process.env.FAUCET_DRIP_AMOUNT_ETH || "0.05";
 const ALLOWED_ORIGINS = (
 	process.env.ALLOWED_ORIGINS || "https://warptoad.xyz,http://localhost:5173,http://localhost:4173"
@@ -62,10 +65,6 @@ if (!FAUCET_PRIVATE_KEY) {
 }
 if (!SEPOLIA_RPC_URL) {
 	console.error("ERROR: SEPOLIA_RPC_URL (or L1_RPC_URL) environment variable is required");
-	process.exit(1);
-}
-if (!SCROLL_RPC_URL) {
-	console.error("ERROR: SCROLL_RPC_URL environment variable is required");
 	process.exit(1);
 }
 
@@ -90,7 +89,7 @@ function buildBinding(chain: Chain, rpcUrl: string): ChainBinding {
 
 const bindings = new Map<number, ChainBinding>([
 	[11155111, buildBinding(sepolia, SEPOLIA_RPC_URL)],
-	[534351, buildBinding(scrollSepolia, SCROLL_RPC_URL)],
+	[300, buildBinding(zksyncSepoliaTestnet, ZKSYNC_ERA_SEPOLIA_RPC_URL)],
 ]);
 
 // =============================================================================

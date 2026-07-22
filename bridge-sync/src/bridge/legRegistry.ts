@@ -49,8 +49,8 @@ function zkStackDescriptor(t: ZkStackTarget): LegDescriptor {
     label: t.label,
     chainId: BigInt(t.chainId),
     slot: t.slot,
-    // SCROLL_RPC_URL is gone; keep a generic per-chain override plus the backend's own
-    // env name so a single .env works for both the deploy scripts and the keeper.
+    // Keep a generic per-chain override plus the backend's own env name, so a single
+    // .env works for both the deploy scripts and the keeper.
     rpcEnvVars: [`L2_RPC_URL_${t.chainId}`, t.rpcEnv],
     defaultRpcUrl: t.viemChain.rpcUrls.default.http[0],
     l2ToL1TimeoutMs: t.l2ToL1TimeoutMs,

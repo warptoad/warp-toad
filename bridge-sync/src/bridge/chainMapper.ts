@@ -75,7 +75,7 @@ export function getSupportedChains(): ChainConfig[] {
  * Every leg can bridge to and from every L1 hub, and legs can bridge to each other
  * multi-hop via the L1 hub. L1-to-L1 is not a bridge. This replaces a hand-written
  * O(n^2) list that had to be extended by hand for each new chain (and which was
- * missing entries: Sepolia->Scroll existed but Local->Aztec-style symmetry did not).
+ * missing entries: Sepolia->L2 existed but Local->Aztec-style symmetry did not).
  */
 function buildValidRoutes(): Set<string> {
   const routes = new Set<string>();

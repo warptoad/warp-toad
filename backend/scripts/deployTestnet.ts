@@ -231,15 +231,21 @@ async function runIgnitionVerify(deploymentId: string, network: string) {
 }
 
 async function main() {
-  const REQUIRED = [
-    "DEPLOYER_PRIVATE_KEY",
-    "SEPOLIA_RPC_URL",
-    "SCROLL_SEPOLIA_RPC_URL",
-    "AZTEC_NODE_URL",
-  ];
+  const REQUIRED = ["DEPLOYER_PRIVATE_KEY", "SEPOLIA_RPC_URL", "AZTEC_NODE_URL"];
   const missing = REQUIRED.filter((k) => !process.env[k]);
   if (missing.length) {
     throw new Error(`Missing required env in backend/.env: ${missing.join(", ")}`);
+  }
+  // Each ZK Stack target has a public RPC default, so an unset var is survivable rather
+  // than fatal. It is still worth shouting about: this deploy pushes ~60M gas of
+  // contract creations per L2, and public endpoints rate-limit long deploys to death.
+  for (const t of ZK_STACK_TARGETS) {
+    if (!process.env[t.rpcEnv]) {
+      console.warn(
+        `WARN: ${t.rpcEnv} not set; falling back to the public RPC for ${t.label} ` +
+          `(${t.viemChain.rpcUrls.default.http[0]}). Set it in backend/.env if the deploy stalls.`,
+      );
+    }
   }
   if (!process.env.ETHERSCAN_API_KEY) {
     console.warn("WARN: ETHERSCAN_API_KEY not set; phase 8 (etherscan verify) will be skipped.");

@@ -20,7 +20,7 @@ import type { CommitmentPreImage } from '$lib/types/bridge';
 import { createPublicClient, http, keccak256, toHex, type PublicClient } from 'viem';
 import { getContractAddresses, CONTRACT_ADDRESSES } from '$lib/contracts/addresses';
 import { GigaBridgeAbi, L1WarpToadAbi, L2WarpToadAbi } from '$lib/contracts/abis';
-import { getL1AdapterForEvmChainId } from '$lib/config/chains';
+import { getL1AdapterForEvmChainId, getChainNameByChainId, getRpcUrlByChainId } from '$lib/config/chains';
 import { queryEventInChunks } from './viem-chunks';
 import { rpcSettings } from '$lib/stores/rpc-settings.svelte';
 import { tryGetGigaLeavesForRoot, BridgeSyncStaleError, fetchBurnLeavesFromKeeper, isBridgeIndexerEnabled } from './bridge-keeper';
@@ -230,14 +230,13 @@ export function hashNullifier(nullifierPreimage: bigint): bigint {
  * Create a public client for the given chain
  */
 function createEvmClient(chainId: number, rpcUrl?: string): PublicClient {
-	// Use environment config for RPC URLs
+	// Resolve the RPC from the chain registry, so adopting another L2 needs no change
+	// here. The local sandbox L1 isn't in the registry, so it keeps its own branch.
 	let defaultRpcUrl: string | undefined;
 	if (chainId === L1_CONFIG.chainId || chainId === 31337) {
 		defaultRpcUrl = L1_CONFIG.rpcUrl;
-	} else if (chainId === 11155111) {
-		defaultRpcUrl = import.meta.env.VITE_SEPOLIA_RPC_URL;
-	} else if (chainId === 534351) {
-		defaultRpcUrl = import.meta.env.VITE_SCROLL_SEPOLIA_RPC_URL;
+	} else {
+		defaultRpcUrl = getRpcUrlByChainId(chainId);
 	}
 
 	const resolvedRpc = rpcUrl ?? defaultRpcUrl;
@@ -251,7 +250,7 @@ function createEvmClient(chainId: number, rpcUrl?: string): PublicClient {
 	return createPublicClient({
 		chain: {
 			id: chainId,
-			name: chainId === 31337 ? 'Localhost' : chainId === 11155111 ? 'Sepolia' : `Chain ${chainId}`,
+			name: chainId === 31337 ? 'Localhost' : (getChainNameByChainId(chainId) ?? `Chain ${chainId}`),
 			nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
 			rpcUrls: {
 				default: { http: [resolvedRpc] },

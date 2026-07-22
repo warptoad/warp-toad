@@ -233,7 +233,7 @@ export async function runSyncCycle(
   // Cheap (a deployment-file read plus a viem instance) and load-bearing: every cycle
   // includes them all as sendGigaRoot recipients. Without that, an aztec→L1 cycle
   // refreshes the L1 giga tree but leaves the other L2s pinned to whatever root they
-  // last received, which is exactly how aztec→scroll used to break silently.
+  // last received, which is exactly how aztec→L2 used to break silently.
   //
   // Loaded optionally because local/dev deploys omit the ZK Stack adapters; a
   // leg whose adapter is absent simply isn't a recipient.
@@ -431,7 +431,7 @@ export async function runSyncCycle(
   //  - L2 adapters: the withdraw flow on an L2 reads that L2's stored gigaRoot and
   //    expects the L1 event trail to back it up. If we only dispatch to an L2 when its
   //    route is requested, any sync that doesn't touch that L2 leaves it pinned to
-  //    whatever stale root it last received. That's exactly why aztec→scroll was
+  //    whatever stale root it last received. That's exactly why aztec→L2 was
   //    silently broken: aztec→L1 cycles refreshed the L1 tree but never pushed to the
   //    other L2, so it kept serving a root that pre-dated any aztec leaf.
   //

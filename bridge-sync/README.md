@@ -1,7 +1,7 @@
 # bridge-sync (BridgeKeeper)
 
 HTTP service that triggers cross-chain root sync between EVM chains
-(Sepolia, Scroll Sepolia, local anvil) and Aztec testnet.
+(Sepolia, ZKsync Era Sepolia, local anvil) and Aztec testnet.
 
 Calls `backend/lib/bridging.ts` directly in-process via cross-workspace
 relative imports - no child processes, no stdout parsing, real promises with
@@ -30,7 +30,7 @@ no Aztec credentials need to be funded.
 |---|---|
 | Sandbox local (chain 31337) | seconds |
 | Sepolia ↔ Aztec testnet | 30 min - 1 hour |
-| Sepolia ↔ Scroll Sepolia | 2-3 hours |
+| Sepolia ↔ ZKsync Era Sepolia | 30 min - 3 hours (2h batch window) |
 
 **Do NOT use `waitForCompletion: true` in production** - it'll hold the HTTP
 connection open for hours. Use `POST /bridge/...` to enqueue, then poll
@@ -55,12 +55,12 @@ Body (optional):
 }
 ```
 
-Chain IDs: `11155111` (Sepolia), `534351` (Scroll Sepolia), `31337` (local anvil), `aztec`.
+Chain IDs: `11155111` (Sepolia), `300` (ZKsync Era Sepolia), `31337` (local anvil), `aztec`.
 
 Supported routes (see `src/bridge/chainMapper.ts:VALID_ROUTES`):
-- `11155111 ↔ 534351`
+- `11155111 ↔ 300`
 - `11155111 ↔ aztec`
-- `31337 → 534351` / `31337 → aztec` (local sandbox testing)
+- `31337 → 300` / `31337 → aztec` (local sandbox testing)
 
 Response:
 ```json
@@ -112,7 +112,7 @@ scripts both invoke `tsx src/server.ts`.
 |---|---|
 | `EVM_PRIVATE_KEY` | Signs L1 root-update + Scroll-message-dispatch txs. Should NOT be the same wallet as `RELAYER_PRIVATE_KEY` to avoid mempool nonce races. |
 | `SEPOLIA_RPC_URL` | Sepolia L1 RPC |
-| `SCROLL_RPC_URL` | Scroll Sepolia L2 RPC |
+| `ZKSYNC_ERA_SEPOLIA_RPC_URL` | ZKsync Era Sepolia L2 RPC (optional, defaults to the public endpoint) |
 | `AZTEC_NODE_URL` | Aztec testnet full node, e.g. `https://v5.testnet.rpc.aztec-labs.com` |
 
 Optional:
