@@ -516,6 +516,28 @@ export function getL1AdapterForEvmChainId(chainId: number): string | undefined {
 }
 
 /**
+ * Is this EVM chain id one of our L2s?
+ *
+ * The canonical replacement for `chainId === 534351` style checks. Those checks are
+ * how the frontend silently kept talking to a retired chain: the id is a bare number
+ * with no type safety, so nothing breaks at compile time when the L2 changes.
+ */
+export function isL2ChainId(chainId: number): boolean {
+	return Object.values(CHAIN_REGISTRY).some(
+		(def) => def.type === 'EVM' && def.role === 'L2' && def.chainId === chainId,
+	);
+}
+
+/**
+ * Numeric EVM chain id for a registry chain. Undefined for Aztec.
+ *
+ * Use instead of hand-mapping a Chain to a literal id.
+ */
+export function getChainIdFor(chain: Chain): number | undefined {
+	return getEVMChain(chain)?.chainId;
+}
+
+/**
  * Get GigaBridge address (only on L1)
  */
 export function getGigaBridgeAddress(): string | undefined {

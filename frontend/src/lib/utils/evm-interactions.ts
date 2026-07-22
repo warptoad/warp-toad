@@ -5,7 +5,7 @@ import { createClient, getChainId } from './evm-wallet';
 import { createPublicClient, http, toHex, type Hash } from 'viem';
 import { getContractAddresses, CONTRACT_ADDRESSES } from '$lib/contracts/addresses';
 import { poseidon1, poseidon2, poseidon3 } from 'poseidon-lite';
-import { getEVMChain, getL1AdapterForEvmChainId } from '$lib/config/chains';
+import { getEVMChain, getChainByChainId, getL1AdapterForEvmChainId } from '$lib/config/chains';
 import { queryEventInChunks } from './viem-chunks';
 import { getLatestLocalRootEventForIndex } from './aztec-interactions';
 import { tryGetGigaLeavesForRoot } from './bridge-keeper';
@@ -24,17 +24,14 @@ const FIELD_MODULUS = 2188824287183927522224640574525727508854836440041603434369
  *      proxy baked in at build time via VITE_*_RPC_URL.
  *
  * Callers don't need to know about the override; every read-client factory in
- * this file goes through here, and `scroll-interactions.ts` goes through the
+ * this file goes through here, and `zkstack-interactions.ts` goes through the
  * exported version.
  */
 export function getRpcUrl(chainId: number): string | undefined {
-	const chainMap: Record<number, 'Ethereum' | 'ZKsync'> = {
-		31337: 'Ethereum',
-		11155111: 'Ethereum',
-		534351: 'ZKsync',
-	};
-
-	const chainName = chainMap[chainId];
+	// Resolved through the registry rather than a literal id map. The map silently
+	// returned undefined for any chain missing from it, so adopting a new L2 broke
+	// every read client on that chain with no error pointing here.
+	const chainName = getChainByChainId(chainId);
 	if (!chainName) return undefined;
 	const chainDef = getEVMChain(chainName);
 	return rpcSettings.resolve(chainId, chainDef?.rpcUrl);
@@ -64,7 +61,7 @@ const NULLIFIER_EXISTS_ABI = [
 
 /**
  * Check whether a note's nullifier has already been spent on an EVM destination
- * (Ethereum L1 or Scroll). It's a single `eth_call` against the destination
+ * (Ethereum L1 or ZKsync Era). It's a single `eth_call` against the destination
  * WarpToad's `nullifierExists` view, so it's cheap and avoids the burn-leaf log
  * scan that can 429 a rate-limited RPC. The EVM nullifier is
  * `poseidon1([nullifier_preimg])`, matching what the withdraw proof feeds the
@@ -856,7 +853,7 @@ export interface ClaimProofInputs {
  * 
  * This is the core withdrawal function for L1. It can be used for:
  * - Aztec -> L1 withdrawals
- * - Scroll -> L1 withdrawals  
+ * - ZKsync Era -> L1 withdrawals  
  * - L1 -> L1 same-chain private transfers
  * 
  * @param proofInputs - The proof inputs (public inputs)
@@ -1134,7 +1131,7 @@ export async function isValidL1LocalRoot(chainId: number, localRoot: bigint): Pr
 
 /**
  * Get EVM merkle data for a commitment on L1
- * Used for same-chain withdrawals (L1 -> L1 or Scroll -> Scroll)
+ * Used for same-chain withdrawals (L1 -> L1 or ZKsync Era -> ZKsync Era)
  * 
  * This function:
  * 1. Queries Burn events from the WarpToad contract
@@ -1278,8 +1275,8 @@ export async function getL1LocalRootWithValidity(chainId: number): Promise<{
 // ============================================================================
 
 /**
- * Get GigaBridge merkle data for L1 → Scroll withdrawal
- * Proves that L1's localRoot exists in the gigaRoot on Scroll
+ * Get GigaBridge merkle data for L1 → ZKsync Era withdrawal
+ * Proves that L1's localRoot exists in the gigaRoot on ZKsync Era
  * 
  * @param l1ChainId - L1 chain ID (where GigaBridge lives)
  * @param gigaRoot - The gigaRoot to search for L1's local root in
@@ -1578,13 +1575,13 @@ export async function getMerkleDataForL2ToL1(
 
 	if (l2LocalRoot === null) {
 		throw new Error(
-			`Scroll local root not found in giga tree at block ${gigaRootBlock}. ` +
+			`ZKsync Era local root not found in giga tree at block ${gigaRootBlock}. ` +
 			`L1ScrollBridgeAdapter (index ${l2AdapterIndex}) has never emitted a ReceivedNewLocalRoot at or before that block.`
 		);
 	}
 	
-	console.log(`Scroll local root: ${l2LocalRoot.toString()}`);
-	console.log(`Scroll local root block number: ${l2LocalRootBlockNumber}`);
+	console.log(`ZKsync Era local root: ${l2LocalRoot.toString()}`);
+	console.log(`ZKsync Era local root block number: ${l2LocalRootBlockNumber}`);
 	
 	// Step 5: Build merkle tree and get proof
 	const hashFunc = (left: Element, right: Element): string => {
@@ -1606,7 +1603,7 @@ export async function getMerkleDataForL2ToL1(
 		);
 	}
 	
-	// Get merkle proof for Scroll's local root
+	// Get merkle proof for ZKsync Era's local root
 	const proof = gigaTree.proof(l2LocalRoot.toString());
 	const hashPath = proof.pathElements.map(e => BigInt(e.toString()));
 	

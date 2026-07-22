@@ -250,7 +250,7 @@
 
 ⏳ Root synchronization initiated.
 ${targetChain === 'ZKsync' || sourceChain === 'ZKsync'
-	? ' Synchronization will take 2-3 hours for Scroll bridges.'
+	? ' Synchronization will take 2-3 hours for ZKsync Era bridges.'
 	: '⏱️ Synchronization will take 30-60 minutes for Aztec bridges.'}
 
 You can close this page. Your note has been downloaded.`;
@@ -341,7 +341,7 @@ You can close this page. Your note has been downloaded.`;
 	}
 	
 	/**
-	 * Bridge from Aztec to EVM (L1 or Scroll)
+	 * Bridge from Aztec to EVM (L1 or ZKsync Era)
 	 * Burns tokens on Aztec and creates a note for EVM withdrawal
 	 */
 	async function bridgeFromAztecUI(sourceChainId: bigint, destinationChainId: bigint): Promise<Proof> {
@@ -403,15 +403,15 @@ You can close this page. Your note has been downloaded.`;
 	}
 
 	/**
-	 * Bridge from Scroll L2 to Aztec/L1
-	 * Burns tokens on Scroll and creates a note for withdrawal
+	 * Bridge from ZKsync Era L2 to Aztec/L1
+	 * Burns tokens on ZKsync Era and creates a note for withdrawal
 	 */
 	async function bridgeFromZkStackUI(destinationChainId: bigint): Promise<Proof> {
-		// On Scroll, users already have wrapped tokens (from L2WarpToad)
+		// On ZKsync Era, users already have wrapped tokens (from L2WarpToad)
 		// No need to approve/wrap - just burn directly
 		
 		generationStep = "burning";
-		generationMessage = "Burning tokens on Scroll L2...";
+		generationMessage = "Burning tokens on ZKsync Era L2...";
 		
 		const bridgeResult = await bridgeFromZkStack(amount, destinationChainId);
 		
@@ -432,7 +432,7 @@ You can close this page. Your note has been downloaded.`;
 	}
 
 	/**
-	 * Bridge from EVM (Ethereum L1) to Aztec/Scroll
+	 * Bridge from EVM (Ethereum L1) to Aztec/ZKsync Era
 	 */
 	async function bridgeFromEvm(destinationChainId: bigint): Promise<Proof> {
 		// Step 2: Approving tokens
@@ -764,10 +764,10 @@ You can close this page. Your note has been downloaded.`;
 							<svg class="size-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
 								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
 							</svg>
-							<span>2-3 hours for Scroll</span>
+							<span>2-3 hours for ZKsync Era</span>
 						</div>
 						<p class="text-xs text-[var(--muted-foreground)] mt-2">
-							Scroll L2 finalization and claim data availability requires extended processing time.
+							ZKsync Era L2 finalization and claim data availability requires extended processing time.
 						</p>
 					</div>
 				{:else if targetChain === 'Aztec' || sourceChain === 'Aztec'}

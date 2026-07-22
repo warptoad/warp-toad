@@ -12,7 +12,7 @@ export const CHAIN_ID_TO_NAME: Partial<Record<number, Chain>> = {
 	[L1_CONFIG.chainId]: 'Ethereum',
 	// Always include anvil for backwards compatibility in test mode
 	...(isTestMode ? { [anvil.id]: 'Ethereum' } : {}),
-	// Include Scroll if available
+	// Include ZKsync Era if available
 	...(L2_SCROLL_CONFIG ? { [L2_SCROLL_CONFIG.chainId]: 'ZKsync' } : {}),
 };
 

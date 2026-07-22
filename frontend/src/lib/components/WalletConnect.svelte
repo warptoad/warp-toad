@@ -32,7 +32,7 @@
 		type FaucetChainStatus,
 	} from "$lib/utils/faucet-client";
 	import type { Chain } from "$lib/types/bridge";
-	import { isTestMode } from "$lib/config/chains.js";
+	import { isTestMode, getEVMChains } from "$lib/config/chains.js";
 	import type { AztecAccountMode } from "$lib/utils/aztec-wallet";
 	import { onMount } from "svelte";
 	import { Droplet } from "@lucide/svelte";
@@ -82,7 +82,9 @@
 	let syncSuccess = $state<string | null>(null);
 
 	// Faucet state
-	const FAUCET_SUPPORTED_CHAINS = new Set([11155111, 534351]);
+	// Chains the faucet drips on, from the registry. A literal list hid the faucet
+	// button on a newly adopted L2 while still offering a retired one.
+	const FAUCET_SUPPORTED_CHAINS = new Set(getEVMChains().map((c) => c.chainId));
 	let faucetAvailable = $state(false);
 	let faucetStatus = $state<Record<string, FaucetChainStatus> | null>(null);
 	let faucetLoading = $state(false);

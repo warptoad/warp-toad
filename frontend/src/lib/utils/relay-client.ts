@@ -19,7 +19,7 @@ export interface RelayerInfo {
 }
 
 export interface WithdrawRelayRequest {
-  chainId: string; // Target chain ID (11155111 for L1, 534351 for Scroll)
+  chainId: string; // Target chain ID (11155111 for L1, 300 for ZKsync Era)
   contractAddress: string;
   nullifier: string;
   amount: string;

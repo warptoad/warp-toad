@@ -58,6 +58,7 @@
 	import { getChainId as getEvmChainId } from "$lib/utils/evm-wallet.js";
 	import {
 		getEVMChain,
+		getChainByChainId,
 		getTokenConfig,
 		isChainEnabled,
 	} from "$lib/config/chains.js";
@@ -193,19 +194,19 @@
 		chainId: bigint,
 	): "Ethereum" | "ZKsync" | "Aztec" {
 		const id = Number(chainId);
-		// Standard EVM chain IDs
-		if (id === 1 || id === 31337 || id === 11155111) {
-			return "Ethereum"; // Mainnet, Anvil/localhost, or Sepolia
-		}
-		if (id === 534351 || id === 534352) {
-			return "ZKsync"; // Scroll Sepolia or Mainnet
-		}
 		// If it's a large number (Aztec uses poseidon2 hash as chain ID), assume Aztec
 		// Aztec chain IDs are typically very large numbers from poseidon2([salt, version])
 		if (chainId > 1000000n) {
 			return "Aztec";
 		}
-		// Default to Ethereum for unknown chains
+		// Resolve through the chain registry. A hand-written id list silently mislabels
+		// any newly adopted L2 as Ethereum via the fallback below, which is what
+		// happened to ZKsync Era (300) while the list still named the retired Scroll ids.
+		const known = getChainByChainId(id);
+		if (known === "Ethereum" || known === "ZKsync") {
+			return known;
+		}
+		// Mainnet and anything not in the registry fall back to Ethereum.
 		return "Ethereum";
 	}
 
@@ -614,18 +615,18 @@
 
 			// Check for same-chain transfer first
 			if (sourceChain === targetChain) {
-				// Same-chain private transfer (L1 -> L1 or Scroll -> Scroll)
+				// Same-chain private transfer (L1 -> L1 or ZKsync Era -> ZKsync Era)
 				if (sourceChain === "Ethereum") {
 					await withdrawSameChainL1();
 				} else if (sourceChain === "ZKsync") {
 					await withdrawSameChainScroll();
 				} else {
 					throw new Error(
-						"Same-chain transfers are only supported on EVM chains (Ethereum, Scroll)",
+						"Same-chain transfers are only supported on EVM chains (Ethereum, ZKsync Era)",
 					);
 				}
 			} else if (sourceChain === "Aztec") {
-				// Aztec -> EVM (L1 or Scroll)
+				// Aztec -> EVM (L1 or ZKsync Era)
 				if (targetChain === "ZKsync") {
 					await withdrawToScroll();
 				} else {
@@ -633,15 +634,15 @@
 					await withdrawToL1();
 				}
 			} else if (sourceChain === "ZKsync") {
-				// Scroll -> Aztec or L1
+				// ZKsync Era -> Aztec or L1
 				if (targetChain === "Aztec") {
 					await withdrawToAztec();
 				} else {
-					// Scroll -> L1 (requires ZK proof)
+					// ZKsync Era -> L1 (requires ZK proof)
 					await withdrawFromL2ToL1();
 				}
 			} else {
-				// Ethereum L1 -> Aztec or Scroll
+				// Ethereum L1 -> Aztec or ZKsync Era
 				if (targetChain === "Aztec") {
 					await withdrawToAztec();
 				} else if (targetChain === "ZKsync") {
@@ -678,7 +679,7 @@
 						}
 						triggerNote =
 							"\n\nWe've asked the bridge keeper to sync your commitment. " +
-							"Scroll to L1 takes 30 minutes to 3 hours due to Scroll outbox finalization. " +
+							"ZKsync Era to L1 takes 30 minutes to 3 hours due to ZKsync Era outbox finalization. " +
 							"You can leave this page; the progress panel above will update automatically.";
 					} catch (triggerErr) {
 						console.warn("[WithdrawForm] BridgeSync trigger failed:", triggerErr);
@@ -822,8 +823,8 @@
 	}
 
 	/**
-	 * Withdraw from Aztec to Scroll L2
-	 * This generates a ZK proof and calls the L2WarpToad.mint() on Scroll
+	 * Withdraw from Aztec to ZKsync Era L2
+	 * This generates a ZK proof and calls the L2WarpToad.mint() on ZKsync Era
 	 */
 	async function withdrawToScroll() {
 		if (!selectedProof?.commitmentData) {
@@ -834,16 +835,16 @@
 
 		// Route based on source chain
 		if (selectedProof.sourceChain === "Ethereum") {
-			// L1 -> Scroll flow
+			// L1 -> ZKsync Era flow
 			await withdrawFromL1ToScroll();
 			return;
 		} else if (selectedProof.sourceChain !== "Aztec") {
 			throw new Error(
-				`Unsupported source chain for Scroll withdrawal: ${selectedProof.sourceChain}`,
+				`Unsupported source chain for ZKsync Era withdrawal: ${selectedProof.sourceChain}`,
 			);
 		}
 
-		// Continue with Aztec -> Scroll flow below...
+		// Continue with Aztec -> ZKsync Era flow below...
 
 		// Step 1: Validate commitment data
 		withdrawStep = "validating";
@@ -861,29 +862,29 @@
 		const commitment = hashCommitment(preCommitment, amount);
 		console.log("Commitment:", commitment.toString());
 
-		// Step 2: Get Scroll chain state
+		// Step 2: Get ZKsync Era chain state
 		withdrawStep = "checking-bridge";
-		withdrawMessage = "Checking Scroll bridge state...";
+		withdrawMessage = "Checking ZKsync Era bridge state...";
 
 		const scrollChain = getEVMChain("ZKsync");
 		if (!scrollChain || !scrollChain.enabled) {
 			throw new Error(
-				"Scroll is not available in the current environment",
+				"ZKsync Era is not available in the current environment",
 			);
 		}
 
 		const chainId = await getEvmChainId();
 		if (!chainId || chainId !== scrollChain.chainId) {
 			throw new Error(
-				`Please switch to Scroll Sepolia network (chain ID: ${scrollChain.chainId})`,
+				`Please switch to the ${scrollChain.name} network (chain ID: ${scrollChain.chainId})`,
 			);
 		}
 
 		const gigaRoot = await getScrollGigaRoot();
-		console.log("Scroll GigaRoot:", gigaRoot.toString());
+		console.log("ZKsync Era GigaRoot:", gigaRoot.toString());
 
 		const localRoot = await getScrollLocalRoot();
-		console.log("Scroll LocalRoot:", localRoot.toString());
+		console.log("ZKsync Era LocalRoot:", localRoot.toString());
 
 		// Step 3: Get Aztec merkle data
 		withdrawStep = "building-proofs";
@@ -897,7 +898,7 @@
 		}
 
 		// Get the Aztec local root from GigaBridge on L1
-		// Note: GigaBridge lives on L1, so we query L1 even though destination is Scroll
+		// Note: GigaBridge lives on L1, so we query L1 even though destination is ZKsync Era
 		const l1Chain = getEVMChain("Ethereum");
 		if (!l1Chain) throw new Error("Ethereum chain config not found");
 
@@ -922,7 +923,7 @@
 			aztecMerkleData,
 			gigaMerkleData,
 			gigaRoot,
-			localRoot, // destination local root (Scroll)
+			localRoot, // destination local root (ZKsync Era)
 			aztecLocalRoot, // origin local root (Aztec)
 			BigInt(scrollChain.chainId),
 			walletStore.wallets.evm ||
@@ -947,19 +948,19 @@
 		const proofHex = formatProofForL1(proof);
 		console.log("Proof hex length:", proofHex.length);
 
-		// Step 6: Claim on Scroll
+		// Step 6: Claim on ZKsync Era
 		withdrawStep = "minting";
-		withdrawMessage = "Minting wrapped tokens on Scroll L2...";
+		withdrawMessage = "Minting wrapped tokens on ZKsync Era L2...";
 
 		const result = await claimOnScroll(proofInputs, proofHex);
 		const mintTxHash = result.txHash;
 
 		// Step 7: Complete
 		withdrawStep = "complete";
-		withdrawMessage = "Withdraw to Scroll complete!";
+		withdrawMessage = "Withdraw to ZKsync Era complete!";
 
 		completeWithdraw(mintTxHash);
-		successMessage = `Withdrew ${selectedProof.amount} ${selectedProof.token} to Scroll! Tx: ${mintTxHash.slice(0, 10)}...`;
+		successMessage = `Withdrew ${selectedProof.amount} ${selectedProof.token} to ZKsync Era! Tx: ${mintTxHash.slice(0, 10)}...`;
 
 		// Refresh balances
 		await balanceStore.refresh();
@@ -974,8 +975,8 @@
 	}
 
 	/**
-	 * Withdraw from L1 to Scroll L2
-	 * This generates a ZK proof and calls the L2WarpToad.mint() on Scroll
+	 * Withdraw from L1 to ZKsync Era L2
+	 * This generates a ZK proof and calls the L2WarpToad.mint() on ZKsync Era
 	 */
 	async function withdrawFromL1ToScroll() {
 		if (!selectedProof?.commitmentData) {
@@ -1000,29 +1001,29 @@
 		const commitment = hashCommitment(preCommitment, amount);
 		console.log("Commitment:", commitment.toString());
 
-		// Step 2: Get Scroll chain state
+		// Step 2: Get ZKsync Era chain state
 		withdrawStep = "checking-bridge";
-		withdrawMessage = "Checking Scroll bridge state...";
+		withdrawMessage = "Checking ZKsync Era bridge state...";
 
 		const scrollChain = getEVMChain("ZKsync");
 		if (!scrollChain || !scrollChain.enabled) {
 			throw new Error(
-				"Scroll is not available in the current environment",
+				"ZKsync Era is not available in the current environment",
 			);
 		}
 
 		const chainId = await getEvmChainId();
 		if (!chainId || chainId !== scrollChain.chainId) {
 			throw new Error(
-				`Please switch to Scroll Sepolia network (chain ID: ${scrollChain.chainId})`,
+				`Please switch to the ${scrollChain.name} network (chain ID: ${scrollChain.chainId})`,
 			);
 		}
 
 		const gigaRoot = await getScrollGigaRoot();
-		console.log("Scroll GigaRoot:", gigaRoot.toString());
+		console.log("ZKsync Era GigaRoot:", gigaRoot.toString());
 
 		const localRoot = await getScrollLocalRoot();
-		console.log("Scroll LocalRoot:", localRoot.toString());
+		console.log("ZKsync Era LocalRoot:", localRoot.toString());
 
 		// Step 3: Get L1 merkle data (burn proof)
 		withdrawStep = "building-proofs";
@@ -1062,7 +1063,7 @@
 			l1EvmMerkleData,
 			gigaMerkleData,
 			gigaRoot,
-			localRoot, // Scroll local root
+			localRoot, // ZKsync Era local root
 			l1LocalRoot, // L1 local root
 			aztecWarptoadAddress,
 			BigInt(scrollChain.chainId),
@@ -1085,7 +1086,7 @@
 		const proofHex = formatProofForL1(proof);
 		console.log("Proof hex length:", proofHex.length);
 
-		// Step 7: Claim on Scroll (relay or self-relay)
+		// Step 7: Claim on ZKsync Era (relay or self-relay)
 		let mintTxHash: string;
 
 		if (useRelay && relayerInfo) {
@@ -1137,7 +1138,7 @@
 		} else {
 			// SELF-RELAY PATH
 			withdrawStep = "minting";
-			withdrawMessage = "Minting wrapped tokens on Scroll L2...";
+			withdrawMessage = "Minting wrapped tokens on ZKsync Era L2...";
 
 			const result = await claimOnScroll(proofInputs, proofHex);
 			mintTxHash = result.txHash;
@@ -1145,10 +1146,10 @@
 
 		// Step 8: Complete
 		withdrawStep = "complete";
-		withdrawMessage = "Withdrawal to Scroll complete!";
+		withdrawMessage = "Withdrawal to ZKsync Era complete!";
 
 		completeWithdraw(mintTxHash);
-		successMessage = `Withdrew ${selectedProof.amount} ${selectedProof.token} to Scroll! Tx: ${mintTxHash.slice(0, 10)}...`;
+		successMessage = `Withdrew ${selectedProof.amount} ${selectedProof.token} to ZKsync Era! Tx: ${mintTxHash.slice(0, 10)}...`;
 
 		// Refresh balances
 		await balanceStore.refresh();
@@ -1221,8 +1222,8 @@
 		console.log("L1 LocalRoot:", localRoot.toString());
 
 		// Step 3: Get GigaBridge data first - we need the L2 block recorded with
-		// Scroll's local root so the burn proof can be anchored at the same
-		// state. If we instead built the burn tree at the live Scroll head, any
+		// ZKsync Era's local root so the burn proof can be anchored at the same
+		// state. If we instead built the burn tree at the live ZKsync Era head, any
 		// burn that landed between the keeper's last push and now would advance
 		// the live local root past the giga-recorded one, the merkle path
 		// would hash to a different root, and the circuit would fail with
@@ -1239,16 +1240,16 @@
 		console.log("L2 local root block number:", l2LocalRootBlockNumber);
 		console.log("Giga merkle data:", gigaMerkleData);
 
-		// Step 4: Build the Scroll burn proof anchored at the giga-recorded
+		// Step 4: Build the ZKsync Era burn proof anchored at the giga-recorded
 		// block. The reconstructed tree's root must equal l2LocalRoot
 		// (verified inside getEvmMerkleDataForZkStack) for the circuit to be
 		// satisfiable.
-		withdrawMessage = "Getting Scroll burn proof...";
+		withdrawMessage = "Getting ZKsync Era burn proof...";
 
 		const { evmMerkleData: scrollEvmMerkleData, aztecWarptoadAddress } =
 			await getEvmMerkleDataForZkStack(commitment, l2LocalRootBlockNumber);
 
-		console.log("Scroll EVM merkle data:", scrollEvmMerkleData);
+		console.log("ZKsync Era EVM merkle data:", scrollEvmMerkleData);
 
 		// Step 5: Prepare proof inputs
 		withdrawMessage = "Preparing proof inputs...";
@@ -1267,7 +1268,7 @@
 			gigaMerkleData,
 			gigaRoot,
 			localRoot, // L1 local root
-			l2LocalRoot, // Scroll local root
+			l2LocalRoot, // ZKsync Era local root
 			aztecWarptoadAddress,
 			BigInt(chainId),
 			walletStore.wallets.evm || "0x0000000000000000000000000000000000000000",
@@ -1347,7 +1348,7 @@
 				proofInputs,
 				proofHex,
 				chainId,
-				"Scroll -> L1"
+				"ZKsync Era -> L1"
 			);
 			mintTxHash = result.txHash;
 		}
@@ -1608,14 +1609,14 @@
 	}
 
 	/**
-	 * Withdraw from Scroll to Scroll (same-chain)
-	 * This uses Scroll's L2WarpToad and stays on the same L2
+	 * Withdraw from ZKsync Era to ZKsync Era (same-chain)
+	 * This uses ZKsync Era's L2WarpToad and stays on the same L2
 	 *
 	 * Flow:
 	 * 1. Validate commitment data
-	 * 2. Get Scroll chain state (gigaRoot, localRoot)
+	 * 2. Get ZKsync Era chain state (gigaRoot, localRoot)
 	 * 3. Ensure localRoot is stored in history (enables immediate withdrawal)
-	 * 4. Build EVM merkle proof from Scroll's LazyIMT tree
+	 * 4. Build EVM merkle proof from ZKsync Era's LazyIMT tree
 	 * 5. Generate ZK proof with origin_local_root == destination_local_root
 	 * 6. Submit via relay service OR self-relay to L2WarpToad.mint()
 	 */
@@ -1642,18 +1643,18 @@
 		const commitment = hashCommitment(preCommitment, amount);
 		console.log("Commitment:", commitment.toString());
 
-		// Step 2: Get Scroll chain state
+		// Step 2: Get ZKsync Era chain state
 		withdrawStep = "checking-bridge";
-		withdrawMessage = "Checking Scroll bridge state...";
+		withdrawMessage = "Checking ZKsync Era bridge state...";
 
 		const scrollChainId = getScrollChainId();
-		console.log("Scroll Chain ID:", scrollChainId);
+		console.log("ZKsync Era Chain ID:", scrollChainId);
 
 		const gigaRoot = await getScrollGigaRoot();
-		console.log("Scroll GigaRoot:", gigaRoot.toString());
+		console.log("ZKsync Era GigaRoot:", gigaRoot.toString());
 
 		const localRoot = await getScrollLocalRoot();
-		console.log("Scroll LocalRoot:", localRoot.toString());
+		console.log("ZKsync Era LocalRoot:", localRoot.toString());
 
 		// For same-chain transfers, we need to ensure the localRoot is stored in history
 		// This allows immediate withdrawals after burn without full bridge sync
@@ -1674,17 +1675,17 @@
 			}
 		}
 
-		// Step 3: Build EVM merkle proof from Scroll's tree
+		// Step 3: Build EVM merkle proof from ZKsync Era's tree
 		withdrawStep = "building-proofs";
-		withdrawMessage = "Building merkle proof from Scroll tree...";
+		withdrawMessage = "Building merkle proof from ZKsync Era tree...";
 
-		// Import the Scroll merkle data function dynamically
+		// Import the ZKsync Era merkle data function dynamically
 		const { getEvmMerkleDataForZkStack } = await import("$lib/utils/zkstack-interactions.js");
 
 		const { evmMerkleData, aztecWarptoadAddress, localRootBlockNumber } =
 			await getEvmMerkleDataForZkStack(commitment);
 
-		console.log("Scroll EVM merkle data:", evmMerkleData);
+		console.log("ZKsync Era EVM merkle data:", evmMerkleData);
 		console.log("Aztec WarpToad address:", aztecWarptoadAddress.toString());
 
 		// Step 4: Prepare proof inputs for same-chain transfer
@@ -1705,7 +1706,7 @@
 		const proofInputs = prepareProofInputsForSameChain(
 			selectedProof.commitmentData,
 			null, // aztecMerkleData (not from Aztec)
-			evmMerkleData, // Scroll's EVM merkle data
+			evmMerkleData, // ZKsync Era's EVM merkle data
 			aztecWarptoadAddress,
 			localRoot, // Same for both origin and destination
 			gigaRoot,
@@ -1715,7 +1716,7 @@
 			false, // isFromAztec = false (this is EVM -> EVM)
 			feeConfig,
 		);
-		console.log("Proof inputs prepared for Scroll same-chain");
+		console.log("Proof inputs prepared for ZKsync Era same-chain");
 
 		// Step 5: Generate ZK proof in browser
 		withdrawStep = "generating-proof";
@@ -1730,7 +1731,7 @@
 		);
 		console.log("Proof generated, public inputs:", publicInputs.length);
 
-		// Format proof for Scroll submission
+		// Format proof for ZKsync Era submission
 		const proofHex = formatProofForL1(proof);
 		console.log("Proof hex length:", proofHex.length);
 
@@ -1745,7 +1746,7 @@
 			try {
 				const scrollChain = getEVMChain("ZKsync");
 				if (!scrollChain || !scrollChain.enabled) {
-					throw new Error("Scroll chain not enabled");
+					throw new Error("ZKsync Era chain not enabled");
 				}
 
 				const relayResponse = await submitWithdrawRelay({
@@ -1791,7 +1792,7 @@
 		} else {
 			// SELF-RELAY PATH
 			withdrawStep = "minting";
-			withdrawMessage = "Minting tokens on Scroll...";
+			withdrawMessage = "Minting tokens on ZKsync Era...";
 
 			const result = await claimOnScroll(
 				proofInputs,
@@ -1807,9 +1808,9 @@
 		// Mark note as consumed/used
 		completeWithdraw(mintTxHash);
 
-		successMessage = `Successfully withdrew ${selectedProof.amount} ${selectedProof.token} on Scroll! Tx: ${mintTxHash.slice(0, 16)}...`;
+		successMessage = `Successfully withdrew ${selectedProof.amount} ${selectedProof.token} on ZKsync Era! Tx: ${mintTxHash.slice(0, 16)}...`;
 
-		console.log("Scroll same-chain withdrawal complete:", {
+		console.log("ZKsync Era same-chain withdrawal complete:", {
 			mintTxHash,
 			commitment: commitment.toString(),
 			localRoot: localRoot.toString(),
@@ -1819,7 +1820,7 @@
 		isWithdrawing = false;
 
 		// Refresh balances in background
-		balanceStore.refreshScrollBalance().catch(err => console.error('Failed to refresh Scroll balance:', err));
+		balanceStore.refreshScrollBalance().catch(err => console.error('Failed to refresh ZKsync Era balance:', err));
 
 		// Reset form after delay
 		setTimeout(() => {
@@ -2127,7 +2128,7 @@
 		}
 	}
 
-	// Check if this is an Aztec -> EVM withdrawal (L1 or Scroll)
+	// Check if this is an Aztec -> EVM withdrawal (L1 or ZKsync Era)
 	function isAztecToEVM(): boolean {
 		if (!selectedProof) return false;
 		return (
@@ -2167,7 +2168,7 @@
 		if (!selectedProof) return false;
 
 		// Relay is supported for all EVM -> EVM flows
-		// (L1 -> L1, L1 -> Scroll, Scroll -> L1, Aztec -> L1, Aztec -> Scroll)
+		// (L1 -> L1, L1 -> ZKsync Era, ZKsync Era -> L1, Aztec -> L1, Aztec -> ZKsync Era)
 		const evmChains = ["Ethereum", "ZKsync"];
 		const targetIsEVM = evmChains.includes(selectedProof.targetChain);
 
@@ -2176,7 +2177,7 @@
 			return true;
 		}
 
-		// EVM -> EVM flows (L1 <-> L1, L1 <-> Scroll, Scroll <-> Scroll)
+		// EVM -> EVM flows (L1 <-> L1, L1 <-> ZKsync Era, ZKsync Era <-> ZKsync Era)
 		const sourceIsEVM = evmChains.includes(selectedProof.sourceChain);
 		if (sourceIsEVM && targetIsEVM) {
 			return true;

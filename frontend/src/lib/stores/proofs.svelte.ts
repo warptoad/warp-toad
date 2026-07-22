@@ -135,7 +135,7 @@ class ProofStore {
 			return 'Connect wallet';
 		}
 
-		// Resolve the active chain config (Sepolia/Scroll in prod, Anvil in test mode).
+		// Resolve the active chain config (Sepolia/ZKsync Era in prod, Anvil in test mode).
 		// Defaulting to viem's `anvil` chain with `http()` silently pins RPC to
 		// localhost:8545 in production builds, so always go through the registry.
 		const chainName = chain === 'ZKsync' ? 'ZKsync' : 'Ethereum';

@@ -1,0 +1,49 @@
+{
+  "_format": "hh3-sol-build-info-1",
+  "id": "solc-0_8_29-e56cee9e0d327cce0c090119997cf238b9e00a51",
+  "solcVersion": "0.8.29",
+  "solcLongVersion": "0.8.29+commit.ab55807c",
+  "compilerType": "solc",
+  "userSourceNameMap": {
+    "contracts/bridge/adapters/L2ZkStackBridgeAdapter.sol": "project/contracts/bridge/adapters/L2ZkStackBridgeAdapter.sol"
+  },
+  "input": {
+    "language": "Solidity",
+    "settings": {
+      "evmVersion": "cancun",
+      "optimizer": {
+        "enabled": true,
+        "runs": 1
+      },
+      "outputSelection": {
+        "*": {
+          "": [
+            "ast"
+          ],
+          "*": [
+            "abi",
+            "evm.bytecode",
+            "evm.deployedBytecode",
+            "evm.methodIdentifiers",
+            "metadata"
+          ]
+        }
+      },
+      "remappings": []
+    },
+    "sources": {
+      "project/contracts/bridge/adapters/L2ZkStackBridgeAdapter.sol": {
+        "content": "// SPDX-License-Identifier: MIT\n\npragma solidity 0.8.29;\n\nimport {IGigaRootProvider, IGigaRootRecipient, ILocalRootRecipient, ILocalRootProvider} from \"../../interfaces/IRootMessengers.sol\";\nimport {IL2BridgeAdapter} from \"../../interfaces/IL2BridgeAdapter.sol\";\nimport {IL1Messenger, AddressAliasHelper} from \"../../interfaces/zkstack/IZkStack.sol\";\n\n/**\n * L2 half of the ZK Stack adapter, replacing L2ScrollBridgeAdapter.\n *\n * Deploys unchanged on any ZK Stack chain: the L1Messenger system contract lives at the\n * same address everywhere, and the only chain-specific value (the L1 adapter address) is\n * a constructor argument.\n */\ncontract L2ZkStackBridgeAdapter is\n    IL2BridgeAdapter,\n    IGigaRootProvider,\n    ILocalRootRecipient\n{\n    /// @dev L1Messenger system contract, same address on every ZK Stack chain.\n    IL1Messenger public constant L1_MESSENGER =\n        IL1Messenger(0x0000000000000000000000000000000000008008);\n\n    uint256 public gigaRoot;\n\n    address public l1ZkStackBridgeAdapter;\n    /// @dev Cached L1->L2 alias of l1ZkStackBridgeAdapter. This is the ZK Stack\n    ///      equivalent of checking Scroll's xDomainMessageSender(): the protocol rewrites\n    ///      an L1 contract sender to this address, so comparing msg.sender against it\n    ///      proves the call originated from our L1 adapter.\n    address public l1ZkStackBridgeAdapterAliased;\n    address public l2WarpToad;\n\n    event SentLocalRootToL1(uint256 indexed localRoot, uint256 l2BlockNumber);\n    event NewGigaRoot(uint256 indexed gigaRoot);\n\n    constructor(address _l1ZkStackBridgeAdapter, address _l2WarpToad) {\n        l1ZkStackBridgeAdapter = _l1ZkStackBridgeAdapter;\n        l1ZkStackBridgeAdapterAliased = AddressAliasHelper.applyL1ToL2Alias(\n            _l1ZkStackBridgeAdapter\n        );\n        l2WarpToad = _l2WarpToad;\n    }\n\n    // extra for the contracts that want it.\n    // receiveGigaRoot (called from L1) will send it to L2WarpToad already\n    function sendGigaRoot(address _gigaRootRecipient) public payable {\n        IGigaRootRecipient(_gigaRootRecipient).receiveGigaRoot(gigaRoot);\n    }\n\n    /**\n     * @notice Publish the local root to L1 as an L2->L1 message.\n     * @dev Unlike Scroll there is no target, no calldata and no gas limit here: sendToL1\n     *      just records an opaque blob keyed by msg.sender. Nothing is called on L1. A\n     *      keeper watches SentLocalRootToL1, pulls zks_getL2ToL1LogProof for this tx, and\n     *      submits it to L1ZkStackBridgeAdapter.getNewRootFromL2 once the batch executes.\n     *\n     *      Payload must stay abi.encode(uint256,uint256) - the L1 side length-checks it.\n     */\n    function sentLocalRootToL1() public {\n        (uint256 _l2Root, uint256 _l2BlockNumber) = ILocalRootProvider(\n            l2WarpToad\n        ).getLocalRootAndBlock();\n\n        L1_MESSENGER.sendToL1(abi.encode(_l2Root, _l2BlockNumber));\n\n        emit SentLocalRootToL1(_l2Root, _l2BlockNumber);\n    }\n\n    function receiveGigaRoot(uint256 _gigaRoot) public payable {\n        require(\n            msg.sender == l1ZkStackBridgeAdapterAliased,\n            \"caller is not the aliased L1ZkStackBridgeAdapter\"\n        );\n        gigaRoot = _gigaRoot;\n        sendGigaRoot(l2WarpToad);\n        emit NewGigaRoot(_gigaRoot);\n    }\n}\n"
+      },
+      "project/contracts/interfaces/IL2BridgeAdapter.sol": {
+        "content": "// SPDX-License-Identifier: MIT\n\npragma solidity 0.8.29;\n\ninterface IL2BridgeAdapter {\n    //TODO\n    \n    // gigaRoot is emitted as a bytes32 here because thats how it's recovered on the\n    //  L2 side of this rootBridgeAdapter.  Key and index are also used to\n    // retrieve this newGigaRoot on L2\n    //event ReceivedNewL2Root(uint256 newL2Root, uint256 l2Block);\n\n}"
+      },
+      "project/contracts/interfaces/IRootMessengers.sol": {
+        "content": "// SPDX-License-Identifier: MIT\n\npragma solidity 0.8.29;\n\ninterface IGigaRootProvider {\n    function sendGigaRoot(address _gigaRootRecipient) external payable;\n    function gigaRoot() external returns(uint256);\n}\n\ninterface IGigaRootRecipient {\n    function receiveGigaRoot(uint256 _gigaRoot) payable external;\n    //function receiveGigaRoot(uint256 _gigaRoot, uint256 _gasLimit) payable external;\n}\n\n\ninterface ILocalRootProvider {\n    function getLocalRootAndBlock() external returns (uint256, uint256);\n}\n\ninterface ILocalRootRecipient {\n    //only gigaBridge does this\n    //function updateGigaRoot(address[] memory _localRootProvider) external;\n}\n"
+      },
+      "project/contracts/interfaces/zkstack/IZkStack.sol": {
+        "content": "// SPDX-License-Identifier: MIT\n\npragma solidity 0.8.29;\n\n/**\n * Minimal vendored ZK Stack (zkSync Era / Abstract / any Elastic Chain) interfaces.\n *\n * Vendored rather than pulled from `@matterlabs/zksync-contracts` on purpose: that\n * package drags in a large source tree, and Hardhat 3 has two known failure modes in\n * this repo with scoped npm Solidity packages (missing artifacts from npmFilesToBuild,\n * and missing userSourceNameMap entries that break `ignition verify`). The Aztec\n * interfaces under contracts/interfaces/aztec/ are vendored for the same reason.\n *\n * Only the four things the adapters actually touch are declared here.\n */\n\n/// @dev Argument bundle for an L1->L2 request on an ETH-based chain.\nstruct L2TransactionRequestDirect {\n    uint256 chainId;\n    uint256 mintValue;\n    address l2Contract;\n    uint256 l2Value;\n    bytes l2Calldata;\n    uint256 l2GasLimit;\n    uint256 l2GasPerPubdataByteLimit;\n    bytes[] factoryDeps;\n    address refundRecipient;\n}\n\n/// @dev An L2->L1 log payload as reconstructed on L1 for inclusion proving.\n///      `sender` is whoever called L1Messenger.sendToL1 on L2 (no aliasing applies\n///      in this direction) and `data` is the opaque blob they passed.\nstruct L2Message {\n    uint16 txNumberInBatch;\n    address sender;\n    bytes data;\n}\n\ninterface IBridgehub {\n    /// @notice Enqueue an L1->L2 transaction. Requires msg.value == _request.mintValue\n    ///         on ETH-based chains. Surplus mintValue is refunded to\n    ///         `refundRecipient` *on L2*, not on L1.\n    function requestL2TransactionDirect(\n        L2TransactionRequestDirect calldata _request\n    ) external payable returns (bytes32 canonicalTxHash);\n\n    /// @notice Price of an L1->L2 transaction, denominated in the chain's base token.\n    /// @dev The Bridgehub re-derives this from `tx.gasprice` at execution time, so the\n    ///      only safe caller-side pattern is to read it with `tx.gasprice` in the same\n    ///      transaction that spends it. See L1ZkStackBridgeAdapter._bridgeGigaRootToL2.\n    function l2TransactionBaseCost(\n        uint256 _chainId,\n        uint256 _gasPrice,\n        uint256 _l2GasLimit,\n        uint256 _l2GasPerPubdataByteLimit\n    ) external view returns (uint256);\n\n    /// @notice Chain-agnostic inclusion check. Preferred over the per-chain diamond's\n    ///         Mailbox.proveL2MessageInclusion so that one L1 adapter deployment can\n    ///         serve several ZK Stack chains. Verified working against Era Sepolia.\n    function proveL2MessageInclusion(\n        uint256 _chainId,\n        uint256 _batchNumber,\n        uint256 _index,\n        L2Message calldata _message,\n        bytes32[] calldata _proof\n    ) external view returns (bool);\n}\n\ninterface IL1Messenger {\n    /// @notice L2-side system contract at 0x...8008. Emits an opaque message keyed by\n    ///         msg.sender. There is no target and no calldata: nothing is ever called\n    ///         on L1, someone must pull the proof and submit it.\n    function sendToL1(bytes calldata _message) external returns (bytes32);\n}\n\n/**\n * @dev L1->L2 aliasing. Applied by the protocol to every L1 *contract* sender; EOAs\n *      are passed through unchanged. This is the ZK Stack replacement for Scroll's\n *      `xDomainMessageSender()`, which does not exist here.\n */\nlibrary AddressAliasHelper {\n    uint160 private constant OFFSET = uint160(0x1111000000000000000000000000000000001111);\n\n    function applyL1ToL2Alias(address _l1Address) internal pure returns (address l2Address) {\n        unchecked {\n            l2Address = address(uint160(_l1Address) + OFFSET);\n        }\n    }\n\n    function undoL1ToL2Alias(address _l2Address) internal pure returns (address l1Address) {\n        unchecked {\n            l1Address = address(uint160(_l2Address) - OFFSET);\n        }\n    }\n}\n"
+      }
+    }
+  }
+}

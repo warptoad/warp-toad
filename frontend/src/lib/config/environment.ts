@@ -5,7 +5,7 @@
  * New code should import directly from '$lib/config/chains.js' instead.
  *
  * VITE_TEST_MODE=true  -> Local development (Anvil + Aztec Sandbox)
- * VITE_TEST_MODE=false -> Testnet (Sepolia + Scroll Sepolia + Aztec Devnet)
+ * VITE_TEST_MODE=false -> Testnet (Sepolia + ZKsync Era Sepolia + Aztec Devnet)
  */
 
 import { anvil } from 'viem/chains';
@@ -267,7 +267,7 @@ export function getContractAddresses(chainId: number): ContractAddresses | null 
 		return L1_CONTRACTS;
 	}
 
-	// Check Scroll
+	// Check ZKsync Era
 	const scroll = getEVMChain('ZKsync');
 	if (scroll && scroll.enabled && scroll.chainId === chainId) {
 		return L2_SCROLL_CONTRACTS;
@@ -289,7 +289,7 @@ export function getTokenAddress(token: Token, chainId: number): string | null {
 		return l1.contracts.nativeToken;
 	}
 
-	// Check Scroll
+	// Check ZKsync Era
 	const scroll = getEVMChain('ZKsync');
 	if (scroll && scroll.enabled && scroll.chainId === chainId) {
 		return scroll.contracts.nativeToken || null;

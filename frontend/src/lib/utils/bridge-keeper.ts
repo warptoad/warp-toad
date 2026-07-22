@@ -6,6 +6,7 @@
  */
 
 import type { Chain } from '$lib/types/bridge.js';
+import { getChainIdFor } from '$lib/config/chains.js';
 import { rpcSettings } from '$lib/stores/rpc-settings.svelte';
 
 /**
@@ -83,7 +84,7 @@ export async function fetchBurnLeavesFromKeeper(
  * a "wait 30min-3hrs and retry" message.
  *
  * `fromChainId` / `toChainId` use the BridgeKeeper convention: numeric
- * EVM chain IDs as strings ('11155111', '534351') and 'aztec' for Aztec.
+ * EVM chain IDs as strings ('11155111', '300') and 'aztec' for Aztec.
  */
 export class BridgeSyncStaleError extends Error {
 	constructor(
@@ -139,25 +140,18 @@ export interface PendingBridgeSync {
  * - EVM chains: numeric chain ID as string
  */
 export function getChainIdForBridgeKeeper(chain: Chain): string {
-	// Check if we're in test mode (local Anvil)
-	const isTestMode = import.meta.env.VITE_TEST_MODE === 'true';
-	
 	if (chain === 'Aztec') {
 		return 'aztec';
 	}
-	
-	if (chain === 'Ethereum') {
-		// Test mode: local Anvil (31337)
-		// Production: Sepolia (11155111)
-		return isTestMode ? '31337' : '11155111';
+
+	// Everything else resolves through the chain registry. Hardcoding the L2 id here
+	// is what pointed the keeper at retired Scroll Sepolia (534351) after the L2 had
+	// already moved: the keeper rejects the unknown leg, so every bridge silently fails.
+	const chainId = getChainIdFor(chain);
+	if (chainId === undefined) {
+		throw new Error(`Unknown chain: ${chain}`);
 	}
-	
-	if (chain === 'ZKsync') {
-		// Scroll Sepolia testnet
-		return '534351';
-	}
-	
-	throw new Error(`Unknown chain: ${chain}`);
+	return String(chainId);
 }
 
 /**
@@ -165,7 +159,7 @@ export function getChainIdForBridgeKeeper(chain: Chain): string {
  * This matches the BridgeKeeper's duration logic
  */
 export function getExpectedDuration(fromChain: Chain, toChain: Chain): string {
-	// Scroll bridges take longest
+	// ZKsync Era bridges take longest
 	if (fromChain === 'ZKsync' || toChain === 'ZKsync') {
 		return '2-3 hours';
 	}

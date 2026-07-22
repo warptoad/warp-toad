@@ -1,7 +1,7 @@
 /**
  * Faucet Service API Client
  *
- * Client for the testnet ETH faucet (Sepolia + Scroll Sepolia).
+ * Client for the testnet ETH faucet (Sepolia + ZKsync Era Sepolia).
  */
 
 const isTestMode = import.meta.env.VITE_TEST_MODE === 'true';

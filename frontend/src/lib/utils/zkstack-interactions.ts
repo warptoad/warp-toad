@@ -1,13 +1,13 @@
 /**
- * Scroll L2 Bridge Interactions
+ * ZKsync Era L2 Bridge Interactions
  *
- * Handles all Scroll-specific contract interactions including:
+ * Handles all ZKsync Era-specific contract interactions including:
  * - Minting tokens (for testing)
  * - Burning tokens for bridge-out
  * - Claiming tokens from bridge-in (with ZK proof)
  * - Reading bridge state (gigaRoot, localRoot)
  *
- * Note: Scroll L2WarpToad does NOT have wrap/unwrap like L1WarpToad.
+ * Note: ZKsync Era L2WarpToad does NOT have wrap/unwrap like L1WarpToad.
  * Users get tokens via mint (bridge-in) or getFreeShit (testing).
  */
 
@@ -31,19 +31,19 @@ import { BridgeSyncStaleError } from './bridge-keeper.js';
 // ============================================================================
 
 /**
- * Get Scroll chain configuration
- * Throws if Scroll is not enabled (test mode)
+ * Get ZKsync Era chain configuration
+ * Throws if ZKsync Era is not enabled (test mode)
  */
 function getScrollConfig(): EVMChainDefinition {
 	const scroll = getEVMChain('ZKsync');
 	if (!scroll || !scroll.enabled) {
-		throw new Error('Scroll is not available in the current environment. Switch to testnet mode.');
+		throw new Error('ZKsync Era is not available in the current environment. Switch to testnet mode.');
 	}
 	return scroll;
 }
 
 /**
- * Check if current chain is Scroll
+ * Check if current chain is ZKsync Era
  */
 export async function isOnScrollNetwork(): Promise<boolean> {
 	const chainId = await getChainId();
@@ -52,7 +52,7 @@ export async function isOnScrollNetwork(): Promise<boolean> {
 }
 
 /**
- * Get Scroll chain ID
+ * Get ZKsync Era chain ID
  */
 export function getScrollChainId(): number {
 	return getScrollConfig().chainId;
@@ -63,7 +63,7 @@ export function getScrollChainId(): number {
 // ============================================================================
 
 /**
- * Get wrapped token balance on Scroll L2
+ * Get wrapped token balance on ZKsync Era L2
  * This is the L2WarpToad token balance (what users bridge with)
  */
 export async function getScrollWrappedBalance(address: string): Promise<bigint> {
@@ -85,7 +85,7 @@ export async function getScrollWrappedBalance(address: string): Promise<bigint> 
 }
 
 /**
- * Get wrapped token decimals on Scroll
+ * Get wrapped token decimals on ZKsync Era
  */
 export async function getScrollTokenDecimals(): Promise<number> {
 	const scroll = getScrollConfig();
@@ -105,14 +105,14 @@ export async function getScrollTokenDecimals(): Promise<number> {
 }
 
 /**
- * Get native token balance on Scroll (if there's a native token deployed)
+ * Get native token balance on ZKsync Era (if there's a native token deployed)
  * This would be the original token before wrapping
  */
 export async function getScrollNativeBalance(address: string): Promise<bigint> {
 	const scroll = getScrollConfig();
 
 	if (!scroll.contracts.nativeToken) {
-		console.warn('No native token configured for Scroll');
+		console.warn('No native token configured for ZKsync Era');
 		return 0n;
 	}
 
@@ -132,13 +132,13 @@ export async function getScrollNativeBalance(address: string): Promise<bigint> {
 }
 
 /**
- * Mint free tokens on Scroll (for testing)
+ * Mint free tokens on ZKsync Era (for testing)
  * Calls L2WarpToad.getFreeShit()
  */
 export async function mintFreeScrollTokens(amount: bigint): Promise<Hash> {
 	const scroll = getScrollConfig();
 	const client = createClient(scroll.chainId);
-	if (!client) throw new Error('Failed to create wallet client for Scroll');
+	if (!client) throw new Error('Failed to create wallet client for ZKsync Era');
 
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
@@ -167,7 +167,7 @@ export async function mintFreeScrollTokens(amount: bigint): Promise<Hash> {
 
 /**
  * Get gigaRoot from L2ZkStackBridgeAdapter
- * This is the root synced from L1 GigaBridge via Scroll messenger
+ * This is the root synced from L1 GigaBridge via ZKsync Era messenger
  */
 export async function getScrollGigaRoot(): Promise<bigint> {
 	const scroll = getScrollConfig();
@@ -188,7 +188,7 @@ export async function getScrollGigaRoot(): Promise<bigint> {
 
 /**
  * Get localRoot from L2WarpToad
- * This is the merkle root of all burns on Scroll
+ * This is the merkle root of all burns on ZKsync Era
  */
 export async function getScrollLocalRoot(): Promise<bigint> {
 	const scroll = getScrollConfig();
@@ -228,7 +228,7 @@ export async function getScrollCachedLocalRoot(): Promise<bigint> {
 }
 
 /**
- * Check if a gigaRoot is valid on Scroll
+ * Check if a gigaRoot is valid on ZKsync Era
  */
 export async function isValidScrollGigaRoot(gigaRoot: bigint): Promise<boolean> {
 	const scroll = getScrollConfig();
@@ -249,7 +249,7 @@ export async function isValidScrollGigaRoot(gigaRoot: bigint): Promise<boolean> 
 }
 
 /**
- * Check if a localRoot is valid on Scroll
+ * Check if a localRoot is valid on ZKsync Era
  */
 export async function isValidScrollLocalRoot(localRoot: bigint): Promise<boolean> {
 	const scroll = getScrollConfig();
@@ -270,11 +270,11 @@ export async function isValidScrollLocalRoot(localRoot: bigint): Promise<boolean
 }
 
 // ============================================================================
-// Bridge Out: Scroll -> Other Chain
+// Bridge Out: ZKsync Era -> Other Chain
 // ============================================================================
 
 /**
- * Burn tokens on Scroll and create commitment for bridge-out
+ * Burn tokens on ZKsync Era and create commitment for bridge-out
  *
  * @param amount - Amount to burn (in token units)
  * @param destinationChainId - Target chain ID (poseidon hash for Aztec, standard for EVM)
@@ -291,7 +291,7 @@ export async function burnOnScroll(
 }> {
 	const scroll = getScrollConfig();
 	const client = createClient(scroll.chainId);
-	if (!client) throw new Error('Failed to create wallet client for Scroll');
+	if (!client) throw new Error('Failed to create wallet client for ZKsync Era');
 
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
@@ -334,7 +334,7 @@ export async function burnOnScroll(
 }
 
 /**
- * Full bridge flow from Scroll to another chain
+ * Full bridge flow from ZKsync Era to another chain
  *
  * @param amount - Amount in human-readable format (e.g., "100.5")
  * @param destinationChainId - Target chain ID
@@ -357,7 +357,7 @@ export async function bridgeFromZkStack(
 	const amountBigInt = BigInt(Math.floor(parseFloat(amount) * 10 ** decimals));
 
 	// Burn tokens and create commitment
-	console.log('Burning tokens on Scroll...');
+	console.log('Burning tokens on ZKsync Era...');
 	const burnResult = await burnOnScroll(amountBigInt, destinationChainId);
 
 	// Create note
@@ -375,7 +375,7 @@ export async function bridgeFromZkStack(
 }
 
 // ============================================================================
-// Bridge In: Other Chain -> Scroll
+// Bridge In: Other Chain -> ZKsync Era
 // ============================================================================
 
 /**
@@ -388,7 +388,7 @@ function paddedHexToAddress(paddedHex: string): `0x${string}` {
 }
 
 /**
- * Claim tokens on Scroll from a burn on another chain
+ * Claim tokens on ZKsync Era from a burn on another chain
  * Uses ZK proof verification via L2WarpToad.mint()
  *
  * @param proofInputs - The proof inputs (public inputs)
@@ -411,7 +411,7 @@ export async function claimOnScroll(
 ): Promise<{ txHash: string }> {
 	const scroll = getScrollConfig();
 	const client = createClient(scroll.chainId);
-	if (!client) throw new Error('Failed to create wallet client for Scroll');
+	if (!client) throw new Error('Failed to create wallet client for ZKsync Era');
 
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
@@ -420,7 +420,7 @@ export async function claimOnScroll(
 
 	const userAddress = (await client.getAddresses())[0];
 
-	console.log('Claiming on Scroll L2...');
+	console.log('Claiming on ZKsync Era L2...');
 	console.log('Nullifier:', proofInputs.nullifier);
 	console.log('Amount:', proofInputs.amount);
 	console.log('Recipient:', proofInputs.recipient_address);
@@ -453,12 +453,12 @@ export async function claimOnScroll(
 }
 
 // ============================================================================
-// Merkle Data for Scroll
+// Merkle Data for ZKsync Era
 // ============================================================================
 
 /**
- * Get merkle data for a commitment on Scroll
- * Used when withdrawing FROM Scroll to another chain
+ * Get merkle data for a commitment on ZKsync Era
+ * Used when withdrawing FROM ZKsync Era to another chain
  *
  * This fetches the Burn events from L2WarpToad and builds the merkle proof
  */
@@ -504,7 +504,7 @@ export async function getScrollMerkleData(
 	}
 
 	if (commitmentIndex === -1) {
-		throw new Error('Commitment not found in Scroll burn events. Has the bridge sync completed?');
+		throw new Error('Commitment not found in ZKsync Era burn events. Has the bridge sync completed?');
 	}
 
 	// Get the current local root
@@ -523,7 +523,7 @@ export async function getScrollMerkleData(
 }
 
 /**
- * Build merkle proof for Scroll commitment tree
+ * Build merkle proof for ZKsync Era commitment tree
  * Uses the LazyIMT structure matching the contract
  */
 async function buildScrollMerkleProof(commitments: bigint[], index: number): Promise<bigint[]> {
@@ -583,17 +583,17 @@ function computeSiblingAtLevel(commitments: bigint[], siblingIndex: number, leve
 }
 
 /**
- * Get EVM merkle data for a commitment on Scroll (for Scroll → L1 withdrawals
- * and same-chain Scroll transfers)
+ * Get EVM merkle data for a commitment on ZKsync Era (for ZKsync Era → L1 withdrawals
+ * and same-chain ZKsync Era transfers)
  *
  * @param commitment - The commitment to get merkle data for
- * @param targetLocalRootBlockNumber - Optional Scroll block to anchor the tree
+ * @param targetLocalRootBlockNumber - Optional ZKsync Era block to anchor the tree
  *   reconstruction at. When the caller is proving against a local root that
- *   was bridged to L1's GigaBridge (Scroll → L1), this MUST be the L2 block
+ *   was bridged to L1's GigaBridge (ZKsync Era → L1), this MUST be the L2 block
  *   recorded in the `ReceivedNewLocalRoot` event for that root - otherwise any
- *   burn that landed on Scroll between the keeper's last push and now will
+ *   burn that landed on ZKsync Era between the keeper's last push and now will
  *   advance the live local root past the giga-recorded one and the circuit
- *   constraint `evm_merkle_data → origin_local_root` fails. Same-chain Scroll
+ *   constraint `evm_merkle_data → origin_local_root` fails. Same-chain ZKsync Era
  *   withdraws prove against the live local root and pass `undefined` here.
  * @returns EVM merkle data with leaf index, hash path, aztec warptoad address, and block number
  */
@@ -605,16 +605,16 @@ export async function getEvmMerkleDataForZkStack(
 	aztecWarptoadAddress: bigint;
 	localRootBlockNumber: number;
 }> {
-	const scroll = getScrollConfig();
+	const zkStack = getScrollConfig();
 
 	const publicClient = createPublicClient({
-		chain: scroll.viemChain,
-		transport: http(getRpcUrl(scroll.chainId)),
+		chain: zkStack.viemChain,
+		transport: http(getRpcUrl(zkStack.chainId)),
 	});
 
-	// Get deployment block for Scroll from contract addresses
+	// Get deployment block for ZKsync Era from contract addresses
 	const { getContractAddresses } = await import('$lib/contracts/addresses');
-	const addresses = getContractAddresses(scroll.chainId);
+	const addresses = getContractAddresses(zkStack.chainId);
 	const deploymentBlock = BigInt(addresses.deploymentBlock || 0);
 	const toBlock = targetLocalRootBlockNumber !== undefined
 		? BigInt(targetLocalRootBlockNumber)
@@ -624,19 +624,19 @@ export async function getEvmMerkleDataForZkStack(
 	// When toBlock is the giga-recorded block, this is the leaf count at the
 	// state that produced the local root we're proving against.
 	const lastLeafIndex = (await publicClient.readContract({
-		address: scroll.contracts.warpToad as `0x${string}`,
+		address: zkStack.contracts.warpToad as `0x${string}`,
 		abi: L2WarpToadAbi,
 		functionName: 'lastLeafIndex',
 		blockNumber: toBlock,
 	})) as bigint;
 	const totalLeaves = Number(lastLeafIndex);
 
-	console.log(`Querying ${totalLeaves} Scroll Burn events from block ${deploymentBlock} to ${toBlock}...`);
+	console.log(`Querying ${totalLeaves} ZKsync Era Burn events from block ${deploymentBlock} to ${toBlock}...`);
 
 	const burnEvents = totalLeaves > 0
 		? await queryEventInChunks({
 			publicClient,
-			contract: { address: scroll.contracts.warpToad as `0x${string}`, abi: L2WarpToadAbi },
+			contract: { address: zkStack.contracts.warpToad as `0x${string}`, abi: L2WarpToadAbi },
 			eventName: 'Burn',
 			firstBlock: deploymentBlock,
 			lastBlock: toBlock,
@@ -645,7 +645,7 @@ export async function getEvmMerkleDataForZkStack(
 		})
 		: [];
 
-	console.log(`Found ${burnEvents.length} Burn events on Scroll`);
+	console.log(`Found ${burnEvents.length} Burn events on ZKsync Era`);
 
 	// Sort events by index
 	const sortedEvents = burnEvents
@@ -662,41 +662,43 @@ export async function getEvmMerkleDataForZkStack(
 	const leafIndex = sortedEvents.findIndex(e => e.commitment === commitment);
 	if (leafIndex === -1) {
 		if (targetLocalRootBlockNumber !== undefined) {
-			// Stale L1 anchor of Scroll's local root - the keeper hasn't pushed
-			// Scroll → L1 since the user's burn. Throw the typed error so the
-			// WithdrawForm catch block can fire `triggerBridge('534351', ...)` and
+			// Stale L1 anchor of the L2's local root - the keeper hasn't pushed
+			// L2 → L1 since the user's burn. Throw the typed error so the
+			// WithdrawForm catch block can fire `triggerBridge(l2ChainId, ...)` and
 			// surface a "wait 30min-3hrs" message instead of a generic failure.
+			// The ids come from the registry: hardcoding them pointed the keeper at
+			// the retired chain, so the retry silently did nothing.
 			throw new BridgeSyncStaleError(
-				`Your commitment is not yet included in the Scroll local root that's bridged to L1. ` +
-				`The bridge keeper has only synced Scroll up to block ${targetLocalRootBlockNumber}; ` +
+				`Your commitment is not yet included in the ${zkStack.name} local root that's bridged to L1. ` +
+				`The bridge keeper has only synced ${zkStack.name} up to block ${targetLocalRootBlockNumber}; ` +
 				`your deposit landed after that.`,
-				'534351',
-				'11155111',
+				String(zkStack.chainId),
+				String(getEVMChain('Ethereum')?.chainId ?? 11155111),
 			);
 		}
 		throw new Error(
-			`Commitment not found in Scroll burn events. ` +
-			`Make sure the burn transaction was confirmed on Scroll.`,
+			`Commitment not found in ${zkStack.name} burn events. ` +
+			`Make sure the burn transaction was confirmed on ${zkStack.name}.`,
 		);
 	}
 
-	console.log(`Commitment found at index ${leafIndex} on Scroll`);
+	console.log(`Commitment found at index ${leafIndex} on ZKsync Era`);
 
 	// Get aztecWarptoadAddress from contract
 	const aztecWarptoadAddress = await publicClient.readContract({
-		address: scroll.contracts.warpToad as `0x${string}`,
+		address: zkStack.contracts.warpToad as `0x${string}`,
 		abi: L2WarpToadAbi,
 		functionName: 'aztecWarptoadAddress',
 	});
 
 	// Get max tree depth
 	const maxTreeDepth = await publicClient.readContract({
-		address: scroll.contracts.warpToad as `0x${string}`,
+		address: zkStack.contracts.warpToad as `0x${string}`,
 		abi: L2WarpToadAbi,
 		functionName: 'maxTreeDepth',
 	});
 
-	console.log(`Scroll tree depth: ${maxTreeDepth}`);
+	console.log(`ZKsync Era tree depth: ${maxTreeDepth}`);
 
 	// Build merkle tree using poseidon2 hash function
 	const { MerkleTree } = await import('fixed-merkle-tree');
@@ -718,7 +720,7 @@ export async function getEvmMerkleDataForZkStack(
 	const treeRoot = BigInt(tree.root.toString());
 	const expectedRoot = targetLocalRootBlockNumber !== undefined
 		? (await publicClient.readContract({
-			address: scroll.contracts.warpToad as `0x${string}`,
+			address: zkStack.contracts.warpToad as `0x${string}`,
 			abi: L2WarpToadAbi,
 			functionName: 'cachedLocalRoot',
 			blockNumber: toBlock,
@@ -727,7 +729,7 @@ export async function getEvmMerkleDataForZkStack(
 
 	if (treeRoot !== expectedRoot) {
 		throw new Error(
-			`Reconstructed Scroll local root ${treeRoot} does not match the expected ` +
+			`Reconstructed ZKsync Era local root ${treeRoot} does not match the expected ` +
 			`local root ${expectedRoot} at block ${toBlock}. The proof would not satisfy ` +
 			`the circuit constraint - aborting before generating it.`
 		);
@@ -751,7 +753,7 @@ export async function getEvmMerkleDataForZkStack(
 }
 
 /**
- * Store the current local root in Scroll's history
+ * Store the current local root in ZKsync Era's history
  * This must be called before same-chain withdrawals to make the root valid
  * 
  * @returns Transaction hash if successful, undefined if skipped
@@ -759,7 +761,7 @@ export async function getEvmMerkleDataForZkStack(
 export async function storeScrollLocalRootInHistory(): Promise<string | undefined> {
 	const scroll = getScrollConfig();
 	const client = createClient(scroll.chainId);
-	if (!client) throw new Error('Failed to create wallet client for Scroll');
+	if (!client) throw new Error('Failed to create wallet client for ZKsync Era');
 	
 	const publicClient = createPublicClient({
 		chain: scroll.viemChain,
@@ -768,7 +770,7 @@ export async function storeScrollLocalRootInHistory(): Promise<string | undefine
 	
 	const userAddress = (await client.getAddresses())[0];
 	
-	console.log('Storing Scroll local root in history...');
+	console.log('Storing ZKsync Era local root in history...');
 	try {
 		const { request } = await publicClient.simulateContract({
 			address: scroll.contracts.warpToad as `0x${string}`,
@@ -779,7 +781,7 @@ export async function storeScrollLocalRootInHistory(): Promise<string | undefine
 		
 		const txHash = await client.writeContract(request);
 		await publicClient.waitForTransactionReceipt({ hash: txHash });
-		console.log('Scroll local root stored:', txHash);
+		console.log('ZKsync Era local root stored:', txHash);
 		return txHash;
 	} catch (error) {
 		console.log('storeLocalRootInHistory skipped (no new burns or already stored)');

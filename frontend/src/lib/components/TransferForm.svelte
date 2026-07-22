@@ -125,7 +125,7 @@
 				// SCROLL SAME-CHAIN TRANSFER
 				// ==========================================
 				generationStep = "burning";
-				generationMessage = "Burning tokens on Scroll...";
+				generationMessage = "Burning tokens on ZKsync Era...";
 
 				bridgeResult = await bridgeFromZkStack(amount, destinationChainId);
 			} else {
