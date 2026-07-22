@@ -1,21 +1,21 @@
 {
   "AztecWarpToad": {
-    "address": "0x0553a786f1a911a03314af22a1df8a43f1a856f45ad49b4870fe7f528ab9e5c6",
+    "address": "0x2fc2e9328d3585ba359aeefada992d0f215f3ee30951312a7cb91e170d8eddf2",
     "constructorArgs": [
-      "0x75B61938C4c162D1821AFD65a1CCcf7B62fddFEa",
+      "0xefc5Eb7678085FaD5224A75e78EEDd75d06447b6",
       "wrpToad-USD Coin",
       "wrpToad-USDC",
       "6"
     ],
-    "salt": "0x1ce0af7714a0cc7109cb2d6fa4d436a20e66379339457962108542da0f947920",
-    "deployer": "0x12bee78aa1e0b01cc856428bf188c01a4321f09494aa65a07b032a8908d3e557"
+    "salt": "0x13f98c3f25f205c2f12041a6f17435034eebdfd053f33fca8cb4cdd2f7bf1557",
+    "deployer": "0x029087331791ab6b4ccb61d6c894caeeb6ab55e0fb413f8573733cf91d4f515c"
   },
   "L2AztecBridgeAdapter": {
-    "address": "0x0ecaa6e16512f3dae24d6385302a3122bb0bebe01b6636506bd9ca6bb487d74c",
+    "address": "0x15e421bdb063e5507c1716cde088d77a1aaac70f99dd2becffb523bdacc78143",
     "constructorArgs": [
-      "0x4F16fA797c6A25c8B35b40a3117CC7Be23CC1777"
+      "0x07A77D7F5E2bB81CF6E1CE68D5FbBdd189CcFdAa"
     ],
-    "salt": "0x2f29400deaf17b5fc110abc0e184cc02038ce385942a95c7365122ccccae5f2a",
-    "deployer": "0x12bee78aa1e0b01cc856428bf188c01a4321f09494aa65a07b032a8908d3e557"
+    "salt": "0x0573bf98e5c66cbfd50dea325d6d4cbd7fffe78076d4e10134d9965895c89659",
+    "deployer": "0x029087331791ab6b4ccb61d6c894caeeb6ab55e0fb413f8573733cf91d4f515c"
   }
 }

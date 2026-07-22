@@ -154,7 +154,7 @@
 	let supportedNetworks = $derived.by(() => {
 		const networks: Chain[] = [];
 		if (NETWORKS['Ethereum']) networks.push('Ethereum');
-		if (NETWORKS['Scroll']) networks.push('Scroll');
+		if (NETWORKS['ZKsync']) networks.push('ZKsync');
 		return networks;
 	});
 
@@ -339,7 +339,7 @@
 				</div>
 
 					{#if walletStore.isEVMConnected}
-				{@const showMint = walletStore.chainName && walletStore.chainName !== 'Aztec' && walletStore.chainName !== 'Scroll'}
+				{@const showMint = walletStore.chainName && walletStore.chainName !== 'Aztec' && walletStore.chainName !== 'ZKsync'}
 				{@const showFaucet = faucetAvailable && isFaucetSupportedChain}
 				<div class="space-y-2">
 					{#if showMint || showFaucet}

@@ -26,6 +26,7 @@ import { createPublicClient, http, type Address } from 'viem';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { getChainConfig } from './chainMapper.js';
 import { requestSync } from './syncOrchestrator.js';
+import { AZTEC_LEG, legRpcUrl, zkStackLegs } from './legRegistry.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -134,13 +135,18 @@ export function startAztecHeartbeat(config: AztecHeartbeatConfig): () => void {
   const l1PublicClient = createPublicClient({ transport: http(l1ChainConfig.rpcUrl) });
   const aztecNode = createAztecNodeClient(aztecNodeUrl);
 
-  // Only dispatch to Scroll if its RPC is configured - otherwise the executor
-  // would throw on the scroll-state setup step and the aztec push would never
-  // run. Heartbeat prioritizes keeping aztec alive.
-  const includeScrollDispatch = !!process.env.SCROLL_RPC_URL;
-  if (!includeScrollDispatch) {
-    console.log('[heartbeat] SCROLL_RPC_URL not set - heartbeat cycles will not dispatch to Scroll');
-  }
+  // Only dispatch to a ZK Stack leg if its RPC is configured - otherwise the executor
+  // throws on that leg's setup step and the aztec push never runs. The heartbeat
+  // prioritizes keeping aztec alive.
+  const dispatchableZkStackLegs = zkStackLegs().filter((leg) => {
+    try {
+      legRpcUrl(leg);
+      return true;
+    } catch {
+      console.log(`[heartbeat] no RPC configured for ${leg.label} - heartbeat cycles will not dispatch to it`);
+      return false;
+    }
+  });
 
   let running = false;
   let stopped = false;
@@ -184,10 +190,10 @@ export function startAztecHeartbeat(config: AztecHeartbeatConfig): () => void {
       const before = Date.now();
       try {
         await requestSync(config.privateKey, config.confirmations, {
-          needAztecL2ToL1: true,
-          needScrollL2ToL1: false,
-          dispatchToAztec: true,
-          dispatchToScroll: includeScrollDispatch,
+          needL2ToL1: [AZTEC_LEG],
+          // Dispatching the fresh root onward to the ZK Stack legs is cheap (an
+          // L1->L2 message), so include them when they're behind.
+          dispatchTo: [AZTEC_LEG, ...dispatchableZkStackLegs.map((l) => l.key)],
         });
         state.lastPushAtMs = Date.now();
         console.log(`[heartbeat] push completed in ${Math.round((Date.now() - before) / 1000)}s`);

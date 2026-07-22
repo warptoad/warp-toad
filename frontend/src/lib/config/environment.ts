@@ -85,10 +85,10 @@ export const L1_CONFIG: ChainConfig = (() => {
 })();
 
 /**
- * @deprecated Use CHAIN_REGISTRY['Scroll'] instead
+ * @deprecated Use CHAIN_REGISTRY['ZKsync'] instead
  */
 export const L2_SCROLL_CONFIG: ChainConfig | null = (() => {
-	const chain = getEVMChain('Scroll');
+	const chain = getEVMChain('ZKsync');
 	if (!chain || !chain.enabled) return null;
 	return {
 		chainId: chain.chainId,
@@ -124,7 +124,7 @@ export interface ContractAddresses {
 	L1ScrollBridgeAdapter: string;
 	GigaBridge: string;
 	L2WarpToad?: string;
-	L2ScrollBridgeAdapter?: string;
+	L2ZkStackBridgeAdapter?: string;
 }
 
 /**
@@ -142,10 +142,10 @@ export const L1_CONTRACTS: ContractAddresses = (() => {
 })();
 
 /**
- * @deprecated Use getEVMChain('Scroll').contracts instead
+ * @deprecated Use getEVMChain('ZKsync').contracts instead
  */
 export const L2_SCROLL_CONTRACTS: ContractAddresses | null = (() => {
-	const chain = getEVMChain('Scroll');
+	const chain = getEVMChain('ZKsync');
 	if (!chain || !chain.enabled) return null;
 	return {
 		USDcoin: chain.contracts.nativeToken,
@@ -154,7 +154,7 @@ export const L2_SCROLL_CONTRACTS: ContractAddresses | null = (() => {
 		L1ScrollBridgeAdapter: '',
 		GigaBridge: '',
 		L2WarpToad: chain.contracts.warpToad,
-		L2ScrollBridgeAdapter: chain.contracts.bridgeAdapter,
+		L2ZkStackBridgeAdapter: chain.contracts.bridgeAdapter,
 	};
 })();
 
@@ -192,7 +192,7 @@ export const AZTEC_CONTRACTS: AztecContractAddresses = (() => {
 /**
  * @deprecated Use getEnabledChains() instead
  */
-export const ALL_CHAINS: Chain[] = ['Ethereum', 'Scroll', 'Aztec'];
+export const ALL_CHAINS: Chain[] = ['Ethereum', 'ZKsync', 'Aztec'];
 
 /**
  * @deprecated Use getEnabledChains() instead
@@ -268,7 +268,7 @@ export function getContractAddresses(chainId: number): ContractAddresses | null 
 	}
 
 	// Check Scroll
-	const scroll = getEVMChain('Scroll');
+	const scroll = getEVMChain('ZKsync');
 	if (scroll && scroll.enabled && scroll.chainId === chainId) {
 		return L2_SCROLL_CONTRACTS;
 	}
@@ -290,7 +290,7 @@ export function getTokenAddress(token: Token, chainId: number): string | null {
 	}
 
 	// Check Scroll
-	const scroll = getEVMChain('Scroll');
+	const scroll = getEVMChain('ZKsync');
 	if (scroll && scroll.enabled && scroll.chainId === chainId) {
 		return scroll.contracts.nativeToken || null;
 	}

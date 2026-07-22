@@ -20,6 +20,7 @@ import type { CommitmentPreImage } from '$lib/types/bridge';
 import { createPublicClient, http, keccak256, toHex, type PublicClient } from 'viem';
 import { getContractAddresses, CONTRACT_ADDRESSES } from '$lib/contracts/addresses';
 import { GigaBridgeAbi, L1WarpToadAbi, L2WarpToadAbi } from '$lib/contracts/abis';
+import { getL1AdapterForEvmChainId } from '$lib/config/chains';
 import { queryEventInChunks } from './viem-chunks';
 import { rpcSettings } from '$lib/stores/rpc-settings.svelte';
 import { tryGetGigaLeavesForRoot, BridgeSyncStaleError, fetchBurnLeavesFromKeeper, isBridgeIndexerEnabled } from './bridge-keeper';
@@ -529,13 +530,13 @@ async function findGigaRootWithCommitment(
 	}
 
 	// Determine which local root provider to query
+	// An L2 source registers its roots with GigaBridge through its own L1 adapter slot;
+	// an L1 source is its own provider. Resolved from the chain registry so this works
+	// for any L2, rather than testing for one hardcoded chain id.
 	let localRootProviderAddress: string;
-	if (sourceChainId === 534351) {
-		// For Scroll, use L1ScrollBridgeAdapter
-		if (!gigaBridgeAddresses.L1ScrollBridgeAdapter) {
-			throw new Error('L1ScrollBridgeAdapter address not found');
-		}
-		localRootProviderAddress = gigaBridgeAddresses.L1ScrollBridgeAdapter;
+	const sourceL1Adapter = getL1AdapterForEvmChainId(sourceChainId);
+	if (sourceL1Adapter) {
+		localRootProviderAddress = sourceL1Adapter;
 	} else {
 		// For L1 chains, use L1WarpToad
 		if (!gigaBridgeAddresses.L1WarpToad) {
@@ -613,7 +614,7 @@ async function findGigaRootWithCommitment(
 
 			// "Is the commitment in this local root?" is equivalent to
 			// "did the L2 WarpToad have at least userLeafIndex+1 leaves at
-			// the block recorded with the local root?". `getEvmMerkleDataForScroll`
+			// the block recorded with the local root?". `getEvmMerkleDataForZkStack`
 			// already trusts this relationship (it reads `lastLeafIndex` at the
 			// recorded block, scans that many burns, and verifies the
 			// reconstructed root equals `cachedLocalRoot` at the same block).
@@ -1060,14 +1061,14 @@ export async function getMerkleData(
 	// The provider is the address that registered roots with GigaBridge
 	let localRootProviderAddress: string;
 	
-	if (sourceChainId === 534351) {
-		// For Scroll: Use L1ScrollBridgeAdapter (the provider registered with GigaBridge)
-		// Architecture: Scroll L2WarpToad → L2ScrollBridgeAdapter → L1ScrollBridgeAdapter → GigaBridge
-		if (!gigaBridgeAddresses.L1ScrollBridgeAdapter) {
-			throw new Error(`L1ScrollBridgeAdapter address not found for chain ${gigaBridgeChainId}`);
-		}
-		localRootProviderAddress = gigaBridgeAddresses.L1ScrollBridgeAdapter;
-		console.log(`[getMerkleData] Using L1ScrollBridgeAdapter as local root provider: ${localRootProviderAddress}`);
+	// An L2 source registers its roots through its own L1 adapter slot; an L1 source is
+	// its own provider. Architecture: L2WarpToad -> L2ZkStackBridgeAdapter ->
+	// L1ZkStackBridgeAdapter slot -> GigaBridge. Resolved from the chain registry so
+	// this works for any L2 rather than testing one hardcoded chain id.
+	const sourceL1Adapter = getL1AdapterForEvmChainId(sourceChainId);
+	if (sourceL1Adapter) {
+		localRootProviderAddress = sourceL1Adapter;
+		console.log(`[getMerkleData] Using L1 adapter slot as local root provider: ${localRootProviderAddress}`);
 	} else {
 		// For L1 chains: Use L1WarpToad directly
 		if (!gigaBridgeAddresses.L1WarpToad) {

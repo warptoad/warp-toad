@@ -3,7 +3,7 @@
  * Auto-generated from Ignition deployments
  * DO NOT EDIT MANUALLY
  * 
- * Generated: 2026-07-15T16:01:02.566Z
+ * Generated: 2026-07-20T22:56:07.182Z
  * Run 'npm run pull:addresses' to update
  */
 
@@ -14,8 +14,8 @@ export interface ContractAddresses {
 	L2WarpToad?: string;
 	GigaBridge?: string;
 	L1AztecBridgeAdapter?: string;
-	L1ScrollBridgeAdapter?: string;
-	L2ScrollBridgeAdapter?: string;
+	L1ZkStackBridgeAdapters?: Record<string, string>;
+	L2ZkStackBridgeAdapter?: string;
 }
 
 export interface ChainConfig {
@@ -32,19 +32,13 @@ export const CONTRACT_ADDRESSES: Record<string, ContractAddresses> = {
     "GigaBridge": "0xcec91d876e8f003110d43381359b1bad124e7f2b",
     "L1AztecBridgeAdapter": "0x0cf17d5dcda9cf25889cec9ae5610b0fb9725f65"
   },
-  "534351": {
-    "deploymentBlock": 18726837,
-    "USDcoin": "0x538849781f2F8aB07b6EecaaE23c6927c17124A4",
-    "L2WarpToad": "0xa0e2b408078FF946D1bBe7A94e81fc610D0cCe3f",
-    "L2ScrollBridgeAdapter": "0xe21B2Ac64Cb232773179c19C6CeA9aaCb727028b"
-  },
+  "534351": {},
   "11155111": {
-    "deploymentBlock": 11130522,
-    "L1AztecBridgeAdapter": "0x4F16fA797c6A25c8B35b40a3117CC7Be23CC1777",
-    "L1ScrollBridgeAdapter": "0xBc2A51428a0835bDD908c69Cbf61947C17312206",
-    "USDcoin": "0x75B61938C4c162D1821AFD65a1CCcf7B62fddFEa",
-    "L1WarpToad": "0x2C72c9ce58ddacaC5BbA0EC090FB74A0d1396eDF",
-    "GigaBridge": "0x6C2cD1f51fE98536335b48dBcd44a47cF2795D74"
+    "deploymentBlock": 11284049,
+    "L1AztecBridgeAdapter": "0x07A77D7F5E2bB81CF6E1CE68D5FbBdd189CcFdAa",
+    "USDcoin": "0xefc5Eb7678085FaD5224A75e78EEDd75d06447b6",
+    "L1WarpToad": "0x66492C3894FbF85261DE74E47b9bc3218a9276E9",
+    "GigaBridge": "0x088C00Cda67115Fb0bB95E38e75612517a415Ed5"
   }
 };
 
@@ -62,8 +56,9 @@ export const CHAIN_NAMES: Record<string, string> = {
 	'31337': 'Localhost (Anvil)',
 	'1': 'Ethereum Mainnet',
 	'11155111': 'Sepolia Testnet',
-	'534351': 'Scroll Sepolia Testnet',
-	'534352': 'Scroll Mainnet',
+	'300': 'ZKsync Era Sepolia',
+	'324': 'ZKsync Era',
+	'11124': 'Abstract Testnet',
 };
 
 export function getChainName(chainId: number | string): string {

@@ -152,7 +152,7 @@ export function getChainIdForBridgeKeeper(chain: Chain): string {
 		return isTestMode ? '31337' : '11155111';
 	}
 	
-	if (chain === 'Scroll') {
+	if (chain === 'ZKsync') {
 		// Scroll Sepolia testnet
 		return '534351';
 	}
@@ -166,7 +166,7 @@ export function getChainIdForBridgeKeeper(chain: Chain): string {
  */
 export function getExpectedDuration(fromChain: Chain, toChain: Chain): string {
 	// Scroll bridges take longest
-	if (fromChain === 'Scroll' || toChain === 'Scroll') {
+	if (fromChain === 'ZKsync' || toChain === 'ZKsync') {
 		return '2-3 hours';
 	}
 	

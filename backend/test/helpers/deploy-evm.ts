@@ -19,7 +19,8 @@ export interface EvmDeployment {
   l1WarpToad: any;
   gigaBridge: any;
   l1AztecBridgeAdapter: any | null;
-  l1ScrollBridgeAdapter: any | null;
+  /** Claimed ZK Stack adapter slots, in slot order. Empty unless requested. */
+  l1ZkStackBridgeAdapters: any[];
   publicClient: PublicClient;
   deployer: WalletClient;
   wallets: WalletClient[];
@@ -32,12 +33,12 @@ function bindContract(address: Address, abi: any[], publicClient: PublicClient, 
 
 export async function deployEvmContracts(opts?: {
   withAztecAdapter?: boolean;
-  // When set, also deploys L1ScrollBridgeAdapter and includes it in
-  // gigaRootRecipients. Pass the L1 Scroll messenger address (chain-specific,
-  // see backend/lib/constants.ts).
-  withScrollAdapter?: { l1ScrollMessenger: Address } | false;
+  // When set, also deploys N L1ZkStackBridgeAdapter slots and includes them in
+  // gigaRootRecipients. Every slot is byte identical until initialize() picks its
+  // chain, so only the shared Bridgehub address is needed here.
+  withZkStackAdapters?: { bridgehub: Address; slots?: number } | false;
   aztecWarptoadAddress?: bigint;
-  // Hardhat network name (e.g. "local", "sepolia", "scrollSepolia"). Defaults
+  // Hardhat network name (e.g. "local", "sepolia", "zksyncEraSepolia"). Defaults
   // to "local" so existing test invocations stay unchanged.
   networkName?: string;
 }): Promise<EvmDeployment> {
@@ -102,17 +103,21 @@ export async function deployEvmContracts(opts?: {
     gigaRootRecipients.push(l1AztecAdapterDeploy.address);
   }
 
-  // 6b. L1ScrollBridgeAdapter (optional). Constructor takes the L1 Scroll
-  // messenger address; the L2 adapter address is set later via initialize().
-  let l1ScrollAdapterDeploy: { address: Address; abi: any[] } | null = null;
-  if (opts?.withScrollAdapter) {
-    l1ScrollAdapterDeploy = await deployFromArtifact(
-      "L1ScrollBridgeAdapter",
-      [opts.withScrollAdapter.l1ScrollMessenger],
-      deployer,
-      publicClient,
-    );
-    gigaRootRecipients.push(l1ScrollAdapterDeploy.address);
+  // 6b. L1ZkStackBridgeAdapter slots (optional). Constructor takes only the shared
+  // Bridgehub; l2ChainId and the L2 adapter address are set later via initialize().
+  const l1ZkStackAdapterDeploys: { address: Address; abi: any[] }[] = [];
+  if (opts?.withZkStackAdapters) {
+    const slots = opts.withZkStackAdapters.slots ?? 1;
+    for (let i = 0; i < slots; i++) {
+      const d = await deployFromArtifact(
+        "L1ZkStackBridgeAdapter",
+        [opts.withZkStackAdapters.bridgehub],
+        deployer,
+        publicClient,
+      );
+      l1ZkStackAdapterDeploys.push(d);
+      gigaRootRecipients.push(d.address);
+    }
   }
 
   // 7. GigaBridge (needs LazyIMT)
@@ -132,9 +137,9 @@ export async function deployEvmContracts(opts?: {
   const l1AztecBridgeAdapter = l1AztecAdapterDeploy
     ? bindContract(l1AztecAdapterDeploy.address, l1AztecAdapterDeploy.abi, publicClient, deployer)
     : null;
-  const l1ScrollBridgeAdapter = l1ScrollAdapterDeploy
-    ? bindContract(l1ScrollAdapterDeploy.address, l1ScrollAdapterDeploy.abi, publicClient, deployer)
-    : null;
+  const l1ZkStackBridgeAdapters = l1ZkStackAdapterDeploys.map((d) =>
+    bindContract(d.address, d.abi, publicClient, deployer),
+  );
 
   // 9. Initialize L1WarpToad for non-Aztec cases (Aztec path does it from setupFullEnvironment).
   if (!opts?.withAztecAdapter) {
@@ -149,7 +154,7 @@ export async function deployEvmContracts(opts?: {
     l1WarpToad,
     gigaBridge,
     l1AztecBridgeAdapter,
-    l1ScrollBridgeAdapter,
+    l1ZkStackBridgeAdapters,
     publicClient,
     deployer,
     wallets: testWallets,

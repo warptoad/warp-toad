@@ -1,20 +1,15 @@
 /**
- * L2ScrollBridgeAdapter Contract ABI
+ * L2ZkStackBridgeAdapter Contract ABI
  * Auto-generated from backend Hardhat artifacts
  * DO NOT EDIT MANUALLY
  */
 
-export const L2ScrollBridgeAdapterAbi = [
+export const L2ZkStackBridgeAdapterAbi = [
   {
     "inputs": [
       {
         "internalType": "address",
-        "name": "_l2ScrollMessenger",
-        "type": "address"
-      },
-      {
-        "internalType": "address",
-        "name": "_l1ScrollBridgeAdapter",
+        "name": "_l1ZkStackBridgeAdapter",
         "type": "address"
       },
       {
@@ -47,10 +42,29 @@ export const L2ScrollBridgeAdapterAbi = [
         "internalType": "uint256",
         "name": "localRoot",
         "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "l2BlockNumber",
+        "type": "uint256"
       }
     ],
     "name": "SentLocalRootToL1",
     "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "L1_MESSENGER",
+    "outputs": [
+      {
+        "internalType": "contract IL1Messenger",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
   },
   {
     "inputs": [],
@@ -60,6 +74,45 @@ export const L2ScrollBridgeAdapterAbi = [
         "internalType": "uint256",
         "name": "",
         "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "l1ZkStackBridgeAdapter",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "l1ZkStackBridgeAdapterAliased",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "l2WarpToad",
+    "outputs": [
+      {
+        "internalType": "address",
+        "name": "",
+        "type": "address"
       }
     ],
     "stateMutability": "view",
@@ -92,19 +145,6 @@ export const L2ScrollBridgeAdapterAbi = [
     "type": "function"
   },
   {
-    "inputs": [
-      {
-        "internalType": "uint256",
-        "name": "_gasLimit",
-        "type": "uint256"
-      }
-    ],
-    "name": "sentLocalRootToL1",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
     "inputs": [],
     "name": "sentLocalRootToL1",
     "outputs": [],
@@ -113,4 +153,4 @@ export const L2ScrollBridgeAdapterAbi = [
   }
 ] as const;
 
-export type L2ScrollBridgeAdapterAbi = typeof L2ScrollBridgeAdapterAbi;
+export type L2ZkStackBridgeAdapterAbi = typeof L2ZkStackBridgeAdapterAbi;

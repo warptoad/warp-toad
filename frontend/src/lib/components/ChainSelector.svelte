@@ -37,7 +37,7 @@
 		if (chain === "Ethereum") {
 			return isTestMode ? "Localhost (Anvil)" : "Sepolia Testnet";
 		}
-		if (chain === "Scroll") {
+		if (chain === "ZKsync") {
 			if (isChainDisabled(chain)) {
 				return "Not available in test mode";
 			}

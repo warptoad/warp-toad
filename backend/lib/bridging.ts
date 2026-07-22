@@ -6,6 +6,7 @@ import {
     type Hex,
     type PublicClient,
     type WalletClient,
+    encodeAbiParameters,
     getContract,
     parseEventLogs,
     toHex,
@@ -14,17 +15,16 @@ import {
 import { L2AztecBridgeAdapterContract } from '../aztec/L2AztecBridgeAdapter/src/artifacts/L2AztecBridgeAdapter';
 import { WarpToadCoreContract as L2WarpToadAZTEC } from '../aztec/WarpToadCore/src/artifacts/WarpToadCore';
 import {
-    L1_SCROLL_MESSENGER_MAINNET,
-    L1_SCROLL_MESSENGER_SEPOLIA,
-    SCROLL_CHAINID_MAINNET,
-    SCROLL_CHAINID_SEPOLIA,
+    ZK_STACK_BRIDGEHUB_MAINNET,
+    ZK_STACK_BRIDGEHUB_SEPOLIA,
+    ZK_STACK_CHAINS,
 } from './constants';
 
 // Loose viem contract-handle types. Test path builds these via `getContract`.
 type WarpToadEvm = any;
 type L1AztecBridgeAdapter = any;
-type L1ScrollBridgeAdapter = any;
-type L2ScrollBridgeAdapter = any;
+type L1ZkStackBridgeAdapter = any;
+type L2ZkStackBridgeAdapter = any;
 type L2WarpToadEVM = any;
 type GigaBridge = any;
 type USDcoin = any;
@@ -58,28 +58,32 @@ const OUTBOX_ABI = [
     { type: "function", name: "getRootData", stateMutability: "view", inputs: [{ name: "_epoch", type: "uint256" }, { name: "_numCheckpointsInEpoch", type: "uint256" }], outputs: [{ name: "root", type: "bytes32" }] },
 ] as const;
 
-const L1_SCROLL_MESSENGER_ABI = [
+// L1 entrypoint on our own adapter. Permissionless: the inclusion proof is the auth.
+const L1_ZKSTACK_ADAPTER_ABI = [
     {
         type: "function",
-        name: "relayMessageWithProof",
+        name: "getNewRootFromL2",
         stateMutability: "nonpayable",
         inputs: [
-            { name: "from", type: "address" },
-            { name: "to", type: "address" },
-            { name: "value", type: "uint256" },
-            { name: "nonce", type: "uint256" },
-            { name: "message", type: "bytes" },
-            {
-                name: "proof",
-                type: "tuple",
-                components: [
-                    { name: "batchIndex", type: "uint256" },
-                    { name: "merkleProof", type: "bytes" },
-                ],
-            },
+            { name: "_batchNumber", type: "uint256" },
+            { name: "_index", type: "uint256" },
+            { name: "_txNumberInBatch", type: "uint16" },
+            { name: "_message", type: "bytes" },
+            { name: "_proof", type: "bytes32[]" },
         ],
         outputs: [],
     },
+    { type: "function", name: "l2ChainId", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
+] as const;
+
+const BRIDGEHUB_ABI = [
+    { type: "function", name: "getZKChain", stateMutability: "view", inputs: [{ name: "_chainId", type: "uint256" }], outputs: [{ type: "address" }] },
+] as const;
+
+// Getters facet on the per-chain diamond. Used only for progress reporting while
+// waiting; the proof itself comes from zks_getL2ToL1LogProof.
+const ZK_CHAIN_GETTERS_ABI = [
+    { type: "function", name: "getTotalBatchesExecuted", stateMutability: "view", inputs: [], outputs: [{ type: "uint256" }] },
 ] as const;
 
 const NEW_GIGA_ROOT_EVENT = {
@@ -88,21 +92,20 @@ const NEW_GIGA_ROOT_EVENT = {
     inputs: [{ name: "gigaRoot", type: "uint256", indexed: true }],
 } as const;
 
-const SCROLL_BRIDGE_API_BASE_SEPOLIA = "https://sepolia-api-bridge-v2.scroll.io/api";
-const SCROLL_BRIDGE_API_BASE_MAINNET = "https://mainnet-api-bridge-v2.scroll.io/api";
+const SENT_LOCAL_ROOT_EVENT = {
+    type: "event",
+    name: "SentLocalRootToL1",
+    inputs: [
+        { name: "localRoot", type: "uint256", indexed: true },
+        { name: "l2BlockNumber", type: "uint256", indexed: false },
+    ],
+} as const;
 
 export const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
-export type L1Adapter = L1AztecBridgeAdapter | L1ScrollBridgeAdapter;
-export type L2Adapter = L2ScrollBridgeAdapter | L2AztecBridgeAdapterContract
+export type L1Adapter = L1AztecBridgeAdapter | L1ZkStackBridgeAdapter;
+export type L2Adapter = L2ZkStackBridgeAdapter | L2AztecBridgeAdapterContract
 export type L2WarpToad = L2WarpToadAZTEC | L2WarpToadEVM
-
-const chainIds = {
-    scroll: {
-        testnet: 534351n,
-        mainnet: 534352n,
-    },
-}
 
 function loadEvmDeployedAddresses(chainId: bigint): Record<string, string> {
     const thisFile = fileURLToPath(import.meta.url);
@@ -112,127 +115,266 @@ function loadEvmDeployedAddresses(chainId: bigint): Record<string, string> {
     return JSON.parse(fs.readFileSync(file, 'utf8')) as Record<string, string>;
 }
 
+/**
+ * Addresses of the L1 adapter slots that a ZK Stack chain has actually claimed.
+ *
+ * Deliberately driven by ZK_STACK_CHAINS rather than by what's in
+ * deployed_addresses.json: L1Infra deploys ZK_STACK_ADAPTER_SLOTS adapters, but the
+ * unclaimed spares are uninitialized and REVERT on getLocalRootAndBlock(). Including
+ * one would break every GigaBridge.updateGigaRoot call.
+ */
+function claimedZkStackAdapters(addrs: Record<string, string>): Address[] {
+    const result: Address[] = [];
+    for (const { slot } of ZK_STACK_CHAINS) {
+        const addr = addrs[`L1InfraModule#L1ZkStackBridgeAdapter_${slot}`];
+        if (addr) result.push(addr as Address);
+    }
+    return result;
+}
+
 export async function getLocalRootProviders(chainId: bigint): Promise<Address[]> {
     const addrs = loadEvmDeployedAddresses(chainId);
     const result: Address[] = [];
     const l1WarpToad = addrs['L1InfraModule#L1WarpToad'] || addrs['L1WarpToadModule#L1WarpToad'];
     const l1AztecAdapter = addrs['L1InfraModule#L1AztecBridgeAdapter'];
-    const l1ScrollAdapter = addrs['L1InfraModule#L1ScrollBridgeAdapter'];
     if (l1WarpToad) result.push(l1WarpToad as Address);
     if (l1AztecAdapter) result.push(l1AztecAdapter as Address);
-    if (l1ScrollAdapter) result.push(l1ScrollAdapter as Address);
+    result.push(...claimedZkStackAdapters(addrs));
     return result;
 }
 
 export async function getPayableGigaRootRecipients(chainId: bigint): Promise<Address[]> {
-    const addrs = loadEvmDeployedAddresses(chainId);
-    const l1ScrollAdapter = addrs['L1InfraModule#L1ScrollBridgeAdapter'];
-    return l1ScrollAdapter ? [l1ScrollAdapter as Address] : [];
+    // ZK Stack adapters need msg.value to cover the Bridgehub base cost of the
+    // L1->L2 message. The Aztec adapter and L1WarpToad don't.
+    return claimedZkStackAdapters(loadEvmDeployedAddresses(chainId));
 }
 
-export async function getL1ClaimDataScrollBridgeApi(
-    l2BridgeInitiationContract: Address,
-    txHash?: Hex,
-    _pageSize = 10,
-    apiBase: string = SCROLL_BRIDGE_API_BASE_SEPOLIA,
-): Promise<any> {
-    // Use /txsbyhashes, not /l2/unclaimed/withdrawals: the latter only indexes
-    // token/ETH transfers, so pure messaging txs (value=0, message_type=2)
-    // like sentLocalRootToL1 never appear there and the poll spins forever.
-    if (!txHash) {
-        throw new Error('getL1ClaimDataScrollBridgeApi: txHash is required');
+/** Shape returned by the ZK Stack `zks_getL2ToL1LogProof` RPC. */
+interface ZkStackLogProof {
+    id: number;
+    proof: Hex[];
+    root: Hex;
+}
+
+/** Everything L1ZkStackBridgeAdapter.getNewRootFromL2 needs. */
+export interface ZkStackClaimData {
+    batchNumber: bigint;
+    index: bigint;
+    txNumberInBatch: number;
+    message: Hex;
+    proof: Hex[];
+}
+
+/** Raw JSON-RPC against an L2, for the zks_* namespace viem doesn't model. */
+async function zkStackRpc(l2PublicClient: PublicClient, method: string, params: any[]): Promise<any> {
+    return await l2PublicClient.request({ method, params } as any);
+}
+
+/**
+ * Resolve a ZK Stack chain's diamond via the shared Bridgehub, so nothing here is
+ * hardcoded per chain. Used only for progress reporting.
+ */
+async function getZkChainDiamond(
+    l1PublicClient: PublicClient,
+    l2ChainId: bigint,
+): Promise<Address | undefined> {
+    const l1ChainId = BigInt(await l1PublicClient.getChainId());
+    const bridgehub = (l1ChainId === 1n ? ZK_STACK_BRIDGEHUB_MAINNET : ZK_STACK_BRIDGEHUB_SEPOLIA) as Address;
+    try {
+        return await l1PublicClient.readContract({
+            address: bridgehub, abi: BRIDGEHUB_ABI, functionName: 'getZKChain', args: [l2ChainId],
+        }) as Address;
+    } catch {
+        return undefined;
     }
-    const url = `${apiBase}/txsbyhashes`;
-    const apiRes = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ txs: [txHash] }),
-    });
-    const apiResJson = (await apiRes.json()) as any;
-    const results = apiResJson?.data?.results;
-    if (!results || results.length === 0) return undefined;
-    return results[0];
 }
 
-export async function getClaimDataScroll(
-    adapterContract: Address,
-    txHash?: Hex,
+/**
+ * Poll until an L2→L1 message is provable on L1, then return the proof bundle.
+ *
+ * Unlike Scroll there is no HTTP bridge API: this is pure JSON-RPC. Two distinct
+ * waits are folded together here, and they fail differently, so both are reported:
+ *   1. the L2 tx has no `l1BatchNumber` yet (batch not sealed)
+ *   2. the batch is sealed but not yet committed+proven+executed on L1, so
+ *      `zks_getL2ToL1LogProof` still returns null
+ *
+ * Measured on Era Sepolia 2026-07-20: 116 minutes end to end (2h batch window plus
+ * ~30 min to execute). Abstract seals on timeout at ~7h47m per batch, so callers must
+ * not assume a single timeout fits every ZK Stack chain.
+ */
+export async function getZkStackClaimData(
+    l1PublicClient: PublicClient,
+    l2PublicClient: PublicClient,
+    l2TxHash: Hex,
     pollIntervalMs: number = 60_000,
-    apiBase?: string,
-): Promise<any> {
+): Promise<ZkStackClaimData> {
+    const startedAt = Date.now();
+    const l2ChainId = BigInt(await l2PublicClient.getChainId());
+    const diamond = await getZkChainDiamond(l1PublicClient, l2ChainId);
+
     while (true) {
-        const result = await getL1ClaimDataScrollBridgeApi(adapterContract, txHash, 10, apiBase);
-        const claimInfo = result && result.claim_info !== null ? result.claim_info : undefined;
-        if (claimInfo !== undefined) return claimInfo;
-        console.log(`[scroll] claim not ready for ${txHash ?? '(latest)'} @ ${adapterContract}; retrying in ${pollIntervalMs / 1000}s`);
+        const mins = Math.round((Date.now() - startedAt) / 60_000);
+        const receipt = await l2PublicClient.getTransactionReceipt({ hash: l2TxHash }) as any;
+        const batchNumber = receipt?.l1BatchNumber != null ? BigInt(receipt.l1BatchNumber) : null;
+        const txNumberInBatch = receipt?.l1BatchTxIndex != null ? Number(BigInt(receipt.l1BatchTxIndex)) : null;
+
+        if (batchNumber === null || txNumberInBatch === null) {
+            console.log(`[zkstack] batch not assigned to ${l2TxHash} yet (${mins}m elapsed)`);
+        } else {
+            // zks_getL2ToL1LogProof is the gate. The executed-batch read below is only
+            // to make the wait legible in logs, so a failure there must not abort.
+            const logProof = await zkStackRpc(
+                l2PublicClient, 'zks_getL2ToL1LogProof', [l2TxHash, 0],
+            ) as ZkStackLogProof | null;
+
+            if (logProof) {
+                const claim: ZkStackClaimData = {
+                    batchNumber,
+                    index: BigInt(logProof.id),
+                    txNumberInBatch,
+                    // sendToL1's payload is not in the proof response; it's the
+                    // abi.encode(root, blockNumber) the L2 adapter emitted.
+                    message: '0x' as Hex,
+                    proof: logProof.proof,
+                };
+                console.log(`[zkstack] proof ready after ${mins}m: batch=${batchNumber} index=${claim.index} txNumberInBatch=${txNumberInBatch} proofLen=${logProof.proof.length}`);
+                return claim;
+            }
+
+            let progress = '';
+            if (diamond) {
+                try {
+                    const executed = await l1PublicClient.readContract({
+                        address: diamond, abi: ZK_CHAIN_GETTERS_ABI, functionName: 'getTotalBatchesExecuted',
+                    }) as bigint;
+                    progress = executed < batchNumber
+                        ? ` (executed=${executed}, ${batchNumber - executed} to go)`
+                        : ' (batch executed, proof endpoint lagging)';
+                } catch { /* progress reporting only */ }
+            }
+            console.log(`[zkstack] batch ${batchNumber} not provable yet${progress}, ${mins}m elapsed`);
+        }
         await sleep(pollIntervalMs);
     }
 }
 
-export async function claimL1WithdrawScroll(
-    publicClient: PublicClient,
-    walletClient: WalletClient,
-    claimInfo: any,
+/**
+ * Submit the inclusion proof to our L1 adapter, which verifies it against the
+ * Bridgehub and adopts the local root.
+ *
+ * Note this is NOT a "claim" in the Scroll sense: no message is being relayed and
+ * nothing gets executed on L1 as a result. The adapter re-derives the root by decoding
+ * the proven message itself.
+ */
+export async function submitZkStackRootProof(
+    l1PublicClient: PublicClient,
+    l1WalletClient: WalletClient,
+    l1Adapter: Address,
+    claim: ZkStackClaimData,
     confirmations = 1,
 ) {
-    const l1ChainId = BigInt(await publicClient.getChainId());
-    const l1ScrollMessenger = (l1ChainId === 1n ? L1_SCROLL_MESSENGER_MAINNET : L1_SCROLL_MESSENGER_SEPOLIA) as Address;
-    const hash = await walletClient.writeContract({
-        address: l1ScrollMessenger,
-        abi: L1_SCROLL_MESSENGER_ABI,
-        functionName: 'relayMessageWithProof',
-        args: [
-            claimInfo.from as Address,
-            claimInfo.to as Address,
-            BigInt(claimInfo.value),
-            BigInt(claimInfo.nonce),
-            claimInfo.message as Hex,
-            {
-                batchIndex: BigInt(claimInfo.proof.batch_index),
-                merkleProof: claimInfo.proof.merkle_proof as Hex,
-            },
-        ],
-        account: walletClient.account!,
-        chain: walletClient.chain!,
+    const args = [claim.batchNumber, claim.index, claim.txNumberInBatch, claim.message, claim.proof] as const;
+
+    // Surface a bad proof as a clean revert reason instead of an opaque out-of-gas.
+    await l1PublicClient.simulateContract({
+        address: l1Adapter, abi: L1_ZKSTACK_ADAPTER_ABI, functionName: 'getNewRootFromL2',
+        args, account: l1WalletClient.account!,
     });
-    const tx = await publicClient.waitForTransactionReceipt({ hash, confirmations });
+
+    const hash = await l1WalletClient.writeContract({
+        address: l1Adapter,
+        abi: L1_ZKSTACK_ADAPTER_ABI,
+        functionName: 'getNewRootFromL2',
+        args,
+        account: l1WalletClient.account!,
+        chain: l1WalletClient.chain!,
+    });
+    const tx = await l1PublicClient.waitForTransactionReceipt({ hash, confirmations });
     return { tx, hash };
 }
 
 /**
- * Optional resume state for a previously-sent Scroll L2→L1 root message. If
- * supplied, `bridgeEVMLocalRootToL1` skips the L2 send and picks up at the
- * bridge-API poll. Used by bridge-sync to survive container restarts during
- * the multi-hour Scroll finalization wait.
+ * Optional resume state for a previously-sent ZK Stack L2→L1 root message. If
+ * supplied, `bridgeEVMLocalRootToL1` skips the L2 send and picks up at the proof
+ * poll. Used by bridge-sync to survive container restarts during the multi-hour
+ * batch finalization wait.
+ *
+ * Only the tx hash is persisted: the sendToL1 payload isn't recoverable from the proof
+ * RPC, but it is recoverable from the SentLocalRootToL1 event on the same tx, so
+ * `readZkStackRootMessage` rebuilds it rather than making callers store it.
  */
-export interface ScrollRootSendResume {
+export interface ZkStackRootSendResume {
     l2TxHashHex: Hex;
 }
 
-/** Invoked right after a fresh `sentLocalRootToL1` tx is mined on Scroll, so
- * the caller can persist the tx hash before the long poll begins. */
-export type OnScrollRootSent = (state: ScrollRootSendResume) => void | Promise<void>;
+/**
+ * Rebuild the exact bytes the L2 adapter passed to sendToL1, from its own event.
+ *
+ * Must stay byte-identical to `abi.encode(_l2Root, _l2BlockNumber)` in
+ * L2ZkStackBridgeAdapter.sentLocalRootToL1 - the L1 side length-checks it at 64 bytes
+ * and the inclusion proof covers it, so any drift fails to verify rather than
+ * corrupting anything.
+ */
+export async function readZkStackRootMessage(
+    l2PublicClient: PublicClient,
+    l2TxHash: Hex,
+): Promise<Hex> {
+    const receipt = await l2PublicClient.getTransactionReceipt({ hash: l2TxHash });
+    const events = parseEventLogs({
+        abi: [SENT_LOCAL_ROOT_EVENT], logs: receipt.logs, eventName: 'SentLocalRootToL1',
+    }) as any[];
+    if (events.length === 0) {
+        throw new Error(`readZkStackRootMessage: no SentLocalRootToL1 event in L2 tx ${l2TxHash}`);
+    }
+    const { localRoot, l2BlockNumber } = events[0].args;
+    return encodeAbiParameters(
+        [{ type: 'uint256' }, { type: 'uint256' }],
+        [BigInt(localRoot), BigInt(l2BlockNumber)],
+    );
+}
 
+/** Invoked right after a fresh `sentLocalRootToL1` tx is mined on the L2, so
+ * the caller can persist the tx hash before the long poll begins. */
+export type OnZkStackRootSent = (state: ZkStackRootSendResume) => void | Promise<void>;
+
+/**
+ * Publish the L2 local root and land it on L1.
+ *
+ * The ZK Stack L2→L1 direction is PULL: sendToL1 records an opaque blob and nothing
+ * ever calls L1. So this sends on L2, waits for the batch to be executed, fetches the
+ * Merkle proof, and submits it to our own L1 adapter.
+ *
+ * @param l1Adapter address of the L1ZkStackBridgeAdapter slot paired with this L2.
+ *                  Must be the slot whose l2ChainId matches, or the proof verifies
+ *                  against the wrong chain and reverts.
+ */
 export async function bridgeEVMLocalRootToL1(
     l1PublicClient: PublicClient,
     l1WalletClient: WalletClient,
     l2PublicClient: PublicClient,
     l2WalletClient: WalletClient,
-    L2Adapter: L2ScrollBridgeAdapter,
+    L2Adapter: L2ZkStackBridgeAdapter,
+    l1Adapter: Address,
     confirmations = 3,
-    resumeFrom?: ScrollRootSendResume,
-    onSent?: OnScrollRootSent,
+    resumeFrom?: ZkStackRootSendResume,
+    onSent?: OnZkStackRootSent,
 ) {
     const l2ChainId = BigInt(await l2PublicClient.getChainId());
-    if (l2ChainId !== SCROLL_CHAINID_SEPOLIA && l2ChainId !== SCROLL_CHAINID_MAINNET) {
-        throw new Error(`bridgeEVMLocalRootToL1: unknown L2 chain ${l2ChainId}`);
+
+    // Catch a mispaired adapter now, not two hours from now when the proof lands.
+    const adapterChainId = await l1PublicClient.readContract({
+        address: l1Adapter, abi: L1_ZKSTACK_ADAPTER_ABI, functionName: 'l2ChainId',
+    }) as bigint;
+    if (adapterChainId !== l2ChainId) {
+        throw new Error(
+            `bridgeEVMLocalRootToL1: L1 adapter ${l1Adapter} is bound to chain ${adapterChainId}, but the L2 client is chain ${l2ChainId}`,
+        );
     }
-    const apiBase = l2ChainId === SCROLL_CHAINID_MAINNET ? SCROLL_BRIDGE_API_BASE_MAINNET : SCROLL_BRIDGE_API_BASE_SEPOLIA;
 
     let l2TxHash: Hex;
     if (resumeFrom) {
         l2TxHash = resumeFrom.l2TxHashHex;
-        console.log(`[scroll] resuming from previously-sent L2 tx ${l2TxHash}`);
+        console.log(`[zkstack] resuming from previously-sent L2 tx ${l2TxHash}`);
     } else {
         const sentHash = await L2Adapter.write.sentLocalRootToL1([], {
             account: l2WalletClient.account,
@@ -240,28 +382,31 @@ export async function bridgeEVMLocalRootToL1(
         });
         const L2ToL1Tx = await l2PublicClient.waitForTransactionReceipt({ hash: sentHash, confirmations });
         l2TxHash = L2ToL1Tx.transactionHash;
-        console.log(`[scroll] local root sent to L1 at L2 tx ${l2TxHash}; polling bridge API for claim proof...`);
+        console.log(`[zkstack] local root sent to L1 at L2 tx ${l2TxHash}; waiting for batch finalization...`);
         if (onSent) {
             // Persist BEFORE the multi-hour poll so a crash between here and
-            // claim-finalization is recoverable. Best-effort: a callback that
-            // throws is logged but doesn't block the leg.
+            // finalization is recoverable. Best-effort: a callback that throws is
+            // logged but doesn't block the leg.
             try {
                 await onSent({ l2TxHashHex: l2TxHash });
             } catch (e) {
-                console.warn('[scroll] onSent callback threw:', e);
+                console.warn('[zkstack] onSent callback threw:', e);
             }
         }
     }
 
-    const claimInfo = await getClaimDataScroll(L2Adapter.address as Address, l2TxHash, 60_000, apiBase);
-    console.log(`[scroll] claim proof ready; relaying on L1`);
-    const { tx } = await claimL1WithdrawScroll(l1PublicClient, l1WalletClient, claimInfo, confirmations);
+    const message = await readZkStackRootMessage(l2PublicClient, l2TxHash);
+    const claim = await getZkStackClaimData(l1PublicClient, l2PublicClient, l2TxHash);
+    console.log(`[zkstack] submitting inclusion proof to L1 adapter ${l1Adapter}`);
+    const { tx } = await submitZkStackRootProof(
+        l1PublicClient, l1WalletClient, l1Adapter, { ...claim, message }, confirmations,
+    );
     return { sendRootToL1Tx: tx, sendRootToL1TxHash: tx.transactionHash };
 }
 
 export async function receiveGigaRootOnEvmL2(
     l2PublicClient: PublicClient,
-    L2Adapter: L2ScrollBridgeAdapter,
+    L2Adapter: L2ZkStackBridgeAdapter,
     gigaRootSent: bigint,
     startBlock?: bigint,
     chunkSize: bigint = 500n,
@@ -282,7 +427,7 @@ export async function receiveGigaRootOnEvmL2(
                 toBlock: to,
             });
             if (logs.length > 0) {
-                console.log(`[scroll] NewGigaRoot(${gigaRootSent}) observed at block ${logs[0].blockNumber}`);
+                console.log(`[zkstack] NewGigaRoot(${gigaRootSent}) observed at block ${logs[0].blockNumber}`);
                 return {
                     receiveGigaRootTxHash: logs[0].transactionHash as Hex,
                     blockNumber: logs[0].blockNumber as bigint,
@@ -290,7 +435,7 @@ export async function receiveGigaRootOnEvmL2(
             }
             from = to + 1n;
         }
-        console.log(`[scroll] waiting for NewGigaRoot(${gigaRootSent}) on L2 (scanned ${scanStart}-${scanEnd})`);
+        console.log(`[zkstack] waiting for NewGigaRoot(${gigaRootSent}) on L2 (scanned ${scanStart}-${scanEnd})`);
         await sleep(pollIntervalMs);
         scanStart = scanEnd + 1n;
         scanEnd = await l2PublicClient.getBlockNumber();
@@ -500,13 +645,14 @@ export async function bridgeLocalRootToL1(
         )
         return { sendRootToL1Tx, sendRootToL1TxHash: aztecTxHash.toString() }
     } else {
-        if (!evmL2Inputs) throw new Error("bridgeLocalRootToL1: evmL2Inputs (l2PublicClient, l2WalletClient) required for non-aztec (scroll) path")
+        if (!evmL2Inputs) throw new Error("bridgeLocalRootToL1: evmL2Inputs (l2PublicClient, l2WalletClient) required for the non-aztec (ZK Stack) path")
         const { sendRootToL1Tx, sendRootToL1TxHash } = await bridgeEVMLocalRootToL1(
             publicClient,
             walletClient,
             evmL2Inputs.l2PublicClient,
             evmL2Inputs.l2WalletClient,
-            L2Adapter as L2ScrollBridgeAdapter,
+            L2Adapter as L2ZkStackBridgeAdapter,
+            (L1Adapter as L1ZkStackBridgeAdapter).address as Address,
             confirmations,
         )
         return { sendRootToL1Tx, sendRootToL1TxHash }
@@ -553,7 +699,7 @@ export async function sendGigaRoot(
     const defaultEthAmountGas = 5n * 10n ** 16n;
     const amounts = gigaRootRecipients.map((v) => allPayableGigaRootRecipients.includes(v) ? defaultEthAmountGas : 0n)
     // Sum over current recipients, not the whole payable set - otherwise pure
-    // L1-settle cycles (recipients=[L1WarpToad], payable=[scrollAdapter]) send
+    // L1-settle cycles (recipients=[L1WarpToad], payable=[zkStackAdapter]) send
     // 0.05 ETH that sits unused in the GigaBridge contract.
     const totalEth = amounts.reduce((sum, a) => sum + a, 0n)
     console.log({ gigaBridge: gigaBridge.address, gigaRootRecipients, amounts, totalEth, confirmations })
@@ -698,13 +844,15 @@ export async function receiveGigaRootOnL2(
         return { receiveGigaRootTx, receiveGigaRootTxHash: receiveGigaRootTx!.receipt.txHash.toString(), gigaRootOnL2: gigaRootOnAztec }
     } else {
         if (gigaRootSent === undefined) {
-            console.log(`[scroll] no gigaRootSent provided; skipping L2 arrival wait (Scroll messenger will auto-relay)`);
+            // ZK Stack L1->L2 auto-executes off the priority queue, so there is
+            // nothing to relay; we just have no root to watch for.
+            console.log(`[zkstack] no gigaRootSent provided; skipping L2 arrival wait`);
             return { receiveGigaRootTx: undefined, receiveGigaRootTxHash: undefined, gigaRootOnL2: undefined };
         }
-        if (!evmL2Inputs) throw new Error("receiveGigaRootOnL2: evmL2Inputs (l2PublicClient) required for non-aztec (scroll) path");
+        if (!evmL2Inputs) throw new Error("receiveGigaRootOnL2: evmL2Inputs (l2PublicClient) required for the non-aztec (ZK Stack) path");
         const { receiveGigaRootTxHash } = await receiveGigaRootOnEvmL2(
             evmL2Inputs.l2PublicClient,
-            L2Adapter as L2ScrollBridgeAdapter,
+            L2Adapter as L2ZkStackBridgeAdapter,
             gigaRootSent,
         );
         return { receiveGigaRootTx: undefined, receiveGigaRootTxHash, gigaRootOnL2: gigaRootSent };

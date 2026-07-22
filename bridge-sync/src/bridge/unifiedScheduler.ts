@@ -39,7 +39,7 @@
  *     computeStaleLegs returns EMPTY_REQUIREMENTS so the scheduler does
  *     not spin a cycle that would always FailedRelayedMessage.
  */
-import { runSyncCycle, type FullSyncResult } from './executor.js';
+import { runSyncCycle, emptySyncResult, type FullSyncResult } from './executor.js';
 import { computeStaleLegs, buildStaleLegInputs } from './staleLegs.js';
 import {
 	hasAnyRequirement,
@@ -274,13 +274,7 @@ async function tick() {
 			console.log(
 				`[scheduler] tick: no stale legs (waiters=${tickWaiters.length}); resolving as noop`,
 			);
-			const noopResult: FullSyncResult = {
-				aztec: null,
-				scroll: null,
-				updateGigaRootTxHash: 'N/A',
-				sendGigaRootTxHash: 'N/A',
-				gigaRootSent: '',
-			};
+			const noopResult: FullSyncResult = emptySyncResult();
 			for (const w of tickWaiters) w.resolve(noopResult);
 			state.lastTickResult = 'noop';
 			state.ticksNoop += 1;
@@ -290,13 +284,13 @@ async function tick() {
 		console.log(
 			`[scheduler] tick: running cycle (waiters=${tickWaiters.length}) flags=${JSON.stringify(flags)}`,
 		);
-		// Split combined Aztec+Scroll work into independent cycles (Aztec leg
-		// first) so a stuck Scroll L2->L1 finalization can't block the Aztec
+		// Split fast and slow legs into independent cycles (fast first) so a stuck
+		// slow L2->L1 finalization can't block the fast legs'
 		// fold+dispatch. Each cycle still dispatches the gigaRoot to all adapters,
 		// so neither L2 is left stale.
 		const cycles = splitRequirements(flags);
 		if (cycles.length > 1) {
-			console.log(`[scheduler] split into ${cycles.length} cycles (Aztec leg first) so a slow Scroll leg can't block the Aztec fold`);
+			console.log(`[scheduler] split into ${cycles.length} cycles (fast legs first) so a slow L2->L1 leg can't block the others' fold`);
 		}
 		let result: FullSyncResult | null = null;
 		let finalErr: any = null;

@@ -1,10 +1,3 @@
 {
-  "L2ScrollModule#PoseidonT3": "0x3333333C0A88F9BE4fd23ed0536F9B6c427e3B93",
-  "L2ScrollModule#RelationsLib": "0xF1968b222d9e6a7f9AF2B3844F3b9F161b5CEb5E",
-  "L2ScrollModule#ZKTranscriptLib": "0x836b4B0CdCA901958dE0a9FBdf7d9dcF918Cb80E",
-  "TestToken#USDcoin": "0x538849781f2F8aB07b6EecaaE23c6927c17124A4",
-  "L2ScrollModule#HonkVerifier": "0x68bD4497f8E30CD37EceEd3E0868906d1Fc1b0f0",
-  "L2ScrollModule#LazyIMT": "0xb242E0e2253E95cED6D3aC1CEa0a338C7fAe12CF",
-  "L2ScrollModule#L2WarpToad": "0xa0e2b408078FF946D1bBe7A94e81fc610D0cCe3f",
-  "L2ScrollModule#L2ScrollBridgeAdapter": "0xe21B2Ac64Cb232773179c19C6CeA9aaCb727028b"
+  "L2ScrollModule#PoseidonT3": "0x3333333C0A88F9BE4fd23ed0536F9B6c427e3B93"
 }

@@ -1,10 +1,15 @@
 import { ChainConfig, ChainId } from '../types/index.js';
+import { LEGS, getLeg, isLeg, legRpcUrl, type LegDescriptor } from './legRegistry.js';
 import * as dotenv from 'dotenv';
 
 dotenv.config();
 
-const CHAINS: Record<ChainId, ChainConfig> = {
-  '31337': {
+/**
+ * L1 hubs. Everything else (the L2 legs) is generated from the leg registry, so
+ * adding an L2 does not mean editing this file.
+ */
+const L1_CHAINS: ChainConfig[] = [
+  {
     id: '31337',
     name: 'Local Anvil',
     type: 'L1',
@@ -12,7 +17,7 @@ const CHAINS: Record<ChainId, ChainConfig> = {
     rpcUrl: process.env.LOCAL_RPC_URL || 'http://localhost:8545',
     isAztec: false,
   },
-  '11155111': {
+  {
     id: '11155111',
     name: 'Sepolia Testnet',
     type: 'L1',
@@ -20,24 +25,30 @@ const CHAINS: Record<ChainId, ChainConfig> = {
     rpcUrl: process.env.SEPOLIA_RPC_URL || '',
     isAztec: false,
   },
-  '534351': {
-    id: '534351',
-    name: 'Scroll Sepolia',
-    type: 'L2',
-    chainId: 534351n,
-    rpcUrl: process.env.SCROLL_RPC_URL || 'https://sepolia-rpc.scroll.io',
-    isAztec: false,
-  },
-  'aztec': {
-    id: 'aztec',
-    name: 'Aztec Network',
-    type: 'Aztec',
-    // Default to the current Aztec v5 testnet full node. Override via
-    // AZTEC_NODE_URL env if you point at a different testnet/devnet.
-    rpcUrl: process.env.AZTEC_NODE_URL || 'https://v5.testnet.rpc.aztec-labs.com',
-    isAztec: true,
-  },
-};
+];
+
+const L1_CHAIN_IDS = L1_CHAINS.map((c) => c.id);
+
+function legToChainConfig(leg: LegDescriptor): ChainConfig {
+  let rpcUrl = '';
+  try {
+    rpcUrl = legRpcUrl(leg);
+  } catch {
+    // Leave blank; getChainConfig reports it with the same message as before.
+  }
+  return {
+    id: leg.key,
+    name: leg.label,
+    type: leg.kind === 'aztec' ? 'Aztec' : 'L2',
+    chainId: leg.chainId,
+    rpcUrl,
+    isAztec: leg.kind === 'aztec',
+  };
+}
+
+const CHAINS: Record<ChainId, ChainConfig> = Object.fromEntries(
+  [...L1_CHAINS, ...LEGS.map(legToChainConfig)].map((c) => [c.id, c]),
+);
 
 export function getChainConfig(chainId: ChainId): ChainConfig {
   const config = CHAINS[chainId];
@@ -58,22 +69,32 @@ export function getSupportedChains(): ChainConfig[] {
   return Object.values(CHAINS);
 }
 
-// Define valid bridge routes
-const VALID_ROUTES = new Set([
-  '11155111:534351',  // Sepolia -> Scroll
-  '11155111:aztec',   // Sepolia -> Aztec
-  '534351:11155111',  // Scroll -> Sepolia
-  'aztec:11155111',   // Aztec -> Sepolia
-  'aztec:534351',     // Aztec -> Scroll (multi-hop via Sepolia L1 hub)
-  '534351:aztec',     // Scroll -> Aztec (multi-hop via Sepolia L1 hub)
-  '31337:534351',     // Local -> Scroll (for testing)
-  '31337:aztec',      // Local -> Aztec (for testing)
-  'aztec:31337',      // Aztec -> Local (for testing withdraws)
-]);
+/**
+ * Valid routes, generated rather than enumerated.
+ *
+ * Every leg can bridge to and from every L1 hub, and legs can bridge to each other
+ * multi-hop via the L1 hub. L1-to-L1 is not a bridge. This replaces a hand-written
+ * O(n^2) list that had to be extended by hand for each new chain (and which was
+ * missing entries: Sepolia->Scroll existed but Local->Aztec-style symmetry did not).
+ */
+function buildValidRoutes(): Set<string> {
+  const routes = new Set<string>();
+  for (const leg of LEGS) {
+    for (const l1 of L1_CHAIN_IDS) {
+      routes.add(`${l1}:${leg.key}`);
+      routes.add(`${leg.key}:${l1}`);
+    }
+    for (const other of LEGS) {
+      if (other.key !== leg.key) routes.add(`${leg.key}:${other.key}`);
+    }
+  }
+  return routes;
+}
+
+const VALID_ROUTES = buildValidRoutes();
 
 export function isValidRoute(fromChainId: ChainId, toChainId: ChainId): boolean {
-  const route = `${fromChainId}:${toChainId}`;
-  return VALID_ROUTES.has(route);
+  return VALID_ROUTES.has(`${fromChainId}:${toChainId}`);
 }
 
 export function getSupportedRoutes(): Array<{ from: ChainId; to: ChainId }> {
@@ -83,74 +104,48 @@ export function getSupportedRoutes(): Array<{ from: ChainId; to: ChainId }> {
   });
 }
 
-// Bridge operation timeouts (in milliseconds)
-// These are based on observed bridge completion times
-const BRIDGE_TIMEOUTS = {
-  scroll: 10800000,     // 3 hours - Scroll L2->L1 requires waiting for finalization
-  aztec: 3600000,       // 1 hour - Aztec messages need L1 confirmations
-  scrollAztec: 14400000,// 4 hours - multi-hop: aztec leg + scroll messenger
-  local: 1800000,       // 30 minutes - Local testing, should be faster
-};
-
 const MAX_TIMEOUT = 21600000; // 6 hours - absolute maximum
+const LOCAL_TIMEOUT = 1800000; // 30 minutes - local testing should be faster
 
 /**
- * Get the appropriate timeout for a bridge operation based on chains involved
- * 
- * @param fromChainId - Source chain
- * @param toChainId - Destination chain
- * @returns Timeout in milliseconds
+ * Timeout for a bridge operation, derived from the legs involved.
+ *
+ * A single per-chain-family constant was wrong once ZK Stack entered the picture:
+ * Era Sepolia finalizes in about 2 hours but a low-traffic chain like Abstract seals
+ * batches on a ~8h timeout, so one shared number either stalls the slow chain or makes
+ * the fast one look hung. Each leg carries its own bound in the registry.
+ *
+ * Multi-hop (leg → leg) sums both sides: the source leg's L2→L1 push, then the
+ * destination leg's L1→L2 dispatch.
  */
 export function getBridgeTimeout(fromChainId: ChainId, toChainId: ChainId): number {
-  const fromChain = getChainConfig(fromChainId);
-  const toChain = getChainConfig(toChainId);
+  if (fromChainId === '31337' || toChainId === '31337') return LOCAL_TIMEOUT;
 
-  const involvesAztec = fromChain.isAztec || toChain.isAztec;
-  const involvesScroll = fromChain.type === 'L2' || toChain.type === 'L2';
+  const fromLeg = isLeg(fromChainId) ? getLeg(fromChainId) : undefined;
+  const toLeg = isLeg(toChainId) ? getLeg(toChainId) : undefined;
 
-  // Multi-hop: aztec + scroll
-  if (involvesAztec && involvesScroll) {
-    return BRIDGE_TIMEOUTS.scrollAztec;
-  }
-  if (involvesAztec) {
-    return BRIDGE_TIMEOUTS.aztec;
-  }
-  if (involvesScroll) {
-    return BRIDGE_TIMEOUTS.scroll;
-  }
-  if (fromChainId === '31337' || toChainId === '31337') {
-    return BRIDGE_TIMEOUTS.local;
-  }
-  return BRIDGE_TIMEOUTS.aztec;
+  // The L2->L1 push is the slow half; an L1->L2 dispatch is minutes.
+  const L1_TO_L2_ALLOWANCE_MS = 60 * 60 * 1000;
+
+  let total = 0;
+  if (fromLeg) total += fromLeg.l2ToL1TimeoutMs;
+  if (toLeg) total += L1_TO_L2_ALLOWANCE_MS;
+  if (total === 0) total = L1_TO_L2_ALLOWANCE_MS;
+
+  return Math.min(total, MAX_TIMEOUT);
 }
 
-/**
- * Get human-readable expected duration for a bridge operation
- * 
- * @param fromChainId - Source chain
- * @param toChainId - Destination chain
- * @returns Human-readable duration string
- */
+const fmt = (ms: number): string => {
+  const mins = Math.round(ms / 60000);
+  if (mins < 90) return `${mins} minutes`;
+  const hours = ms / 3600000;
+  return `${Number.isInteger(hours) ? hours : hours.toFixed(1)} hours`;
+};
+
 export function getExpectedBridgeDuration(fromChainId: ChainId, toChainId: ChainId): string {
-  const fromChain = getChainConfig(fromChainId);
-  const toChain = getChainConfig(toChainId);
-
-  const involvesAztec = fromChain.isAztec || toChain.isAztec;
-  const involvesScroll = fromChain.type === 'L2' || toChain.type === 'L2';
-
-  if (involvesAztec && involvesScroll) {
-    return '2-4 hours (multi-hop via L1)';
-  }
-  if (involvesAztec) {
-    return '30 minutes - 1 hour';
-  }
-  if (involvesScroll) {
-    return '2-3 hours';
-  }
-  if (fromChainId === '31337' || toChainId === '31337') {
-    return '15-30 minutes';
-  }
-  return '30 minutes - 1 hour';
+  const ms = getBridgeTimeout(fromChainId, toChainId);
+  const multiHop = isLeg(fromChainId) && isLeg(toChainId);
+  return multiHop ? `up to ${fmt(ms)} (multi-hop via L1)` : `up to ${fmt(ms)}`;
 }
 
-export { MAX_TIMEOUT, BRIDGE_TIMEOUTS };
+export { MAX_TIMEOUT };

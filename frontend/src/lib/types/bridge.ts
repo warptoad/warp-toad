@@ -3,24 +3,78 @@ import usdcSvg from '../../assets/tokens/usdc.svg';
 import daiSvg from '../../assets/tokens/dai.svg';
 import wbtcSvg from '../../assets/tokens/wbtc.svg';
 import ethereumSvg from '../../assets/chains/ethereum.svg';
-import scrollSvg from '../../assets/chains/scroll.svg';
+import zksyncSvg from '../../assets/chains/zksync.svg';
 import aztecSvg from '../../assets/chains/aztec.svg';
 
-export type Chain = 'Ethereum' | 'Scroll' | 'Aztec';
 export type Token = 'USDC' | 'DAI' | 'WBTC';
 export type ChainType = 'EVM' | 'Aztec';
+
+export interface ChainDisplay {
+	/** Human-readable label. Chain ids are also shown directly in places, so keep
+	 *  the id itself presentable. */
+	label: string;
+	type: ChainType;
+	/** Placeholder circle colour. */
+	color: string;
+	style: { bg: string; glow: string; textDark?: boolean; logo: string };
+}
+
+/**
+ * THE list of chains the UI knows about.
+ *
+ * Everything below is derived from it, so adding a chain is one entry here plus a
+ * definition in `config/chains.ts`. It used to be a closed union keyed into five
+ * separate `Record<Chain, ...>` maps that all had to be edited in lockstep, and
+ * missing one failed at runtime rather than at compile time.
+ *
+ * Chain ids are persisted inside saved notes (`Proof.sourceChain` / `targetChain`) and
+ * in localStorage, so renaming one orphans existing notes. Add, don't rename.
+ *
+ * The ZK Stack entries must stay in step with `backend/lib/zkStackChains.ts`, which is
+ * the deploy-side source of truth.
+ */
+export const CHAIN_DISPLAY = {
+	Ethereum: {
+		label: 'Ethereum',
+		type: 'EVM',
+		color: 'bg-purple-500',
+		style: { bg: 'linear-gradient(135deg, #627EEA, #3c4a9e)', glow: 'rgba(98,126,234,0.4)', logo: ethereumSvg },
+	},
+	ZKsync: {
+		label: 'ZKsync Era',
+		type: 'EVM',
+		color: 'bg-blue-500',
+		style: { bg: 'linear-gradient(135deg, #1E69FF, #1547b8)', glow: 'rgba(30,105,255,0.4)', logo: zksyncSvg },
+	},
+	Aztec: {
+		label: 'Aztec',
+		type: 'Aztec',
+		color: 'bg-indigo-500',
+		style: { bg: 'linear-gradient(135deg, #9061F9, #6b3fd4)', glow: 'rgba(144,97,249,0.4)', logo: aztecSvg },
+	},
+} as const satisfies Record<string, ChainDisplay>;
+
+export type Chain = keyof typeof CHAIN_DISPLAY;
+
+export const ALL_CHAINS = Object.keys(CHAIN_DISPLAY) as Chain[];
+
+const displayEntries = Object.entries(CHAIN_DISPLAY) as [Chain, ChainDisplay][];
 
 export interface Wallets {
 	evm: string | null;
 	aztec: string | null;
 }
 
+/** Chain label for display. Falls back to the id for unknown values coming out of
+ *  persisted notes, so an orphaned note renders instead of crashing. */
+export function chainLabel(chain: Chain | string): string {
+	return (CHAIN_DISPLAY as Record<string, ChainDisplay>)[chain]?.label ?? String(chain);
+}
+
 // Chain type mapping (for wallet connection logic)
-export const CHAIN_TYPES: Record<Chain, ChainType> = {
-	Ethereum: 'EVM',
-	Scroll: 'EVM',
-	Aztec: 'Aztec'
-};
+export const CHAIN_TYPES: Record<Chain, ChainType> = Object.fromEntries(
+	displayEntries.map(([id, d]) => [id, d.type]),
+) as Record<Chain, ChainType>;
 
 // Token icon colors (placeholder circles)
 export const TOKEN_COLORS: Record<Token, string> = {
@@ -30,11 +84,9 @@ export const TOKEN_COLORS: Record<Token, string> = {
 };
 
 // Chain icon colors (placeholder circles)
-export const CHAIN_COLORS: Record<Chain, string> = {
-	Ethereum: 'bg-purple-500',
-	Scroll: 'bg-amber-500',
-	Aztec: 'bg-indigo-500'
-};
+export const CHAIN_COLORS: Record<Chain, string> = Object.fromEntries(
+	displayEntries.map(([id, d]) => [id, d.color]),
+) as Record<Chain, string>;
 
 // Themed token styles for swamp UI
 export const TOKEN_STYLES: Record<Token, { bg: string; glow: string; logo: string }> = {
@@ -44,11 +96,11 @@ export const TOKEN_STYLES: Record<Token, { bg: string; glow: string; logo: strin
 };
 
 // Themed chain styles for swamp UI
-export const CHAIN_STYLES: Record<Chain, { bg: string; glow: string; textDark?: boolean; logo: string }> = {
-	Ethereum: { bg: 'linear-gradient(135deg, #627EEA, #3c4a9e)', glow: 'rgba(98,126,234,0.4)', logo: ethereumSvg },
-	Scroll: { bg: 'linear-gradient(135deg, #FFEEDA, #d4a574)', glow: 'rgba(212,165,116,0.4)', textDark: true, logo: scrollSvg },
-	Aztec: { bg: 'linear-gradient(135deg, #9061F9, #6b3fd4)', glow: 'rgba(144,97,249,0.4)', logo: aztecSvg }
-};
+export const CHAIN_STYLES: Record<Chain, { bg: string; glow: string; textDark?: boolean; logo: string }> =
+	Object.fromEntries(displayEntries.map(([id, d]) => [id, d.style])) as Record<
+		Chain,
+		{ bg: string; glow: string; textDark?: boolean; logo: string }
+	>;
 
 // Token names for display
 export const TOKEN_NAMES: Record<Token, string> = {
@@ -59,16 +111,22 @@ export const TOKEN_NAMES: Record<Token, string> = {
 
 export interface MockTokenBalance {
 	token: Token;
-	ethereum: string;
-	scroll: string;
-	aztec: string;
+	/** Per-chain display balance. Keyed by Chain id, not a field per chain. */
+	balances: Partial<Record<Chain, string>>;
 }
 
+/**
+ * Token addresses per chain.
+ *
+ * `addresses` is keyed by Chain id. The previous shape was a field per chain
+ * (`ethereumAddress`/`scrollAddress`/...) which callers indexed by building the key
+ * with `chain.toLowerCase() + "Address"`. That silently returned `undefined` for any
+ * chain whose id didn't happen to lowercase into an existing field, so a new chain
+ * looked like "no balance" instead of failing.
+ */
 export interface TokenContract {
 	token: Token;
-	ethereumAddress?: string;
-	scrollAddress?: string;
-	aztecAddress?: string;
+	addresses: Partial<Record<Chain, string>>;
 }
 
 
@@ -88,8 +146,8 @@ export interface CommitmentPreImage {
 }
 
 /**
- * Per-proof bridge-sync tracking. The bridge keeper takes 2-3h to push a
- * Scroll local root through L1 to Aztec; with this field we can resume the
+ * Per-proof bridge-sync tracking. The bridge keeper takes hours to push an
+ * L2 local root through L1 to Aztec; with this field we can resume the
  * UX after the user closes the tab. The withdraw page polls /status/:opId
  * and shows progress instead of surfacing BridgeSyncStaleError as a fresh
  * problem on every visit.
@@ -98,7 +156,7 @@ export interface CommitmentPreImage {
  *   these now (operationsStore), so a 404 means the op truly expired (48h
  *   on the server) and the field can be cleared.
  * - fromChainId / toChainId: keeper-convention strings. EVM chains are the
- *   numeric chain id ("11155111", "534351"), Aztec is the literal "aztec".
+ *   numeric chain id ("11155111", "300"), Aztec is the literal "aztec".
  * - lastStatus: 'noop' is a successful no-work outcome (bridge state was
  *   already fresh); treat it as completed for UX.
  */

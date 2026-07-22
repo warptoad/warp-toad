@@ -12,7 +12,7 @@
  */
 
 import { createPublicClient, http, type Hash } from 'viem';
-import { L2WarpToadAbi, L2ScrollBridgeAdapterAbi, USDcoinAbi } from '$lib/contracts/abis';
+import { L2WarpToadAbi, L2ZkStackBridgeAdapterAbi, USDcoinAbi } from '$lib/contracts/abis';
 import { queryEventInChunks } from './viem-chunks';
 import { getEVMChain, type EVMChainDefinition } from '$lib/config/chains.js';
 import { createClient, getChainId } from './evm-wallet.js';
@@ -35,7 +35,7 @@ import { BridgeSyncStaleError } from './bridge-keeper.js';
  * Throws if Scroll is not enabled (test mode)
  */
 function getScrollConfig(): EVMChainDefinition {
-	const scroll = getEVMChain('Scroll');
+	const scroll = getEVMChain('ZKsync');
 	if (!scroll || !scroll.enabled) {
 		throw new Error('Scroll is not available in the current environment. Switch to testnet mode.');
 	}
@@ -47,7 +47,7 @@ function getScrollConfig(): EVMChainDefinition {
  */
 export async function isOnScrollNetwork(): Promise<boolean> {
 	const chainId = await getChainId();
-	const scroll = getEVMChain('Scroll');
+	const scroll = getEVMChain('ZKsync');
 	return (scroll?.enabled && chainId === scroll.chainId) ?? false;
 }
 
@@ -166,7 +166,7 @@ export async function mintFreeScrollTokens(amount: bigint): Promise<Hash> {
 // ============================================================================
 
 /**
- * Get gigaRoot from L2ScrollBridgeAdapter
+ * Get gigaRoot from L2ZkStackBridgeAdapter
  * This is the root synced from L1 GigaBridge via Scroll messenger
  */
 export async function getScrollGigaRoot(): Promise<bigint> {
@@ -179,7 +179,7 @@ export async function getScrollGigaRoot(): Promise<bigint> {
 
 	const gigaRoot = await publicClient.readContract({
 		address: scroll.contracts.bridgeAdapter as `0x${string}`,
-		abi: L2ScrollBridgeAdapterAbi,
+		abi: L2ZkStackBridgeAdapterAbi,
 		functionName: 'gigaRoot',
 	});
 
@@ -340,7 +340,7 @@ export async function burnOnScroll(
  * @param destinationChainId - Target chain ID
  * @returns Bridge result with note and transaction details
  */
-export async function bridgeFromScroll(
+export async function bridgeFromZkStack(
 	amount: string,
 	destinationChainId: bigint
 ): Promise<{
@@ -597,7 +597,7 @@ function computeSiblingAtLevel(commitments: bigint[], siblingIndex: number, leve
  *   withdraws prove against the live local root and pass `undefined` here.
  * @returns EVM merkle data with leaf index, hash path, aztec warptoad address, and block number
  */
-export async function getEvmMerkleDataForScroll(
+export async function getEvmMerkleDataForZkStack(
 	commitment: bigint,
 	targetLocalRootBlockNumber?: number
 ): Promise<{

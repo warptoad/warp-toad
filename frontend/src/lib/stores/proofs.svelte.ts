@@ -1,5 +1,5 @@
 import { USDcoinAbi } from '$lib/contracts/abis';
-import type { Proof, Token, Chain, MockTokenBalance, TokenContract, CommitmentPreImage, ProofBridgeSync } from '$lib/types/bridge.js';
+import { ALL_CHAINS, type Proof, type Token, type Chain, type MockTokenBalance, type TokenContract, type CommitmentPreImage, type ProofBridgeSync } from '$lib/types/bridge.js';
 import { createPublicClient, http } from 'viem';
 import { walletStore } from './wallets.svelte';
 import { decodeNote } from '$lib/utils/evm-interactions';
@@ -12,9 +12,9 @@ const STORAGE_KEY = 'warptoad:proofs';
 
 // Mock token balances
 const MOCK_BALANCES: MockTokenBalance[] = [
-	{ token: 'USDC', ethereum: '1000.00', scroll: '500.00', aztec: '0.00' },
-	{ token: 'DAI', ethereum: '500.00', scroll: '250.00', aztec: '0.00' },
-	{ token: 'WBTC', ethereum: '0.152', scroll: '0.075', aztec: '0.000' }
+	{ token: 'USDC', balances: { Ethereum: '1000.00', ZKsync: '500.00', Aztec: '0.00' } },
+	{ token: 'DAI', balances: { Ethereum: '500.00', ZKsync: '250.00', Aztec: '0.00' } },
+	{ token: 'WBTC', balances: { Ethereum: '0.152', ZKsync: '0.075', Aztec: '0.000' } }
 ];
 // Per-environment USDC addresses, sourced from the chain registry (which itself
 // reads from the static deployment files in `frontend/src/lib/contracts/addresses.ts`).
@@ -22,18 +22,22 @@ const MOCK_BALANCES: MockTokenBalance[] = [
 // to Sepolia USDcoin. Either way, callers don't need to think about the active mode.
 //
 // Caveats from the original design comments:
-// - "ethereum" address is L1 native USDC (the wrappable underlying token)
-// - "scroll" address is currently the L2 wrptd-USDC (the WarpToad-issued wrapped token)
+// - the L1 address is native USDC (the wrappable underlying token)
+// - an L2 address is the wrptd-USDC (the WarpToad-issued wrapped token), NOT a real
+//   USDC deployment, because on an L2 the app only ever touches the wrapper
 // - L1 -> wrap -> bridge -> unwrap on L1 only
-const ethereumChain = getEVMChain('Ethereum');
-const scrollChain = getEVMChain('Scroll');
+//
+// Built by iterating the registry so a new L2 is picked up without editing this.
+const usdcAddresses: Partial<Record<Chain, string>> = {};
+for (const chain of ALL_CHAINS) {
+	const def = getEVMChain(chain);
+	if (!def) continue;
+	const address = def.role === 'L1' ? def.contracts.nativeToken : def.contracts.warpToad;
+	if (address) usdcAddresses[chain] = address;
+}
+
 export const TOKEN_CONTRACTS: TokenContract[] = [
-	{
-		token: 'USDC',
-		ethereumAddress: ethereumChain?.contracts.nativeToken ?? '',
-		// Scroll's "USDC" in this app is actually the L2 WarpToad wrapper.
-		scrollAddress: scrollChain?.contracts.warpToad ?? '',
-	},
+	{ token: 'USDC', addresses: usdcAddresses },
 ]
 
 // Custom JSON serialization for BigInt
@@ -114,13 +118,11 @@ class ProofStore {
 			return this.getAztecBalance();
 		}
 		
-		// EVM chains (Ethereum, Scroll)
+		// EVM chains
 		const token = TOKEN_CONTRACTS.find(b => b.token === tokenInput);
 		if (!token) return '0.00';
 
-		// Map chain to address property
-		const chainKey = chain.toLowerCase() + "Address" as 'ethereumAddress' | 'scrollAddress';
-		const tokenAddress = token[chainKey];
+		const tokenAddress = token.addresses[chain];
 		
 		// Guard against missing address
 		if (!tokenAddress) {
@@ -136,7 +138,7 @@ class ProofStore {
 		// Resolve the active chain config (Sepolia/Scroll in prod, Anvil in test mode).
 		// Defaulting to viem's `anvil` chain with `http()` silently pins RPC to
 		// localhost:8545 in production builds, so always go through the registry.
-		const chainName = chain === 'Scroll' ? 'Scroll' : 'Ethereum';
+		const chainName = chain === 'ZKsync' ? 'ZKsync' : 'Ethereum';
 		const chainDef = getEVMChain(chainName);
 		if (!chainDef) {
 			console.warn(`[getBalance] Chain ${chainName} not configured`);

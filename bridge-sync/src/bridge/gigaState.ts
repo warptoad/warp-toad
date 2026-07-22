@@ -22,7 +22,8 @@
  * briefly (5 s) to coalesce concurrent withdraw-page loads.
  */
 import { createPublicClient, http, type Address, type AbiEvent } from 'viem';
-import { loadL1Contracts, loadL1AdapterByType } from './contractLoader.js';
+import { loadL1Contracts, loadL1AdapterForLeg } from './contractLoader.js';
+import { AZTEC_LEG, LEGS } from './legRegistry.js';
 import { getChainConfig } from './chainMapper.js';
 
 export interface GigaLeaf {
@@ -120,13 +121,15 @@ export async function fetchGigaState(l1ChainIdStr: string): Promise<GigaState> {
 	const publicClient = createPublicClient({ transport: http(l1ChainConfig.rpcUrl) });
 	const l1ChainId = BigInt(await publicClient.getChainId());
 
-	const { gigaBridge, l1WarpToadAddress, gigaBridgeAddress } = loadL1Contracts(l1ChainId, publicClient as any, {} as any, true);
-	const aztec = loadL1AdapterByType(l1ChainId, publicClient as any, {} as any, 'aztec');
-	// Scroll adapter is absent on local/dev deploys (Scroll disabled); load it
-	// optionally and only include it as a provider when present.
-	const scroll = loadL1AdapterByType(l1ChainId, publicClient as any, {} as any, 'scroll', true);
-	const providers = [l1WarpToadAddress, aztec.address];
-	if (scroll) providers.push(scroll.address);
+	const { gigaBridge, l1WarpToadAddress, gigaBridgeAddress } = loadL1Contracts(l1ChainId, publicClient as any, {} as any, AZTEC_LEG);
+	// Every leg's adapter is a provider. Loaded optionally because local/dev deploys
+	// omit the ZK Stack adapters; a missing one is simply not a provider. Unclaimed
+	// spare slots are never in LEGS, so they can't be included (they'd revert).
+	const providers = [l1WarpToadAddress];
+	for (const leg of LEGS) {
+		const handle = loadL1AdapterForLeg(l1ChainId, publicClient as any, {} as any, leg.key, true);
+		if (handle) providers.push(handle.address);
+	}
 
 	// Pin the gigaRoot read and the folded-leaf scan to the SAME head block, so a
 	// concurrent updateGigaRoot can't make the returned root and leaves disagree.

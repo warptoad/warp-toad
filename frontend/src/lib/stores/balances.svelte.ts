@@ -50,7 +50,7 @@ class BalanceStore {
 		const chainId = walletStore.chainId;
 		if (!chainId) return this._ethereumBalance;
 
-		const scrollChain = getEVMChain('Scroll');
+		const scrollChain = getEVMChain('ZKsync');
 		if (scrollChain?.enabled && chainId === scrollChain.chainId) {
 			return this._scrollBalance;
 		}
@@ -89,7 +89,7 @@ class BalanceStore {
 		switch (chain) {
 			case 'Aztec':
 				return this._aztecBalance;
-			case 'Scroll':
+			case 'ZKsync':
 				return this._scrollBalance;
 			case 'Ethereum':
 			default:
@@ -104,7 +104,7 @@ class BalanceStore {
 		switch (chain) {
 			case 'Aztec':
 				return this._isLoadingAztec;
-			case 'Scroll':
+			case 'ZKsync':
 				return this._isLoadingScroll;
 			case 'Ethereum':
 			default:
@@ -128,7 +128,7 @@ class BalanceStore {
 		const refreshTasks: Promise<void>[] = [this.refreshEthereumBalance(), this.refreshAztecBalance()];
 
 		// Only refresh Scroll if enabled
-		if (isChainEnabled('Scroll')) {
+		if (isChainEnabled('ZKsync')) {
 			refreshTasks.push(this.refreshScrollBalance());
 		}
 
@@ -205,7 +205,7 @@ class BalanceStore {
 			return;
 		}
 
-		const scrollChain = getEVMChain('Scroll');
+		const scrollChain = getEVMChain('ZKsync');
 		if (!scrollChain || !scrollChain.enabled) {
 			this._scrollBalance = 'N/A';
 			return;

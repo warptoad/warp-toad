@@ -32,8 +32,8 @@
 		isValidL1LocalRoot,
 		storeL1LocalRootInHistory,
 		decodeNote,
-		getMerkleDataForL1ToScroll,
-		getMerkleDataForScrollToL1,
+		getMerkleDataForL1ToL2,
+		getMerkleDataForL2ToL1,
 		isNoteUsedEvm,
 	} from "$lib/utils/evm-interactions.js";
 	import {
@@ -43,8 +43,8 @@
 		isValidScrollLocalRoot,
 		storeScrollLocalRootInHistory,
 		getScrollChainId,
-		getEvmMerkleDataForScroll,
-	} from "$lib/utils/scroll-interactions.js";
+		getEvmMerkleDataForZkStack,
+	} from "$lib/utils/zkstack-interactions.js";
 	import {
 		prepareProofInputsForAztecToL1,
 		prepareProofInputsForSameChain,
@@ -147,7 +147,7 @@
 	// override applied (Aztec source uses a different stack).
 	let rpcOverrideChainId = $derived.by<number | null>(() => {
 		if (!selectedProof) return null;
-		if (selectedProof.sourceChain !== "Ethereum" && selectedProof.sourceChain !== "Scroll") return null;
+		if (selectedProof.sourceChain !== "Ethereum" && selectedProof.sourceChain !== "ZKsync") return null;
 		const def = getEVMChain(selectedProof.sourceChain);
 		return def?.chainId ?? null;
 	});
@@ -191,14 +191,14 @@
 	// Map chain IDs to chain names
 	function getChainNameFromId(
 		chainId: bigint,
-	): "Ethereum" | "Scroll" | "Aztec" {
+	): "Ethereum" | "ZKsync" | "Aztec" {
 		const id = Number(chainId);
 		// Standard EVM chain IDs
 		if (id === 1 || id === 31337 || id === 11155111) {
 			return "Ethereum"; // Mainnet, Anvil/localhost, or Sepolia
 		}
 		if (id === 534351 || id === 534352) {
-			return "Scroll"; // Scroll Sepolia or Mainnet
+			return "ZKsync"; // Scroll Sepolia or Mainnet
 		}
 		// If it's a large number (Aztec uses poseidon2 hash as chain ID), assume Aztec
 		// Aztec chain IDs are typically very large numbers from poseidon2([salt, version])
@@ -539,7 +539,7 @@
 				return;
 			}
 
-			const chain = getEVMChain('Ethereum') || getEVMChain('Scroll');
+			const chain = getEVMChain('Ethereum') || getEVMChain('ZKsync');
 			if (!chain) {
 				alert('Chain configuration not found');
 				return;
@@ -617,7 +617,7 @@
 				// Same-chain private transfer (L1 -> L1 or Scroll -> Scroll)
 				if (sourceChain === "Ethereum") {
 					await withdrawSameChainL1();
-				} else if (sourceChain === "Scroll") {
+				} else if (sourceChain === "ZKsync") {
 					await withdrawSameChainScroll();
 				} else {
 					throw new Error(
@@ -626,25 +626,25 @@
 				}
 			} else if (sourceChain === "Aztec") {
 				// Aztec -> EVM (L1 or Scroll)
-				if (targetChain === "Scroll") {
+				if (targetChain === "ZKsync") {
 					await withdrawToScroll();
 				} else {
 					// Aztec -> Ethereum L1
 					await withdrawToL1();
 				}
-			} else if (sourceChain === "Scroll") {
+			} else if (sourceChain === "ZKsync") {
 				// Scroll -> Aztec or L1
 				if (targetChain === "Aztec") {
 					await withdrawToAztec();
 				} else {
 					// Scroll -> L1 (requires ZK proof)
-					await withdrawFromScrollToL1();
+					await withdrawFromL2ToL1();
 				}
 			} else {
 				// Ethereum L1 -> Aztec or Scroll
 				if (targetChain === "Aztec") {
 					await withdrawToAztec();
-				} else if (targetChain === "Scroll") {
+				} else if (targetChain === "ZKsync") {
 					await withdrawToScroll();
 				}
 			}
@@ -865,7 +865,7 @@
 		withdrawStep = "checking-bridge";
 		withdrawMessage = "Checking Scroll bridge state...";
 
-		const scrollChain = getEVMChain("Scroll");
+		const scrollChain = getEVMChain("ZKsync");
 		if (!scrollChain || !scrollChain.enabled) {
 			throw new Error(
 				"Scroll is not available in the current environment",
@@ -1004,7 +1004,7 @@
 		withdrawStep = "checking-bridge";
 		withdrawMessage = "Checking Scroll bridge state...";
 
-		const scrollChain = getEVMChain("Scroll");
+		const scrollChain = getEVMChain("ZKsync");
 		if (!scrollChain || !scrollChain.enabled) {
 			throw new Error(
 				"Scroll is not available in the current environment",
@@ -1041,7 +1041,7 @@
 		withdrawMessage = "Getting L1 local root from GigaBridge...";
 
 		const { l1LocalRoot, l1LocalRootBlockNumber, gigaMerkleData } =
-			await getMerkleDataForL1ToScroll(l1ChainId, gigaRoot);
+			await getMerkleDataForL1ToL2(l1ChainId, gigaRoot);
 
 		console.log("L1 local root:", l1LocalRoot.toString());
 		console.log("Giga merkle data:", gigaMerkleData);
@@ -1163,10 +1163,10 @@
 	}
 
 	/**
-	 * Withdraw from Scroll to L1
+	 * Withdraw from an L2 to L1.
 	 * This generates a ZK proof and calls the L1WarpToad.mint()
 	 */
-	async function withdrawFromScrollToL1() {
+	async function withdrawFromL2ToL1() {
 		if (!selectedProof?.commitmentData) {
 			throw new Error(
 				"Proof missing commitment data. Please re-bridge or upload a valid note file.",
@@ -1197,6 +1197,16 @@
 		const l1Chain = getEVMChain("Ethereum");
 		if (!l1Chain) throw new Error("Ethereum chain config not found");
 
+		// Which L2 the note came from decides which adapter-slot leaf to read out of
+		// the giga tree. With several L2s registered there is no single "the L2".
+		const sourceL2Chain = getEVMChain(selectedProof.sourceChain);
+		if (!sourceL2Chain || sourceL2Chain.role !== "L2") {
+			throw new Error(
+				`Note's source chain ${selectedProof.sourceChain} is not a configured L2`,
+			);
+		}
+		const sourceL2ChainId = sourceL2Chain.chainId;
+
 		// Ensure user is on L1 network
 		if (!chainId || chainId !== l1Chain.chainId) {
 			throw new Error(
@@ -1218,23 +1228,25 @@
 		// would hash to a different root, and the circuit would fail with
 		// "Cannot satisfy constraint" mid-proof-generation.
 		withdrawStep = "building-proofs";
-		withdrawMessage = "Getting Scroll local root from GigaBridge...";
+		withdrawMessage = "Getting L2 local root from GigaBridge...";
 
-		const { scrollLocalRoot, scrollLocalRootBlockNumber, gigaMerkleData } =
-			await getMerkleDataForScrollToL1(chainId, gigaRoot);
+		// chainId here is the L1 hub (where GigaBridge lives); the third arg says
+		// WHICH L2's adapter-slot leaf to read out of the giga tree.
+		const { l2LocalRoot, l2LocalRootBlockNumber, gigaMerkleData } =
+			await getMerkleDataForL2ToL1(chainId, gigaRoot, sourceL2ChainId);
 
-		console.log("Scroll local root:", scrollLocalRoot.toString());
-		console.log("Scroll local root block number:", scrollLocalRootBlockNumber);
+		console.log("L2 local root:", l2LocalRoot.toString());
+		console.log("L2 local root block number:", l2LocalRootBlockNumber);
 		console.log("Giga merkle data:", gigaMerkleData);
 
 		// Step 4: Build the Scroll burn proof anchored at the giga-recorded
-		// block. The reconstructed tree's root must equal scrollLocalRoot
-		// (verified inside getEvmMerkleDataForScroll) for the circuit to be
+		// block. The reconstructed tree's root must equal l2LocalRoot
+		// (verified inside getEvmMerkleDataForZkStack) for the circuit to be
 		// satisfiable.
 		withdrawMessage = "Getting Scroll burn proof...";
 
 		const { evmMerkleData: scrollEvmMerkleData, aztecWarptoadAddress } =
-			await getEvmMerkleDataForScroll(commitment, scrollLocalRootBlockNumber);
+			await getEvmMerkleDataForZkStack(commitment, l2LocalRootBlockNumber);
 
 		console.log("Scroll EVM merkle data:", scrollEvmMerkleData);
 
@@ -1255,7 +1267,7 @@
 			gigaMerkleData,
 			gigaRoot,
 			localRoot, // L1 local root
-			scrollLocalRoot, // Scroll local root
+			l2LocalRoot, // Scroll local root
 			aztecWarptoadAddress,
 			BigInt(chainId),
 			walletStore.wallets.evm || "0x0000000000000000000000000000000000000000",
@@ -1667,10 +1679,10 @@
 		withdrawMessage = "Building merkle proof from Scroll tree...";
 
 		// Import the Scroll merkle data function dynamically
-		const { getEvmMerkleDataForScroll } = await import("$lib/utils/scroll-interactions.js");
+		const { getEvmMerkleDataForZkStack } = await import("$lib/utils/zkstack-interactions.js");
 
 		const { evmMerkleData, aztecWarptoadAddress, localRootBlockNumber } =
-			await getEvmMerkleDataForScroll(commitment);
+			await getEvmMerkleDataForZkStack(commitment);
 
 		console.log("Scroll EVM merkle data:", evmMerkleData);
 		console.log("Aztec WarpToad address:", aztecWarptoadAddress.toString());
@@ -1731,7 +1743,7 @@
 			withdrawMessage = "Submitting to relay service...";
 
 			try {
-				const scrollChain = getEVMChain("Scroll");
+				const scrollChain = getEVMChain("ZKsync");
 				if (!scrollChain || !scrollChain.enabled) {
 					throw new Error("Scroll chain not enabled");
 				}
@@ -2121,7 +2133,7 @@
 		return (
 			selectedProof.sourceChain === "Aztec" &&
 			(selectedProof.targetChain === "Ethereum" ||
-				selectedProof.targetChain === "Scroll")
+				selectedProof.targetChain === "ZKsync")
 		);
 	}
 
@@ -2156,7 +2168,7 @@
 
 		// Relay is supported for all EVM -> EVM flows
 		// (L1 -> L1, L1 -> Scroll, Scroll -> L1, Aztec -> L1, Aztec -> Scroll)
-		const evmChains = ["Ethereum", "Scroll"];
+		const evmChains = ["Ethereum", "ZKsync"];
 		const targetIsEVM = evmChains.includes(selectedProof.targetChain);
 
 		// Aztec source is always supported (if target is EVM)

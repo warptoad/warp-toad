@@ -5,7 +5,7 @@ import { createClient, getChainId } from './evm-wallet';
 import { createPublicClient, http, toHex, type Hash } from 'viem';
 import { getContractAddresses, CONTRACT_ADDRESSES } from '$lib/contracts/addresses';
 import { poseidon1, poseidon2, poseidon3 } from 'poseidon-lite';
-import { getEVMChain } from '$lib/config/chains';
+import { getEVMChain, getL1AdapterForEvmChainId } from '$lib/config/chains';
 import { queryEventInChunks } from './viem-chunks';
 import { getLatestLocalRootEventForIndex } from './aztec-interactions';
 import { tryGetGigaLeavesForRoot } from './bridge-keeper';
@@ -28,10 +28,10 @@ const FIELD_MODULUS = 2188824287183927522224640574525727508854836440041603434369
  * exported version.
  */
 export function getRpcUrl(chainId: number): string | undefined {
-	const chainMap: Record<number, 'Ethereum' | 'Scroll'> = {
+	const chainMap: Record<number, 'Ethereum' | 'ZKsync'> = {
 		31337: 'Ethereum',
 		11155111: 'Ethereum',
-		534351: 'Scroll',
+		534351: 'ZKsync',
 	};
 
 	const chainName = chainMap[chainId];
@@ -582,7 +582,6 @@ export async function mintFreeTokens(tokenInput: Token, chain: Chain, amount: nu
 	const token = TOKEN_CONTRACTS.find((b: any) => b.token === tokenInput);
 	const chainId = await getChainId()
 	if (!token || !chainId) return
-	const chainKey = chain.toLowerCase() + "Address" as 'ethereumAddress' | 'scrollAddress' | 'aztecAddress';
 
 	const client = createClient(chainId)
 	if (!client) return
@@ -596,7 +595,7 @@ export async function mintFreeTokens(tokenInput: Token, chain: Chain, amount: nu
 	})
 
 	const decimals = await publicClient.readContract({
-		address: token[chainKey] as `0x${string}`,
+		address: token.addresses[chain] as `0x${string}`,
 		abi: USDcoinAbi,
 		functionName: 'decimals',
 	})
@@ -608,7 +607,7 @@ export async function mintFreeTokens(tokenInput: Token, chain: Chain, amount: nu
 	try {
 
 		const { request } = await publicClient.simulateContract({
-			address: token[chainKey] as `0x${string}`,
+			address: token.addresses[chain] as `0x${string}`,
 			abi: USDcoinAbi,
 			account: (await client.getAddresses())[0],
 			functionName: 'getFreeShit',
@@ -1286,7 +1285,7 @@ export async function getL1LocalRootWithValidity(chainId: number): Promise<{
  * @param gigaRoot - The gigaRoot to search for L1's local root in
  * @returns L1 local root, block number, and giga merkle proof
  */
-export async function getMerkleDataForL1ToScroll(
+export async function getMerkleDataForL1ToL2(
 	l1ChainId: number,
 	gigaRoot: bigint
 ): Promise<{
@@ -1438,19 +1437,23 @@ export async function getMerkleDataForL1ToScroll(
 }
 
 /**
- * Get GigaBridge merkle data for Scroll → L1 withdrawal
- * Proves that Scroll's localRoot exists in the gigaRoot on L1
- * 
+ * Get GigaBridge merkle data for an L2 → L1 withdrawal.
+ * Proves that the L2's localRoot exists in the gigaRoot on L1.
+ *
  * @param l1ChainId - L1 chain ID (where GigaBridge lives)
- * @param gigaRoot - The gigaRoot to search for Scroll's local root in
- * @returns Scroll local root, block number, and giga merkle proof
+ * @param gigaRoot - The gigaRoot to search for the L2's local root in
+ * @param l2ChainId - EVM chain id of the source L2. Selects which adapter slot's leaf
+ *                    to read; with several L2s registered there is no longer a single
+ *                    "the L2 adapter".
+ * @returns L2 local root, block number, and giga merkle proof
  */
-export async function getMerkleDataForScrollToL1(
+export async function getMerkleDataForL2ToL1(
 	l1ChainId: number,
-	gigaRoot: bigint
+	gigaRoot: bigint,
+	l2ChainId: number
 ): Promise<{
-	scrollLocalRoot: bigint;
-	scrollLocalRootBlockNumber: number;
+	l2LocalRoot: bigint;
+	l2LocalRootBlockNumber: number;
 	gigaMerkleData: EvmMerkleData;
 }> {
 	const client = createClient(l1ChainId);
@@ -1464,7 +1467,8 @@ export async function getMerkleDataForScrollToL1(
 	
 	const addresses = getContractAddresses(l1ChainId);
 	if (!addresses.GigaBridge) throw new Error('GigaBridge address not found');
-	if (!addresses.L1ScrollBridgeAdapter) throw new Error('L1ScrollBridgeAdapter address not found');
+	const l2L1Adapter = getL1AdapterForEvmChainId(l2ChainId);
+	if (!l2L1Adapter) throw new Error(`No L1 adapter configured for L2 chain ${l2ChainId}`);
 	
 	// Step 1: Find when this gigaRoot was constructed
 	console.log(`Searching for ConstructedNewGigaRoot event for gigaRoot: ${gigaRoot.toString()}`);
@@ -1493,13 +1497,13 @@ export async function getMerkleDataForScrollToL1(
 	const gigaRootBlock = gigaRootEvents[0].blockNumber;
 	console.log(`Found gigaRoot at block ${gigaRootBlock}`);
 
-	// Step 2: Read tree shape and the scroll adapter's index in parallel
-	const [scrollAdapterIndexRaw, maxTreeDepthRaw] = await Promise.all([
+	// Step 2: Read tree shape and this L2 adapter's index in parallel
+	const [l2AdapterIndexRaw, maxTreeDepthRaw] = await Promise.all([
 		publicClient.readContract({
 			address: addresses.GigaBridge as `0x${string}`,
 			abi: GigaBridgeAbi,
 			functionName: 'getLocalRootProvidersIndex',
-			args: [addresses.L1ScrollBridgeAdapter as `0x${string}`]
+			args: [l2L1Adapter as `0x${string}`]
 		}),
 		publicClient.readContract({
 			address: addresses.GigaBridge as `0x${string}`,
@@ -1507,10 +1511,10 @@ export async function getMerkleDataForScrollToL1(
 			functionName: 'maxTreeDepth'
 		})
 	]);
-	const scrollAdapterIndex = Number(scrollAdapterIndexRaw);
+	const l2AdapterIndex = Number(l2AdapterIndexRaw);
 	const maxTreeDepth = Number(maxTreeDepthRaw);
 
-	console.log(`L1ScrollBridgeAdapter index in giga tree: ${scrollAdapterIndex}`);
+	console.log(`L1ScrollBridgeAdapter index in giga tree: ${l2AdapterIndex}`);
 
 	// Step 3: Get the leaves. Fast path - if the keeper's current state is on
 	// this same gigaRoot, take its snapshot in one HTTP call. Slow path - walk
@@ -1559,28 +1563,28 @@ export async function getMerkleDataForScrollToL1(
 	const maxLeaves = 2 ** maxTreeDepth;
 	const leaves: bigint[] = new Array(maxLeaves).fill(0n);
 
-	let scrollLocalRoot: bigint | null = null;
-	let scrollLocalRootBlockNumber = 0;
+	let l2LocalRoot: bigint | null = null;
+	let l2LocalRootBlockNumber = 0;
 
 	for (let i = 0; i < amountOfLocalRoots; i++) {
 		const leaf = indexLeaves[i];
 		if (!leaf) continue;
 		leaves[i] = leaf.localRoot;
-		if (i === scrollAdapterIndex) {
-			scrollLocalRoot = leaf.localRoot;
-			scrollLocalRootBlockNumber = leaf.blockNumber;
+		if (i === l2AdapterIndex) {
+			l2LocalRoot = leaf.localRoot;
+			l2LocalRootBlockNumber = leaf.blockNumber;
 		}
 	}
 
-	if (scrollLocalRoot === null) {
+	if (l2LocalRoot === null) {
 		throw new Error(
 			`Scroll local root not found in giga tree at block ${gigaRootBlock}. ` +
-			`L1ScrollBridgeAdapter (index ${scrollAdapterIndex}) has never emitted a ReceivedNewLocalRoot at or before that block.`
+			`L1ScrollBridgeAdapter (index ${l2AdapterIndex}) has never emitted a ReceivedNewLocalRoot at or before that block.`
 		);
 	}
 	
-	console.log(`Scroll local root: ${scrollLocalRoot.toString()}`);
-	console.log(`Scroll local root block number: ${scrollLocalRootBlockNumber}`);
+	console.log(`Scroll local root: ${l2LocalRoot.toString()}`);
+	console.log(`Scroll local root block number: ${l2LocalRootBlockNumber}`);
 	
 	// Step 5: Build merkle tree and get proof
 	const hashFunc = (left: Element, right: Element): string => {
@@ -1603,14 +1607,14 @@ export async function getMerkleDataForScrollToL1(
 	}
 	
 	// Get merkle proof for Scroll's local root
-	const proof = gigaTree.proof(scrollLocalRoot.toString());
+	const proof = gigaTree.proof(l2LocalRoot.toString());
 	const hashPath = proof.pathElements.map(e => BigInt(e.toString()));
 	
 	return {
-		scrollLocalRoot,
-		scrollLocalRootBlockNumber,
+		l2LocalRoot,
+		l2LocalRootBlockNumber,
 		gigaMerkleData: {
-			leaf_index: BigInt(scrollAdapterIndex),
+			leaf_index: BigInt(l2AdapterIndex),
 			hash_path: hashPath
 		}
 	};

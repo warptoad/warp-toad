@@ -15,6 +15,8 @@ import hardhatToolboxViem from "@nomicfoundation/hardhat-toolbox-viem";
 const PLACEHOLDER_URL = "http://localhost:8545";
 const SEPOLIA_RPC_URL = process.env.SEPOLIA_RPC_URL || PLACEHOLDER_URL;
 const SCROLL_SEPOLIA_RPC_URL = process.env.SCROLL_SEPOLIA_RPC_URL || PLACEHOLDER_URL;
+const ZKSYNC_ERA_SEPOLIA_RPC_URL =
+  process.env.ZKSYNC_ERA_SEPOLIA_RPC_URL || "https://sepolia.era.zksync.dev";
 const DEPLOYER_PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY ?? "";
 const ETHERSCAN_API_KEY = process.env.ETHERSCAN_API_KEY ?? "";
 
@@ -103,16 +105,50 @@ export default defineConfig({
       accounts: DEPLOYER_PRIVATE_KEY ? [DEPLOYER_PRIVATE_KEY] : [],
       chainId: 11155111,
     },
+    // zkSync Era Sepolia, the ZK Stack L2 replacing Scroll Sepolia. Plain solc: the
+    // EVM bytecode interpreter is enabled on Era (ContractDeployer(0x8006)
+    // .allowedBytecodeTypesToDeploy() == 1), so zksolc and the Hardhat-2-only
+    // @matterlabs/hardhat-zksync plugins are NOT needed and must not be added.
+    zksyncEraSepolia: {
+      type: "http",
+      url: ZKSYNC_ERA_SEPOLIA_RPC_URL,
+      accounts: DEPLOYER_PRIVATE_KEY ? [DEPLOYER_PRIVATE_KEY] : [],
+      chainId: 300,
+    },
+    // Scroll Sepolia is retired (sequencer stopped 2026-07-16, never recovered). Kept
+    // only so existing deploy artifacts under chain-534351 stay readable; nothing in
+    // the deploy path targets it any more.
     scrollSepolia: {
       type: "http",
       url: SCROLL_SEPOLIA_RPC_URL,
       accounts: DEPLOYER_PRIVATE_KEY ? [DEPLOYER_PRIVATE_KEY] : [],
       chainId: 534351,
+      // Scroll's eth_maxPriorityFeePerGas estimate comes back at ~100 wei (a zero
+      // tip), and the Scroll sequencer won't include a zero-tip tx, so Ignition's
+      // deploy transactions sit pending forever. Force a real tip; Ignition then
+      // resolves maxFeePerGas to baseFee*2 + this value.
+      ignition: {
+        maxPriorityFeePerGas: 100_000_000n, // 0.1 gwei
+      },
     },
   },
-  // Scroll Sepolia isn't in Hardhat 3's default chain descriptors, so add it
-  // here. Sepolia (11155111) is in defaults already and inherits etherscan.io.
+  // Neither Scroll Sepolia nor zkSync Era Sepolia is in Hardhat 3's default chain
+  // descriptors, so add them here. Sepolia (11155111) is in defaults already and
+  // inherits etherscan.io.
   chainDescriptors: {
+    300: {
+      name: "zkSync Era Sepolia",
+      blockExplorers: {
+        etherscan: {
+          url: "https://sepolia-era.zksync.network",
+          apiUrl: "https://api-sepolia-era.zksync.network/api",
+        },
+        blockscout: {
+          url: "https://sepolia.explorer.zksync.io",
+          apiUrl: "https://block-explorer-api.sepolia.zksync.dev/api",
+        },
+      },
+    },
     534351: {
       name: "Scroll Sepolia",
       blockExplorers: {

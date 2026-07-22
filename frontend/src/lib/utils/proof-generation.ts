@@ -364,7 +364,7 @@ export function prepareProofInputsForSameChain(
  * @param l1EvmMerkleData - Merkle proof from L1 burn tree
  * @param gigaMerkleData - Merkle proof from GigaBridge tree (L1 local root in giga root)
  * @param gigaRoot - The giga root from GigaBridge
- * @param scrollLocalRoot - The Scroll local root (destination)
+ * @param l2LocalRoot - The Scroll local root (destination)
  * @param l1LocalRoot - The L1 local root (origin)
  * @param aztecWarptoadAddress - The Aztec WarpToad address (from L1WarpToad contract)
  * @param scrollChainId - The Scroll chain ID
@@ -377,7 +377,7 @@ export function prepareProofInputsForL1ToScroll(
 	l1EvmMerkleData: EvmMerkleData,
 	gigaMerkleData: EvmMerkleData,
 	gigaRoot: bigint,
-	scrollLocalRoot: bigint,
+	l2LocalRoot: bigint,
 	l1LocalRoot: bigint,
 	aztecWarptoadAddress: bigint,
 	scrollChainId: bigint,
@@ -399,7 +399,7 @@ export function prepareProofInputsForL1ToScroll(
 		chain_id: toHex(scrollChainId),
 		amount: toHex(commitmentData.amount),
 		giga_root: toHex(gigaRoot),
-		destination_local_root: toHex(scrollLocalRoot),
+		destination_local_root: toHex(l2LocalRoot),
 		aztec_warptoad_address: toHex(aztecWarptoadAddress),
 		fee_factor: toHex(feeFactor),
 		priority_fee: toHex(priorityFee),
@@ -435,7 +435,7 @@ export function prepareProofInputsForL1ToScroll(
  * @param gigaMerkleData - Merkle proof from GigaBridge tree (Scroll local root in giga root)
  * @param gigaRoot - The giga root from GigaBridge
  * @param l1LocalRoot - The L1 local root (destination)
- * @param scrollLocalRoot - The Scroll local root (origin)
+ * @param l2LocalRoot - The Scroll local root (origin)
  * @param aztecWarptoadAddress - The Aztec WarpToad address (from Scroll L2WarpToad contract)
  * @param l1ChainId - The L1 chain ID
  * @param recipientAddress - The recipient's L1 address
@@ -448,7 +448,7 @@ export function prepareProofInputsForScrollToL1(
 	gigaMerkleData: EvmMerkleData,
 	gigaRoot: bigint,
 	l1LocalRoot: bigint,
-	scrollLocalRoot: bigint,
+	l2LocalRoot: bigint,
 	aztecWarptoadAddress: bigint,
 	l1ChainId: bigint,
 	recipientAddress: string,
@@ -478,7 +478,7 @@ export function prepareProofInputsForScrollToL1(
 		recipient_address: addressToHex(recipientAddress),
 
 		// ----- private inputs -----
-		origin_local_root: toHex(scrollLocalRoot),
+		origin_local_root: toHex(l2LocalRoot),
 		is_from_aztec: false, // Scroll → L1 uses EVM merkle proof
 		nullifier_preimage: toHex(commitmentData.nullifier_preimg),
 		secret: toHex(commitmentData.secret),
