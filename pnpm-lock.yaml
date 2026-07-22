@@ -52,9 +52,6 @@ importers:
       '@openzeppelin/contracts':
         specifier: ^5.2.0
         version: 5.6.1
-      '@scroll-tech/contracts':
-        specifier: ^2.0.1
-        version: 2.0.1
       '@zk-kit/imt':
         specifier: ^2.0.0-beta.8
         version: 2.0.0-beta.8
@@ -1695,9 +1692,6 @@ packages:
     resolution: {integrity: sha512-lWMnixq/QzxyhTV6NjQJ4SFo1J6PvOX8vUx5Wb4bBPsEb+8xZ89Bz6kOXpfXj9ak9AHTQVQzlgzBEc1SyM27xQ==}
     cpu: [x64]
     os: [win32]
-
-  '@scroll-tech/contracts@2.0.1':
-    resolution: {integrity: sha512-d0jC6/8TkkreEoNiJyV/HPTVWMeSWnJkXkGFLTGMCpM18ZiPgfirKla/84llUEVWB02G/kLb55zB7y9yJINVxg==}
 
   '@scure/base@1.1.9':
     resolution: {integrity: sha512-8YKhl8GHiNI/pU2VMaofa2Tor7PJRAjwQLBBuilkJ9L5+13yVbC7JO/wS7piioAvPSwR3JKM1IJ/u4xQzbcXKg==}
@@ -6824,8 +6818,6 @@ snapshots:
 
   '@rollup/rollup-win32-x64-msvc@4.60.1':
     optional: true
-
-  '@scroll-tech/contracts@2.0.1': {}
 
   '@scure/base@1.1.9': {}
 
