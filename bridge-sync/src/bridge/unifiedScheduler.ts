@@ -292,35 +292,55 @@ async function tick() {
 		if (cycles.length > 1) {
 			console.log(`[scheduler] split into ${cycles.length} cycles (fast legs first) so a slow L2->L1 leg can't block the others' fold`);
 		}
+		// A tick counts as successful only when EVERY cycle succeeded.
+		//
+		// This used to keep a single `result` and report success if any cycle
+		// produced one. With the fast/slow split that silently hid the case
+		// that matters most: the fast cycle (Aztec + dispatches) succeeds, the
+		// slow cycle (a ZK Stack L2->L1 push) fails, and the tick still records
+		// `success`. Operators then see ticksSuccess climbing on /health while
+		// the L2's local root never advances on L1, and every withdraw from
+		// that L2 keeps failing with "Could not find a gigaRoot containing your
+		// commitment" for reasons nothing in the counters explains.
 		let result: FullSyncResult | null = null;
-		let finalErr: any = null;
+		const failures: Array<{ flags: SyncRequirements; err: any }> = [];
+
 		for (const cycleFlags of cycles) {
 			let cycleResult: FullSyncResult | null = null;
+			let cycleErr: any = null;
 			let attempt = 0;
 			while (attempt < 2) {
 				attempt += 1;
 				try {
 					cycleResult = await runSyncCycle(state.config.privateKey, state.config.confirmations, cycleFlags);
+					cycleErr = null;
 					break;
 				} catch (e) {
-					finalErr = e;
+					cycleErr = e;
 					console.error(`[scheduler] cycle ${JSON.stringify(cycleFlags)} attempt ${attempt} failed:`, e);
 				}
 			}
 			if (cycleResult) {
 				result = cycleResult;
-				finalErr = null;
+			} else {
+				failures.push({ flags: cycleFlags, err: cycleErr });
 			}
 		}
 
-		if (result) {
-			for (const w of tickWaiters) w.resolve(result);
-			state.lastTickResult = 'success';
-			state.ticksSuccess += 1;
-		} else {
-			for (const w of tickWaiters) w.reject(finalErr);
+		if (failures.length > 0) {
+			// Name the legs that did not get their work done, so this is visible
+			// without reading back through the whole cycle log.
+			console.error(
+				`[scheduler] ${failures.length}/${cycles.length} cycle(s) failed: ` +
+					failures.map((f) => JSON.stringify(f.flags)).join(', '),
+			);
+			for (const w of tickWaiters) w.reject(failures[0].err);
 			state.lastTickResult = 'failed';
 			state.ticksFailed += 1;
+		} else {
+			for (const w of tickWaiters) w.resolve(result!);
+			state.lastTickResult = 'success';
+			state.ticksSuccess += 1;
 		}
 	} finally {
 		state.running = false;
