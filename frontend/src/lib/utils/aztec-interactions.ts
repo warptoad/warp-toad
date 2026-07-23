@@ -1268,8 +1268,33 @@ export async function validateCommitmentExists(
 
 		return logs.length > 0;
 	} catch (error) {
+		// A thrown error means the scan could NOT complete (almost always an RPC
+		// rate-limit / 429 on the busy public endpoint), not that the commitment
+		// is absent. Returning `false` here used to make the caller tell the user
+		// "Commitment not found on source chain. Please ensure the burn
+		// transaction completed successfully." - a false and alarming message for
+		// a burn that is safely on-chain. Re-throw so the caller surfaces a
+		// retry-able network error instead of impugning the user's burn.
 		console.error('Error validating commitment:', error);
-		return false;
+		const chainName = getChainNameByChainId(sourceChainId) ?? `chain ${sourceChainId}`;
+		throw new CommitmentCheckUnavailableError(
+			`Couldn't verify your commitment on ${chainName}: the RPC is busy ` +
+			`(likely rate-limited). Your burn is safe on-chain; wait a moment and retry.`,
+			{ cause: error },
+		);
+	}
+}
+
+/**
+ * Thrown by {@link validateCommitmentExists} when the source-chain scan cannot
+ * complete (RPC error / rate limit), as opposed to completing and finding
+ * nothing. Lets the withdraw handler tell "try again in a moment" apart from
+ * "your burn is genuinely not there".
+ */
+export class CommitmentCheckUnavailableError extends Error {
+	constructor(message: string, options?: { cause?: unknown }) {
+		super(message, options);
+		this.name = 'CommitmentCheckUnavailableError';
 	}
 }
 
