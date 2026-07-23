@@ -32,7 +32,8 @@
  * flags from whatever could be read, and a leg that fails to initialize is skipped
  * rather than taking the whole check down with it. The next tick retries.
  */
-import { createPublicClient, http, type Address, type PublicClient } from 'viem';
+import { createPublicClient, type Address, type PublicClient } from 'viem';
+import { rpcTransport } from './rpcTransport.js';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { loadL1Contracts, loadL1AdapterForLeg, loadZkStackContracts } from './contractLoader.js';
 import { getChainConfig } from './chainMapper.js';
@@ -140,7 +141,7 @@ export async function computeStaleLegs(inputs: StaleLegInputs): Promise<StaleLeg
 	try {
 		const l1RpcUrl =
 			inputs.l1RpcUrl || getChainConfig(inputs.l1ChainId.toString() as any).rpcUrl;
-		l1Public = createPublicClient({ transport: http(l1RpcUrl) });
+		l1Public = createPublicClient({ transport: rpcTransport(l1RpcUrl) });
 	} catch (e) {
 		errors.push(`L1 client init failed: ${e instanceof Error ? e.message : String(e)}`);
 		return { flags: { ...EMPTY_REQUIREMENTS }, detail };
@@ -245,7 +246,7 @@ export async function computeStaleLegs(inputs: StaleLegInputs): Promise<StaleLeg
 		let handles: ReturnType<typeof loadZkStackContracts>;
 		let l2Public: PublicClient;
 		try {
-			l2Public = createPublicClient({ transport: http(rpcUrl) });
+			l2Public = createPublicClient({ transport: rpcTransport(rpcUrl) });
 			handles = loadZkStackContracts(leg.chainId!, l2Public as any, {} as any);
 		} catch (e) {
 			errors.push(`${leg.label} client init failed: ${e instanceof Error ? e.message : String(e)}`);

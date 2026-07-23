@@ -21,7 +21,8 @@
  * The result is deterministic against the chain's current state, so we cache
  * briefly (5 s) to coalesce concurrent withdraw-page loads.
  */
-import { createPublicClient, http, type Address, type AbiEvent } from 'viem';
+import { createPublicClient, type Address, type AbiEvent } from 'viem';
+import { rpcTransport } from './rpcTransport.js';
 import { loadL1Contracts, loadL1AdapterForLeg } from './contractLoader.js';
 import { AZTEC_LEG, LEGS } from './legRegistry.js';
 import { getChainConfig } from './chainMapper.js';
@@ -118,7 +119,7 @@ export async function fetchGigaState(l1ChainIdStr: string): Promise<GigaState> {
 
 	const l1ChainConfig = getChainConfig(l1ChainIdStr as any);
 	if (!l1ChainConfig.rpcUrl) throw new Error(`No RPC URL configured for chain ${l1ChainIdStr}`);
-	const publicClient = createPublicClient({ transport: http(l1ChainConfig.rpcUrl) });
+	const publicClient = createPublicClient({ transport: rpcTransport(l1ChainConfig.rpcUrl) });
 	const l1ChainId = BigInt(await publicClient.getChainId());
 
 	const { gigaBridge, l1WarpToadAddress, gigaBridgeAddress } = loadL1Contracts(l1ChainId, publicClient as any, {} as any, AZTEC_LEG);

@@ -20,7 +20,8 @@
  *   import `hardhat`, which boots the Hardhat runtime in cwd. We bypass them
  *   entirely and use our local `contractLoader.ts` for L1/L2 contract handles.
  */
-import { createPublicClient, createWalletClient, http, type Hex, type Address } from 'viem';
+import { createPublicClient, createWalletClient, type Hex, type Address } from 'viem';
+import { rpcTransport } from './rpcTransport.js';
 import { privateKeyToAccount } from 'viem/accounts';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
@@ -216,8 +217,8 @@ export async function runSyncCycle(
   const l1ChainIdStr = process.env.SYNC_L1_CHAIN_ID || '11155111';
   const l1ChainConfig = getChainConfig(l1ChainIdStr);
   const l1Account = privateKeyToAccount(privateKey as Hex);
-  const l1PublicClient = createPublicClient({ transport: http(l1ChainConfig.rpcUrl) });
-  const l1WalletClient = createWalletClient({ account: l1Account, transport: http(l1ChainConfig.rpcUrl) });
+  const l1PublicClient = createPublicClient({ transport: rpcTransport(l1ChainConfig.rpcUrl) });
+  const l1WalletClient = createWalletClient({ account: l1Account, transport: rpcTransport(l1ChainConfig.rpcUrl) });
   const l1ChainId = BigInt(await l1PublicClient.getChainId());
   const isSandbox = l1ChainId === 31337n;
   const conf = isSandbox ? 1 : confirmations;
@@ -270,8 +271,8 @@ export async function runSyncCycle(
     if (leg.kind !== 'zkstack' || !touched(leg.key)) continue;
     const rpc = legRpcUrl(leg);
     const l2Account = privateKeyToAccount(privateKey as Hex);
-    const l2PublicClient = createPublicClient({ transport: http(rpc) });
-    const l2WalletClient = createWalletClient({ account: l2Account, transport: http(rpc) });
+    const l2PublicClient = createPublicClient({ transport: rpcTransport(rpc) });
+    const l2WalletClient = createWalletClient({ account: l2Account, transport: rpcTransport(rpc) });
     const onChainId = BigInt(await l2PublicClient.getChainId());
     if (onChainId !== leg.chainId) {
       throw new Error(`leg '${leg.key}' RPC reports chainId ${onChainId}, expected ${leg.chainId}`);

@@ -16,7 +16,8 @@
  * mismatch. So this endpoint is never trusted for correctness, only for
  * availability, and the whole thing can be deleted without breaking withdraws.
  */
-import { createPublicClient, http, type Address, type AbiEvent } from 'viem';
+import { createPublicClient, type Address, type AbiEvent } from 'viem';
+import { rpcTransport } from './rpcTransport.js';
 import { getChainConfig } from './chainMapper.js';
 import { L1_WARPTOAD_ABI } from './contractLoader.js';
 
@@ -70,7 +71,7 @@ export async function fetchBurnLeaves(
 
   const cfg = getChainConfig(chainIdStr as any);
   if (!cfg.rpcUrl) throw new Error(`No RPC URL configured for chain ${chainIdStr}`);
-  const client = createPublicClient({ transport: http(cfg.rpcUrl) });
+  const client = createPublicClient({ transport: rpcTransport(cfg.rpcUrl) });
   const ev = burnEvent();
 
   const leaves: BurnLeaf[] = [];

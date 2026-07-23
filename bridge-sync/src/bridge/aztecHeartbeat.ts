@@ -22,7 +22,8 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { createPublicClient, http, type Address } from 'viem';
+import { createPublicClient, type Address } from 'viem';
+import { rpcTransport } from './rpcTransport.js';
 import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { getChainConfig } from './chainMapper.js';
 import { requestSync } from './syncOrchestrator.js';
@@ -132,7 +133,7 @@ export function startAztecHeartbeat(config: AztecHeartbeatConfig): () => void {
     return () => {};
   }
 
-  const l1PublicClient = createPublicClient({ transport: http(l1ChainConfig.rpcUrl) });
+  const l1PublicClient = createPublicClient({ transport: rpcTransport(l1ChainConfig.rpcUrl) });
   const aztecNode = createAztecNodeClient(aztecNodeUrl);
 
   // Only dispatch to a ZK Stack leg if its RPC is configured - otherwise the executor
