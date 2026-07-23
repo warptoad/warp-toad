@@ -91,9 +91,22 @@ services:
       NODE_ENV: production
       PORT: 6969
       EVM_PRIVATE_KEY: ${EVM_PRIVATE_KEY}
+      # Keeper RPCs. Each accepts a comma-separated list; with more than one the
+      # keeper uses a viem fallback() transport and moves to the next provider
+      # when the current one errors.
       SEPOLIA_RPC_URL: ${SEPOLIA_RPC_URL}
       ZKSYNC_ERA_SEPOLIA_RPC_URL: ${ZKSYNC_ERA_SEPOLIA_RPC_URL:-https://sepolia.era.zksync.dev}
       AZTEC_NODE_URL: ${AZTEC_NODE_URL}
+      # Browser-facing /rpc/:chain upstreams. Prefix any RPC var with PROXY_ to
+      # give user traffic its own key, so a frontend event-scan storm can't
+      # rate-limit the keeper out of its own provider. Unset = share the
+      # keeper's URL (previous behaviour).
+      PROXY_SEPOLIA_RPC_URL: ${PROXY_SEPOLIA_RPC_URL:-}
+      PROXY_ZKSYNC_ERA_SEPOLIA_RPC_URL: ${PROXY_ZKSYNC_ERA_SEPOLIA_RPC_URL:-}
+      # Response timeout for every keeper RPC. Default 60s: ZKsync Era's
+      # eth_estimateGas for sentLocalRootToL1() takes ~21s, and viem's built-in
+      # default of 10s silently killed every Era local-root push.
+      RPC_TIMEOUT_MS: ${RPC_TIMEOUT_MS:-60000}
       ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-}
       DEFAULT_CONFIRMATIONS: ${DEFAULT_CONFIRMATIONS:-3}
       AZTEC_HEARTBEAT_ENABLED: ${AZTEC_HEARTBEAT_ENABLED:-true}

@@ -13,6 +13,7 @@ import { requestSync, getOrchestratorState } from './bridge/syncOrchestrator.js'
 import { routeToRequirements } from './bridge/syncRequirements.js';
 import type { FullSyncResult } from './bridge/executor.js';
 import { LEGS, legRpcUrl, zkStackLegs } from './bridge/legRegistry.js';
+import { proxyUpstreams, forwardToUpstreams, RETRYABLE_UPSTREAM_STATUS } from './bridge/rpcProxy.js';
 import type { BridgeRequest, BridgeOperation } from './types/index.js';
 import { fetchGigaState } from './bridge/gigaState.js';
 import { fetchBurnLeaves } from './bridge/burnLeaves.js';
@@ -117,8 +118,8 @@ const RPC_METHOD_ALLOWLIST = new Set([
 // Proxy targets, keyed by a URL-safe alias. L1 is fixed; the L2 entries are generated
 // from the leg registry so a new chain gets a proxy route without editing this map.
 // ZK Stack legs are addressable by chain id (e.g. /rpc/300) and by slug.
-const RPC_UPSTREAMS: Record<string, string | undefined> = {
-  sepolia: process.env.SEPOLIA_RPC_URL,
+const RPC_UPSTREAMS: Record<string, string[]> = {
+  sepolia: proxyUpstreams(['SEPOLIA_RPC_URL'], process.env.SEPOLIA_RPC_URL),
   ...Object.fromEntries(
     zkStackLegs().flatMap((leg) => {
       let url: string | undefined;
@@ -127,8 +128,9 @@ const RPC_UPSTREAMS: Record<string, string | undefined> = {
       } catch {
         url = undefined;
       }
+      const upstreams = proxyUpstreams(leg.rpcEnvVars, url);
       const slug = leg.label.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-      return [[leg.key, url], [slug, url]];
+      return [[leg.key, upstreams], [slug, upstreams]];
     }),
   ),
 };
@@ -146,8 +148,8 @@ function rpcError(id: number | string | null | undefined, code: number, message:
 
 app.post('/rpc/:chain', async (req, res) => {
   const chain = req.params.chain;
-  const upstream = RPC_UPSTREAMS[chain];
-  if (!upstream) {
+  const upstreams = RPC_UPSTREAMS[chain];
+  if (!upstreams || upstreams.length === 0) {
     return res.status(404).json({ ok: false, error: `Unknown RPC chain: ${chain}` });
   }
 
@@ -163,23 +165,19 @@ app.post('/rpc/:chain', async (req, res) => {
     }
   }
 
-  try {
-    const upstreamRes = await fetch(upstream, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    const text = await upstreamRes.text();
-    // Pass through the upstream status so the client still sees 429 on rate
-    // limits (viem respects Retry-After). We deliberately do NOT forward the
-    // upstream URL in any header, so the key never reaches the browser.
-    res.status(upstreamRes.status).type('application/json').send(text);
-  } catch (err: any) {
-    // Scrub: err.message from node-fetch / undici can contain the upstream URL.
-    const msg = typeof err?.message === 'string' ? err.message.replace(/https?:\/\/\S+/g, '<upstream>') : 'upstream fetch failed';
-    console.error(`[rpc-proxy] ${chain} upstream error:`, msg);
-    res.status(502).json(rpcError(null, -32603, 'Upstream RPC error'));
+  // We deliberately do NOT forward the upstream URL in any header, so the key
+  // never reaches the browser.
+  const { status, text } = await forwardToUpstreams(upstreams, body, (msg) =>
+    console.error(`[rpc-proxy] ${chain} upstream error:`, msg),
+  );
+
+  if (text === null) {
+    return res.status(502).json(rpcError(null, -32603, 'Upstream RPC error'));
   }
+  if (RETRYABLE_UPSTREAM_STATUS.has(status) && upstreams.length > 1) {
+    console.warn(`[rpc-proxy] ${chain}: all ${upstreams.length} upstreams failed (last status ${status})`);
+  }
+  res.status(status).type('application/json').send(text);
 });
 
 /**
