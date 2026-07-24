@@ -8,6 +8,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "echo 'bridge-sync runs via tsx; no build step needed'",
     "start": "tsx src/server.ts",
+    "push:era": "tsx scripts/pushEraRoot.ts",
     "typecheck": "tsc --noEmit",
     "docker:build": "cd .. && docker compose build bridge-sync",
     "docker:run": "cd .. && docker compose up -d bridge-sync",

@@ -412,6 +412,47 @@ export type OnZkStackRootSent = (state: ZkStackRootSendResume) => void | Promise
 const ZKSTACK_SEND_ROOT_FALLBACK_GAS = BigInt(process.env.ZKSTACK_SEND_ROOT_GAS ?? 90_000_000);
 
 /**
+ * Send `sentLocalRootToL1()` on the L2 and return its tx hash once mined.
+ *
+ * Estimates gas once (with backoff) and passes it as an explicit limit, so viem's
+ * writeContract never runs the estimate itself. On ZK Stack that estimate is a heavy
+ * pubdata simulation the public Era endpoint answers with a transient -32603 under load;
+ * doing it once here lets us retry it as the transient it is, and passing `gas` turns the
+ * send into a plain sign+broadcast. Falls back to a fixed limit if the estimate stays
+ * unavailable, so a flaky node slows the push instead of wedging it.
+ *
+ * Split out of {@link bridgeEVMLocalRootToL1} so a one-shot manual push reuses the exact
+ * same send path. Not retried at the send layer: a post-broadcast timeout retry would
+ * double-spend the nonce, and the caller's resume-from-disk already handles re-entry.
+ */
+export async function sendZkStackLocalRootToL1(
+    l2PublicClient: PublicClient,
+    l2WalletClient: WalletClient,
+    L2Adapter: L2ZkStackBridgeAdapter,
+    confirmations = 3,
+): Promise<Hex> {
+    let gas: bigint;
+    try {
+        const estimate = await withRpcRetry<bigint>(
+            () => L2Adapter.estimateGas.sentLocalRootToL1([], { account: l2WalletClient.account }),
+            { label: 'estimateGas sentLocalRootToL1', retries: 6 },
+        );
+        gas = (estimate * 125n) / 100n; // 25% headroom; unused gas is refunded.
+    } catch (e) {
+        gas = ZKSTACK_SEND_ROOT_FALLBACK_GAS;
+        const reason = (e as any)?.shortMessage ?? (e as any)?.message ?? String(e);
+        console.warn(`[zkstack] gas estimate unavailable after retries, using fallback ${gas}: ${reason}`);
+    }
+    const sentHash = await L2Adapter.write.sentLocalRootToL1([], {
+        account: l2WalletClient.account,
+        chain: l2WalletClient.chain,
+        gas,
+    });
+    const receipt = await l2PublicClient.waitForTransactionReceipt({ hash: sentHash, confirmations });
+    return receipt.transactionHash;
+}
+
+/**
  * Publish the L2 local root and land it on L1.
  *
  * The ZK Stack L2→L1 direction is PULL: sendToL1 records an opaque blob and nothing
@@ -455,38 +496,7 @@ export async function bridgeEVMLocalRootToL1(
         l2TxHash = resumeFrom.l2TxHashHex;
         console.log(`[zkstack] resuming from previously-sent L2 tx ${l2TxHash}`);
     } else {
-        // Estimate the gas ourselves, with backoff, then pass it as an explicit limit.
-        //
-        // This is THE reliability fix for the Era L2->L1 push. Without a `gas` field
-        // viem runs eth_estimateGas inside writeContract on every attempt; on Era that
-        // estimate is a ~21s full-VM + pubdata simulation, and the public endpoint
-        // answers it with -32603 "Internal error" under keeper+browser load, which viem
-        // reports as a hard revert so the keeper never lands the push. Estimating once
-        // here (a) lets us treat the -32603 as the transient it is and retry, and (b)
-        // removes the estimate from the send, so writeContract just signs and broadcasts.
-        let gas: bigint;
-        try {
-            const estimate = await withRpcRetry<bigint>(
-                () => L2Adapter.estimateGas.sentLocalRootToL1([], { account: l2WalletClient.account }),
-                { label: 'estimateGas sentLocalRootToL1', retries: 6 },
-            );
-            gas = (estimate * 125n) / 100n; // 25% headroom; unused gas is refunded.
-        } catch (e) {
-            // The estimate is the load-sensitive call. If the node won't return one even
-            // after backoff, fall back to a fixed limit so a flaky RPC can't permanently
-            // wedge the push rather than just slow it down.
-            gas = ZKSTACK_SEND_ROOT_FALLBACK_GAS;
-            const reason = (e as any)?.shortMessage ?? (e as any)?.message ?? String(e);
-            console.warn(`[zkstack] gas estimate unavailable after retries, using fallback ${gas}: ${reason}`);
-        }
-
-        const sentHash = await L2Adapter.write.sentLocalRootToL1([], {
-            account: l2WalletClient.account,
-            chain: l2WalletClient.chain,
-            gas,
-        });
-        const L2ToL1Tx = await l2PublicClient.waitForTransactionReceipt({ hash: sentHash, confirmations });
-        l2TxHash = L2ToL1Tx.transactionHash;
+        l2TxHash = await sendZkStackLocalRootToL1(l2PublicClient, l2WalletClient, L2Adapter, confirmations);
         console.log(`[zkstack] local root sent to L1 at L2 tx ${l2TxHash}; waiting for batch finalization...`);
         if (onSent) {
             // Persist BEFORE the multi-hour poll so a crash between here and
