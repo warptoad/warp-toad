@@ -103,6 +103,67 @@ const SENT_LOCAL_ROOT_EVENT = {
 
 export const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 
+/**
+ * Retry an idempotent viem RPC action through transient node failures.
+ *
+ * Public ZK Stack endpoints (notably https://sepolia.era.zksync.dev) answer a heavy
+ * eth_estimateGas / eth_call with JSON-RPC -32603 "Internal error" when they are under
+ * load - the identical request succeeds seconds later. viem surfaces that as a fatal
+ * ContractFunctionExecutionError and gives up, which stalls the whole L2->L1 push behind
+ * a purely transient hiccup. We back off and retry on -32603, timeouts and 429/5xx, but
+ * never on a genuine revert: those carry revert data / a -32000 reason and re-sending
+ * only wastes the endpoint's quota.
+ *
+ * Only wrap idempotent actions (reads, gas estimates, simulations). Do NOT wrap a raw
+ * send: a timeout can arrive after the tx is already broadcast, and a blind retry then
+ * double-spends the nonce.
+ */
+const TRANSIENT_RPC_RE =
+    /-32603|internal error|took too long|timed out|timeout|econnreset|etimedout|socket hang up|fetch failed|too many requests|rate.?limit|\b(?:429|502|503|504)\b/i;
+
+function isTransientRpcError(err: unknown): boolean {
+    const e = err as any;
+    // viem BaseError exposes .walk() over the cause chain; a -32603 anywhere in it is
+    // transient. Fall back to scanning the flattened message for non-viem errors.
+    if (typeof e?.walk === 'function') {
+        let found = false;
+        e.walk((inner: any) => {
+            if (inner?.code === -32603) found = true;
+            return false;
+        });
+        if (found) return true;
+    }
+    const text = [e?.details, e?.shortMessage, e?.message, e?.cause?.message, e?.cause?.details]
+        .filter(Boolean)
+        .join(' ');
+    return TRANSIENT_RPC_RE.test(text);
+}
+
+export async function withRpcRetry<T>(
+    fn: () => Promise<T>,
+    opts: { retries?: number; baseDelayMs?: number; maxDelayMs?: number; label?: string } = {},
+): Promise<T> {
+    const retries = opts.retries ?? 5;
+    const baseDelayMs = opts.baseDelayMs ?? 2_000;
+    const maxDelayMs = opts.maxDelayMs ?? 30_000;
+    const tag = opts.label ? ` ${opts.label}` : '';
+    for (let attempt = 0; ; attempt++) {
+        try {
+            return await fn();
+        } catch (err) {
+            if (attempt >= retries || !isTransientRpcError(err)) throw err;
+            const backoff = Math.min(maxDelayMs, baseDelayMs * 2 ** attempt);
+            const delay = backoff + Math.floor(Math.random() * backoff * 0.25);
+            const reason = (err as any)?.shortMessage ?? (err as any)?.message ?? String(err);
+            console.warn(
+                `[rpc-retry]${tag} transient RPC error, retrying in ${(delay / 1000).toFixed(1)}s ` +
+                `(attempt ${attempt + 1}/${retries}): ${reason}`,
+            );
+            await sleep(delay);
+        }
+    }
+}
+
 export type L1Adapter = L1AztecBridgeAdapter | L1ZkStackBridgeAdapter;
 export type L2Adapter = L2ZkStackBridgeAdapter | L2AztecBridgeAdapterContract
 export type L2WarpToad = L2WarpToadAZTEC | L2WarpToadEVM
@@ -276,10 +337,15 @@ export async function submitZkStackRootProof(
     const args = [claim.batchNumber, claim.index, claim.txNumberInBatch, claim.message, claim.proof] as const;
 
     // Surface a bad proof as a clean revert reason instead of an opaque out-of-gas.
-    await l1PublicClient.simulateContract({
-        address: l1Adapter, abi: L1_ZKSTACK_ADAPTER_ABI, functionName: 'getNewRootFromL2',
-        args, account: l1WalletClient.account!,
-    });
+    // Retried through transient node errors: a -32603 here is the endpoint hiccupping,
+    // not a bad proof (a bad proof reverts deterministically and is not retried).
+    await withRpcRetry(
+        () => l1PublicClient.simulateContract({
+            address: l1Adapter, abi: L1_ZKSTACK_ADAPTER_ABI, functionName: 'getNewRootFromL2',
+            args, account: l1WalletClient.account!,
+        }),
+        { label: 'simulate getNewRootFromL2' },
+    );
 
     const hash = await l1WalletClient.writeContract({
         address: l1Adapter,
@@ -338,6 +404,14 @@ export async function readZkStackRootMessage(
 export type OnZkStackRootSent = (state: ZkStackRootSendResume) => void | Promise<void>;
 
 /**
+ * Fixed gas limit for sentLocalRootToL1 when the L2 endpoint won't return an estimate
+ * even after backoff. Measured cost is ~61M gas on Era Sepolia; unused gas is refunded,
+ * so the headroom to 90M is free and a stable-cost call can't out-of-gas. Overridable
+ * via ZKSTACK_SEND_ROOT_GAS, but the default works with no env set.
+ */
+const ZKSTACK_SEND_ROOT_FALLBACK_GAS = BigInt(process.env.ZKSTACK_SEND_ROOT_GAS ?? 90_000_000);
+
+/**
  * Publish the L2 local root and land it on L1.
  *
  * The ZK Stack L2→L1 direction is PULL: sendToL1 records an opaque blob and nothing
@@ -359,12 +433,17 @@ export async function bridgeEVMLocalRootToL1(
     resumeFrom?: ZkStackRootSendResume,
     onSent?: OnZkStackRootSent,
 ) {
-    const l2ChainId = BigInt(await l2PublicClient.getChainId());
+    const l2ChainId = BigInt(
+        await withRpcRetry(() => l2PublicClient.getChainId(), { label: 'l2 getChainId' }),
+    );
 
     // Catch a mispaired adapter now, not two hours from now when the proof lands.
-    const adapterChainId = await l1PublicClient.readContract({
-        address: l1Adapter, abi: L1_ZKSTACK_ADAPTER_ABI, functionName: 'l2ChainId',
-    }) as bigint;
+    const adapterChainId = await withRpcRetry(
+        () => l1PublicClient.readContract({
+            address: l1Adapter, abi: L1_ZKSTACK_ADAPTER_ABI, functionName: 'l2ChainId',
+        }),
+        { label: 'read l2ChainId' },
+    ) as bigint;
     if (adapterChainId !== l2ChainId) {
         throw new Error(
             `bridgeEVMLocalRootToL1: L1 adapter ${l1Adapter} is bound to chain ${adapterChainId}, but the L2 client is chain ${l2ChainId}`,
@@ -376,9 +455,35 @@ export async function bridgeEVMLocalRootToL1(
         l2TxHash = resumeFrom.l2TxHashHex;
         console.log(`[zkstack] resuming from previously-sent L2 tx ${l2TxHash}`);
     } else {
+        // Estimate the gas ourselves, with backoff, then pass it as an explicit limit.
+        //
+        // This is THE reliability fix for the Era L2->L1 push. Without a `gas` field
+        // viem runs eth_estimateGas inside writeContract on every attempt; on Era that
+        // estimate is a ~21s full-VM + pubdata simulation, and the public endpoint
+        // answers it with -32603 "Internal error" under keeper+browser load, which viem
+        // reports as a hard revert so the keeper never lands the push. Estimating once
+        // here (a) lets us treat the -32603 as the transient it is and retry, and (b)
+        // removes the estimate from the send, so writeContract just signs and broadcasts.
+        let gas: bigint;
+        try {
+            const estimate = await withRpcRetry<bigint>(
+                () => L2Adapter.estimateGas.sentLocalRootToL1([], { account: l2WalletClient.account }),
+                { label: 'estimateGas sentLocalRootToL1', retries: 6 },
+            );
+            gas = (estimate * 125n) / 100n; // 25% headroom; unused gas is refunded.
+        } catch (e) {
+            // The estimate is the load-sensitive call. If the node won't return one even
+            // after backoff, fall back to a fixed limit so a flaky RPC can't permanently
+            // wedge the push rather than just slow it down.
+            gas = ZKSTACK_SEND_ROOT_FALLBACK_GAS;
+            const reason = (e as any)?.shortMessage ?? (e as any)?.message ?? String(e);
+            console.warn(`[zkstack] gas estimate unavailable after retries, using fallback ${gas}: ${reason}`);
+        }
+
         const sentHash = await L2Adapter.write.sentLocalRootToL1([], {
             account: l2WalletClient.account,
             chain: l2WalletClient.chain,
+            gas,
         });
         const L2ToL1Tx = await l2PublicClient.waitForTransactionReceipt({ hash: sentHash, confirmations });
         l2TxHash = L2ToL1Tx.transactionHash;
