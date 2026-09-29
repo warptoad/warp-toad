@@ -37,6 +37,14 @@
 # the keeper's.
 # =============================================================================
 
+# Rotate container logs so a chatty service can't fill the disk
+# (json-file default is unbounded). Keeps at most 3 x 10 MB per container.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   frontend:
     build:
@@ -62,6 +70,7 @@ services:
         VITE_UMAMI_SCRIPT_URL: ${VITE_UMAMI_SCRIPT_URL:-}
         VITE_UMAMI_WEBSITE_ID: ${VITE_UMAMI_WEBSITE_ID:-}
     image: warptoad/frontend:latest
+    logging: *default-logging
     container_name: warptoad-frontend
     ports:
       - "127.0.0.1:4173:4173"
@@ -84,6 +93,7 @@ services:
       context: .
       dockerfile: bridge-sync/Dockerfile
     image: warptoad/bridge-sync:latest
+    logging: *default-logging
     container_name: warptoad-bridge-sync
     ports:
       - "127.0.0.1:6969:6969"
@@ -141,6 +151,7 @@ services:
       context: .
       dockerfile: relay-service/Dockerfile
     image: warptoad/relay-service:latest
+    logging: *default-logging
     container_name: warptoad-relay-service
     ports:
       - "127.0.0.1:7777:7777"
@@ -169,6 +180,7 @@ services:
       context: .
       dockerfile: faucet-service/Dockerfile
     image: warptoad/faucet-service:latest
+    logging: *default-logging
     container_name: warptoad-faucet-service
     ports:
       - "127.0.0.1:8888:8888"
