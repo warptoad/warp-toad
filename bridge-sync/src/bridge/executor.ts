@@ -23,7 +23,6 @@
 import { createPublicClient, createWalletClient, type Hex, type Address } from 'viem';
 import { rpcTransport } from './rpcTransport.js';
 import { privateKeyToAccount } from 'viem/accounts';
-import { createAztecNodeClient } from '@aztec/aztec.js/node';
 import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import { AztecAddress } from '@aztec/aztec.js/addresses';
 import { TxHash } from '@aztec/stdlib/tx';
@@ -41,7 +40,7 @@ import {
   getPayableGigaRootRecipients,
 } from '../../../backend/lib/bridging.js';
 // @ts-ignore
-import { initPXE, getAztecWallet } from '../../../backend/deploy/utils/aztecUtilsNoEnv.js';
+import { createAztecWallet, deployAztecAccount } from '../../../backend/deploy/utils/aztecUtilsNoEnv.js';
 // @ts-ignore
 import {
   WarpToadCoreContract,
@@ -76,26 +75,47 @@ import {
  * seconds and burns DA bandwidth, so we do it exactly once per (l1ChainId,
  * nodeUrl) pair and reuse the wallet + sponsoredPaymentMethod across all
  * subsequent sync cycles.
+ *
+ * The wallet and the account deploy are cached separately. A failed deploy is
+ * retried on the same wallet next cycle. A new wallet per retry would leak
+ * ~10 MB of LMDB temp dirs in /tmp every time.
  */
 interface CachedAztecWallet {
   wallet: any;
+  accountManager: any;
   sponsoredPaymentMethod: any;
-  pxe: any;
   node: any;
 }
 const aztecWalletCache = new Map<string, Promise<CachedAztecWallet>>();
+const aztecAccountDeploys = new Map<string, Promise<void>>();
 
 async function getOrCreateAztecWallet(
   l1ChainId: bigint,
   nodeUrl: string,
 ): Promise<CachedAztecWallet> {
   const cacheKey = `${l1ChainId}@${nodeUrl}`;
+  const setup = await getOrCreateAztecWalletSetup(cacheKey, l1ChainId, nodeUrl);
+
+  let deploy = aztecAccountDeploys.get(cacheKey);
+  if (!deploy) {
+    deploy = deployAztecAccount(setup.accountManager, setup.sponsoredPaymentMethod);
+    aztecAccountDeploys.set(cacheKey, deploy);
+    deploy.catch(() => aztecAccountDeploys.delete(cacheKey));
+  }
+  await deploy;
+  return setup;
+}
+
+function getOrCreateAztecWalletSetup(
+  cacheKey: string,
+  l1ChainId: bigint,
+  nodeUrl: string,
+): Promise<CachedAztecWallet> {
   const cached = aztecWalletCache.get(cacheKey);
   if (cached) return cached;
 
   const promise = (async () => {
     const isSandbox = l1ChainId === 31337n;
-    const node = createAztecNodeClient(nodeUrl);
 
     let secrets: { secret: Fr; salt: Fr; signingKey: GrumpkinScalar };
     if (isSandbox) {
@@ -111,9 +131,7 @@ async function getOrCreateAztecWallet(
       console.log('[bridge-sync] generated random ephemeral Aztec wallet (sponsored FPC)');
     }
 
-    const { wallet, sponsoredPaymentMethod } = await getAztecWallet(nodeUrl, secrets, isSandbox);
-    const pxe = await initPXE(node, l1ChainId);
-    return { wallet, sponsoredPaymentMethod, pxe, node };
+    return createAztecWallet(nodeUrl, secrets, isSandbox);
   })();
 
   aztecWalletCache.set(cacheKey, promise);
@@ -250,7 +268,7 @@ export async function runSyncCycle(
   }
 
   // Aztec-side state (wallet + contracts) - needed for any Aztec-touching requirement.
-  let aztecState: { wallet: any; pxe: any; node: any; sponsoredPaymentMethod: any; aztecWarpToad: any; aztecBridgeAdapter: any } | null = null;
+  let aztecState: { wallet: any; accountManager: any; node: any; sponsoredPaymentMethod: any; aztecWarpToad: any; aztecBridgeAdapter: any } | null = null;
   if (touched(AZTEC_LEG)) {
     const aztecRpc = process.env.AZTEC_NODE_URL;
     if (!aztecRpc) throw new Error('AZTEC_NODE_URL required for Aztec legs');

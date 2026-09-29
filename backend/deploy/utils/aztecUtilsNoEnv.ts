@@ -16,7 +16,7 @@ import { Fr, GrumpkinScalar } from '@aztec/aztec.js/fields';
 import { ContractDeployer } from "@aztec/aztec.js/deployment";
 import { PublicKeys } from "@aztec/aztec.js/keys";
 import { ContractArtifact } from "@aztec/aztec.js/abi";
-import { Wallet } from "@aztec/aztec.js/wallet";
+import { AccountManager, Wallet } from "@aztec/aztec.js/wallet";
 import { NodeEmbeddedWallet } from "@aztec/wallets/embedded";
 import { type Hex, toHex } from "viem";
 
@@ -138,6 +138,15 @@ export async function getContractInstanceFromAddressNoEnv(address: AztecAddress,
 
 
 export async function getAztecWallet(nodeUrl: string, secrets: { secret: Fr, salt: Fr, signingKey: GrumpkinScalar }, isSanbox: boolean) {
+    const { wallet, accountManager, sponsoredPaymentMethod } = await createAztecWallet(nodeUrl, secrets, isSanbox)
+    await deployAztecAccount(accountManager, sponsoredPaymentMethod)
+    return {wallet, sponsoredPaymentMethod}
+}
+
+// Every call creates a new ephemeral wallet, which leaves two LMDB dirs in os.tmpdir()
+// (pxe_data-*, wallet_data_*-*). Closing the wallet does not delete them.
+// Long-running services should create one wallet and retry deployAztecAccount on it.
+export async function createAztecWallet(nodeUrl: string, secrets: { secret: Fr, salt: Fr, signingKey: GrumpkinScalar }, isSanbox: boolean) {
     // setup node
     const node = createAztecNodeClient(nodeUrl);
     console.log({ nodeVersion: (await node.getNodeInfo()).nodeVersion })
@@ -156,6 +165,10 @@ export async function getAztecWallet(nodeUrl: string, secrets: { secret: Fr, sal
     const feeJuice = await getFeeJuiceBalance(accountManager.address, node)
     console.log({ feeJuice })
 
+    return { wallet, accountManager, sponsoredPaymentMethod, node }
+}
+
+export async function deployAztecAccount(accountManager: AccountManager, sponsoredPaymentMethod: SponsoredFeePaymentMethod) {
     //deploy account
     // Use NO_FROM, not AztecAddress.ZERO. The latter triggers a wallet-DB
     // lookup for an account that doesn't exist yet (we're DEPLOYING it),
@@ -174,8 +187,6 @@ export async function getAztecWallet(nodeUrl: string, secrets: { secret: Fr, sal
             throw new Error(`got error ${error.message}. when deploying account: ${accountManager.address}`, { cause: error })
         }
     }
-
-    return {wallet, sponsoredPaymentMethod}
 }
 
 export async function deployAndCreateDeploymentArtifact(wallet: Wallet, account: AztecAddress, artifact: ContractArtifact, constructorArgs: any[], salt?: Fr, constructorName = "constructor",optionalInstantiontionOpts?:{publicKeys?:PublicKeys, skipArgsDecoding?:boolean}) {
