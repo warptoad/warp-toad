@@ -121,6 +121,11 @@ services:
     volumes:
       - bridge-sync-logs:/app/bridge-sync/logs
       - bridge-sync-db:/app/bridge-sync/db
+    # /tmp holds the Aztec wallet's LMDB stores and the tsx cache. A size-capped
+    # tmpfs means a leak there fails this container instead of filling the host
+    # disk. It is RAM-backed and cleared on every restart.
+    tmpfs:
+      - /tmp:size=512m
     restart: unless-stopped
     networks:
       - warptoad-network
