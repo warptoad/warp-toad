@@ -19,6 +19,7 @@ import { ContractArtifact } from "@aztec/aztec.js/abi";
 import { AccountManager, Wallet } from "@aztec/aztec.js/wallet";
 import { NodeEmbeddedWallet } from "@aztec/wallets/embedded";
 import { type Hex, toHex } from "viem";
+import { estimateFeeOptions } from "../../lib/aztecFees.js";
 
 type BytesLike = Hex | string;
 export interface DeploymentArtifact {
@@ -178,7 +179,8 @@ export async function deployAztecAccount(accountManager: AccountManager, sponsor
     const deployMethod = await accountManager.getDeployMethod();
     try {
         console.log("deploying account")
-        const accountTx = await deployMethod.send({ from: NO_FROM, fee:{paymentMethod:sponsoredPaymentMethod} });
+        const fee = await estimateFeeOptions(deployMethod, NO_FROM, sponsoredPaymentMethod)
+        const accountTx = await deployMethod.send({ from: NO_FROM, fee });
         console.log({ accountTx: accountTx.receipt.txHash })
     } catch (error: any) {
         if (error.message.startsWith("Invalid tx: Existing nullifier")) {

@@ -19,6 +19,7 @@ import {
     ZK_STACK_BRIDGEHUB_SEPOLIA,
     ZK_STACK_CHAINS,
 } from './constants';
+import { estimateFeeOptions } from './aztecFees.js';
 
 // Loose viem contract-handle types. Test path builds these via `getContract`.
 type WarpToadEvm = any;
@@ -613,7 +614,9 @@ export async function bridgeAZTECLocalRootToL1(
     } else {
         blockNumberOfRoot = await aztecNode.getBlockNumber()
         PXE_L2Root = (await aztecNode.getBlock(blockNumberOfRoot as BlockNumber))?.header.state.partial.noteHashTree.root as Fr
-        sendRootToL1Tx = await L2AztecBridgeAdapter.methods.send_root_to_l1(blockNumberOfRoot).send({ fee: { paymentMethod: sponsoredPaymentMethod }, from: (await aztecWallet.getAccounts())[0].item });
+        const from = (await aztecWallet.getAccounts())[0].item
+        const sendRoot = L2AztecBridgeAdapter.methods.send_root_to_l1(blockNumberOfRoot)
+        sendRootToL1Tx = await sendRoot.send({ fee: await estimateFeeOptions(sendRoot, from, sponsoredPaymentMethod), from });
         aztecTxHash = sendRootToL1Tx.receipt.txHash
         if (onSent) {
             // Persist BEFORE the long waits so a crash between here and the
@@ -870,9 +873,9 @@ export async function receiveGigaRootOnAztec(
         await sleep(isSandBox ? 3_000 : 30_000)
     }
 
-    const receiveGigaRootTx = await L2AztecBridgeAdapter.methods
-        .receive_giga_root(content_hash, index, AztecWarpToad.address)
-        .send({ fee: { paymentMethod: sponsoredPaymentMethod }, from: (await (aztecWallet as AztecWallet).getAccounts())[0].item });
+    const from = (await (aztecWallet as AztecWallet).getAccounts())[0].item
+    const receiveGigaRoot = L2AztecBridgeAdapter.methods.receive_giga_root(content_hash, index, AztecWarpToad.address)
+    const receiveGigaRootTx = await receiveGigaRoot.send({ fee: await estimateFeeOptions(receiveGigaRoot, from, sponsoredPaymentMethod), from });
     return { receiveGigaRootTx }
 }
 
